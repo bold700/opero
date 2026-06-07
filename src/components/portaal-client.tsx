@@ -332,7 +332,6 @@ function CustomerProjectCard({
                 toast.success("Offerte geaccepteerd, project gaat naar uitvoering");
                 setQuoteOpen(false);
               }}
-              variant="success"
             >
               <CheckCircle2 className="size-4" />
               Offerte accepteren

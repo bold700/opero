@@ -173,7 +173,7 @@ export function NewProjectDialog() {
             >
               Annuleren
             </Button>
-            <Button type="submit" variant="success">
+            <Button type="submit">
               Project aanmaken
             </Button>
           </div>

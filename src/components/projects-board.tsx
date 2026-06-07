@@ -240,7 +240,7 @@ export function ProjectsBoard() {
             <Button onClick={() => setReadyTarget(null)} variant="outline">
               Annuleren
             </Button>
-            <Button onClick={confirmReady} variant="success">
+            <Button onClick={confirmReady}>
               <Check className="size-4" />
               Afvinken en verplaatsen
             </Button>

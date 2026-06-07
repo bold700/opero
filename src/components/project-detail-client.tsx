@@ -988,7 +988,6 @@ function RegelRow({
                   setStagedPhotos(0);
                   toast.success("Taak afgerond");
                 }}
-                variant="success"
               >
                 Afronden
               </Button>
@@ -1661,7 +1660,7 @@ function TaakAddDialog({
             <Button onClick={() => setOpen(false)} type="button" variant="outline">
               Annuleren
             </Button>
-            <Button disabled={!article} type="submit" variant="success">
+            <Button disabled={!article} type="submit">
               Taak toevoegen
             </Button>
           </div>
@@ -1769,7 +1768,7 @@ function MeerwerkAddDialog({
             <Button onClick={() => setOpen(false)} type="button" variant="outline">
               Annuleren
             </Button>
-            <Button disabled={!article} type="submit" variant="success">
+            <Button disabled={!article} type="submit">
               Meerwerk melden
             </Button>
           </div>
@@ -1819,7 +1818,7 @@ function OpmerkingDialog({
             <Button onClick={() => setOpen(false)} variant="outline">
               Annuleren
             </Button>
-            <Button disabled={!text.trim()} onClick={submit} variant="success">
+            <Button disabled={!text.trim()} onClick={submit}>
               Versturen
             </Button>
           </div>
@@ -2038,7 +2037,6 @@ function WerkbonAfrondenButton({ project }: { project: Project }) {
               setSignature(null);
               toast.success("Werkbon afgerond");
             }}
-            variant="success"
           >
             <Check className="size-4" />
             Afronden en ondertekenen

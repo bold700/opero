@@ -322,7 +322,7 @@ function PersoonDialog({
               >
                 Annuleren
               </Button>
-              <Button type="submit" variant="success">
+              <Button type="submit">
                 {isEdit ? "Opslaan" : "Persoon aanmaken"}
               </Button>
             </div>
