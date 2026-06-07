@@ -19,11 +19,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useOperoStore } from "@/lib/store";
-import { projectTypes } from "@/lib/types";
 
 export function NewProjectDialog() {
   const router = useRouter();
   const customers = useOperoStore((state) => state.customers);
+  const werksoorten = useOperoStore((state) => state.werksoorten);
   const createProject = useOperoStore((state) => state.createProject);
 
   const [open, setOpen] = useState(false);
@@ -138,7 +138,7 @@ export function NewProjectDialog() {
               value={insulationType}
             >
               <option value="Nog te bepalen">Nog te bepalen</option>
-              {projectTypes.map((type) => (
+              {werksoorten.map((type) => (
                 <option key={type} value={type}>
                   {type}
                 </option>

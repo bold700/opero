@@ -20,6 +20,7 @@ import { catalogItems, findCatalogItem, type CatalogItem } from "@/lib/catalog";
 import { STAGE_ORDER, getStage, statusForStage } from "@/lib/stages";
 import {
   projectStatusLabels,
+  projectTypes,
   type ProjectActivity,
   type ProjectActivityType,
   type ProjectStatus,
@@ -71,6 +72,7 @@ type OperoState = {
   activeProfileId: string;
   activity: ProjectActivity[];
   articles: CatalogItem[];
+  werksoorten: string[];
   customers: Customer[];
   inventory: InventoryItem[];
   profiles: TestProfile[];
@@ -263,6 +265,9 @@ type OperoState = {
   addArticle: (input: Omit<CatalogItem, "id">) => void;
   updateArticle: (articleId: string, patch: Partial<Omit<CatalogItem, "id">>) => void;
   removeArticle: (articleId: string) => void;
+  addWerksoort: (name: string) => void;
+  renameWerksoort: (current: string, name: string) => void;
+  removeWerksoort: (name: string) => void;
   generateTasks: (projectId: string) => void;
   toggleTask: (projectId: string, taskId: string) => void;
   addMeerwerk: (
@@ -643,6 +648,7 @@ export const useOperoStore = create<OperoState>()(
       activeProfileId: "profile-super-admin",
       activity: [],
       articles: catalogItems,
+      werksoorten: [...projectTypes],
       customers: mockCustomers,
       inventory: mockInventory,
       profiles: testProfiles,
@@ -1237,6 +1243,47 @@ export const useOperoStore = create<OperoState>()(
       removeArticle: (articleId) => {
         set((state) => ({
           articles: state.articles.filter((article) => article.id !== articleId),
+        }));
+      },
+
+      addWerksoort: (name) => {
+        const value = clampText(name);
+        if (!value) return;
+        set((state) => {
+          // dubbele werksoort (hoofdletterongevoelig) voorkomen
+          const exists = state.werksoorten.some(
+            (w) => w.toLowerCase() === value.toLowerCase(),
+          );
+          if (exists) return state;
+          return { werksoorten: [...state.werksoorten, value] };
+        });
+      },
+
+      renameWerksoort: (current, name) => {
+        const value = clampText(name);
+        if (!value || value === current) return;
+        set((state) => {
+          const clash = state.werksoorten.some(
+            (w) => w !== current && w.toLowerCase() === value.toLowerCase(),
+          );
+          if (clash) return state;
+          return {
+            werksoorten: state.werksoorten.map((w) =>
+              w === current ? value : w,
+            ),
+            // hernoem ook in bestaande projecten zodat de keuze niet wees raakt
+            projects: state.projects.map((project) =>
+              project.insulationType === current
+                ? { ...project, insulationType: value }
+                : project,
+            ),
+          };
+        });
+      },
+
+      removeWerksoort: (name) => {
+        set((state) => ({
+          werksoorten: state.werksoorten.filter((w) => w !== name),
         }));
       },
 
@@ -3006,6 +3053,7 @@ export const useOperoStore = create<OperoState>()(
         activeProfileId: state.activeProfileId,
         activity: state.activity,
         articles: state.articles,
+        werksoorten: state.werksoorten,
         customers: state.customers,
         projects: state.projects,
         projectsViewByProfile: state.projectsViewByProfile,

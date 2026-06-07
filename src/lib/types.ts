@@ -168,13 +168,10 @@ export type Werkbon = {
   tasks: WerkbonTaak[];
 };
 
-export type Werksoort =
-  | "Warme leidingisolatie"
-  | "Koude isolatie"
-  | "Akoestische isolatie"
-  | "Brandwerende doorvoeringen";
+// Werksoorten zijn beheerbaar (zie store: werksoorten), dus een vrije string.
+export type Werksoort = string;
 
-// Vaste keuzelijst voor "Type project".
+// Standaardlijst waarmee de werksoorten in de store geseed worden.
 export const projectTypes: Werksoort[] = [
   "Warme leidingisolatie",
   "Koude isolatie",

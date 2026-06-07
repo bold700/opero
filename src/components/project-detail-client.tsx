@@ -72,7 +72,6 @@ import { useOperoStore } from "@/lib/store";
 import { type AccountRole } from "@/lib/roles";
 import { STAGE_LABELS, getStage, meerwerkApproved } from "@/lib/stages";
 import {
-  projectTypes,
   type Customer,
   type Project,
   type ProjectUrgency,
@@ -1171,6 +1170,7 @@ function EditInfoSidebar({ project }: { project: Project }) {
   const setProjectTeam = useOperoStore((state) => state.setProjectTeam);
   const setProjectUrgency = useOperoStore((state) => state.setProjectUrgency);
   const teamMembers = useOperoStore((state) => state.teamMembers);
+  const werksoorten = useOperoStore((state) => state.werksoorten);
   const leaders = teamMembers.filter(
     (m) => m.roles.includes("Projectleider") || m.roles.includes("Planner"),
   );
@@ -1396,7 +1396,7 @@ function EditInfoSidebar({ project }: { project: Project }) {
             value={project.insulationType}
           >
             <option value="Nog te bepalen">Nog te bepalen</option>
-            {projectTypes.map((type) => (
+            {werksoorten.map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>
