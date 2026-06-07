@@ -34,31 +34,33 @@ export function ArtikelenClient() {
   const removeArticle = useOperoStore((state) => state.removeArticle);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Artikelen</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Beheer de artikelen en producten die je in offertes kiest.
-          </p>
+    <div className="space-y-5">
+      <Card>
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Artikelen</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Beheer de artikelen en producten die je in offertes kiest.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              addArticle({
+                category: "materiaal",
+                name: "Nieuw artikel",
+                unit: "stuks",
+                unitPrice: 0,
+                defaultQuantity: 1,
+              });
+              toast.success("Artikel toegevoegd");
+            }}
+            size="sm"
+          >
+            <Plus className="size-4" />
+            Nieuw artikel
+          </Button>
         </div>
-        <Button
-          onClick={() => {
-            addArticle({
-              category: "materiaal",
-              name: "Nieuw artikel",
-              unit: "stuks",
-              unitPrice: 0,
-              defaultQuantity: 1,
-            });
-            toast.success("Artikel toegevoegd");
-          }}
-          size="sm"
-        >
-          <Plus className="size-4" />
-          Nieuw artikel
-        </Button>
-      </div>
+      </Card>
 
       <Card>
         <CardContent className="p-0">

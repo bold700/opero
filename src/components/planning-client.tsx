@@ -90,15 +90,16 @@ function PlanningSkeleton() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-sm font-medium text-emerald-700">Planning</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
-          Week {isoWeekNumber(weekStart)}
-        </h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          {formatDayMonth(weekStart)} t/m {formatDayMonth(lastDay)}
-        </p>
-      </div>
+      <Card>
+        <div className="p-5">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Week {isoWeekNumber(weekStart)}
+          </h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            {formatDayMonth(weekStart)} t/m {formatDayMonth(lastDay)}
+          </p>
+        </div>
+      </Card>
       <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
         <div className="overflow-x-auto">
           <div
@@ -255,10 +256,10 @@ function PlanningShell({
       sensors={sensors}
     >
       <div className="space-y-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <Card>
+        <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-medium text-emerald-700">Planning</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Week {weekNumber}
             </h1>
             <p className="mt-1 text-sm text-zinc-500">
@@ -292,6 +293,7 @@ function PlanningShell({
             </Button>
           </div>
         </div>
+        </Card>
 
         {!readOnly && people.length === 0 ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

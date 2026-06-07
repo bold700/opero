@@ -66,22 +66,22 @@ function PageHeader({
   cta?: { href: string; label: string };
 }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p className="text-sm font-medium text-emerald-700">{eyebrow}</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
-          {title}
-        </h1>
+    <Card>
+      <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          <p className="mt-1 text-sm text-zinc-500">{eyebrow}</p>
+        </div>
+        {cta ? (
+          <Button asChild size="sm">
+            <Link href={cta.href}>
+              {cta.label}
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        ) : null}
       </div>
-      {cta ? (
-        <Button asChild size="lg">
-          <Link href={cta.href}>
-            {cta.label}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      ) : null}
-    </div>
+    </Card>
   );
 }
 
