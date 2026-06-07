@@ -11,7 +11,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { LayoutGrid, Table as TableIcon } from "lucide-react";
+import { Check, LayoutGrid, Table as TableIcon } from "lucide-react";
 import { toast } from "sonner";
 import { NewProjectDialog } from "@/components/new-project-dialog";
 import { PortaalClient } from "@/components/portaal-client";
@@ -19,6 +19,13 @@ import { ProjectCard } from "@/components/project-card";
 import { ProjectsFilters } from "@/components/projects-filters";
 import { ProjectsTable } from "@/components/projects-table";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import {
   applyProjectFilters,
@@ -55,10 +62,13 @@ export function ProjectsBoard() {
   const viewByProfile = useOperoStore((state) => state.projectsViewByProfile);
   const setProjectsView = useOperoStore((state) => state.setProjectsView);
   const setStage = useOperoStore((state) => state.setStage);
+  const completeAllTaken = useOperoStore((state) => state.completeAllTaken);
   const activeProfile =
     profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0];
 
   const [filters, setFilters] = useState<ProjectFilters>(emptyFilters);
+  // Sleep-naar-Ready vraagt eerst bevestiging: alle taken worden afgevinkt.
+  const [readyTarget, setReadyTarget] = useState<Project | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
@@ -99,8 +109,26 @@ export function ProjectsBoard() {
     const target = String(overId) as Stage;
     const current = visibleProjects.find((p) => p.id === projectId);
     if (!current || getStage(current) === target) return;
+    // Ready is afgeleid van "alle taken af". Slepen naar Ready vinkt dus alle
+    // taken af, daarom eerst bevestigen.
+    if (target === "ready") {
+      setReadyTarget(current);
+      return;
+    }
     setStage(projectId, target);
     toast.success(`${current.customerName} naar ${STAGE_LABELS[target]}`);
+  }
+
+  function confirmReady() {
+    if (!readyTarget) return;
+    // Een afgerond project blokkeert de afgeleide "ready"; zet het terug naar
+    // in uitvoering zodat het afvinken weer Ready oplevert.
+    if (getStage(readyTarget) === "done") {
+      setStage(readyTarget.id, "in_progress");
+    }
+    completeAllTaken(readyTarget.id);
+    toast.success(`${readyTarget.customerName} naar Ready, taken afgevinkt`);
+    setReadyTarget(null);
   }
 
   return (
@@ -171,6 +199,36 @@ export function ProjectsBoard() {
           </div>
         </DndContext>
       )}
+
+      <Dialog
+        onOpenChange={(next) => {
+          if (!next) setReadyTarget(null);
+        }}
+        open={Boolean(readyTarget)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Project naar Ready</DialogTitle>
+            <DialogDescription>
+              Je verplaatst{" "}
+              <span className="font-medium text-zinc-950">
+                {readyTarget?.customerName}
+              </span>{" "}
+              naar Ready. Alle taken van dit project worden dan afgevinkt. Wil je
+              doorgaan?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setReadyTarget(null)} variant="outline">
+              Annuleren
+            </Button>
+            <Button onClick={confirmReady} variant="success">
+              <Check className="size-4" />
+              Afvinken en verplaatsen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
