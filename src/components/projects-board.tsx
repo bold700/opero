@@ -144,15 +144,23 @@ export function ProjectsBoard() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative sm:w-72">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-              <Input
-                className="h-9 pl-9"
-                onChange={(event) =>
-                  setFilters({ ...filters, search: event.target.value })
-                }
-                placeholder="Zoek klant, projectnr of plaats"
-                value={filters.search}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+                <Input
+                  className="h-9 pl-9"
+                  onChange={(event) =>
+                    setFilters({ ...filters, search: event.target.value })
+                  }
+                  placeholder="Zoek klant, projectnr of plaats"
+                  value={filters.search}
+                />
+              </div>
+              <ProjectsFilters
+                filters={filters}
+                matchCount={visibleProjects.length}
+                onChange={setFilters}
+                teamLeaders={teamLeaders}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -181,13 +189,6 @@ export function ProjectsBoard() {
           </div>
         </div>
       </Card>
-
-      <ProjectsFilters
-        filters={filters}
-        matchCount={visibleProjects.length}
-        onChange={setFilters}
-        teamLeaders={teamLeaders}
-      />
 
       {view === "table" ? (
         <ProjectsTable

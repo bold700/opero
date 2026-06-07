@@ -1,7 +1,6 @@
 "use client";
 
 import { Filter, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -14,10 +13,8 @@ import {
 import {
   emptyFilters,
   hasActiveFilters,
-  quickFilterDefinitions,
   type MaterialReadinessFilter,
   type ProjectFilters,
-  type QuickFilter,
 } from "@/lib/project-filters";
 import {
   projectStatusIds,
@@ -52,16 +49,6 @@ export function ProjectsFilters({
   teamLeaders: TeamMember[];
 }) {
   const active = hasActiveFilters(filters);
-
-  function toggleQuick(filter: QuickFilter) {
-    const exists = filters.quickFilters.includes(filter);
-    onChange({
-      ...filters,
-      quickFilters: exists
-        ? filters.quickFilters.filter((f) => f !== filter)
-        : [...filters.quickFilters, filter],
-    });
-  }
 
   function toggleStatus(status: ProjectStatus) {
     const exists = filters.statuses.includes(status);
@@ -104,115 +91,90 @@ export function ProjectsFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-        {quickFilterDefinitions.map((def) => (
-          <button
-            className={cn(
-              "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition",
-              filters.quickFilters.includes(def.id)
-                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-950",
-            )}
-            key={def.id}
-            onClick={() => toggleQuick(def.id)}
-            title={def.description}
-            type="button"
-          >
-            {def.label}
-          </button>
-        ))}
-      </div>
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button size="sm" variant="outline">
-            <Filter className="size-4" />
-            Filters
-            {active ? (
-              <Badge className="ml-1" variant="emerald">
-                {filtersBadge(filters)}
-              </Badge>
-            ) : null}
-          </Button>
-        </SheetTrigger>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Filters</SheetTitle>
-            <SheetDescription>
-              Combineer filters om snel projecten terug te vinden.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-6 space-y-6">
-            <FilterGroup label="Fase">
-              {projectStatusIds.map((status) => (
-                <FilterChip
-                  active={filters.statuses.includes(status)}
-                  key={status}
-                  label={projectStatusLabels[status]}
-                  onClick={() => toggleStatus(status)}
-                />
-              ))}
-            </FilterGroup>
-            <FilterGroup label="Urgentie">
-              {urgencyOptions.map((option) => (
-                <FilterChip
-                  active={filters.urgencies.includes(option.value)}
-                  key={option.value}
-                  label={option.label}
-                  onClick={() => toggleUrgency(option.value)}
-                />
-              ))}
-            </FilterGroup>
-            <FilterGroup label="Materialen">
-              {readinessOptions.map((option) => (
-                <FilterChip
-                  active={filters.materialReadiness.includes(option.value)}
-                  key={option.value}
-                  label={option.label}
-                  onClick={() => toggleReadiness(option.value)}
-                />
-              ))}
-            </FilterGroup>
-            <FilterGroup label="Teamleider">
-              {teamLeaders.length === 0 ? (
-                <p className="text-xs text-zinc-500">Geen teamleiders bekend</p>
-              ) : (
-                teamLeaders.map((leader) => (
-                  <FilterChip
-                    active={filters.teamLeaderIds.includes(leader.id)}
-                    key={leader.id}
-                    label={leader.name}
-                    onClick={() => toggleTeamLeader(leader.id)}
-                  />
-                ))
-              )}
-            </FilterGroup>
-          </div>
-        </SheetContent>
-      </Sheet>
-      {active ? (
+    <Sheet>
+      <SheetTrigger asChild>
         <Button
-          onClick={() => onChange(emptyFilters)}
-          size="sm"
-          variant="ghost"
+          aria-label="Filters"
+          className="relative shrink-0"
+          size="icon"
+          variant="outline"
         >
-          <X className="size-4" />
-          Wissen
-          <span className="ml-1 text-xs text-zinc-500">({matchCount})</span>
+          <Filter className="size-4" />
+          {active ? (
+            <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-500" />
+          ) : null}
         </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function filtersBadge(filters: ProjectFilters) {
-  return (
-    filters.statuses.length +
-    filters.urgencies.length +
-    filters.teamLeaderIds.length +
-    filters.materialReadiness.length +
-    filters.quickFilters.length +
-    (filters.search.trim().length > 0 ? 1 : 0)
+      </SheetTrigger>
+      <SheetContent className="overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Filters</SheetTitle>
+          <SheetDescription>
+            Combineer filters om snel projecten terug te vinden.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="mt-6 space-y-6">
+          <FilterGroup label="Fase">
+            {projectStatusIds.map((status) => (
+              <FilterChip
+                active={filters.statuses.includes(status)}
+                key={status}
+                label={projectStatusLabels[status]}
+                onClick={() => toggleStatus(status)}
+              />
+            ))}
+          </FilterGroup>
+          <FilterGroup label="Urgentie">
+            {urgencyOptions.map((option) => (
+              <FilterChip
+                active={filters.urgencies.includes(option.value)}
+                key={option.value}
+                label={option.label}
+                onClick={() => toggleUrgency(option.value)}
+              />
+            ))}
+          </FilterGroup>
+          <FilterGroup label="Materialen">
+            {readinessOptions.map((option) => (
+              <FilterChip
+                active={filters.materialReadiness.includes(option.value)}
+                key={option.value}
+                label={option.label}
+                onClick={() => toggleReadiness(option.value)}
+              />
+            ))}
+          </FilterGroup>
+          <FilterGroup label="Teamleider">
+            {teamLeaders.length === 0 ? (
+              <p className="text-xs text-zinc-500">Geen teamleiders bekend</p>
+            ) : (
+              teamLeaders.map((leader) => (
+                <FilterChip
+                  active={filters.teamLeaderIds.includes(leader.id)}
+                  key={leader.id}
+                  label={leader.name}
+                  onClick={() => toggleTeamLeader(leader.id)}
+                />
+              ))
+            )}
+          </FilterGroup>
+        </div>
+        {active ? (
+          <div className="mt-6 flex items-center justify-between border-t border-zinc-100 pt-4">
+            <span className="text-sm text-zinc-500">
+              {matchCount} resultaten
+            </span>
+            <Button
+              onClick={() => onChange(emptyFilters)}
+              size="sm"
+              variant="ghost"
+            >
+              <X className="size-4" />
+              Wis filters
+            </Button>
+          </div>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }
 
