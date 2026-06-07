@@ -4,6 +4,7 @@ import {
   type ProjectUrgency,
 } from "@/lib/types";
 import { getProjectMaterialReadiness } from "@/lib/workflow";
+import { getStage } from "@/lib/stages";
 
 export type MaterialReadinessFilter =
   | "available"
@@ -12,12 +13,10 @@ export type MaterialReadinessFilter =
 
 export type QuickFilter =
   | "mine"
-  | "blocked"
   | "this_week"
-  | "awaiting_customer"
-  | "ready_to_invoice"
-  | "materials_missing"
-  | "open_invoices";
+  | "stage_in_progress"
+  | "stage_done"
+  | "stage_concept";
 
 export type ProjectFilters = {
   search: string;
@@ -75,24 +74,14 @@ function matchesQuickFilter(
         project.teamLeaderId === activeTeamMemberId ||
         project.installerIds.includes(activeTeamMemberId)
       );
-    case "blocked":
-      return project.urgency === "blocked" || Boolean(project.blocker);
     case "this_week":
       return inThisWeek(project.plannedDate);
-    case "awaiting_customer":
-      return (
-        project.status === "verkoop" && project.quote.status === "sent"
-      );
-    case "ready_to_invoice":
-      return (
-        project.status === "afronding" &&
-        (project.invoice.status === "not_started" ||
-          project.invoice.status === "draft")
-      );
-    case "materials_missing":
-      return getProjectMaterialReadiness(project) !== "available";
-    case "open_invoices":
-      return project.invoice.status === "sent";
+    case "stage_concept":
+      return getStage(project) === "concept";
+    case "stage_in_progress":
+      return getStage(project) === "in_progress";
+    case "stage_done":
+      return getStage(project) === "done";
     default:
       return false;
   }
@@ -157,33 +146,23 @@ export const quickFilterDefinitions: {
     label: "Mijn projecten",
   },
   {
-    description: "Urgentie geblokkeerd of een open blokkade",
-    id: "blocked",
-    label: "Geblokkeerd",
-  },
-  {
     description: "Geplande dag valt in de huidige week",
     id: "this_week",
     label: "Deze week",
   },
   {
-    description: "Offerte verstuurd, wachten op akkoord",
-    id: "awaiting_customer",
-    label: "Wacht op klant",
+    description: "Werk is bezig",
+    id: "stage_in_progress",
+    label: "In progress",
   },
   {
-    description: "In Afronding maar factuur nog niet verstuurd",
-    id: "ready_to_invoice",
-    label: "Klaar voor factuur",
+    description: "Werkbon afgerond",
+    id: "stage_done",
+    label: "Done",
   },
   {
-    description: "Materialen niet volledig op voorraad",
-    id: "materials_missing",
-    label: "Materialen ontbreken",
-  },
-  {
-    description: "Factuur verstuurd, wachten op betaling",
-    id: "open_invoices",
-    label: "Open facturen",
+    description: "Nog in de conceptfase",
+    id: "stage_concept",
+    label: "Concept",
   },
 ];
