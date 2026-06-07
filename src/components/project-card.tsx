@@ -17,7 +17,7 @@ export function ProjectCard({
   showPrices?: boolean;
 }) {
   return (
-    <Link href={`/projects/${project.id}`} className="block">
+    <Link href={`/project?id=${project.id}`} className="block">
       <Card className="transition hover:border-zinc-300 hover:shadow-md">
         <CardContent className="space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">

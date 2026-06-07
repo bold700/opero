@@ -1,15 +1,15 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOperoStore } from "@/lib/store";
 import { formatCurrency, formatLongDate } from "@/lib/utils";
 
 export function OffertePrint() {
-  const params = useParams<{ id: string }>();
+  const routeId = useSearchParams().get("id");
   const project = useOperoStore((state) =>
-    state.projects.find((item) => item.id === params.id),
+    state.projects.find((item) => item.id === routeId),
   );
   const customer = useOperoStore((state) =>
     project

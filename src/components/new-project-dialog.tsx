@@ -64,7 +64,7 @@ export function NewProjectDialog() {
     setOpen(false);
     reset();
     toast.success(`Project ${project.projectNumber} aangemaakt`);
-    router.push(`/projects/${project.id}`);
+    router.push(`/project?id=${project.id}`);
   }
 
   return (

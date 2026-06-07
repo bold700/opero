@@ -299,6 +299,7 @@ type OperoState = {
     materiaalId: string,
   ) => void;
   completeAllTaken: (projectId: string) => void;
+  afrondenWerkbon: (projectId: string, signature: string) => void;
   addOpnamePhoto: (projectId: string) => void;
   setOpnameNotes: (projectId: string, notes: string) => void;
   applyNormPrices: (projectId: string) => void;
@@ -1466,6 +1467,19 @@ export const useOperoStore = create<OperoState>()(
             }`,
           );
         }
+        // Een afgeronde werkbon waarvan weer een taak open gezet wordt, kan niet
+        // meer "done" zijn: zet het project terug naar "in uitvoering".
+        const updated = get().projects.find((item) => item.id === projectId);
+        if (updated && getStage(updated) === "done") {
+          const named = (updated.werkbonnen ?? [])
+            .flatMap((wb) => wb.tasks)
+            .flatMap((task) => task.materials)
+            .filter((m) => m.name.trim());
+          if (named.length > 0 && !named.every((m) => m.done)) {
+            get().setStage(projectId, "in_progress");
+            logChange(set, projectId, "Werkbon heropend, status terug naar in uitvoering");
+          }
+        }
       },
 
       completeAllTaken: (projectId) => {
@@ -1495,6 +1509,19 @@ export const useOperoStore = create<OperoState>()(
             `${changed} ${changed === 1 ? "taak" : "taken"} in één keer afgevinkt`,
           );
         }
+      },
+
+      afrondenWerkbon: (projectId, signature) => {
+        // Alle taken afvinken, handtekening vastleggen en het project op done
+        // zetten. De handtekening maakt het afronden definitief.
+        get().completeAllTaken(projectId);
+        set((state) => ({
+          projects: state.projects.map((project) =>
+            project.id === projectId ? { ...project, signature } : project,
+          ),
+        }));
+        get().setStage(projectId, "done");
+        logChange(set, projectId, "Werkbon afgerond en ondertekend");
       },
 
       setMateriaalUsage: (projectId, werkbonId, taskId, materiaalId, used) => {

@@ -59,11 +59,11 @@ export function ProjectsTable({
                 <TableRow
                   className="cursor-pointer transition-colors hover:bg-zinc-50 focus-visible:bg-zinc-50 focus-visible:outline-none"
                   key={project.id}
-                  onClick={() => router.push(`/projects/${project.id}`)}
+                  onClick={() => router.push(`/project?id=${project.id}`)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      router.push(`/projects/${project.id}`);
+                      router.push(`/project?id=${project.id}`);
                     }
                   }}
                   tabIndex={0}
@@ -71,7 +71,7 @@ export function ProjectsTable({
                   <TableCell>
                     <Link
                       className="block font-medium text-zinc-950 hover:underline"
-                      href={`/projects/${project.id}`}
+                      href={`/project?id=${project.id}`}
                       onClick={(event) => event.stopPropagation()}
                     >
                       {project.name || project.customerName}
@@ -113,7 +113,7 @@ export function ProjectsTable({
                     <Link
                       aria-label={`Open ${project.customerName}`}
                       className="flex size-7 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-950"
-                      href={`/projects/${project.id}`}
+                      href={`/project?id=${project.id}`}
                       onClick={(event) => event.stopPropagation()}
                     >
                       <ArrowRight className="size-4" />

@@ -130,3 +130,37 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+@theme {
+  --animate-slide-in-right: slide-in-right 0.3s ease;
+  --animate-slide-out-right: slide-out-right 0.3s ease;
+  --animate-slide-in-left: slide-in-left 0.3s ease;
+  --animate-slide-out-left: slide-out-left 0.3s ease;
+  --animate-fade-in: fade-in 0.2s ease;
+  --animate-fade-out: fade-out 0.2s ease;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-out-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}

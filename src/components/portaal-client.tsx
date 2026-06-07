@@ -308,7 +308,7 @@ function CustomerProjectCard({
               Projectnr {project.projectNumber}
             </p>
             <Button asChild size="sm" variant="ghost">
-              <Link href={`/projects/${project.id}`}>
+              <Link href={`/project?id=${project.id}`}>
                 Volledige status
                 <ArrowRight className="size-4" />
               </Link>

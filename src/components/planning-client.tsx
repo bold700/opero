@@ -414,7 +414,7 @@ function ContinuationCard({ project }: { project: Project }) {
   return (
     <Link
       className="block rounded-md border border-dashed border-emerald-200 bg-emerald-50/40 p-2 text-emerald-700/80 transition hover:bg-emerald-50"
-      href={`/projects/${project.id}`}
+      href={`/project?id=${project.id}`}
     >
       <p className="truncate text-xs font-medium">{project.customerName}</p>
       <p className="text-[11px]">loopt door</p>
@@ -467,7 +467,7 @@ function ScheduledCard({
 
   function openProject() {
     if (draggedRef.current) return;
-    router.push(`/projects/${project.id}`);
+    router.push(`/project?id=${project.id}`);
   }
 
   return (

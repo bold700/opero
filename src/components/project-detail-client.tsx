@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
@@ -24,6 +30,7 @@ import {
   FileText,
   GripVertical,
   Image as ImageIcon,
+  Info,
   MessageSquare,
   Plus,
   Trash2,
@@ -52,6 +59,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useOperoStore } from "@/lib/store";
 import { type AccountRole } from "@/lib/roles";
@@ -92,7 +107,7 @@ function regelLabel(m: TaakMateriaal): string {
 }
 
 export function ProjectDetailClient() {
-  const params = useParams<{ id: string }>();
+  const routeId = useSearchParams().get("id");
   const projects = useOperoStore((state) => state.projects);
   const customers = useOperoStore((state) => state.customers);
   const profiles = useOperoStore((state) => state.profiles);
@@ -102,7 +117,7 @@ export function ProjectDetailClient() {
   const activeProfile =
     profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0];
 
-  const project = projects.find((item) => item.id === params.id);
+  const project = projects.find((item) => item.id === routeId);
   const customer = project
     ? customers.find((item) => item.id === project.customerId)
     : undefined;
@@ -156,9 +171,11 @@ export function ProjectDetailClient() {
                   variant={
                     stage === "done"
                       ? "emerald"
-                      : stage === "in_progress"
-                        ? "cyan"
-                        : "zinc"
+                      : stage === "ready"
+                        ? "violet"
+                        : stage === "in_progress"
+                          ? "cyan"
+                          : "zinc"
                   }
                 >
                   {STAGE_LABELS[stage]}
@@ -181,7 +198,10 @@ export function ProjectDetailClient() {
             ) : (
               <>
                 <Button aria-label="Offerte" asChild size="icon" variant="outline">
-                  <Link href={`/projects/${project.id}/offerte`} target="_blank">
+                  <Link
+                    href={`/project/offerte?id=${project.id}`}
+                    target="_blank"
+                  >
                     <FileText className="size-4" />
                   </Link>
                 </Button>
@@ -191,6 +211,7 @@ export function ProjectDetailClient() {
                     projectLabel={project.customerName}
                   />
                 ) : null}
+                <InfoSheet customer={customer} mode={mode} project={project} />
                 {manage ? (
                   <Button aria-label="Zone toevoegen" onClick={addZone} size="icon">
                     <Plus className="size-4" />
@@ -208,13 +229,9 @@ export function ProjectDetailClient() {
           <WerkbonZones mode={mode} project={project} />
           <MeerwerkSection mode={mode} project={project} />
         </div>
-        <aside className="space-y-5 lg:sticky lg:top-6">
-          {mode === "edit" ? (
-            <EditInfoSidebar project={project} />
-          ) : (
-            <ProjectInfoSidebar customer={customer} project={project} />
-          )}
-          <ChangelogCard projectId={project.id} />
+        {/* Desktop: vaste zijbalk. Mobiel: zit in de InfoSheet hierboven. */}
+        <aside className="hidden lg:sticky lg:top-6 lg:block">
+          <ProjectInfoContent customer={customer} mode={mode} project={project} />
         </aside>
       </div>
     </div>
@@ -1792,58 +1809,219 @@ function OpmerkingDialog({
   );
 }
 
-function WerkbonAfrondenButton({ project }: { project: Project }) {
-  const setStage = useOperoStore((state) => state.setStage);
-  const completeAllTaken = useOperoStore((state) => state.completeAllTaken);
+function SignaturePad({
+  onChange,
+}: {
+  onChange: (dataUrl: string | null) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  const inked = useRef(false);
+
+  // Canvas op de gerenderde breedte zetten zodat de lijn scherp blijft en de
+  // coördinaten kloppen.
+  const setupCanvas = (canvas: HTMLCanvasElement | null) => {
+    canvasRef.current = canvas;
+    if (!canvas) return;
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  };
+
+  const point = (event: React.PointerEvent) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+
+  const start = (event: React.PointerEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#18181b";
+    const { x, y } = point(event);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    drawing.current = true;
+    canvas.setPointerCapture(event.pointerId);
+  };
+
+  const move = (event: React.PointerEvent) => {
+    if (!drawing.current) return;
+    const ctx = canvasRef.current!.getContext("2d")!;
+    const { x, y } = point(event);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    inked.current = true;
+  };
+
+  const end = () => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    if (inked.current) onChange(canvasRef.current!.toDataURL());
+  };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.getContext("2d")!.clearRect(0, 0, canvas.width, canvas.height);
+    inked.current = false;
+    onChange(null);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium uppercase text-zinc-400">
+          Handtekening
+        </span>
+        <Button onClick={clear} size="sm" type="button" variant="ghost">
+          Wissen
+        </Button>
+      </div>
+      <canvas
+        aria-label="Onderteken hier"
+        className="h-40 w-full touch-none rounded-md border border-zinc-200 bg-white"
+        onPointerDown={start}
+        onPointerLeave={end}
+        onPointerMove={move}
+        onPointerUp={end}
+        ref={setupCanvas}
+      />
+      <p className="text-xs text-zinc-500">
+        Teken hierboven je handtekening om de werkbon af te ronden.
+      </p>
+    </div>
+  );
+}
+
+function ProjectInfoContent({
+  project,
+  customer,
+  mode,
+}: {
+  project: Project;
+  customer: Customer;
+  mode: ViewMode;
+}) {
+  return (
+    <div className="space-y-5">
+      {mode === "edit" ? (
+        <EditInfoSidebar project={project} />
+      ) : (
+        <ProjectInfoSidebar customer={customer} project={project} />
+      )}
+      <ChangelogCard projectId={project.id} />
+    </div>
+  );
+}
+
+function InfoSheet({
+  project,
+  customer,
+  mode,
+}: {
+  project: Project;
+  customer: Customer;
+  mode: ViewMode;
+}) {
   const [open, setOpen] = useState(false);
+
+  // Springt het scherm naar desktop, dan staat de vaste zijbalk er weer: de
+  // sheet hoort dan dicht zodat hij niet over de layout blijft hangen.
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setOpen(false);
+    };
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  return (
+    <Sheet onOpenChange={setOpen} open={open}>
+      <SheetTrigger asChild>
+        <Button
+          aria-label="Projectinfo"
+          className="lg:hidden"
+          size="icon"
+          variant="outline"
+        >
+          <Info className="size-4" />
+        </Button>
+      </SheetTrigger>
+      {/* p-0 + losse scroll-laag: de scrollbar zit zo tegen de rand i.p.v. een
+          eind naar binnen door de padding. */}
+      <SheetContent className="flex flex-col p-0" side="right">
+        <SheetHeader className="px-6 pb-4 pt-6">
+          <SheetTitle>Projectinfo</SheetTitle>
+          <SheetDescription className="sr-only">
+            Algemene projectinformatie en changelog
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-6 pb-6">
+            <ProjectInfoContent
+              customer={customer}
+              mode={mode}
+              project={project}
+            />
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function WerkbonAfrondenButton({ project }: { project: Project }) {
+  const afrondenWerkbon = useOperoStore((state) => state.afrondenWerkbon);
+  const [open, setOpen] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
 
   const openCount = (project.werkbonnen ?? [])
     .flatMap((wb) => wb.tasks)
     .flatMap((task) => task.materials)
     .filter((m) => m.name.trim() && !m.done).length;
 
-  function afronden() {
-    setStage(project.id, "done");
-    toast.success("Werkbon afgerond");
-  }
-
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
-      <Button
-        onClick={() => {
-          if (openCount > 0) {
-            setOpen(true);
-          } else {
-            afronden();
-          }
-        }}
-      >
-        Werkbon afronden
-      </Button>
+    <Dialog
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSignature(null);
+      }}
+      open={open}
+    >
+      <Button onClick={() => setOpen(true)}>Werkbon afronden</Button>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Niet alle taken zijn afgevinkt</DialogTitle>
+          <DialogTitle>Werkbon afronden</DialogTitle>
           <DialogDescription>
-            Er {openCount === 1 ? "is" : "zijn"} nog{" "}
-            <span className="font-medium text-zinc-950">{openCount}</span>{" "}
-            {openCount === 1 ? "taak" : "taken"} niet afgevinkt. Wil je ze
-            allemaal afvinken en de werkbon afronden?
+            {openCount > 0
+              ? `Er ${openCount === 1 ? "is" : "zijn"} nog ${openCount} ${
+                  openCount === 1 ? "taak" : "taken"
+                } niet afgevinkt. Bij afronden worden deze afgevinkt.`
+              : "Onderteken om de werkbon definitief af te ronden."}
           </DialogDescription>
         </DialogHeader>
+        <SignaturePad onChange={setSignature} />
         <div className="flex justify-end gap-2">
           <Button onClick={() => setOpen(false)} variant="outline">
             Annuleren
           </Button>
           <Button
+            disabled={!signature}
             onClick={() => {
-              completeAllTaken(project.id);
+              if (!signature) return;
+              afrondenWerkbon(project.id, signature);
               setOpen(false);
-              afronden();
+              setSignature(null);
+              toast.success("Werkbon afgerond");
             }}
             variant="success"
           >
             <Check className="size-4" />
-            Alles afvinken en afronden
+            Afronden en ondertekenen
           </Button>
         </div>
       </DialogContent>

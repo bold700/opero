@@ -108,7 +108,7 @@ function ProjectListCard({
         {items.slice(0, 5).map((project) => (
           <Link
             className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-4 transition hover:border-zinc-300"
-            href={`/projects/${project.id}`}
+            href={`/project?id=${project.id}`}
             key={project.id}
           >
             <div className="min-w-0">
@@ -237,7 +237,7 @@ function MonteurView({
             {upcoming.slice(0, 5).map((entry) => (
               <Link
                 className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-4 transition hover:border-zinc-300"
-                href={`/projects/${entry.project.id}`}
+                href={`/project?id=${entry.project.id}`}
                 key={entry.workOrder.id}
               >
                 <div className="min-w-0">
@@ -347,7 +347,7 @@ function ProjectmanagerView({
             {blockers.map((project) => (
               <Link
                 className="flex gap-3 rounded-lg border border-red-100 bg-red-50 p-4 text-red-800 transition hover:border-red-200"
-                href={`/projects/${project.id}`}
+                href={`/project?id=${project.id}`}
                 key={project.id}
               >
                 <AlertTriangle className="mt-0.5 size-5 shrink-0" />
@@ -657,7 +657,7 @@ function SuperAdminView({
           {projects.slice(0, 5).map((project) => (
             <Link
               className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-4 transition hover:border-zinc-300"
-              href={`/projects/${project.id}`}
+              href={`/project?id=${project.id}`}
               key={project.id}
             >
               <div className="min-w-0">
@@ -693,7 +693,7 @@ function SuperAdminView({
             {blockers.map((project) => (
               <Link
                 className="flex gap-3 rounded-lg border border-red-100 bg-red-50 p-4 text-red-800 transition hover:border-red-200"
-                href={`/projects/${project.id}`}
+                href={`/project?id=${project.id}`}
                 key={project.id}
               >
                 <AlertTriangle className="mt-0.5 size-5 shrink-0" />

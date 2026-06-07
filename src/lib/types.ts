@@ -125,7 +125,7 @@ export type MaterialRequirement = {
   expectedDeliveryDate?: string;
 };
 
-export type Stage = "concept" | "in_progress" | "done";
+export type Stage = "concept" | "in_progress" | "ready" | "done";
 
 // Eén gedeelde projectregel binnen een zone. Dezelfde regel voedt offerte,
 // werkbon en factuur; elke rol ziet andere kolommen:
@@ -353,6 +353,7 @@ export type Project = {
   oplevering?: Oplevering;
   tasks?: ProjectTask[];
   stage?: Stage;
+  signature?: string;
   materialsReady?: boolean;
   status: ProjectStatus;
   plannedDate?: string;

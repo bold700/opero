@@ -5,11 +5,17 @@ import {
   type TaakMateriaal,
 } from "@/lib/types";
 
-export const STAGE_ORDER: Stage[] = ["concept", "in_progress", "done"];
+export const STAGE_ORDER: Stage[] = [
+  "concept",
+  "in_progress",
+  "ready",
+  "done",
+];
 
 export const STAGE_LABELS: Record<Stage, string> = {
   concept: "Concept",
   in_progress: "In progress",
+  ready: "Ready",
   done: "Done",
 };
 
@@ -19,7 +25,7 @@ export function statusForStage(stage: Stage): ProjectStatus {
   return "operatie";
 }
 
-// Zet oude fases (6) en oude status om naar de drie statussen.
+// Zet oude fases (6) en oude status om naar de vier statussen.
 const STAGE_MIGRATE: Record<string, Stage> = {
   offerte: "concept",
   concept: "concept",
@@ -27,16 +33,34 @@ const STAGE_MIGRATE: Record<string, Stage> = {
   planning: "in_progress",
   uitvoering: "in_progress",
   in_progress: "in_progress",
+  ready: "ready",
   facturatie: "done",
   archief: "done",
   done: "done",
 };
 
+// Alle taken (genoemde isolatieregels) zijn afgevinkt.
+export function allTakenDone(project: Project): boolean {
+  const named = (project.werkbonnen ?? [])
+    .flatMap((werkbon) => werkbon.tasks)
+    .flatMap((task) => task.materials)
+    .filter((m) => m.name.trim());
+  return named.length > 0 && named.every((m) => m.done);
+}
+
 export function getStage(project: Project): Stage {
-  if (project.stage) return STAGE_MIGRATE[project.stage] ?? "concept";
-  if (project.status === "operatie") return "in_progress";
-  if (project.status === "afronding") return "done";
-  return "concept";
+  const stored: Stage = project.stage
+    ? (STAGE_MIGRATE[project.stage] ?? "concept")
+    : project.status === "operatie"
+      ? "in_progress"
+      : project.status === "afronding"
+        ? "done"
+        : "concept";
+  // Afgerond (ondertekend) blijft done. Anders is "ready" afgeleid: zodra alle
+  // taken zijn afgevinkt staat het project klaar om af te ronden.
+  if (stored === "done") return "done";
+  if (allTakenDone(project)) return "ready";
+  return stored;
 }
 
 export function stageIndex(project: Project): number {

@@ -19,7 +19,11 @@ function SheetOverlay({
 }: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>) {
   return (
     <SheetPrimitive.Overlay
-      className={cn("fixed inset-0 z-50 bg-zinc-950/50", className)}
+      className={cn(
+        "fixed inset-0 z-50 bg-zinc-950/50",
+        "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out motion-reduce:animate-none",
+        className,
+      )}
       data-slot="sheet-overlay"
       {...props}
     />
@@ -41,11 +45,26 @@ function SheetContent({
     top: "inset-x-0 top-0 border-b",
   };
 
+  const sideAnim = {
+    bottom:
+      "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
+    left: "data-[state=open]:animate-slide-in-left data-[state=closed]:animate-slide-out-left",
+    right:
+      "data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right",
+    top: "data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
+  };
+
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
-        className={cn("fixed z-50 bg-white p-6 shadow-lg", sideClasses[side], className)}
+        className={cn(
+          "fixed z-50 bg-white p-6 shadow-lg",
+          sideClasses[side],
+          sideAnim[side],
+          "motion-reduce:animate-none",
+          className,
+        )}
         data-slot="sheet-content"
         {...props}
       >
