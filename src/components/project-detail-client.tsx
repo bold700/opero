@@ -75,6 +75,7 @@ import {
   projectTypes,
   type Customer,
   type Project,
+  type ProjectUrgency,
   type TaakMateriaal,
   type WerkbonTaak,
 } from "@/lib/types";
@@ -1169,6 +1170,7 @@ function EditInfoSidebar({ project }: { project: Project }) {
     (state) => state.setProjectDurationDays,
   );
   const setProjectTeam = useOperoStore((state) => state.setProjectTeam);
+  const setProjectUrgency = useOperoStore((state) => state.setProjectUrgency);
   const teamMembers = useOperoStore((state) => state.teamMembers);
   const leaders = teamMembers.filter(
     (m) => m.roles.includes("Projectleider") || m.roles.includes("Planner"),
@@ -1188,6 +1190,24 @@ function EditInfoSidebar({ project }: { project: Project }) {
             {done} van {total} taken afgerond
           </p>
         </InfoBlock>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="project-urgency">Urgentie</Label>
+          <Select
+            id="project-urgency"
+            onChange={(event) =>
+              setProjectUrgency(
+                project.id,
+                event.target.value as ProjectUrgency,
+              )
+            }
+            value={project.urgency}
+          >
+            <option value="normal">Normaal</option>
+            <option value="urgent">Urgent</option>
+            <option value="blocked">Geblokkeerd</option>
+          </Select>
+        </div>
 
         <div className="space-y-3">
           <div className="space-y-1.5">

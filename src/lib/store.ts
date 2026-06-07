@@ -772,6 +772,13 @@ export const useOperoStore = create<OperoState>()(
             project.id === projectId ? { ...project, urgency } : project,
           ),
         }));
+        const label =
+          urgency === "urgent"
+            ? "Urgent"
+            : urgency === "blocked"
+              ? "Geblokkeerd"
+              : "Normaal";
+        logChange(set, projectId, `Urgentie: ${label}`);
       },
 
       setProjectTeam: (projectId, patch) => {
