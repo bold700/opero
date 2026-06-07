@@ -1,10 +1,18 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import {
+  Check,
+  LayoutGrid,
+  Plus,
+  Search,
+  Table as TableIcon,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +21,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,8 +38,17 @@ import { STAGE_LABELS } from "@/lib/stages";
 import { memberStages, teamRoleConfig, teamRoleOrder } from "@/lib/roles";
 import { type Role, type TeamMember } from "@/lib/types";
 
+type View = "card" | "table";
+
+function roleLabelFor(member: TeamMember) {
+  return member.roles.length > 0
+    ? member.roles.map((role) => teamRoleConfig[role].label).join(", ")
+    : "Geen rollen";
+}
+
 export function PersoneelClient() {
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<View>("card");
   const teamMembers = useOperoStore((state) => state.teamMembers);
   const projects = useOperoStore((state) => state.projects);
 
@@ -53,54 +78,146 @@ export function PersoneelClient() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-medium text-emerald-700">Profielen</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-normal text-zinc-950">
-            Personeel
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-            Maak eerst een persoonskaart aan, geef daarna rollen. Op basis van de
-            rollen is iemand belangrijk in bepaalde projectfases en krijgt hij de
-            bijbehorende rechten.
-          </p>
+    <div className="space-y-5">
+      <Card>
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Personeel</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              {filtered.length} {filtered.length === 1 ? "persoon" : "personen"}
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative flex-1 sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              <Input
+                className="h-9 pl-9"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Zoek op naam of rol"
+                value={query}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg border border-zinc-200 p-0.5">
+                <Button
+                  className={view === "card" ? "bg-zinc-100" : ""}
+                  onClick={() => setView("card")}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <LayoutGrid className="size-4" />
+                  Kaart
+                </Button>
+                <Button
+                  className={view === "table" ? "bg-zinc-100" : ""}
+                  onClick={() => setView("table")}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <TableIcon className="size-4" />
+                  Tabel
+                </Button>
+              </div>
+              <PersoonDialog
+                trigger={
+                  <Button size="sm">
+                    <Plus className="size-4" />
+                    Nieuwe persoon
+                  </Button>
+                }
+              />
+            </div>
+          </div>
         </div>
-        <Input
-          className="md:w-72"
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Zoek op naam of rol"
-          value={query}
-        />
-      </div>
+      </Card>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-500">{teamMembers.length} personen</p>
+      {view === "card" ? (
+        <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((member) => (
+            <PersoonCard
+              key={member.id}
+              member={member}
+              projectCount={projectsByMember.get(member.id) ?? 0}
+            />
+          ))}
+          {filtered.length === 0 ? (
+            <div className="lg:col-span-2 xl:col-span-3">
+              <EmptyState label="Geen personen gevonden" />
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <Card className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Persoon</TableHead>
+                  <TableHead>Rollen</TableHead>
+                  <TableHead className="w-28 text-right">Projecten</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((member) => (
+                  <PersoonRow
+                    key={member.id}
+                    member={member}
+                    projectCount={projectsByMember.get(member.id) ?? 0}
+                  />
+                ))}
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      className="text-center text-sm text-zinc-500"
+                      colSpan={3}
+                    >
+                      Geen personen gevonden
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function PersoonRow({
+  member,
+  projectCount,
+}: {
+  member: TeamMember;
+  projectCount: number;
+}) {
+  return (
+    <TableRow>
+      <TableCell>
         <PersoonDialog
+          member={member}
           trigger={
-            <Button size="sm">
-              <Plus className="size-4" />
-              Nieuwe persoon
-            </Button>
+            <button
+              className="flex items-center gap-3 text-left transition hover:opacity-80 focus-visible:outline-none"
+              type="button"
+            >
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-700">
+                {initials(member.name)}
+              </div>
+              <span className="font-medium text-zinc-950 hover:underline">
+                {member.name}
+              </span>
+            </button>
           }
         />
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((member) => (
-          <PersoonCard
-            key={member.id}
-            member={member}
-            projectCount={projectsByMember.get(member.id) ?? 0}
-          />
-        ))}
-        {filtered.length === 0 ? (
-          <div className="lg:col-span-2 xl:col-span-3">
-            <EmptyState label="Geen personen gevonden" />
-          </div>
-        ) : null}
-      </div>
-    </div>
+      </TableCell>
+      <TableCell className="text-sm text-zinc-600">
+        {roleLabelFor(member)}
+      </TableCell>
+      <TableCell className="text-right">
+        <Badge variant="outline">{projectCount}</Badge>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -111,10 +228,7 @@ function PersoonCard({
   member: TeamMember;
   projectCount: number;
 }) {
-  const roleLabel =
-    member.roles.length > 0
-      ? member.roles.map((role) => teamRoleConfig[role].label).join(", ")
-      : "Geen rollen";
+  const roleLabel = roleLabelFor(member);
 
   return (
     <PersoonDialog

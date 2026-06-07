@@ -9,6 +9,7 @@ import {
   Check,
   ChevronUp,
   Contact,
+  Layers,
   Package,
   RotateCcw,
   Settings,
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/projects", icon: BriefcaseBusiness, label: "Projecten" },
   { href: "/planning", icon: CalendarDays, label: "Planning" },
   { href: "/artikelen", icon: Package, label: "Artikelen" },
+  { href: "/werksoorten", icon: Layers, label: "Werksoorten" },
   { href: "/klanten", icon: Users, label: "Klanten" },
   { href: "/personeel", icon: Contact, label: "Personeel" },
 ];
@@ -42,9 +44,9 @@ const navItems = [
 // krijgt op Projecten zijn klantportaal-view.
 const navByRole: Record<AccountRole, string[]> = {
   super_admin: navItems.map((item) => item.href),
-  projectmanager: ["/", "/projects", "/planning", "/artikelen", "/klanten", "/personeel"],
+  projectmanager: ["/", "/projects", "/planning", "/artikelen", "/werksoorten", "/klanten", "/personeel"],
   sales: ["/", "/projects", "/klanten"],
-  voorraad: ["/", "/projects", "/artikelen"],
+  voorraad: ["/", "/projects", "/artikelen", "/werksoorten"],
   administratie: ["/", "/projects", "/klanten"],
   monteur: ["/", "/projects"],
   opdrachtgever: ["/", "/projects"],

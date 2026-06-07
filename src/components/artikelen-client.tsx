@@ -32,10 +32,6 @@ export function ArtikelenClient() {
   const addArticle = useOperoStore((state) => state.addArticle);
   const updateArticle = useOperoStore((state) => state.updateArticle);
   const removeArticle = useOperoStore((state) => state.removeArticle);
-  const werksoorten = useOperoStore((state) => state.werksoorten);
-  const addWerksoort = useOperoStore((state) => state.addWerksoort);
-  const renameWerksoort = useOperoStore((state) => state.renameWerksoort);
-  const removeWerksoort = useOperoStore((state) => state.removeWerksoort);
 
   return (
     <div className="space-y-6">
@@ -150,79 +146,6 @@ export function ArtikelenClient() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Werksoorten</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            De typen werk die je bij een project kiest (bijv. Koude isolatie).
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            // unieke standaardnaam, daarna inline hernoemen
-            let name = "Nieuwe werksoort";
-            let n = 2;
-            while (
-              werksoorten.some((w) => w.toLowerCase() === name.toLowerCase())
-            ) {
-              name = `Nieuwe werksoort ${n}`;
-              n += 1;
-            }
-            addWerksoort(name);
-            toast.success("Werksoort toegevoegd");
-          }}
-          size="sm"
-        >
-          <Plus className="size-4" />
-          Nieuwe werksoort
-        </Button>
-      </div>
-
-      <Card>
-        <CardContent className="p-3">
-          <ul className="space-y-2">
-            {werksoorten.map((werksoort) => (
-              <li className="flex items-center gap-2" key={werksoort}>
-                <Input
-                  aria-label="Werksoort naam"
-                  defaultValue={werksoort}
-                  onBlur={(event) => {
-                    const next = event.target.value.trim();
-                    if (next && next !== werksoort) {
-                      renameWerksoort(werksoort, next);
-                    } else {
-                      event.target.value = werksoort;
-                    }
-                  }}
-                />
-                <Button
-                  aria-label={`Werksoort ${werksoort} verwijderen`}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        `Werksoort "${werksoort}" verwijderen? Bestaande projecten met dit type behouden hun waarde.`,
-                      )
-                    ) {
-                      removeWerksoort(werksoort);
-                      toast.success("Werksoort verwijderd");
-                    }
-                  }}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Trash2 className="size-4 text-zinc-500" />
-                </Button>
-              </li>
-            ))}
-            {werksoorten.length === 0 ? (
-              <li className="py-2 text-center text-sm text-zinc-500">
-                Nog geen werksoorten.
-              </li>
-            ) : null}
-          </ul>
         </CardContent>
       </Card>
     </div>
