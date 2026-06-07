@@ -11,7 +11,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { Check, LayoutGrid, Table as TableIcon } from "lucide-react";
+import { Check, LayoutGrid, Search, Table as TableIcon } from "lucide-react";
 import { toast } from "sonner";
 import { NewProjectDialog } from "@/components/new-project-dialog";
 import { PortaalClient } from "@/components/portaal-client";
@@ -19,6 +19,8 @@ import { ProjectCard } from "@/components/project-card";
 import { ProjectsFilters } from "@/components/projects-filters";
 import { ProjectsTable } from "@/components/projects-table";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -133,37 +135,52 @@ export function ProjectsBoard() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Projecten</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {visibleProjects.length} projecten in de pijplijn
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-zinc-200 p-0.5">
-            <Button
-              className={view === "table" ? "bg-zinc-100" : ""}
-              onClick={() => setProjectsView(activeProfile.id, "table")}
-              size="sm"
-              variant="ghost"
-            >
-              <TableIcon className="size-4" />
-              Tabel
-            </Button>
-            <Button
-              className={view === "board" ? "bg-zinc-100" : ""}
-              onClick={() => setProjectsView(activeProfile.id, "board")}
-              size="sm"
-              variant="ghost"
-            >
-              <LayoutGrid className="size-4" />
-              Bord
-            </Button>
+      <Card>
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Projecten</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              {visibleProjects.length} projecten in de pijplijn
+            </p>
           </div>
-          {canCreateProject(activeProfile.role) ? <NewProjectDialog /> : null}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              <Input
+                className="h-9 pl-9"
+                onChange={(event) =>
+                  setFilters({ ...filters, search: event.target.value })
+                }
+                placeholder="Zoek klant, projectnr of plaats"
+                value={filters.search}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg border border-zinc-200 p-0.5">
+                <Button
+                  className={view === "table" ? "bg-zinc-100" : ""}
+                  onClick={() => setProjectsView(activeProfile.id, "table")}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <TableIcon className="size-4" />
+                  Tabel
+                </Button>
+                <Button
+                  className={view === "board" ? "bg-zinc-100" : ""}
+                  onClick={() => setProjectsView(activeProfile.id, "board")}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <LayoutGrid className="size-4" />
+                  Bord
+                </Button>
+              </div>
+              {canCreateProject(activeProfile.role) ? <NewProjectDialog /> : null}
+            </div>
+          </div>
         </div>
-      </div>
+      </Card>
 
       <ProjectsFilters
         filters={filters}

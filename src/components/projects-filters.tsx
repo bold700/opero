@@ -1,9 +1,8 @@
 "use client";
 
-import { Filter, Search, X } from "lucide-react";
+import { Filter, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -106,17 +105,6 @@ export function ProjectsFilters({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full sm:w-72">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-        <Input
-          className="h-9 pl-9"
-          onChange={(event) =>
-            onChange({ ...filters, search: event.target.value })
-          }
-          placeholder="Zoek klant, projectnr of plaats"
-          value={filters.search}
-        />
-      </div>
       <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
         {quickFilterDefinitions.map((def) => (
           <button
