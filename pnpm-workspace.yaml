@@ -1,3 +1,6 @@
+# Build-scripts van native deps expliciet uit: niet nodig voor de statische
+# export (images: unoptimized) en de eslint-resolver. Zo stopt pnpm met de
+# ERR_PNPM_IGNORED_BUILDS-fout in CI.
 allowBuilds:
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  sharp: false
+  unrs-resolver: false
