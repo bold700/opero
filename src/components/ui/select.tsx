@@ -12,7 +12,7 @@ function Select({
     <div className={cn("relative", wrapperClassName)}>
       <select
         className={cn(
-          "flex h-11 w-full appearance-none rounded-md border border-zinc-200 bg-white px-3 pr-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-11 w-full appearance-none rounded-md border border-zinc-200 bg-white px-3 pr-9 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm",
           className,
         )}
         data-slot="select"
