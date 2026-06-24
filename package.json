@@ -5,7 +5,8 @@
   "scripts": {
     "dev:client": "pnpm --filter @opero/client dev",
     "dev:backend": "pnpm --filter @opero/backend dev",
-    "dev": "pnpm -r --parallel dev",
+    "predev": "docker start opero-postgres 2>/dev/null || true",
+    "dev": "concurrently -n api,client -c blue,magenta \"corepack pnpm --filter @opero/backend dev\" \"corepack pnpm --filter @opero/client dev\"",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
@@ -13,5 +14,8 @@
     "db:migrate": "pnpm --filter @opero/backend db:migrate",
     "db:deploy": "pnpm --filter @opero/backend db:deploy",
     "db:seed": "pnpm --filter @opero/backend db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }
