@@ -1,0 +1,963 @@
+import { Router } from "express";
+import type { Prisma } from "@prisma/client";
+import { canSeePrices, statusForStage, type UserRole } from "@opero/shared";
+import { prisma } from "../../db/client.js";
+import { asyncHandler } from "../../lib/asyncHandler.js";
+import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
+import { clampText, clampNumber } from "../../lib/clamp.js";
+import { audit } from "../../lib/audit.js";
+import { requireAuth } from "../../auth/middleware.js";
+import type { AuthUser } from "../../auth/types.js";
+import { canViewProject } from "../projects/visibility.js";
+import { werkbonDto, werkbonInclude, type WerkbonWithRelations } from "./dto.js";
+import {
+  addMateriaalSchema,
+  createWerkbonSchema,
+  finishSchema,
+  removePhotoSchema,
+  reorderTasksSchema,
+  taskHoursSchema,
+  updateMateriaalSchema,
+  updateTaskSchema,
+  updateWerkbonSchema,
+  usageSchema,
+} from "./schema.js";
+
+export const workOrdersRouter = Router();
+
+type Tx = Prisma.TransactionClient;
+
+// The project shape we need for visibility + write-gating.
+type ProjectForGuard = {
+  id: string;
+  orgId: string;
+  customerId: string;
+  teamLeaderId: string | null;
+  projectLeaderId: string | null;
+  installers: { id: string }[];
+};
+
+workOrdersRouter.use(requireAuth);
+
+// =========================================================================
+// Helpers
+// =========================================================================
+
+// Append a ProjectActivity "system" row inside a transaction (mirrors the
+// store's logChange → makeActivity for the major events).
+async function appendActivity(
+  tx: Tx,
+  user: AuthUser,
+  projectId: string,
+  body: string,
+): Promise<void> {
+  await tx.projectActivity.create({
+    data: { projectId, userId: user.id, type: "system", body },
+  });
+}
+
+// Round milliseconds to hours in 0.25 steps (ported from the store's
+// endTask: Math.round(ms / 3_600_000 * 4) / 4).
+function msToHours(ms: number): number {
+  if (ms <= 0) return 0;
+  return Math.round((ms / 3_600_000) * 4) / 4;
+}
+
+// Recompute project.value (offertebedrag) = sum over all werkbonnen tasks
+// materials of quantity * unitPrice (ported from regelsOfferteBedrag).
+// Mirrors the store: a zero sum keeps the existing value untouched.
+async function recomputeOffertebedrag(tx: Tx, projectId: string): Promise<void> {
+  const materials = await tx.taakMateriaal.findMany({
+    where: { task: { werkbon: { projectId } } },
+    select: { quantity: true, unitPrice: true },
+  });
+  const value = materials.reduce(
+    (sum, m) => sum + m.quantity * (m.unitPrice ?? 0),
+    0,
+  );
+  if (value > 0) {
+    await tx.project.update({ where: { id: projectId }, data: { value } });
+  }
+}
+
+// Load a werkbon + its project, enforce visibility, return write-ability.
+//
+// VISIBILITY / GUARD MODEL:
+// - admin:   canView always; canWrite always.
+// - monteur: canView/canWrite ONLY for projects they're assigned to
+//            (teamLeaderId / projectLeaderId / installers includes employeeId).
+// - klant:   canView only for their own customer's projects; canWrite never.
+// Not visible → 404 (don't leak existence).
+async function loadProjectForWerkbon(
+  user: AuthUser,
+  werkbonId: string,
+): Promise<{
+  werkbon: { id: string; projectId: string };
+  project: ProjectForGuard;
+  canWrite: boolean;
+}> {
+  const werkbon = await prisma.werkbon.findFirst({
+    where: { id: werkbonId, project: { orgId: user.orgId, deletedAt: null } },
+    select: {
+      id: true,
+      projectId: true,
+      project: {
+        select: {
+          id: true,
+          orgId: true,
+          customerId: true,
+          teamLeaderId: true,
+          projectLeaderId: true,
+          installers: { select: { id: true } },
+        },
+      },
+    },
+  });
+  if (!werkbon || !canViewProject(user, werkbon.project)) {
+    throw NotFound("Work order not found");
+  }
+  const canWrite =
+    user.role === "admin" ||
+    (user.role === "monteur" && canViewProject(user, werkbon.project));
+  return {
+    werkbon: { id: werkbon.id, projectId: werkbon.projectId },
+    project: werkbon.project,
+    canWrite,
+  };
+}
+
+// Guard for any write op: load + assert canWrite, else 403.
+async function requireWritableWerkbon(user: AuthUser, werkbonId: string) {
+  const loaded = await loadProjectForWerkbon(user, werkbonId);
+  if (!loaded.canWrite) throw Forbidden("Not allowed to modify this work order");
+  return loaded;
+}
+
+// Reload + serialize a werkbon (role-aware DTO with price-stripping).
+async function reloadWerkbon(user: AuthUser, werkbonId: string) {
+  const wb = await prisma.werkbon.findUnique({
+    where: { id: werkbonId },
+    include: werkbonInclude,
+  });
+  if (!wb) throw NotFound("Work order not found");
+  return werkbonDto(wb as WerkbonWithRelations, user.role as UserRole);
+}
+
+// Load a task belonging to a werkbon, or 404.
+async function loadTask(werkbonId: string, taskId: string) {
+  const task = await prisma.werkbonTaak.findFirst({
+    where: { id: taskId, werkbonId },
+    include: { materials: true },
+  });
+  if (!task) throw NotFound("Task not found");
+  return task;
+}
+
+// Load a material via task → werkbon (used by /materials/:matId flat routes).
+async function loadMateriaal(werkbonId: string, matId: string) {
+  const mat = await prisma.taakMateriaal.findFirst({
+    where: { id: matId, task: { werkbonId } },
+  });
+  if (!mat) throw NotFound("Material not found");
+  return mat;
+}
+
+// Human-readable scope for activity bodies (task description or werkbon title).
+function taskScopeLabel(
+  task: { description: string } | null,
+  werkbonTitle: string,
+): string {
+  return task?.description?.trim() || werkbonTitle || "Werkbon";
+}
+
+// =========================================================================
+// LIST + DETAIL
+// =========================================================================
+
+// GET /work-orders?projectId= — list (visibility-filtered). If projectId is
+// given, only that (visible) project's werkbonnen.
+workOrdersRouter.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const projectId =
+      typeof req.query.projectId === "string" ? req.query.projectId : undefined;
+
+    // Build a project filter that bakes in org + visibility. For monteur/klant
+    // this restricts to assigned/own projects; admin sees all.
+    const projectWhere: Prisma.ProjectWhereInput = {
+      orgId: user.orgId,
+      deletedAt: null,
+      ...(projectId ? { id: projectId } : {}),
+    };
+    if (user.role === "klant") {
+      projectWhere.customerId = user.customerId ?? "__none__";
+    } else if (user.role === "monteur") {
+      const employeeId = user.employeeId ?? "__none__";
+      projectWhere.OR = [
+        { teamLeaderId: employeeId },
+        { projectLeaderId: employeeId },
+        { installers: { some: { id: employeeId } } },
+      ];
+    }
+
+    const rows = await prisma.werkbon.findMany({
+      where: { project: projectWhere },
+      include: werkbonInclude,
+      orderBy: [{ projectId: "asc" }, { ordinal: "asc" }, { createdAt: "asc" }],
+    });
+    res.json(
+      rows.map((wb) =>
+        werkbonDto(wb as WerkbonWithRelations, user.role as UserRole),
+      ),
+    );
+  }),
+);
+
+// GET /work-orders/:id — one werkbon, full nested, role-aware DTO.
+workOrdersRouter.get(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await loadProjectForWerkbon(user, req.params.id); // visibility (404 if not)
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// WERKBON CRUD
+// =========================================================================
+
+// POST /work-orders {projectId, title?} — create. admin OR monteur-assigned
+// (ensureWerkbon is operational, not financial). klant: 403.
+workOrdersRouter.post(
+  "/",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = createWerkbonSchema.parse(req.body);
+
+    const project = await prisma.project.findFirst({
+      where: { id: input.projectId, orgId: user.orgId, deletedAt: null },
+      select: {
+        id: true,
+        orgId: true,
+        customerId: true,
+        teamLeaderId: true,
+        projectLeaderId: true,
+        installers: { select: { id: true } },
+      },
+    });
+    if (!project || !canViewProject(user, project)) {
+      throw NotFound("Project not found");
+    }
+    const canWrite =
+      user.role === "admin" ||
+      (user.role === "monteur" && canViewProject(user, project));
+    if (!canWrite) throw Forbidden("Not allowed to create work orders here");
+
+    const created = await prisma.$transaction(async (tx) => {
+      const count = await tx.werkbon.count({
+        where: { projectId: project.id },
+      });
+      const wb = await tx.werkbon.create({
+        data: {
+          projectId: project.id,
+          title: input.title?.trim() || `Werkbon ${count + 1}`,
+          drawings: [],
+          ordinal: count,
+        },
+        include: werkbonInclude,
+      });
+      await audit(tx, user, "werkbon.create", "werkbon", wb.id, {
+        projectId: project.id,
+      });
+      return wb;
+    });
+    res
+      .status(201)
+      .json(werkbonDto(created as WerkbonWithRelations, user.role as UserRole));
+  }),
+);
+
+// PATCH /work-orders/:id {title?} — admin only.
+workOrdersRouter.patch(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = updateWerkbonSchema.parse(req.body);
+    await loadProjectForWerkbon(user, req.params.id); // visibility (404 if not)
+    if (user.role !== "admin") throw Forbidden("Admin only");
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbon.update({
+        where: { id: req.params.id },
+        data: {
+          title: input.title !== undefined ? clampText(input.title) : undefined,
+        },
+      });
+      await audit(tx, user, "werkbon.update", "werkbon", req.params.id, input);
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id — admin only. (Monteur may NOT delete a werkbon.)
+workOrdersRouter.delete(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await loadProjectForWerkbon(user, req.params.id);
+    if (user.role !== "admin") throw Forbidden("Admin only");
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbon.delete({ where: { id: req.params.id } });
+      await audit(tx, user, "werkbon.delete", "werkbon", req.params.id);
+      // Materials gone → keep offertebedrag in sync.
+      await recomputeOffertebedrag(tx, project.id);
+    });
+    res.status(204).end();
+  }),
+);
+
+// POST /work-orders/:id/approve — toggle approvedByOpzichter. admin only.
+workOrdersRouter.post(
+  "/:id/approve",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await loadProjectForWerkbon(user, req.params.id);
+    if (user.role !== "admin") throw Forbidden("Admin only");
+    const wb = await prisma.werkbon.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { approvedByOpzichter: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbon.update({
+        where: { id: req.params.id },
+        data: { approvedByOpzichter: !wb.approvedByOpzichter },
+      });
+      await audit(tx, user, "werkbon.approve", "werkbon", req.params.id, {
+        approvedByOpzichter: !wb.approvedByOpzichter,
+      });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/drawings — append a drawing placeholder. admin or
+// monteur-assigned. TODO(Phase 7): replace placeholder with real upload.
+workOrdersRouter.post(
+  "/:id/drawings",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWerkbon(user, req.params.id);
+    const placeholder = `tekening-${Date.now()}.pdf`; // TODO(Phase 7) real upload
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbon.update({
+        where: { id: req.params.id },
+        data: { drawings: { push: placeholder } },
+      });
+      await audit(tx, user, "werkbon.drawing.add", "werkbon", req.params.id, {
+        drawing: placeholder,
+      });
+    });
+    res.status(201).json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// TASKS (zones)
+// =========================================================================
+
+// POST /work-orders/:id/tasks — add a blank task (zone). admin + monteur.
+workOrdersRouter.post(
+  "/:id/tasks",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    await prisma.$transaction(async (tx) => {
+      const count = await tx.werkbonTaak.count({
+        where: { werkbonId: req.params.id },
+      });
+      const task = await tx.werkbonTaak.create({
+        data: { werkbonId: req.params.id, ordinal: count },
+      });
+      await appendActivity(tx, user, project.id, "Zone toegevoegd");
+      await audit(tx, user, "werkbon.task.add", "werkbonTaak", task.id);
+    });
+    res.status(201).json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// PATCH /work-orders/:id/tasks/:taskId — update description/day/done/note.
+workOrdersRouter.patch(
+  "/:id/tasks/:taskId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = updateTaskSchema.parse(req.body);
+    await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbonTaak.update({
+        where: { id: task.id },
+        data: {
+          description:
+            input.description !== undefined
+              ? clampText(input.description)
+              : undefined,
+          day: input.day !== undefined ? input.day : undefined,
+          done: input.done !== undefined ? input.done : undefined,
+          note:
+            input.note !== undefined
+              ? input.note === null
+                ? null
+                : clampText(input.note)
+              : undefined,
+        },
+      });
+      await audit(tx, user, "werkbon.task.update", "werkbonTaak", task.id, input);
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/tasks/:taskId — remove a zone.
+workOrdersRouter.delete(
+  "/:id/tasks/:taskId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    const wb = await prisma.werkbon.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { title: true },
+    });
+    const scope = taskScopeLabel(task, wb.title);
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbonTaak.delete({ where: { id: task.id } });
+      await appendActivity(tx, user, project.id, `Zone verwijderd: ${scope}`);
+      await audit(tx, user, "werkbon.task.remove", "werkbonTaak", task.id);
+      await recomputeOffertebedrag(tx, project.id);
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/tasks/reorder — move activeTaskId to overTaskId's slot.
+workOrdersRouter.post(
+  "/:id/tasks/reorder",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = reorderTasksSchema.parse(req.body);
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const tasks = await prisma.werkbonTaak.findMany({
+      where: { werkbonId: req.params.id },
+      orderBy: { ordinal: "asc" },
+      select: { id: true },
+    });
+    const ids = tasks.map((t) => t.id);
+    const from = ids.indexOf(input.activeTaskId);
+    const to = ids.indexOf(input.overTaskId);
+    if (from < 0 || to < 0) throw BadRequest("Task not in this work order");
+    if (from !== to) {
+      const [moved] = ids.splice(from, 1);
+      ids.splice(to, 0, moved);
+      await prisma.$transaction(async (tx) => {
+        for (let i = 0; i < ids.length; i += 1) {
+          await tx.werkbonTaak.update({
+            where: { id: ids[i] },
+            data: { ordinal: i },
+          });
+        }
+        await appendActivity(tx, user, project.id, "Zones opnieuw geordend");
+      });
+    }
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/tasks/:taskId/toggle — flip task.done.
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/toggle",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbonTaak.update({
+        where: { id: task.id },
+        data: { done: !task.done },
+      });
+      await audit(tx, user, "werkbon.task.toggle", "werkbonTaak", task.id, {
+        done: !task.done,
+      });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// TASK TIMING
+// =========================================================================
+
+// POST /work-orders/:id/tasks/:taskId/start — set startedAt (once).
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/start",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    if (!task.startedAt) {
+      await prisma.$transaction(async (tx) => {
+        await tx.werkbonTaak.update({
+          where: { id: task.id },
+          data: { startedAt: new Date().toISOString() },
+        });
+        await audit(tx, user, "werkbon.task.start", "werkbonTaak", task.id);
+      });
+    }
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/tasks/:taskId/end — set endedAt, compute hours from
+// startedAt (0.25 rounding), mark done.
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/end",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    const endedAt = new Date().toISOString();
+    let hours = task.hours ?? undefined;
+    if (task.startedAt) {
+      const ms = Date.parse(endedAt) - Date.parse(task.startedAt);
+      if (ms > 0) hours = msToHours(ms);
+    }
+    const wb = await prisma.werkbon.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { title: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbonTaak.update({
+        where: { id: task.id },
+        data: { endedAt, done: true, hours: hours ?? null },
+      });
+      if (task.startedAt) {
+        await appendActivity(
+          tx,
+          user,
+          project.id,
+          `${taskScopeLabel(task, wb.title)} afgerond, ${
+            hours ?? 0
+          } u via timer`,
+        );
+      }
+      await audit(tx, user, "werkbon.task.end", "werkbonTaak", task.id, { hours });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// PATCH /work-orders/:id/tasks/:taskId/hours {hours} — manual hours override.
+workOrdersRouter.patch(
+  "/:id/tasks/:taskId/hours",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = taskHoursSchema.parse(req.body);
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    const wb = await prisma.werkbon.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { title: true },
+    });
+    const next = input.hours > 0 ? input.hours : null;
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbonTaak.update({
+        where: { id: task.id },
+        data: { hours: next },
+      });
+      if ((task.hours ?? 0) !== input.hours) {
+        await appendActivity(
+          tx,
+          user,
+          project.id,
+          `Uren ${taskScopeLabel(task, wb.title)}: ${task.hours ?? 0} naar ${
+            input.hours > 0 ? input.hours : 0
+          } u`,
+        );
+      }
+      await audit(tx, user, "werkbon.task.hours", "werkbonTaak", task.id, {
+        hours: next,
+      });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// TASK PHOTOS — TODO(Phase 7): real uploads; for now append placeholders.
+// =========================================================================
+
+async function appendPhoto(
+  user: AuthUser,
+  werkbonId: string,
+  taskId: string,
+  field: "beforePhotos" | "resultPhotos",
+  prefix: string,
+) {
+  const task = await loadTask(werkbonId, taskId);
+  const placeholder = `${prefix}-${Date.now()}.jpg`; // TODO(Phase 7) real upload
+  await prisma.$transaction(async (tx) => {
+    await tx.werkbonTaak.update({
+      where: { id: task.id },
+      data: { [field]: { push: placeholder } },
+    });
+    await audit(tx, user, "werkbon.task.photo.add", "werkbonTaak", task.id, {
+      field,
+      photo: placeholder,
+    });
+  });
+}
+
+// POST /work-orders/:id/tasks/:taskId/photos/before
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/photos/before",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWerkbon(user, req.params.id);
+    await appendPhoto(
+      user,
+      req.params.id,
+      req.params.taskId,
+      "beforePhotos",
+      "begin",
+    );
+    res.status(201).json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/tasks/:taskId/photos/result
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/photos/result",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWerkbon(user, req.params.id);
+    await appendPhoto(
+      user,
+      req.params.id,
+      req.params.taskId,
+      "resultPhotos",
+      "resultaat",
+    );
+    res.status(201).json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/tasks/:taskId/photos {photo} — remove from either set.
+workOrdersRouter.delete(
+  "/:id/tasks/:taskId/photos",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = removePhotoSchema.parse(req.body);
+    await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    await prisma.$transaction(async (tx) => {
+      await tx.werkbonTaak.update({
+        where: { id: task.id },
+        data: {
+          beforePhotos: task.beforePhotos.filter((p) => p !== input.photo),
+          resultPhotos: task.resultPhotos.filter((p) => p !== input.photo),
+        },
+      });
+      await audit(tx, user, "werkbon.task.photo.remove", "werkbonTaak", task.id, {
+        photo: input.photo,
+      });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// TASK MATERIALS (shared line item)
+// =========================================================================
+
+// POST /work-orders/:id/tasks/:taskId/materials — add blank OR seeded line.
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/materials",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = addMateriaalSchema.parse(req.body);
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    const wb = await prisma.werkbon.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { title: true },
+    });
+    const scope = taskScopeLabel(task, wb.title);
+    const seeded = input && (input.name !== undefined || input.quantity !== undefined);
+
+    await prisma.$transaction(async (tx) => {
+      const count = await tx.taakMateriaal.count({ where: { taskId: task.id } });
+      const mat = await tx.taakMateriaal.create({
+        data: {
+          taskId: task.id,
+          // Blank default mirrors addTaakMateriaal: name "", qty 1, unit "meter".
+          name: input?.name !== undefined ? clampText(input.name) : "",
+          quantity:
+            input?.quantity !== undefined ? clampNumber(input.quantity) : 1,
+          unit: input?.unit ?? "meter",
+          unitPrice: input?.unitPrice ?? null,
+          diameter: input?.diameter ?? null,
+          label: input?.label ? clampText(input.label) : null,
+          onSite: false,
+          ordinal: count,
+        },
+      });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        seeded
+          ? `Taak toegevoegd bij ${scope}: ${input?.name ?? ""}`
+          : `Product toegevoegd bij ${scope}`,
+      );
+      await audit(tx, user, "werkbon.material.add", "taakMateriaal", mat.id);
+      // unitPrice may have been seeded → keep offertebedrag in sync.
+      await recomputeOffertebedrag(tx, project.id);
+    });
+    res.status(201).json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// PATCH /work-orders/:id/materials/:matId — update a line item.
+workOrdersRouter.patch(
+  "/:id/materials/:matId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = updateMateriaalSchema.parse(req.body);
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const before = await loadMateriaal(req.params.id, req.params.matId);
+    await prisma.$transaction(async (tx) => {
+      await tx.taakMateriaal.update({
+        where: { id: before.id },
+        data: {
+          label: input.label !== undefined ? input.label : undefined,
+          name: input.name !== undefined ? clampText(input.name) : undefined,
+          quantity:
+            input.quantity !== undefined
+              ? clampNumber(input.quantity)
+              : undefined,
+          usedQuantity:
+            input.usedQuantity !== undefined
+              ? input.usedQuantity === null
+                ? null
+                : clampNumber(input.usedQuantity)
+              : undefined,
+          unit: input.unit !== undefined ? input.unit : undefined,
+          diameter: input.diameter !== undefined ? input.diameter : undefined,
+          unitPrice: input.unitPrice !== undefined ? input.unitPrice : undefined,
+          onSite: input.onSite !== undefined ? input.onSite : undefined,
+          done: input.done !== undefined ? input.done : undefined,
+          note:
+            input.note !== undefined
+              ? input.note === null
+                ? null
+                : clampText(input.note)
+              : undefined,
+        },
+      });
+      if (input.name !== undefined && clampText(input.name) !== before.name) {
+        await appendActivity(
+          tx,
+          user,
+          project.id,
+          `Product: "${before.name || "leeg"}" gewijzigd naar "${
+            clampText(input.name) || "leeg"
+          }"`,
+        );
+      }
+      if (input.quantity !== undefined && input.quantity !== before.quantity) {
+        await appendActivity(
+          tx,
+          user,
+          project.id,
+          `${before.name || "Product"}: gepland aantal ${before.quantity} naar ${
+            input.quantity
+          } ${before.unit}`,
+        );
+      }
+      await audit(tx, user, "werkbon.material.update", "taakMateriaal", before.id, input);
+      // qty/price may have changed → recompute offertebedrag.
+      await recomputeOffertebedrag(tx, project.id);
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/materials/:matId — remove a line item.
+workOrdersRouter.delete(
+  "/:id/materials/:matId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const before = await loadMateriaal(req.params.id, req.params.matId);
+    await prisma.$transaction(async (tx) => {
+      await tx.taakMateriaal.delete({ where: { id: before.id } });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        `Product verwijderd: ${before.name || "product"}`,
+      );
+      await audit(tx, user, "werkbon.material.remove", "taakMateriaal", before.id);
+      await recomputeOffertebedrag(tx, project.id);
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/materials/:matId/usage {used} — set usedQuantity.
+workOrdersRouter.post(
+  "/:id/materials/:matId/usage",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = usageSchema.parse(req.body);
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const before = await loadMateriaal(req.params.id, req.params.matId);
+    const used = clampNumber(input.used);
+    await prisma.$transaction(async (tx) => {
+      await tx.taakMateriaal.update({
+        where: { id: before.id },
+        data: { usedQuantity: used },
+      });
+      if ((before.usedQuantity ?? 0) !== used) {
+        const diff = used - before.quantity;
+        const suffix =
+          diff > 0
+            ? ` (${diff} ${before.unit} meer dan gepland)`
+            : diff < 0
+              ? ` (${-diff} ${before.unit} minder dan gepland)`
+              : "";
+        await appendActivity(
+          tx,
+          user,
+          project.id,
+          `Verbruik ${before.name || "product"}: ${
+            before.usedQuantity ?? 0
+          } naar ${used} ${before.unit}${suffix}`,
+        );
+      }
+      await audit(tx, user, "werkbon.material.usage", "taakMateriaal", before.id, {
+        used,
+      });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/materials/:matId/toggle — flip material.done.
+workOrdersRouter.post(
+  "/:id/materials/:matId/toggle",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    const before = await loadMateriaal(req.params.id, req.params.matId);
+    await prisma.$transaction(async (tx) => {
+      await tx.taakMateriaal.update({
+        where: { id: before.id },
+        data: { done: !before.done },
+      });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        `${before.label || before.name || "taak"}: ${
+          before.done ? "heropend" : "afgerond"
+        }`,
+      );
+      await audit(tx, user, "werkbon.material.toggle", "taakMateriaal", before.id, {
+        done: !before.done,
+      });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// COMPLETION
+// =========================================================================
+
+// Mark all NAMED materials (across the project's werkbonnen) done. Returns the
+// count newly flipped (mirrors completeAllTaken). Caller wraps in a tx.
+async function completeAllTaken(
+  tx: Tx,
+  projectId: string,
+): Promise<number> {
+  const named = await tx.taakMateriaal.findMany({
+    where: {
+      task: { werkbon: { projectId } },
+      done: false,
+      NOT: { name: "" },
+    },
+    select: { id: true },
+  });
+  if (named.length > 0) {
+    await tx.taakMateriaal.updateMany({
+      where: { id: { in: named.map((m) => m.id) } },
+      data: { done: true },
+    });
+  }
+  return named.length;
+}
+
+// POST /work-orders/:id/complete-all — mark all named materials done.
+workOrdersRouter.post(
+  "/:id/complete-all",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    await prisma.$transaction(async (tx) => {
+      const changed = await completeAllTaken(tx, project.id);
+      if (changed > 0) {
+        await appendActivity(
+          tx,
+          user,
+          project.id,
+          `${changed} ${changed === 1 ? "taak" : "taken"} in één keer afgevinkt`,
+        );
+      }
+      await audit(tx, user, "werkbon.complete-all", "project", project.id, {
+        changed,
+      });
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/finish {signature} — afrondenWerkbon: complete all,
+// store signature, set project stage=done (→ status=afronding).
+workOrdersRouter.post(
+  "/:id/finish",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = finishSchema.parse(req.body);
+    const { project } = await requireWritableWerkbon(user, req.params.id);
+    await prisma.$transaction(async (tx) => {
+      await completeAllTaken(tx, project.id);
+      await tx.project.update({
+        where: { id: project.id },
+        data: {
+          signature: clampText(input.signature),
+          stage: "done",
+          status: statusForStage("done"), // → "afronding"
+        },
+      });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        "Werkbon afgerond en ondertekend",
+      );
+      await audit(tx, user, "werkbon.finish", "werkbon", req.params.id);
+    });
+    res.json(await reloadWerkbon(user, req.params.id));
+  }),
+);

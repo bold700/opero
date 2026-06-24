@@ -1,0 +1,17 @@
+{
+  "name": "opero-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:client": "pnpm --filter @opero/client dev",
+    "dev:backend": "pnpm --filter @opero/backend dev",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @opero/backend db:generate",
+    "db:migrate": "pnpm --filter @opero/backend db:migrate",
+    "db:deploy": "pnpm --filter @opero/backend db:deploy",
+    "db:seed": "pnpm --filter @opero/backend db:seed"
+  }
+}

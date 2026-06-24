@@ -1,0 +1,137 @@
+import { z } from "zod";
+
+// Local zod schemas for the projects module (not shared). Mirror the store's
+// CreateProjectInput / update patches / nested actions. All text is clamped in
+// the handlers (clampText/clampNumber), so these keep validation light.
+
+const projectStatusSchema = z.enum(["verkoop", "operatie", "afronding"]);
+const stageSchema = z.enum(["concept", "in_progress", "ready", "done"]);
+const urgencySchema = z.enum(["normal", "urgent", "blocked"]);
+
+// POST / — create. Mirror CreateProjectInput (customerId required; the rest are
+// optional seeds copied from the customer / used as defaults).
+export const createProjectSchema = z.object({
+  customerId: z.string().min(1),
+  name: z.string().optional(),
+  insulationType: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+
+// PATCH /:id — header fields (mirror updateProject's patch shape).
+export const updateProjectSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  address: z.string().optional(),
+  postalCode: z.string().optional(),
+  city: z.string().optional(),
+  contactName: z.string().optional(),
+  contactPhone: z.string().optional(),
+  instructions: z.string().optional(),
+  insulationType: z.string().optional(),
+  plannedDate: z.string().nullable().optional(),
+  plannedEndDate: z.string().nullable().optional(),
+  materialsReady: z.boolean().optional(),
+  exclusions: z.string().optional(),
+});
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+
+export const statusSchema = z.object({ status: projectStatusSchema });
+
+export const stageSchema_ = z
+  .object({
+    stage: stageSchema.optional(),
+    advance: z.boolean().optional(),
+  })
+  .refine((v) => v.advance === true || v.stage !== undefined, {
+    message: "Provide a stage or advance:true",
+  });
+
+export const urgencyBodySchema = z.object({ urgency: urgencySchema });
+
+export const resolveBlockerSchema = z.object({ note: z.string().optional() });
+
+export const teamSchema = z.object({
+  projectLeaderId: z.string().nullable().optional(),
+  teamLeaderId: z.string().nullable().optional(),
+  installerIds: z.array(z.string()).optional(),
+});
+
+export const commentSchema = z.object({ body: z.string().min(1) });
+
+// Intake update (PATCH /:id/intake) — partial intake fields.
+export const updateIntakeSchema = z.object({
+  plannedDate: z.string().nullable().optional(),
+  contactName: z.string().optional(),
+  contactEmail: z.string().optional(),
+  contactPhone: z.string().optional(),
+  address: z.string().optional(),
+  insulationType: z.string().optional(),
+  squareMeters: z.number().optional(),
+  cavityWidthMm: z.number().nullable().optional(),
+  existingInsulation: z.boolean().nullable().optional(),
+  buildingType: z.string().nullable().optional(),
+  accessibility: z.string().nullable().optional(),
+  notes: z.string().optional(),
+  risks: z.string().optional(),
+  estimatedLaborHours: z.number().optional(),
+});
+
+// Intake complete (POST /:id/intake/complete) — mirror completeIntake's data.
+export const completeIntakeSchema = z.object({
+  insulationType: z.string().optional(),
+  squareMeters: z.number().optional(),
+  cavityWidthMm: z.number().optional(),
+  existingInsulation: z.boolean().optional(),
+  buildingType: z.string().optional(),
+  accessibility: z.string().optional(),
+  estimatedLaborHours: z.number().optional(),
+  notes: z.string().optional(),
+  risks: z.string().optional(),
+  blocker: z.string().optional(),
+});
+
+// Quote line items.
+export const addQuoteLineSchema = z
+  .object({
+    description: z.string().optional(),
+    werksoort: z.string().optional(),
+    size: z.string().optional(),
+    quantity: z.number().optional(),
+    unit: z.string().optional(),
+    unitPrice: z.number().optional(),
+  })
+  .optional();
+
+export const updateQuoteLineSchema = z.object({
+  description: z.string().optional(),
+  werksoort: z.string().optional(),
+  size: z.string().optional(),
+  quantity: z.number().optional(),
+  unit: z.string().optional(),
+  unitPrice: z.number().optional(),
+});
+
+export const quoteFromCatalogSchema = z.object({
+  catalogItemId: z.string().min(1),
+  quantity: z.number().optional(),
+});
+
+// Meerwerk (mirror addMeerwerk input).
+export const addMeerwerkSchema = z.object({
+  name: z.string().min(1),
+  quantity: z.number().optional(),
+  unit: z.string().optional(),
+  diameter: z.number().optional(),
+  unitPrice: z.number().optional(),
+  label: z.string().optional(),
+  photo: z.boolean().optional(),
+});
+
+export const rejectMeerwerkSchema = z.object({
+  by: z.enum(["office", "client"]).optional(),
+});
+
+// Oplevering.
+export const restpuntenSchema = z.object({ restpunten: z.string() });
+export const signOpleveringSchema = z.object({ signedBy: z.string().min(1) });

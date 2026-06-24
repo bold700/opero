@@ -1,0 +1,17 @@
+packages:
+  - "client"
+  - "backend"
+  - "shared"
+
+# Welke native/postinstall build-scripts pnpm mag draaien.
+# - Prisma + esbuild (via tsx) hebben hun postinstall echt nodig.
+# - sharp/unrs-resolver blijven uit: niet nodig voor de statische export
+#   (images: unoptimized) en de eslint-resolver. Zo stopt pnpm met de
+#   ERR_PNPM_IGNORED_BUILDS-fout in CI.
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  sharp: false
+  unrs-resolver: false

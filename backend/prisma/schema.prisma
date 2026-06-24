@@ -1,0 +1,732 @@
+// Opero backend — Prisma schema (source of truth).
+//
+// Translated field-for-field from client/src/lib/types.ts. The Zustand store's
+// deeply-nested Project (werkbonnen → tasks → materials, quote → lineItems, etc.)
+// becomes relational child tables here. Enums mirror the string unions in types.ts
+// exactly so the API DTOs round-trip cleanly.
+//
+// Conventions:
+// - id String @id @default(uuid())
+// - createdAt / updatedAt on every model
+// - deletedAt (soft delete) on Customer, Project, Employee, Material
+// - every tenant-owned row carries orgId
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums (mirror types.ts string unions)
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  admin
+  monteur
+  klant
+}
+
+enum ProjectStatus {
+  verkoop
+  operatie
+  afronding
+}
+
+enum Stage {
+  concept
+  in_progress
+  ready
+  done
+}
+
+enum ProjectUrgency {
+  normal
+  urgent
+  blocked
+}
+
+enum BillingType {
+  vast
+  regie
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+}
+
+enum InvoiceStatus {
+  not_started
+  draft
+  sent
+  paid
+}
+
+enum IntakeStatus {
+  planned
+  completed
+}
+
+enum WorkOrderStatus {
+  planned
+  on_the_way
+  in_progress
+  blocked
+  completed
+}
+
+enum CatalogCategory {
+  isolatie
+  materiaal
+  arbeid
+  logistiek
+}
+
+enum ProjectActivityType {
+  status_change
+  comment
+  scheduled
+  system
+}
+
+// Employee job functions (types.ts Role) — distinct from auth UserRole.
+enum TeamRole {
+  Sales
+  Werkvoorbereider
+  Planner
+  Voorman
+  Monteur
+  Administratie
+  Projectleider
+}
+
+enum MeerwerkRejectedBy {
+  office
+  client
+}
+
+// ---------------------------------------------------------------------------
+// Tenant + auth
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  customers    Customer[]
+  employees    Employee[]
+  materials    Material[]
+  projects     Project[]
+  articles     Article[]
+  werksoorten  Werksoort[]
+  materialOrders MaterialOrder[]
+  auditLogs    AuditLog[]
+}
+
+model User {
+  id           String    @id @default(uuid())
+  orgId        String
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  totpSecret   String?
+  totpEnabled  Boolean   @default(false)
+  // pending TOTP secret during enrollment (before confirmation)
+  pendingTotpSecret String?
+  // klant users link to a customer; monteur users link to an employee
+  customerId   String?
+  employeeId   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  org            Organization     @relation(fields: [orgId], references: [id])
+  customer       Customer?        @relation(fields: [customerId], references: [id])
+  employee       Employee?        @relation(fields: [employeeId], references: [id])
+  sessions       AuthSession[]
+  passwordResets PasswordReset[]
+  activity       ProjectActivity[]
+  auditLogs      AuditLog[]
+
+  @@index([orgId])
+  @@index([customerId])
+  @@index([employeeId])
+}
+
+model AuthSession {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  orgId       String
+  actorUserId String?
+  action      String
+  entity      String
+  entityId    String?
+  diff        Json?
+  createdAt   DateTime @default(now())
+
+  org   Organization @relation(fields: [orgId], references: [id])
+  actor User?        @relation(fields: [actorUserId], references: [id])
+
+  @@index([orgId])
+  @@index([entity, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// Customers
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id          String    @id @default(uuid())
+  orgId       String
+  name        String
+  contactName String
+  email       String
+  phone       String
+  address     String
+  postalCode  String
+  city        String
+  notes       String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  org            Organization    @relation(fields: [orgId], references: [id])
+  contactPersons ContactPerson[]
+  locations      Location[]
+  projects       Project[]
+  users          User[]
+
+  @@index([orgId])
+}
+
+model ContactPerson {
+  id         String   @id @default(uuid())
+  customerId String
+  name       String
+  email      String?
+  phone      String?
+  role       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model Location {
+  id         String   @id @default(uuid())
+  customerId String
+  label      String?
+  address    String
+  postalCode String
+  city       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  @@index([customerId])
+}
+
+// ---------------------------------------------------------------------------
+// Employees (types.ts TeamMember)
+// ---------------------------------------------------------------------------
+
+model Employee {
+  id        String     @id @default(uuid())
+  orgId     String
+  name      String
+  phone     String
+  email     String?
+  roles     TeamRole[]
+  deletedAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  org   Organization @relation(fields: [orgId], references: [id])
+  users User[]
+
+  // project team assignments
+  projectsAsLeader     Project[] @relation("ProjectLeader")
+  projectsAsTeamLeader Project[] @relation("ProjectTeamLeader")
+  projectsAsInstaller  Project[] @relation("ProjectInstallers")
+
+  planningAsLeader     PlanningItem[] @relation("PlanningLeader")
+  planningAsTeamLeader PlanningItem[] @relation("PlanningTeamLeader")
+  planningAsInstaller  PlanningItem[] @relation("PlanningInstallers")
+
+  @@index([orgId])
+}
+
+// ---------------------------------------------------------------------------
+// Materials, inventory, orders (types.ts Material + InventoryItem + PurchaseList)
+// ---------------------------------------------------------------------------
+
+model Material {
+  id        String    @id @default(uuid())
+  orgId     String
+  name      String
+  unit      String
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  inventory Inventory?
+
+  @@index([orgId])
+}
+
+model Inventory {
+  id              String   @id @default(uuid())
+  materialId      String   @unique
+  materialName    String
+  quantityInStock Int
+  unit            String
+  supplier        String
+  reorderPoint    Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+}
+
+// Combines spec "Create Order" with the store PurchaseList.
+model MaterialOrder {
+  id         String              @id @default(uuid())
+  orgId      String
+  projectId  String?
+  createdAt  DateTime            @default(now())
+  receivedAt DateTime?
+  updatedAt  DateTime            @updatedAt
+
+  org     Organization        @relation(fields: [orgId], references: [id])
+  project Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items   MaterialOrderItem[]
+
+  @@index([orgId])
+  @@index([projectId])
+}
+
+model MaterialOrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  materialName    String
+  quantityToOrder Int
+  unit            String
+  supplier        String
+
+  order MaterialOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog (types.ts CatalogItem) + Werksoort (managed list)
+// ---------------------------------------------------------------------------
+
+model Article {
+  id              String          @id @default(uuid())
+  orgId           String
+  category        CatalogCategory
+  name            String
+  unit            String
+  unitPrice       Float
+  defaultQuantity Float           @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+}
+
+model Werksoort {
+  id        String   @id @default(uuid())
+  orgId     String
+  name      String
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, name])
+  @@index([orgId])
+}
+
+// ---------------------------------------------------------------------------
+// Project (the lifecycle core) — header fields; nested arrays become children
+// ---------------------------------------------------------------------------
+
+model Project {
+  id            String         @id @default(uuid())
+  orgId         String
+  projectNumber String
+  name          String?
+  customerId    String
+  customerName  String
+  locationId    String?
+  address       String
+  postalCode    String
+  city          String
+  contactName   String?
+  contactPhone  String?
+  instructions  String?
+  insulationType String
+  squareMeters  Int            @default(0)
+  description   String?
+  werksoorten   String[]
+  exclusions    String?
+  billingType   BillingType?
+  archived      Boolean        @default(false)
+  stage         Stage          @default(concept)
+  status        ProjectStatus  @default(verkoop)
+  urgency       ProjectUrgency @default(normal)
+  blocker       String?
+  nextStep      String
+  signature     String?
+  materialsReady Boolean       @default(false)
+  plannedDate   String?
+  plannedEndDate String?
+  value         Int            @default(0)
+
+  // opname (types.ts Opname): photos + notes only
+  opnamePhotos  String[]
+  opnameNotes   String        @default("")
+
+  // team
+  projectLeaderId String?
+  teamLeaderId    String?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  customer Customer     @relation(fields: [customerId], references: [id])
+  location Location?    @relation(fields: [locationId], references: [id])
+
+  projectLeader Employee?  @relation("ProjectLeader", fields: [projectLeaderId], references: [id])
+  teamLeader    Employee?  @relation("ProjectTeamLeader", fields: [teamLeaderId], references: [id])
+  installers    Employee[] @relation("ProjectInstallers")
+
+  intake               Intake?
+  quote                Quote?
+  invoice              Invoice?
+  oplevering           Oplevering?
+  deliveryChecklist    DeliveryChecklist?
+  werkbonnen           Werkbon[]
+  meerwerk             Meerwerk[]
+  materialRequirements MaterialRequirement[]
+  planningItems        PlanningItem[]
+  tasks                ProjectTask[]
+  activity             ProjectActivity[]
+  materialOrders       MaterialOrder[]
+
+  @@index([orgId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model Intake {
+  id                 String       @id @default(uuid())
+  projectId          String       @unique
+  status             IntakeStatus @default(planned)
+  plannedDate        String?
+  contactName        String
+  contactEmail       String
+  contactPhone       String
+  address            String
+  insulationType     String
+  squareMeters       Int          @default(0)
+  cavityWidthMm      Int?
+  existingInsulation Boolean?
+  buildingType       String?
+  accessibility      String?
+  photos             String[]
+  notes              String       @default("")
+  risks              String       @default("")
+  estimatedMaterials String[]
+  estimatedLaborHours Int         @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Quote {
+  id           String      @id @default(uuid())
+  projectId    String      @unique
+  status       QuoteStatus @default(draft)
+  amount       Int         @default(0)
+  sentDate     String?
+  acceptedDate String?
+
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lineItems QuoteLineItem[]
+}
+
+model QuoteLineItem {
+  id            String   @id @default(uuid())
+  quoteId       String
+  catalogItemId String?
+  werksoort     String?
+  description   String
+  size          String?
+  quantity      Float
+  unit          String
+  unitPrice     Float
+  ordinal       Int      @default(0)
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+}
+
+// ---------------------------------------------------------------------------
+// Werkbonnen (work orders) — the headline module
+// ---------------------------------------------------------------------------
+
+model Werkbon {
+  id                 String        @id @default(uuid())
+  projectId          String
+  title              String
+  drawings           String[]
+  approvedByOpzichter Boolean      @default(false)
+  ordinal            Int           @default(0)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   WerkbonTaak[]
+
+  @@index([projectId])
+}
+
+model WerkbonTaak {
+  id           String   @id @default(uuid())
+  werkbonId    String
+  description  String   @default("")
+  done         Boolean  @default(false)
+  day          String?
+  beforePhotos String[]
+  resultPhotos String[]
+  startedAt    String?
+  endedAt      String?
+  hours        Float?
+  note         String?
+  ordinal      Int      @default(0)
+
+  werkbon   Werkbon        @relation(fields: [werkbonId], references: [id], onDelete: Cascade)
+  materials TaakMateriaal[]
+
+  @@index([werkbonId])
+}
+
+// The shared line-item row: feeds offerte (quantity×price), werkbon (onSite),
+// and factuur (usedQuantity×price).
+model TaakMateriaal {
+  id           String  @id @default(uuid())
+  taskId       String
+  label        String?
+  name         String  @default("")
+  quantity     Float   @default(0)
+  usedQuantity Float?
+  unit         String  @default("")
+  diameter     Float?
+  unitPrice    Float?
+  onSite       Boolean @default(false)
+  done         Boolean @default(false)
+  note         String?
+  ordinal      Int     @default(0)
+
+  task WerkbonTaak @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// Meerwerk, oplevering, delivery checklist, project tasks
+// ---------------------------------------------------------------------------
+
+model Meerwerk {
+  id               String              @id @default(uuid())
+  projectId        String
+  description      String
+  label            String?
+  name             String?
+  quantity         Float?
+  unit             String?
+  diameter         Float?
+  unitPrice        Float?
+  amount           Int                 @default(0)
+  photos           String[]
+  createdAt        String
+  done             Boolean             @default(false)
+  approvedByOffice Boolean             @default(false)
+  approvedByClient Boolean             @default(false)
+  rejected         Boolean             @default(false)
+  rejectedBy       MeerwerkRejectedBy?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Oplevering {
+  id          String   @id @default(uuid())
+  projectId   String   @unique
+  photos      String[]
+  restpunten  String   @default("")
+  signedBy    String?
+  completedAt String?
+
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checklist OpleverItem[]
+}
+
+model OpleverItem {
+  id           String  @id @default(uuid())
+  opleveringId String
+  label        String
+  done         Boolean @default(false)
+  ordinal      Int     @default(0)
+
+  oplevering Oplevering @relation(fields: [opleveringId], references: [id], onDelete: Cascade)
+
+  @@index([opleveringId])
+}
+
+model DeliveryChecklist {
+  id        String                  @id @default(uuid())
+  projectId String                  @unique
+  qualityNotes String?
+
+  project Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items   DeliveryChecklistItem[]
+}
+
+model DeliveryChecklistItem {
+  id          String  @id @default(uuid())
+  checklistId String
+  label       String
+  complete    Boolean @default(false)
+  ordinal     Int     @default(0)
+
+  checklist DeliveryChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId])
+}
+
+model ProjectTask {
+  id        String   @id @default(uuid())
+  projectId String
+  label     String
+  done      Boolean  @default(false)
+  source    String // "offerte" | "standaard"
+  ordinal   Int      @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Material requirements, planning, invoice, activity
+// ---------------------------------------------------------------------------
+
+model MaterialRequirement {
+  id                   String  @id @default(uuid())
+  projectId            String
+  materialId           String
+  materialName         String
+  quantityNeeded       Int
+  quantityInStock      Int
+  unit                 String
+  supplier             String
+  expectedDeliveryDate String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model PlanningItem {
+  id              String @id @default(uuid())
+  projectId       String
+  date            String
+  startTime       String
+  endTime         String
+  projectLeaderId String?
+  teamLeaderId    String?
+  vehicle         String @default("")
+
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectLeader Employee?  @relation("PlanningLeader", fields: [projectLeaderId], references: [id])
+  teamLeader    Employee?  @relation("PlanningTeamLeader", fields: [teamLeaderId], references: [id])
+  installers    Employee[] @relation("PlanningInstallers")
+
+  @@index([projectId])
+}
+
+model Invoice {
+  id                  String        @id @default(uuid())
+  projectId           String        @unique
+  status              InvoiceStatus @default(not_started)
+  acceptedQuoteAmount Int           @default(0)
+  extraWorkAmount     Int           @default(0)
+  materialsAmount     Int           @default(0)
+  laborAmount         Int           @default(0)
+  sentDate            String?
+  paidDate            String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectActivity {
+  id         String              @id @default(uuid())
+  projectId  String
+  userId     String?
+  type       ProjectActivityType
+  body       String
+  fromStatus ProjectStatus?
+  toStatus   ProjectStatus?
+  createdAt  DateTime            @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([projectId])
+}

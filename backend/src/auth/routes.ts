@@ -1,0 +1,223 @@
+import { Router } from "express";
+import {
+  loginSchema,
+  login2faSchema,
+  refreshSchema,
+  logoutSchema,
+  forgotPasswordSchema as forgotSchema,
+  resetPasswordSchema as resetSchema,
+  enable2faSchema,
+  disable2faSchema,
+} from "@opero/shared";
+import { prisma } from "../db/client.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
+import { BadRequest, Unauthorized } from "../lib/httpError.js";
+import { authRateLimit } from "../lib/rateLimit.js";
+import { sendEmail } from "../lib/email.js";
+import { hashPassword, toAuthUser, verifyPassword } from "./service.js";
+import {
+  consumePasswordReset,
+  consumeRefreshToken,
+  issuePasswordReset,
+  issueRefreshToken,
+  revokeRefreshToken,
+  signAccessToken,
+  signMfaToken,
+  verifyMfaToken,
+} from "./tokens.js";
+import {
+  buildOtpAuthUrl,
+  generateTotpSecret,
+  otpAuthQrDataUrl,
+  verifyTotp,
+} from "./totp.js";
+import { requireAuth } from "./middleware.js";
+
+export const authRouter = Router();
+
+// Request schemas live in @opero/shared (imported above) so the client can
+// reuse them for forms/typing.
+
+// Helper: mint the access+refresh pair and the public user DTO.
+async function issueSession(userId: string, role: string, orgId: string) {
+  const accessToken = signAccessToken({ sub: userId, role, orgId });
+  const refreshToken = await issueRefreshToken(userId);
+  return { accessToken, refreshToken };
+}
+
+// --- POST /login ----------------------------------------------------------
+authRouter.post(
+  "/login",
+  authRateLimit,
+  asyncHandler(async (req, res) => {
+    const { email, password } = loginSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email } });
+    // Generic failure — no user enumeration.
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+      throw Unauthorized("Invalid credentials");
+    }
+    if (user.totpEnabled) {
+      res.json({ mfaRequired: true, mfaToken: signMfaToken(user.id) });
+      return;
+    }
+    const tokens = await issueSession(user.id, user.role, user.orgId);
+    res.json({ ...tokens, user: toAuthUser(user) });
+  }),
+);
+
+// --- POST /login/2fa ------------------------------------------------------
+authRouter.post(
+  "/login/2fa",
+  authRateLimit,
+  asyncHandler(async (req, res) => {
+    const { mfaToken, code } = login2faSchema.parse(req.body);
+    let userId: string;
+    try {
+      userId = verifyMfaToken(mfaToken);
+    } catch {
+      throw Unauthorized("Invalid or expired MFA token");
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.totpEnabled || !user.totpSecret) {
+      throw Unauthorized("2FA not available for this account");
+    }
+    if (!verifyTotp(code, user.totpSecret)) {
+      throw Unauthorized("Invalid 2FA code");
+    }
+    const tokens = await issueSession(user.id, user.role, user.orgId);
+    res.json({ ...tokens, user: toAuthUser(user) });
+  }),
+);
+
+// --- POST /refresh (rotation) ---------------------------------------------
+authRouter.post(
+  "/refresh",
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = refreshSchema.parse(req.body);
+    const consumed = await consumeRefreshToken(refreshToken);
+    if (!consumed) throw Unauthorized("Invalid refresh token");
+    const user = await prisma.user.findUnique({ where: { id: consumed.userId } });
+    if (!user) throw Unauthorized("User no longer exists");
+    const tokens = await issueSession(user.id, user.role, user.orgId);
+    res.json(tokens);
+  }),
+);
+
+// --- POST /logout ---------------------------------------------------------
+authRouter.post(
+  "/logout",
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = logoutSchema.parse(req.body);
+    await revokeRefreshToken(refreshToken);
+    res.status(204).end();
+  }),
+);
+
+// --- GET /me --------------------------------------------------------------
+authRouter.get(
+  "/me",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({ user: req.user });
+  }),
+);
+
+// --- POST /forgot-password (always 204, no enumeration) -------------------
+authRouter.post(
+  "/forgot-password",
+  authRateLimit,
+  asyncHandler(async (req, res) => {
+    const { email } = forgotSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const token = await issuePasswordReset(user.id);
+      await sendEmail({
+        to: email,
+        subject: "Opero — wachtwoord resetten",
+        text: `Gebruik deze token om je wachtwoord te resetten: ${token}`,
+      });
+    }
+    res.status(204).end();
+  }),
+);
+
+// --- POST /reset-password -------------------------------------------------
+authRouter.post(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { token, newPassword } = resetSchema.parse(req.body);
+    const consumed = await consumePasswordReset(token);
+    if (!consumed) throw BadRequest("Invalid or expired reset token");
+    await prisma.user.update({
+      where: { id: consumed.userId },
+      data: { passwordHash: await hashPassword(newPassword) },
+    });
+    // Revoke all existing sessions after a password reset.
+    await prisma.authSession.updateMany({
+      where: { userId: consumed.userId, revoked: false },
+      data: { revoked: true },
+    });
+    res.status(204).end();
+  }),
+);
+
+// --- POST /2fa/setup ------------------------------------------------------
+authRouter.post(
+  "/2fa/setup",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const secret = generateTotpSecret();
+    // Stash as pending until confirmed via /2fa/enable.
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { pendingTotpSecret: secret },
+    });
+    const otpauthUrl = buildOtpAuthUrl({ secret, account: user.email });
+    const qrDataUrl = await otpAuthQrDataUrl(otpauthUrl);
+    res.json({ secret, otpauthUrl, qrDataUrl });
+  }),
+);
+
+// --- POST /2fa/enable -----------------------------------------------------
+authRouter.post(
+  "/2fa/enable",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { code } = enable2faSchema.parse(req.body);
+    const dbUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!dbUser?.pendingTotpSecret) {
+      throw BadRequest("No pending 2FA setup; call /2fa/setup first");
+    }
+    if (!verifyTotp(code, dbUser.pendingTotpSecret)) {
+      throw BadRequest("Invalid 2FA code");
+    }
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: {
+        totpSecret: dbUser.pendingTotpSecret,
+        pendingTotpSecret: null,
+        totpEnabled: true,
+      },
+    });
+    res.status(204).end();
+  }),
+);
+
+// --- POST /2fa/disable ----------------------------------------------------
+authRouter.post(
+  "/2fa/disable",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { password } = disable2faSchema.parse(req.body);
+    const dbUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!dbUser || !(await verifyPassword(password, dbUser.passwordHash))) {
+      throw Unauthorized("Invalid password");
+    }
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { totpEnabled: false, totpSecret: null, pendingTotpSecret: null },
+    });
+    res.status(204).end();
+  }),
+);

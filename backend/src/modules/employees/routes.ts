@@ -1,0 +1,235 @@
+import { Router } from "express";
+import type { TeamRole } from "@prisma/client";
+import { prisma } from "../../db/client.js";
+import { asyncHandler } from "../../lib/asyncHandler.js";
+import { Forbidden, NotFound } from "../../lib/httpError.js";
+import { clampText } from "../../lib/clamp.js";
+import { audit } from "../../lib/audit.js";
+import { requireAuth, requireRole } from "../../auth/middleware.js";
+import {
+  createEmployeeSchema,
+  updateEmployeeSchema,
+  toggleRoleSchema,
+} from "./schema.js";
+import { employeeDto } from "./dto.js";
+
+export const employeesRouter = Router();
+
+// All employee routes require auth.
+employeesRouter.use(requireAuth);
+
+// GET /employees — admin only (per spec matrix, Employees is admin-only).
+// Monteur + klant: 403.
+employeesRouter.get(
+  "/",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const rows = await prisma.employee.findMany({
+      where: { orgId: user.orgId, deletedAt: null },
+      orderBy: { name: "asc" },
+    });
+    res.json(rows.map(employeeDto));
+  }),
+);
+
+// GET /employees/:id — admin only.
+employeesRouter.get(
+  "/:id",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const row = await prisma.employee.findFirst({
+      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+    });
+    if (!row) throw NotFound("Employee not found");
+    res.json(employeeDto(row));
+  }),
+);
+
+// POST /employees — admin only. Mirrors store addTeamMember.
+employeesRouter.post(
+  "/",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = createEmployeeSchema.parse(req.body);
+    const created = await prisma.$transaction(async (tx) => {
+      const e = await tx.employee.create({
+        data: {
+          orgId: user.orgId,
+          name: clampText(input.name),
+          phone: clampText(input.phone),
+          email: input.email ? clampText(input.email) : null,
+          roles: (input.roles ?? []) as TeamRole[],
+        },
+      });
+      await audit(tx, user, "employee.create", "employee", e.id, { name: e.name });
+      return e;
+    });
+    res.status(201).json(employeeDto(created));
+  }),
+);
+
+// PATCH /employees/:id — admin only. Mirrors store updateTeamMember.
+employeesRouter.patch(
+  "/:id",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = updateEmployeeSchema.parse(req.body);
+    const existing = await prisma.employee.findFirst({
+      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+    });
+    if (!existing) throw NotFound("Employee not found");
+    const updated = await prisma.$transaction(async (tx) => {
+      const e = await tx.employee.update({
+        where: { id: existing.id },
+        data: {
+          name: input.name !== undefined ? clampText(input.name) : undefined,
+          phone: input.phone !== undefined ? clampText(input.phone) : undefined,
+          email: input.email !== undefined ? clampText(input.email) : undefined,
+          roles:
+            input.roles !== undefined ? (input.roles as TeamRole[]) : undefined,
+        },
+      });
+      await audit(tx, user, "employee.update", "employee", e.id, input);
+      return e;
+    });
+    res.json(employeeDto(updated));
+  }),
+);
+
+// POST /employees/:id/roles — admin only. Toggle a single role on/off.
+// Mirrors store toggleTeamMemberRole: if present remove, else add.
+employeesRouter.post(
+  "/:id/roles",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = toggleRoleSchema.parse(req.body);
+    const existing = await prisma.employee.findFirst({
+      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+    });
+    if (!existing) throw NotFound("Employee not found");
+    const role = input.role as TeamRole;
+    const nextRoles = existing.roles.includes(role)
+      ? existing.roles.filter((r) => r !== role)
+      : [...existing.roles, role];
+    const updated = await prisma.$transaction(async (tx) => {
+      const e = await tx.employee.update({
+        where: { id: existing.id },
+        data: { roles: nextRoles },
+      });
+      await audit(tx, user, "employee.toggleRole", "employee", e.id, {
+        role,
+        roles: nextRoles,
+      });
+      return e;
+    });
+    res.json(employeeDto(updated));
+  }),
+);
+
+// DELETE /employees/:id — admin only, soft delete. Mirrors store removeTeamMember.
+employeesRouter.delete(
+  "/:id",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const existing = await prisma.employee.findFirst({
+      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+    });
+    if (!existing) throw NotFound("Employee not found");
+    await prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { id: existing.id },
+        data: { deletedAt: new Date() },
+      });
+      await audit(tx, user, "employee.delete", "employee", existing.id);
+    });
+    res.status(204).end();
+  }),
+);
+
+// GET /employees/:id/timesheet?from=&to= — aggregate WerkbonTaak.hours.
+//
+// The schema has no direct WerkbonTaak -> Employee FK. Hours are logged per task
+// on werkbonnen of projects the employee is assigned to. For the MVP timesheet we
+// sum WerkbonTaak.hours across werkbonnen of projects where this employee is the
+// projectLeader OR teamLeader OR one of the installers, optionally filtered by the
+// task's `day` string (YYYY-MM-DD) with a lexicographic >= from && <= to filter.
+//
+// Guard: admin may view any employee's timesheet; a monteur may view ONLY their
+// own (user.employeeId === :id). Klant: 403.
+employeesRouter.get(
+  "/:id/timesheet",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const employeeId = req.params.id;
+    const canView =
+      user.role === "admin" ||
+      (user.role === "monteur" && user.employeeId === employeeId);
+    if (!canView) throw Forbidden("Not allowed for this timesheet");
+
+    const employee = await prisma.employee.findFirst({
+      where: { id: employeeId, orgId: user.orgId, deletedAt: null },
+    });
+    if (!employee) throw NotFound("Employee not found");
+
+    const from = typeof req.query.from === "string" ? req.query.from : undefined;
+    const to = typeof req.query.to === "string" ? req.query.to : undefined;
+
+    // Projects this employee is assigned to (as leader, team leader, or installer).
+    const projects = await prisma.project.findMany({
+      where: {
+        orgId: user.orgId,
+        deletedAt: null,
+        OR: [
+          { projectLeaderId: employeeId },
+          { teamLeaderId: employeeId },
+          { installers: { some: { id: employeeId } } },
+        ],
+      },
+      select: {
+        id: true,
+        projectNumber: true,
+        werkbonnen: {
+          select: {
+            tasks: {
+              select: { day: true, hours: true },
+            },
+          },
+        },
+      },
+    });
+
+    const entries: {
+      projectId: string;
+      projectNumber: string;
+      day: string | null;
+      hours: number;
+    }[] = [];
+    let totalHours = 0;
+
+    for (const project of projects) {
+      for (const werkbon of project.werkbonnen) {
+        for (const task of werkbon.tasks) {
+          if (task.hours == null) continue;
+          // Filter by day range only when bounds are provided.
+          if (from !== undefined && (task.day == null || task.day < from)) continue;
+          if (to !== undefined && (task.day == null || task.day > to)) continue;
+          entries.push({
+            projectId: project.id,
+            projectNumber: project.projectNumber,
+            day: task.day,
+            hours: task.hours,
+          });
+          totalHours += task.hours;
+        }
+      }
+    }
+
+    res.json({ employeeId, totalHours, entries });
+  }),
+);
