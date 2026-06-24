@@ -27,7 +27,7 @@ app.use(
 
 const TAG = "roleguardtest";
 let adminToken: string;
-let monteurToken: string;
+let technicianToken: string;
 
 beforeAll(async () => {
   const org =
@@ -38,11 +38,11 @@ beforeAll(async () => {
   const admin = await prisma.user.create({
     data: { orgId: org.id, email: `${TAG}-a@opero.test`, passwordHash, name: "A", role: "admin" },
   });
-  const monteur = await prisma.user.create({
-    data: { orgId: org.id, email: `${TAG}-m@opero.test`, passwordHash, name: "M", role: "monteur" },
+  const technician = await prisma.user.create({
+    data: { orgId: org.id, email: `${TAG}-m@opero.test`, passwordHash, name: "M", role: "technician" },
   });
   adminToken = signAccessToken({ sub: admin.id, role: admin.role, orgId: org.id });
-  monteurToken = signAccessToken({ sub: monteur.id, role: monteur.role, orgId: org.id });
+  technicianToken = signAccessToken({ sub: technician.id, role: technician.role, orgId: org.id });
 });
 
 afterAll(async () => {
@@ -59,7 +59,7 @@ describe("requireRole", () => {
   it("403 for a wrong-role user", async () => {
     const res = await request(app)
       .get("/admin-only")
-      .set("Authorization", `Bearer ${monteurToken}`);
+      .set("Authorization", `Bearer ${technicianToken}`);
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe("FORBIDDEN");
   });

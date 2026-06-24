@@ -23,9 +23,9 @@ export type AdminDashboard = {
   openInvoices: number;
 };
 
-// --- monteur -------------------------------------------------------------
+// --- technician ----------------------------------------------------------
 
-export type MonteurProjectRow = {
+export type TechnicianProjectRow = {
   id: string;
   projectNumber: string;
   customerName: string;
@@ -38,17 +38,17 @@ export type MonteurProjectRow = {
   openTaskCount: number;
 };
 
-export type MonteurDashboard = {
-  role: "monteur";
-  todayProjects: MonteurProjectRow[];
-  upcomingProjects: MonteurProjectRow[];
+export type TechnicianDashboard = {
+  role: "technician";
+  todayProjects: TechnicianProjectRow[];
+  upcomingProjects: TechnicianProjectRow[];
   openTaskCount: number;
   assignedProjectCount: number;
 };
 
-// --- klant ---------------------------------------------------------------
+// --- client --------------------------------------------------------------
 
-export type KlantProjectRow = {
+export type ClientProjectRow = {
   id: string;
   projectNumber: string;
   status: ProjectStatus;
@@ -57,13 +57,13 @@ export type KlantProjectRow = {
   nextStep: string;
 };
 
-export type KlantDashboard = {
-  role: "klant";
-  projects: KlantProjectRow[];
+export type ClientDashboard = {
+  role: "client";
+  projects: ClientProjectRow[];
   byStatus: Record<ProjectStatus, number>;
 };
 
-type MonteurProjectSource = {
+type TechnicianProjectSource = {
   id: string;
   projectNumber: string;
   customerName: string;
@@ -75,10 +75,10 @@ type MonteurProjectSource = {
   nextStep: string;
 };
 
-export function monteurProjectRow(
-  p: MonteurProjectSource,
+export function technicianProjectRow(
+  p: TechnicianProjectSource,
   openTaskCount: number,
-): MonteurProjectRow {
+): TechnicianProjectRow {
   return {
     id: p.id,
     projectNumber: p.projectNumber,
@@ -93,7 +93,7 @@ export function monteurProjectRow(
   };
 }
 
-type KlantProjectSource = {
+type ClientProjectSource = {
   id: string;
   projectNumber: string;
   status: ProjectStatus;
@@ -102,7 +102,7 @@ type KlantProjectSource = {
   nextStep: string;
 };
 
-export function klantProjectRow(p: KlantProjectSource): KlantProjectRow {
+export function clientProjectRow(p: ClientProjectSource): ClientProjectRow {
   return {
     id: p.id,
     projectNumber: p.projectNumber,

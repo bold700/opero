@@ -40,7 +40,7 @@ export function articleDto(a: Article) {
   };
 }
 
-export function werksoortDto(w: { id: string; name: string }) {
+export function workTypeDto(w: { id: string; name: string }) {
   return {
     id: w.id,
     name: w.name,

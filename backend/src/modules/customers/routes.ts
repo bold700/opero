@@ -11,40 +11,57 @@ import { Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
-import { contactPersonDto, customerDto, locationDto } from "./dto.js";
+import { contactPersonDto, customerDto, customerListDto, locationDto } from "./dto.js";
 
 export const customersRouter = Router();
 
 // All customer routes require auth.
 customersRouter.use(requireAuth);
 
-// A klant may only touch their own linked customer. Admins: any. Monteur: read
+// A client may only touch their own linked customer. Admins: any. Technician: read
 // only (customer info on their own work order — handled in work-orders module;
-// here we keep customers admin/klant-scoped for list/detail/manage).
+// here we keep customers admin/client-scoped for list/detail/manage).
 function assertCanAccessCustomer(
   user: { role: string; customerId: string | null },
   customerId: string,
 ) {
   if (user.role === "admin") return;
-  if (user.role === "klant" && user.customerId === customerId) return;
+  if (user.role === "client" && user.customerId === customerId) return;
   throw Forbidden("Not allowed for this customer");
 }
 
-// GET /customers — admin: all; klant: only their own; monteur: none here.
+// GET /customers — admin: all; client: only their own; technician: none here.
 customersRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    if (user.role === "monteur") throw Forbidden("Not available");
+    if (user.role === "technician") throw Forbidden("Not available");
     const where =
-      user.role === "klant"
+      user.role === "client"
         ? { orgId: user.orgId, deletedAt: null, id: user.customerId ?? "__none__" }
         : { orgId: user.orgId, deletedAt: null };
+
+    // The list view (per the design) needs each customer's work-order count and
+    // last-contact date, so include their projects + workOrders + latest activity.
     const rows = await prisma.customer.findMany({
       where,
       orderBy: { name: "asc" },
+      include: {
+        projects: {
+          where: { deletedAt: null },
+          select: {
+            _count: { select: { workOrders: true } },
+            activity: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { createdAt: true },
+            },
+          },
+        },
+      },
     });
-    res.json(rows.map(customerDto));
+
+    res.json(rows.map(customerListDto));
   }),
 );
 
@@ -90,7 +107,7 @@ customersRouter.post(
   }),
 );
 
-// PATCH /customers/:id — admin: any; klant: own only.
+// PATCH /customers/:id — admin: any; client: own only.
 customersRouter.patch(
   "/:id",
   asyncHandler(async (req, res) => {

@@ -1,8 +1,8 @@
 export type CatalogCategory =
-  | "isolatie"
-  | "materiaal"
-  | "arbeid"
-  | "logistiek";
+  | "insulation"
+  | "material"
+  | "labor"
+  | "logistics";
 
 export type CatalogItem = {
   id: string;
@@ -15,7 +15,7 @@ export type CatalogItem = {
 
 export const catalogItems: CatalogItem[] = [
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-spouwmuur",
     name: "Spouwmuurisolatie",
@@ -23,7 +23,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 18,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-dak-binnen",
     name: "Dakisolatie binnenzijde",
@@ -31,7 +31,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 28,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-dak-buiten",
     name: "Dakisolatie buitenzijde",
@@ -39,7 +39,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 52,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-vloer",
     name: "Vloerisolatie",
@@ -47,7 +47,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 24,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-bodem",
     name: "Bodemisolatie",
@@ -55,7 +55,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 22,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-gevel",
     name: "Gevelisolatie buitenzijde",
@@ -63,7 +63,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 78,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-armaflex-af2",
     name: "Armaflex AF2",
@@ -71,7 +71,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 6,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-armaflex-13",
     name: "Armaflex 13mm",
@@ -79,7 +79,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 4,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-rockwool-25",
     name: "Rockwool 25",
@@ -87,7 +87,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 8,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-rockwool-28",
     name: "Rockwool 28",
@@ -95,7 +95,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 9,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-lameldeken",
     name: "Lameldeken",
@@ -103,7 +103,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 120,
   },
   {
-    category: "isolatie",
+    category: "insulation",
     defaultQuantity: 0,
     id: "iso-tracing",
     name: "Tracing",
@@ -111,7 +111,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 5,
   },
   {
-    category: "materiaal",
+    category: "material",
     defaultQuantity: 0,
     id: "mat-spuitlijm",
     name: "Spuitlijm",
@@ -119,7 +119,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 18,
   },
   {
-    category: "materiaal",
+    category: "material",
     defaultQuantity: 0,
     id: "mat-pir-60",
     name: "PIR platen 60mm",
@@ -127,7 +127,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 15,
   },
   {
-    category: "materiaal",
+    category: "material",
     defaultQuantity: 0,
     id: "mat-pir-100",
     name: "PIR platen 100mm",
@@ -135,7 +135,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 22,
   },
   {
-    category: "materiaal",
+    category: "material",
     defaultQuantity: 0,
     id: "mat-eps",
     name: "EPS parels HR++",
@@ -143,7 +143,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 40,
   },
   {
-    category: "materiaal",
+    category: "material",
     defaultQuantity: 0,
     id: "mat-pur",
     name: "PUR schuim set",
@@ -151,7 +151,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 85,
   },
   {
-    category: "materiaal",
+    category: "material",
     defaultQuantity: 0,
     id: "mat-folie",
     name: "Bodemfolie 300mu",
@@ -159,7 +159,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 65,
   },
   {
-    category: "materiaal",
+    category: "material",
     defaultQuantity: 0,
     id: "mat-rooster",
     name: "Ventilatierooster",
@@ -167,7 +167,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 32,
   },
   {
-    category: "arbeid",
+    category: "labor",
     defaultQuantity: 0,
     id: "lab-uur",
     name: "Arbeid en uitvoering",
@@ -175,7 +175,7 @@ export const catalogItems: CatalogItem[] = [
     unitPrice: 65,
   },
   {
-    category: "logistiek",
+    category: "logistics",
     defaultQuantity: 1,
     id: "log-voorrijden",
     name: "Voorrijden en logistiek",
@@ -186,13 +186,13 @@ export const catalogItems: CatalogItem[] = [
 
 // Vaste eenheden voor werkbonregels (vervangt de losse "Soort"/"Meters/Bocht"
 // kolommen van de papieren bon).
-export const werkbonEenheden = ["meter", "bocht", "rol", "stuk", "m2"];
+export const workOrderUnits = ["meter", "bocht", "rol", "stuk", "m2"];
 
 export const catalogCategoryLabels: Record<CatalogCategory, string> = {
-  arbeid: "Arbeid",
-  isolatie: "Isolatiewerk",
-  logistiek: "Logistiek",
-  materiaal: "Materiaal",
+  labor: "Arbeid",
+  insulation: "Isolatiewerk",
+  logistics: "Logistiek",
+  material: "Materiaal",
 };
 
 export function findCatalogItem(id?: string) {

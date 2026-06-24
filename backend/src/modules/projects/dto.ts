@@ -3,10 +3,10 @@ import type {
   DeliveryChecklistItem,
   Intake,
   Invoice,
-  Meerwerk,
+  ExtraWork,
   MaterialRequirement,
-  Oplevering,
-  OpleverItem,
+  Handover,
+  HandoverItem,
   Project,
   ProjectActivity,
   ProjectTask,
@@ -17,20 +17,20 @@ import { canSeePrices, type UserRole } from "@opero/shared";
 
 // DTO mappers — never return raw rows with internal columns to clients.
 //
-// CRITICAL: monteurs must not see prices/financials. `canSeePrices(role)` is
-// false for monteur; in that case every money field (line-item unitPrice, quote
-// amount, project value, invoice amounts, meerwerk price/amount) is stripped.
+// CRITICAL: technicians must not see prices/financials. `canSeePrices(role)` is
+// false for technician; in that case every money field (line-item unitPrice, quote
+// amount, project value, invoice amounts, extraWork price/amount) is stripped.
 
 // Shape of a project loaded with all nested relations we expose.
 export type ProjectWithRelations = Project & {
   intake: Intake | null;
   quote: (Quote & { lineItems: QuoteLineItem[] }) | null;
   invoice: Invoice | null;
-  oplevering: (Oplevering & { checklist: OpleverItem[] }) | null;
+  handover: (Handover & { checklist: HandoverItem[] }) | null;
   deliveryChecklist:
     | (DeliveryChecklist & { items: DeliveryChecklistItem[] })
     | null;
-  meerwerk: Meerwerk[];
+  extraWork: ExtraWork[];
   materialRequirements: MaterialRequirement[];
   tasks: ProjectTask[];
   installers: { id: string }[];
@@ -64,7 +64,7 @@ function quoteLineDto(l: QuoteLineItem, showPrices: boolean) {
   return {
     id: l.id,
     catalogItemId: l.catalogItemId ?? undefined,
-    werksoort: l.werksoort ?? undefined,
+    workType: l.workType ?? undefined,
     description: l.description,
     size: l.size ?? undefined,
     quantity: l.quantity,
@@ -107,7 +107,7 @@ function invoiceDto(inv: Invoice, showPrices: boolean) {
   };
 }
 
-function meerwerkDto(m: Meerwerk, showPrices: boolean) {
+function extraWorkDto(m: ExtraWork, showPrices: boolean) {
   return {
     id: m.id,
     description: m.description,
@@ -140,7 +140,7 @@ function materialRequirementDto(r: MaterialRequirement) {
   };
 }
 
-function opleveringDto(o: Oplevering & { checklist: OpleverItem[] }) {
+function handoverDto(o: Handover & { checklist: HandoverItem[] }) {
   return {
     id: o.id,
     photos: o.photos,
@@ -185,7 +185,7 @@ export function activityDto(
   };
 }
 
-// Lightweight list/summary DTO. `value` omitted for monteurs.
+// Lightweight list/summary DTO. `value` omitted for technicians.
 export function projectSummaryDto(p: Project, role: UserRole) {
   const showPrices = canSeePrices(role);
   return {
@@ -203,7 +203,7 @@ export function projectSummaryDto(p: Project, role: UserRole) {
 }
 
 // Full nested aggregate DTO. Takes the requesting role so prices are stripped
-// for monteurs.
+// for technicians.
 export function projectDto(p: ProjectWithRelations, role: UserRole) {
   const showPrices = canSeePrices(role);
   return {
@@ -222,7 +222,7 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
     insulationType: p.insulationType,
     squareMeters: p.squareMeters,
     description: p.description ?? undefined,
-    werksoorten: p.werksoorten,
+    workTypes: p.workTypes,
     exclusions: p.exclusions ?? undefined,
     billingType: p.billingType ?? undefined,
     archived: p.archived,
@@ -235,8 +235,8 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
     plannedDate: p.plannedDate ?? undefined,
     plannedEndDate: p.plannedEndDate ?? undefined,
     ...(showPrices ? { value: p.value } : {}),
-    opnamePhotos: p.opnamePhotos,
-    opnameNotes: p.opnameNotes,
+    surveyPhotos: p.surveyPhotos,
+    surveyNotes: p.surveyNotes,
     // team ids
     projectLeaderId: p.projectLeaderId ?? undefined,
     teamLeaderId: p.teamLeaderId ?? undefined,
@@ -245,11 +245,11 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
     intake: p.intake ? intakeDto(p.intake) : undefined,
     quote: p.quote ? quoteDto(p.quote, showPrices) : undefined,
     invoice: p.invoice ? invoiceDto(p.invoice, showPrices) : undefined,
-    oplevering: p.oplevering ? opleveringDto(p.oplevering) : undefined,
+    handover: p.handover ? handoverDto(p.handover) : undefined,
     deliveryChecklist: p.deliveryChecklist
       ? deliveryChecklistDto(p.deliveryChecklist)
       : undefined,
-    meerwerk: p.meerwerk.map((m) => meerwerkDto(m, showPrices)),
+    extraWork: p.extraWork.map((m) => extraWorkDto(m, showPrices)),
     materialRequirements: p.materialRequirements.map(materialRequirementDto),
     tasks: [...p.tasks]
       .sort((a, b) => a.ordinal - b.ordinal)
@@ -263,9 +263,9 @@ export const projectInclude = {
   intake: true,
   quote: { include: { lineItems: true } },
   invoice: true,
-  oplevering: { include: { checklist: true } },
+  handover: { include: { checklist: true } },
   deliveryChecklist: { include: { items: true } },
-  meerwerk: true,
+  extraWork: true,
   materialRequirements: true,
   tasks: true,
   installers: { select: { id: true } },

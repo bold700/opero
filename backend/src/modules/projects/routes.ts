@@ -33,10 +33,10 @@ import {
   addQuoteLineSchema,
   updateQuoteLineSchema,
   quoteFromCatalogSchema,
-  addMeerwerkSchema,
-  rejectMeerwerkSchema,
+  addExtraWorkSchema,
+  rejectExtraWorkSchema,
   restpuntenSchema,
-  signOpleveringSchema,
+  signHandoverSchema,
 } from "./schema.js";
 
 export const projectsRouter = Router();
@@ -51,15 +51,15 @@ const STAGE_ORDER = ["concept", "in_progress", "ready", "done"] as const;
 type Stage = (typeof STAGE_ORDER)[number];
 
 const STATUS_LABELS: Record<string, string> = {
-  verkoop: "Verkoop",
-  operatie: "Operatie",
-  afronding: "Afronding",
+  sales: "Verkoop",
+  operations: "Operatie",
+  closing: "Afronding",
 };
 
 const NEXT_STEP_BY_STATUS: Record<string, string> = {
-  verkoop: "Offerte versturen",
-  operatie: "Werk uitvoeren",
-  afronding: "Oplevering en factuur",
+  sales: "Offerte versturen",
+  operations: "Werk uitvoeren",
+  closing: "Oplevering en factuur",
 };
 
 function todayIso(): string {
@@ -86,7 +86,7 @@ async function appendActivity(
   projectId: string,
   type: "status_change" | "comment" | "scheduled" | "system",
   body: string,
-  statuses?: { fromStatus: "verkoop" | "operatie" | "afronding"; toStatus: "verkoop" | "operatie" | "afronding" },
+  statuses?: { fromStatus: "sales" | "operations" | "closing"; toStatus: "sales" | "operations" | "closing" },
 ): Promise<void> {
   await tx.projectActivity.create({
     data: {
@@ -227,10 +227,10 @@ projectsRouter.post(
           city: customer.city,
           insulationType: defaultInsulation,
           description: notes,
-          werksoorten: [],
+          workTypes: [],
           exclusions: "",
           stage: "concept",
-          status: "verkoop",
+          status: "sales",
           urgency: "normal",
           nextStep: "Intake inplannen",
           materialsReady: false,
@@ -363,7 +363,7 @@ projectsRouter.delete(
   }),
 );
 
-// POST /:id/archive — admin. archived true, stage done, status afronding.
+// POST /:id/archive — admin. archived true, stage done, status closing.
 projectsRouter.post(
   "/:id/archive",
   requireRole("admin"),
@@ -373,7 +373,7 @@ projectsRouter.post(
     const updated = await prisma.$transaction(async (tx) => {
       await tx.project.update({
         where: { id: existing.id },
-        data: { archived: true, stage: "done", status: "afronding" },
+        data: { archived: true, stage: "done", status: "closing" },
       });
       await audit(tx, user, "project.archive", "project", existing.id);
       return tx.project.findUniqueOrThrow({
@@ -411,9 +411,9 @@ projectsRouter.post(
         status,
         nextStep: NEXT_STEP_BY_STATUS[status],
       };
-      // Moving to operatie/afronding implies accepted quote.
+      // Moving to operations/closing implies accepted quote.
       if (
-        (status === "operatie" || status === "afronding") &&
+        (status === "operations" || status === "closing") &&
         existing.quote
       ) {
         await tx.quote.update({
@@ -425,8 +425,8 @@ projectsRouter.post(
           },
         });
       }
-      // Moving to afronding readies a draft invoice with derived totals.
-      if (status === "afronding" && existing.invoice && existing.quote) {
+      // Moving to closing readies a draft invoice with derived totals.
+      if (status === "closing" && existing.invoice && existing.quote) {
         const totals = deriveInvoiceTotals(
           existing.quote.amount,
           existing.quote.lineItems,
@@ -563,18 +563,18 @@ projectsRouter.post(
             ? null
             : existing.blocker ?? "Niet alle materialen zijn beschikbaar.",
           nextStep: available ? "Project plannen" : "Inkooplijst maken",
-          status: "operatie",
+          status: "operations",
           urgency: available ? existing.urgency : "blocked",
         },
       });
-      if (fromStatus !== "operatie") {
+      if (fromStatus !== "operations") {
         await appendActivity(
           tx,
           user,
           existing.id,
           "status_change",
           "Materialencheck gestart",
-          { fromStatus, toStatus: "operatie" },
+          { fromStatus, toStatus: "operations" },
         );
       }
       await audit(tx, user, "project.materialsCheck", "project", existing.id);
@@ -796,8 +796,8 @@ projectsRouter.post(
           quoteId: quote.id,
           description:
             input.description !== undefined ? clampText(input.description) : "",
-          werksoort: input.werksoort
-            ? clampText(input.werksoort)
+          workType: input.workType
+            ? clampText(input.workType)
             : "Warme leidingisolatie",
           size: input.size !== undefined ? clampText(input.size) : "",
           quantity: input.quantity !== undefined ? clampNumber(input.quantity) : 1,
@@ -879,7 +879,7 @@ projectsRouter.patch(
     const data: Prisma.QuoteLineItemUpdateInput = {};
     if (input.description !== undefined)
       data.description = clampText(input.description);
-    if (input.werksoort !== undefined) data.werksoort = clampText(input.werksoort);
+    if (input.workType !== undefined) data.workType = clampText(input.workType);
     if (input.size !== undefined) data.size = clampText(input.size);
     if (input.quantity !== undefined) data.quantity = clampNumber(input.quantity);
     if (input.unit !== undefined) data.unit = clampText(input.unit);
@@ -980,7 +980,7 @@ projectsRouter.post(
   }),
 );
 
-// POST /:id/quote/accept — admin OR klant on own project. Mirror acceptQuote.
+// POST /:id/quote/accept — admin OR client on own project. Mirror acceptQuote.
 projectsRouter.post(
   "/:id/quote/accept",
   asyncHandler(async (req, res) => {
@@ -996,10 +996,10 @@ projectsRouter.post(
     if (!existing) throw NotFound("Project not found");
     if (!existing.quote) throw NotFound("Quote not found");
 
-    // admin always; klant only on their own project (visibility already
-    // enforces customer match, but gate explicitly to forbid monteur).
+    // admin always; client only on their own project (visibility already
+    // enforces customer match, but gate explicitly to forbid technician).
     if (user.role !== "admin") {
-      if (user.role !== "klant" || existing.customerId !== user.customerId) {
+      if (user.role !== "client" || existing.customerId !== user.customerId) {
         throw Forbidden("Not allowed to accept this quote");
       }
     }
@@ -1027,7 +1027,7 @@ projectsRouter.post(
       await tx.project.update({
         where: { id: existing.id },
         data: {
-          status: "operatie",
+          status: "operations",
           blocker: available
             ? null
             : existing.blocker ?? "Niet alle materialen zijn beschikbaar.",
@@ -1035,14 +1035,14 @@ projectsRouter.post(
           urgency: available ? existing.urgency : "blocked",
         },
       });
-      if (fromStatus !== "operatie") {
+      if (fromStatus !== "operations") {
         await appendActivity(
           tx,
           user,
           existing.id,
           "status_change",
           "Offerte geaccepteerd - project naar Operatie",
-          { fromStatus, toStatus: "operatie" },
+          { fromStatus, toStatus: "operations" },
         );
       }
       await audit(tx, user, "project.quote.accept", "project", existing.id);
@@ -1184,7 +1184,7 @@ projectsRouter.get(
   }),
 );
 
-// POST /:id/comments — admin + monteur (assigned) + klant (own).
+// POST /:id/comments — admin + technician (assigned) + client (own).
 projectsRouter.post(
   "/:id/comments",
   asyncHandler(async (req, res) => {
@@ -1192,7 +1192,7 @@ projectsRouter.post(
     const { body } = commentSchema.parse(req.body);
     const existing = await loadProjectForUser(user, req.params.id);
     // loadProjectForUser already enforces visibility; canViewProject is the
-    // same gate for clarity (admin: any, klant: own, monteur: assigned).
+    // same gate for clarity (admin: any, client: own, technician: assigned).
     if (!canViewProject(user, existing)) {
       throw Forbidden("Not allowed to comment on this project");
     }
@@ -1214,20 +1214,20 @@ projectsRouter.post(
 );
 
 // =========================================================================
-// MEERWERK
+// EXTRA WORK
 // =========================================================================
 
-// POST /:id/meerwerk — admin + monteur (assigned) may create. Mirror addMeerwerk.
+// POST /:id/extra-work — admin + technician (assigned) may create. Mirror addExtraWork.
 projectsRouter.post(
-  "/:id/meerwerk",
+  "/:id/extra-work",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const input = addMeerwerkSchema.parse(req.body);
+    const input = addExtraWorkSchema.parse(req.body);
     const existing = await loadProjectForUser(user, req.params.id);
-    // admin or monteur-on-assigned (klant may not create meerwerk).
+    // admin or technician-on-assigned (client may not create extra work).
     if (user.role !== "admin") {
-      if (user.role !== "monteur" || !canViewProject(user, existing)) {
-        throw Forbidden("Not allowed to add meerwerk to this project");
+      if (user.role !== "technician" || !canViewProject(user, existing)) {
+        throw Forbidden("Not allowed to add extra work to this project");
       }
     }
 
@@ -1240,10 +1240,10 @@ projectsRouter.post(
     const description = label || `${quantity} ${unit} ${name}`.trim();
     const amount = Math.round(quantity * unitPrice);
     // TODO(Phase 7): real upload — placeholder filename for now.
-    const photos = input.photo ? [`meerwerk-${Date.now()}.jpg`] : [];
+    const photos = input.photo ? [`extra-work-${Date.now()}.jpg`] : [];
 
     await prisma.$transaction(async (tx) => {
-      await tx.meerwerk.create({
+      await tx.extraWork.create({
         data: {
           projectId: existing.id,
           description,
@@ -1265,34 +1265,34 @@ projectsRouter.post(
         "system",
         `Meerwerk gemeld: ${description} (${formatEuro(amount)})`,
       );
-      await audit(tx, user, "project.meerwerk.add", "project", existing.id);
+      await audit(tx, user, "project.extraWork.add", "project", existing.id);
     });
 
     res.status(201).json(await reloadProject(user, existing.id));
   }),
 );
 
-// Load a meerwerk row scoped to a visible project.
-async function loadMeerwerk(user: AuthUser, projectId: string, mwId: string) {
+// Load an extra work row scoped to a visible project.
+async function loadExtraWork(user: AuthUser, projectId: string, mwId: string) {
   const project = await loadProjectForUser(user, projectId);
-  const item = await prisma.meerwerk.findFirst({
+  const item = await prisma.extraWork.findFirst({
     where: { id: mwId, projectId: project.id },
   });
-  if (!item) throw NotFound("Meerwerk not found");
+  if (!item) throw NotFound("Extra work not found");
   return { project, item };
 }
 
-// POST /:id/meerwerk/:mwId/approve-office — admin. Toggle. Mirror store.
+// POST /:id/extra-work/:mwId/approve-office — admin. Toggle. Mirror store.
 projectsRouter.post(
-  "/:id/meerwerk/:mwId/approve-office",
+  "/:id/extra-work/:mwId/approve-office",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { project, item } = await loadMeerwerk(user, req.params.id, req.params.mwId);
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
     const next = !item.approvedByOffice;
 
     await prisma.$transaction(async (tx) => {
-      await tx.meerwerk.update({
+      await tx.extraWork.update({
         where: { id: item.id },
         data: { approvedByOffice: next, rejected: false },
       });
@@ -1303,28 +1303,28 @@ projectsRouter.post(
         "system",
         `Meerwerk "${item.description}": kantoor ${next ? "akkoord" : "akkoord ingetrokken"}`,
       );
-      await audit(tx, user, "project.meerwerk.approveOffice", "project", project.id);
+      await audit(tx, user, "project.extraWork.approveOffice", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));
   }),
 );
 
-// POST /:id/meerwerk/:mwId/approve-client — admin OR klant on own. Toggle.
+// POST /:id/extra-work/:mwId/approve-client — admin OR client on own. Toggle.
 projectsRouter.post(
-  "/:id/meerwerk/:mwId/approve-client",
+  "/:id/extra-work/:mwId/approve-client",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { project, item } = await loadMeerwerk(user, req.params.id, req.params.mwId);
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
     if (user.role !== "admin") {
-      if (user.role !== "klant" || project.customerId !== user.customerId) {
-        throw Forbidden("Not allowed to approve this meerwerk");
+      if (user.role !== "client" || project.customerId !== user.customerId) {
+        throw Forbidden("Not allowed to approve this extra work");
       }
     }
     const next = !item.approvedByClient;
 
     await prisma.$transaction(async (tx) => {
-      await tx.meerwerk.update({
+      await tx.extraWork.update({
         where: { id: item.id },
         data: { approvedByClient: next, rejected: false },
       });
@@ -1335,25 +1335,25 @@ projectsRouter.post(
         "system",
         `Meerwerk "${item.description}": opdrachtgever ${next ? "akkoord" : "akkoord ingetrokken"}`,
       );
-      await audit(tx, user, "project.meerwerk.approveClient", "project", project.id);
+      await audit(tx, user, "project.extraWork.approveClient", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));
   }),
 );
 
-// POST /:id/meerwerk/:mwId/reject — admin. {by?}. Mirror rejectMeerwerk.
+// POST /:id/extra-work/:mwId/reject — admin. {by?}. Mirror rejectExtraWork.
 projectsRouter.post(
-  "/:id/meerwerk/:mwId/reject",
+  "/:id/extra-work/:mwId/reject",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { by } = rejectMeerwerkSchema.parse(req.body);
+    const { by } = rejectExtraWorkSchema.parse(req.body);
     const rejectedBy = by ?? "office";
-    const { project, item } = await loadMeerwerk(user, req.params.id, req.params.mwId);
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
 
     await prisma.$transaction(async (tx) => {
-      await tx.meerwerk.update({
+      await tx.extraWork.update({
         where: { id: item.id },
         data: {
           rejected: true,
@@ -1369,24 +1369,24 @@ projectsRouter.post(
         "system",
         `Meerwerk "${item.description}": afgewezen door ${rejectedBy === "client" ? "opdrachtgever" : "kantoor"}`,
       );
-      await audit(tx, user, "project.meerwerk.reject", "project", project.id);
+      await audit(tx, user, "project.extraWork.reject", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));
   }),
 );
 
-// POST /:id/meerwerk/:mwId/toggle-done — admin. Mirror toggleMeerwerkDone.
+// POST /:id/extra-work/:mwId/toggle-done — admin. Mirror toggleExtraWorkDone.
 projectsRouter.post(
-  "/:id/meerwerk/:mwId/toggle-done",
+  "/:id/extra-work/:mwId/toggle-done",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { project, item } = await loadMeerwerk(user, req.params.id, req.params.mwId);
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
     const next = !item.done;
 
     await prisma.$transaction(async (tx) => {
-      await tx.meerwerk.update({ where: { id: item.id }, data: { done: next } });
+      await tx.extraWork.update({ where: { id: item.id }, data: { done: next } });
       await appendActivity(
         tx,
         user,
@@ -1394,7 +1394,7 @@ projectsRouter.post(
         "system",
         `Meerwerk "${item.description}": ${next ? "afgerond" : "heropend"}`,
       );
-      await audit(tx, user, "project.meerwerk.toggleDone", "project", project.id);
+      await audit(tx, user, "project.extraWork.toggleDone", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));
@@ -1402,11 +1402,11 @@ projectsRouter.post(
 );
 
 // =========================================================================
-// OPLEVERING — admin + monteur (assigned)
+// HANDOVER — admin + technician (assigned)
 // =========================================================================
 
-// Gate oplevering writes to admin or monteur-on-assigned.
-function assertOpleveringWriter(
+// Gate handover writes to admin or technician-on-assigned.
+function assertHandoverWriter(
   user: AuthUser,
   project: {
     customerId: string;
@@ -1416,26 +1416,26 @@ function assertOpleveringWriter(
   },
 ) {
   if (user.role === "admin") return;
-  if (user.role === "monteur" && canViewProject(user, project)) return;
-  throw Forbidden("Not allowed for this oplevering");
+  if (user.role === "technician" && canViewProject(user, project)) return;
+  throw Forbidden("Not allowed for this handover");
 }
 
-// POST /:id/oplevering/init — create checklist if absent. Mirror initOplevering.
+// POST /:id/handover/init — create checklist if absent. Mirror initHandover.
 projectsRouter.post(
-  "/:id/oplevering/init",
+  "/:id/handover/init",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.project.findFirst({
       where: projectScopeWhere(user, { id: req.params.id }),
       include: {
-        oplevering: { include: { checklist: true } },
+        handover: { include: { checklist: true } },
         installers: { select: { id: true } },
       },
     });
     if (!existing) throw NotFound("Project not found");
-    assertOpleveringWriter(user, existing);
+    assertHandoverWriter(user, existing);
 
-    if (existing.oplevering && existing.oplevering.checklist.length > 0) {
+    if (existing.handover && existing.handover.checklist.length > 0) {
       return res.json(await reloadProject(user, existing.id));
     }
 
@@ -1449,114 +1449,114 @@ projectsRouter.post(
     ];
 
     await prisma.$transaction(async (tx) => {
-      if (existing.oplevering) {
-        await tx.opleverItem.createMany({
-          data: items.map((i) => ({ ...i, opleveringId: existing.oplevering!.id })),
+      if (existing.handover) {
+        await tx.handoverItem.createMany({
+          data: items.map((i) => ({ ...i, handoverId: existing.handover!.id })),
         });
       } else {
-        await tx.oplevering.create({
+        await tx.handover.create({
           data: {
             projectId: existing.id,
             checklist: { create: items },
           },
         });
       }
-      await audit(tx, user, "project.oplevering.init", "project", existing.id);
+      await audit(tx, user, "project.handover.init", "project", existing.id);
     });
 
     res.json(await reloadProject(user, existing.id));
   }),
 );
 
-// Load oplevering scoped to a visible project, with writer gate.
-async function loadOplevering(user: AuthUser, projectId: string) {
+// Load handover scoped to a visible project, with writer gate.
+async function loadHandover(user: AuthUser, projectId: string) {
   const project = await prisma.project.findFirst({
     where: projectScopeWhere(user, { id: projectId }),
-    include: { oplevering: true, installers: { select: { id: true } } },
+    include: { handover: true, installers: { select: { id: true } } },
   });
   if (!project) throw NotFound("Project not found");
-  assertOpleveringWriter(user, project);
-  if (!project.oplevering) throw NotFound("Oplevering not found");
-  return { project, oplevering: project.oplevering };
+  assertHandoverWriter(user, project);
+  if (!project.handover) throw NotFound("Handover not found");
+  return { project, handover: project.handover };
 }
 
-// POST /:id/oplevering/items/:itemId/toggle.
+// POST /:id/handover/items/:itemId/toggle.
 projectsRouter.post(
-  "/:id/oplevering/items/:itemId/toggle",
+  "/:id/handover/items/:itemId/toggle",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { project, oplevering } = await loadOplevering(user, req.params.id);
-    const item = await prisma.opleverItem.findFirst({
-      where: { id: req.params.itemId, opleveringId: oplevering.id },
+    const { project, handover } = await loadHandover(user, req.params.id);
+    const item = await prisma.handoverItem.findFirst({
+      where: { id: req.params.itemId, handoverId: handover.id },
     });
-    if (!item) throw NotFound("Oplever item not found");
+    if (!item) throw NotFound("Handover item not found");
 
     await prisma.$transaction(async (tx) => {
-      await tx.opleverItem.update({
+      await tx.handoverItem.update({
         where: { id: item.id },
         data: { done: !item.done },
       });
-      await audit(tx, user, "project.oplevering.toggle", "project", project.id);
+      await audit(tx, user, "project.handover.toggle", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));
   }),
 );
 
-// POST /:id/oplevering/photo — placeholder filename. Mirror addOpleverPhoto.
+// POST /:id/handover/photo — placeholder filename. Mirror addHandoverPhoto.
 projectsRouter.post(
-  "/:id/oplevering/photo",
+  "/:id/handover/photo",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { project, oplevering } = await loadOplevering(user, req.params.id);
+    const { project, handover } = await loadHandover(user, req.params.id);
     // TODO(Phase 7): real upload — placeholder filename for now.
-    const filename = `oplevering-${Date.now()}.jpg`;
+    const filename = `handover-${Date.now()}.jpg`;
 
     await prisma.$transaction(async (tx) => {
-      await tx.oplevering.update({
-        where: { id: oplevering.id },
+      await tx.handover.update({
+        where: { id: handover.id },
         data: { photos: { push: filename } },
       });
-      await audit(tx, user, "project.oplevering.photo", "project", project.id);
+      await audit(tx, user, "project.handover.photo", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));
   }),
 );
 
-// PATCH /:id/oplevering/restpunten — {restpunten}.
+// PATCH /:id/handover/restpunten — {restpunten}.
 projectsRouter.patch(
-  "/:id/oplevering/restpunten",
+  "/:id/handover/restpunten",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { restpunten } = restpuntenSchema.parse(req.body);
-    const { project, oplevering } = await loadOplevering(user, req.params.id);
+    const { project, handover } = await loadHandover(user, req.params.id);
 
     await prisma.$transaction(async (tx) => {
-      await tx.oplevering.update({
-        where: { id: oplevering.id },
+      await tx.handover.update({
+        where: { id: handover.id },
         data: { restpunten: clampText(restpunten) },
       });
-      await audit(tx, user, "project.oplevering.restpunten", "project", project.id);
+      await audit(tx, user, "project.handover.restpunten", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));
   }),
 );
 
-// POST /:id/oplevering/sign — {signedBy}. Mirror signOplevering.
+// POST /:id/handover/sign — {signedBy}. Mirror signHandover.
 projectsRouter.post(
-  "/:id/oplevering/sign",
+  "/:id/handover/sign",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { signedBy } = signOpleveringSchema.parse(req.body);
-    const { project, oplevering } = await loadOplevering(user, req.params.id);
+    const { signedBy } = signHandoverSchema.parse(req.body);
+    const { project, handover } = await loadHandover(user, req.params.id);
     const name = clampText(signedBy).trim();
     if (!name) throw BadRequest("signedBy required");
 
     await prisma.$transaction(async (tx) => {
-      await tx.oplevering.update({
-        where: { id: oplevering.id },
+      await tx.handover.update({
+        where: { id: handover.id },
         data: { signedBy: name, completedAt: todayIso() },
       });
       await appendActivity(
@@ -1566,7 +1566,7 @@ projectsRouter.post(
         "system",
         `Oplevering ondertekend door ${name}`,
       );
-      await audit(tx, user, "project.oplevering.sign", "project", project.id);
+      await audit(tx, user, "project.handover.sign", "project", project.id);
     });
 
     res.json(await reloadProject(user, project.id));

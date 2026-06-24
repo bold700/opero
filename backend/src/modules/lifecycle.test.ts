@@ -50,7 +50,7 @@ afterAll(async () => {
 });
 
 describe("full project lifecycle", () => {
-  it("runs create customer → project → intake → quote → accept → werkbon → finish → invoice → paid", async () => {
+  it("runs create customer → project → intake → quote → accept → workOrder → finish → invoice → paid", async () => {
     // 1. create customer
     const cust = await request(app)
       .post("/api/customers")
@@ -92,11 +92,11 @@ describe("full project lifecycle", () => {
       .set(auth(adminToken));
     expect([200, 204]).toContain(accept.status);
 
-    // 5. create a werkbon, a task, a material; finish it
+    // 5. create a workOrder, a task, a material; finish it
     const wb = await request(app)
       .post(`/api/work-orders`)
       .set(auth(adminToken))
-      .send({ projectId: pid, title: "Werkbon 1" });
+      .send({ projectId: pid, title: "Work order 1" });
     expect(wb.status).toBe(201);
     const wbId = wb.body.id;
 
@@ -143,11 +143,11 @@ describe("full project lifecycle", () => {
     // 7. verify final DB state
     const dbProject = await prisma.project.findUnique({
       where: { id: pid },
-      include: { invoice: true, quote: true, werkbonnen: true },
+      include: { invoice: true, quote: true, workOrders: true },
     });
     expect(dbProject?.invoice?.status).toBe("paid");
     expect(dbProject?.quote?.status).toBe("accepted");
-    expect(dbProject?.werkbonnen.length).toBeGreaterThan(0);
+    expect(dbProject?.workOrders.length).toBeGreaterThan(0);
     expect(dbProject?.signature).toBe("Klant Handtekening");
 
     // 8. audit log captured the mutations

@@ -6,12 +6,12 @@ import { z } from "zod";
 // The TeamRole enum, expressed as zod string literals (matches schema.prisma).
 export const teamRoleSchema = z.enum([
   "Sales",
-  "Werkvoorbereider",
+  "WorkPlanner",
   "Planner",
-  "Voorman",
-  "Monteur",
-  "Administratie",
-  "Projectleider",
+  "Foreman",
+  "Technician",
+  "Administration",
+  "ProjectLeader",
 ]);
 
 export type TeamRoleValue = z.infer<typeof teamRoleSchema>;

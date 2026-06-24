@@ -41,8 +41,8 @@ async function appendActivity(
   type: "status_change" | "comment" | "scheduled" | "system",
   body: string,
   statuses?: {
-    fromStatus: "verkoop" | "operatie" | "afronding";
-    toStatus: "verkoop" | "operatie" | "afronding";
+    fromStatus: "sales" | "operations" | "closing";
+    toStatus: "sales" | "operations" | "closing";
   },
 ): Promise<void> {
   await tx.projectActivity.create({
@@ -57,10 +57,10 @@ async function appendActivity(
   });
 }
 
-// Reject klant outright (Planning = klant NONE). admin + monteur continue;
-// monteur is read-only and own-scoped (enforced by projectScopeWhere).
-function assertNotKlant(user: AuthUser): void {
-  if (user.role === "klant") throw Forbidden("Not available");
+// Reject client outright (Planning = client NONE). admin + technician continue;
+// technician is read-only and own-scoped (enforced by projectScopeWhere).
+function assertNotClient(user: AuthUser): void {
+  if (user.role === "client") throw Forbidden("Not available");
 }
 
 // Load a project scoped to org + role visibility, throw 404 if not visible.
@@ -102,14 +102,14 @@ async function reloadEntries(
 // CALENDAR FEED
 // =========================================================================
 
-// GET /?from=&to=&view= — flat calendar feed. admin: whole org; monteur: only
-// projects they're assigned to (teamLeader/projectLeader/installer). klant: 403.
+// GET /?from=&to=&view= — flat calendar feed. admin: whole org; technician: only
+// projects they're assigned to (teamLeader/projectLeader/installer). client: 403.
 // A project is "on the calendar" if it has PlanningItems or a plannedDate.
 planningRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    assertNotKlant(user);
+    assertNotClient(user);
     const { from, to } = calendarQuerySchema.parse(req.query);
 
     const projects = await prisma.project.findMany({
@@ -143,12 +143,12 @@ planningRouter.get(
 // =========================================================================
 
 // GET /route?date= — planned projects for a day, ordered by address (MVP: a
-// simple ordered list, no real routing). admin: org-wide; monteur: own. klant: 403.
+// simple ordered list, no real routing). admin: org-wide; technician: own. client: 403.
 planningRouter.get(
   "/route",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    assertNotKlant(user);
+    assertNotClient(user);
     const { date } = routeQuerySchema.parse(req.query);
     const day = date ?? todayIso();
 
@@ -187,7 +187,7 @@ planningRouter.get(
 // plannedDate. Mirrors schedulePlanningSlot + scheduleProjectOnDay: updates the
 // first PlanningItem in place (or creates one with the store defaults),
 // preserves project duration by shifting plannedEndDate, and advances a
-// verkoop+accepted project to operatie. Adds a "scheduled" activity.
+// sales+accepted project to operations. Adds a "scheduled" activity.
 planningRouter.post(
   "/projects/:projectId/planning",
   requireRole("admin"),
@@ -228,7 +228,7 @@ planningRouter.post(
         : null;
 
     const shouldAdvance =
-      existing.status === "verkoop" && existing.quote?.status === "accepted";
+      existing.status === "sales" && existing.quote?.status === "accepted";
 
     const leader =
       teamLeaderId != null
@@ -294,7 +294,7 @@ planningRouter.post(
           : { disconnect: true };
       }
       if (shouldAdvance) {
-        projectData.status = "operatie";
+        projectData.status = "operations";
         projectData.nextStep = "Werkorder voorbereiden";
       }
       await tx.project.update({ where: { id: existing.id }, data: projectData });
@@ -386,8 +386,8 @@ planningRouter.delete(
 // =========================================================================
 
 // POST /projects/:projectId/planning/mark-planned — markProjectPlanned. Guarded
-// by canMoveToPlanned (status operatie + materials available). Sets status
-// operatie, ensures a plannedDate, creates a PlanningItem if none exists, and
+// by canMoveToPlanned (status operations + materials available). Sets status
+// operations, ensures a plannedDate, creates a PlanningItem if none exists, and
 // logs a status_change activity.
 planningRouter.post(
   "/projects/:projectId/planning/mark-planned",
@@ -396,9 +396,9 @@ planningRouter.post(
     const user = req.user!;
     const existing = await loadProjectForUser(user, req.params.projectId);
 
-    // canMoveToPlanned: status === "operatie" && materials available.
+    // canMoveToPlanned: status === "operations" && materials available.
     const available = materialsAvailable(existing.materialRequirements);
-    if (existing.status !== "operatie" || !available) {
+    if (existing.status !== "operations" || !available) {
       throw BadRequest("Project cannot be marked planned");
     }
 
@@ -413,7 +413,7 @@ planningRouter.post(
       await tx.project.update({
         where: { id: existing.id },
         data: {
-          status: "operatie",
+          status: "operations",
           nextStep: "Werkorder voorbereiden",
           plannedDate,
         },
@@ -447,7 +447,7 @@ planningRouter.post(
         existing.id,
         "status_change",
         "Project ingepland",
-        { fromStatus, toStatus: "operatie" },
+        { fromStatus, toStatus: "operations" },
       );
       await audit(tx, user, "planning.markPlanned", "project", existing.id);
     });

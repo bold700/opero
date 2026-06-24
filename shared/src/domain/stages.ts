@@ -2,7 +2,7 @@ import {
   type Project,
   type ProjectStatus,
   type Stage,
-  type TaakMateriaal,
+  type TaskMaterial,
 } from "../types";
 
 export const STAGE_ORDER: Stage[] = [
@@ -20,9 +20,9 @@ export const STAGE_LABELS: Record<Stage, string> = {
 };
 
 export function statusForStage(stage: Stage): ProjectStatus {
-  if (stage === "concept") return "verkoop";
-  if (stage === "done") return "afronding";
-  return "operatie";
+  if (stage === "concept") return "sales";
+  if (stage === "done") return "closing";
+  return "operations";
 }
 
 // Zet oude fases (6) en oude status om naar de vier statussen.
@@ -40,9 +40,9 @@ const STAGE_MIGRATE: Record<string, Stage> = {
 };
 
 // Alle taken (genoemde isolatieregels) zijn afgevinkt.
-export function allTakenDone(project: Project): boolean {
-  const named = (project.werkbonnen ?? [])
-    .flatMap((werkbon) => werkbon.tasks)
+export function allTasksDone(project: Project): boolean {
+  const named = (project.workOrders ?? [])
+    .flatMap((workOrder) => workOrder.tasks)
     .flatMap((task) => task.materials)
     .filter((m) => m.name.trim());
   return named.length > 0 && named.every((m) => m.done);
@@ -51,15 +51,15 @@ export function allTakenDone(project: Project): boolean {
 export function getStage(project: Project): Stage {
   const stored: Stage = project.stage
     ? (STAGE_MIGRATE[project.stage] ?? "concept")
-    : project.status === "operatie"
+    : project.status === "operations"
       ? "in_progress"
-      : project.status === "afronding"
+      : project.status === "closing"
         ? "done"
         : "concept";
   // Afgerond (ondertekend) blijft done. Anders is "ready" afgeleid: zodra alle
   // taken zijn afgevinkt staat het project klaar om af te ronden.
   if (stored === "done") return "done";
-  if (allTakenDone(project)) return "ready";
+  if (allTasksDone(project)) return "ready";
   return stored;
 }
 
@@ -71,7 +71,7 @@ export function isPaid(project: Project): boolean {
   return project.invoice.status === "paid";
 }
 
-export function meerwerkApproved(item: {
+export function extraWorkApproved(item: {
   approvedByOffice: boolean;
   approvedByClient: boolean;
   rejected: boolean;
@@ -79,23 +79,23 @@ export function meerwerkApproved(item: {
   return item.approvedByOffice && item.approvedByClient && !item.rejected;
 }
 
-export function approvedMeerwerkTotal(project: Project): number {
-  return (project.meerwerk ?? [])
-    .filter(meerwerkApproved)
+export function approvedExtraWorkTotal(project: Project): number {
+  return (project.extraWork ?? [])
+    .filter(extraWorkApproved)
     .reduce((sum, item) => sum + item.amount, 0);
 }
 
-// Eén gedeelde regelset (alle isolatieregels van alle werkbonnen). Offerte en
+// Eén gedeelde regelset (alle isolatieregels van alle workOrders). Offerte en
 // factuur zijn views op dezelfde regels.
-function eachRegel(project: Project): TaakMateriaal[] {
-  return (project.werkbonnen ?? []).flatMap((werkbon) =>
-    werkbon.tasks.flatMap((task) => task.materials),
+function eachLine(project: Project): TaskMaterial[] {
+  return (project.workOrders ?? []).flatMap((workOrder) =>
+    workOrder.tasks.flatMap((task) => task.materials),
   );
 }
 
 // Offerte: aantal x prijs (wat je offreert).
-export function offerteRegelTotal(project: Project): number {
-  return eachRegel(project).reduce(
+export function quoteLineTotal(project: Project): number {
+  return eachLine(project).reduce(
     (sum, m) => sum + m.quantity * (m.unitPrice ?? 0),
     0,
   );
@@ -103,26 +103,26 @@ export function offerteRegelTotal(project: Project): number {
 
 // Factuur: werkelijk verbruik x prijs (val terug op gepland als er nog geen
 // verbruik is ingevuld).
-export function verbruiktRegelTotal(project: Project): number {
-  return eachRegel(project).reduce(
+export function consumedLineTotal(project: Project): number {
+  return eachLine(project).reduce(
     (sum, m) => sum + (m.usedQuantity ?? m.quantity) * (m.unitPrice ?? 0),
     0,
   );
 }
 
 // Het offertebedrag: uit de regels als die er zijn, anders de oude waarde.
-export function offerteTotal(project: Project): number {
-  const fromRegels = offerteRegelTotal(project);
-  return fromRegels > 0 ? fromRegels : project.value;
+export function quoteTotal(project: Project): number {
+  const fromLines = quoteLineTotal(project);
+  return fromLines > 0 ? fromLines : project.value;
 }
 
 export function invoiceTotal(project: Project): number {
-  const verbruikt = verbruiktRegelTotal(project);
-  const basis = verbruikt > 0 ? verbruikt : project.value;
-  return basis + approvedMeerwerkTotal(project);
+  const consumed = consumedLineTotal(project);
+  const basis = consumed > 0 ? consumed : project.value;
+  return basis + approvedExtraWorkTotal(project);
 }
 
-export type MeeneemItem = {
+export type PickListItem = {
   name: string;
   unit: string;
   diameter?: number;
@@ -130,12 +130,12 @@ export type MeeneemItem = {
   onSite: number;
 };
 
-// Rolt alle isolatieregels van alle werkbonnen op tot één meeneemlijst, per
+// Rolt alle isolatieregels van alle workOrders op tot één pickList, per
 // type isolatie + eenheid + diameter, met hoeveel er al op locatie ligt.
-export function projectMeeneemlijst(project: Project): MeeneemItem[] {
-  const map = new Map<string, MeeneemItem>();
-  for (const werkbon of project.werkbonnen ?? []) {
-    for (const task of werkbon.tasks) {
+export function projectPickList(project: Project): PickListItem[] {
+  const map = new Map<string, PickListItem>();
+  for (const workOrder of project.workOrders ?? []) {
+    for (const task of workOrder.tasks) {
       for (const m of task.materials) {
         if (!m.name.trim()) continue;
         const key = `${m.name.toLowerCase()}|${m.unit}|${m.diameter ?? ""}`;

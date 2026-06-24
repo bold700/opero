@@ -8,7 +8,7 @@ import { hashPassword } from "./service.js";
 // Unique email prefix so repeated runs don't collide and we can clean up.
 const TAG = "authtest";
 const adminEmail = `${TAG}-admin@opero.test`;
-const monteurEmail = `${TAG}-monteur@opero.test`;
+const technicianEmail = `${TAG}-technician@opero.test`;
 const mfaEmail = `${TAG}-mfa@opero.test`;
 const PASSWORD = "correct-horse-battery";
 
@@ -28,7 +28,7 @@ beforeAll(async () => {
   await prisma.user.createMany({
     data: [
       { orgId, email: adminEmail, passwordHash, name: "Admin", role: "admin" },
-      { orgId, email: monteurEmail, passwordHash, name: "Monteur", role: "monteur" },
+      { orgId, email: technicianEmail, passwordHash, name: "Technician", role: "technician" },
     ],
   });
 });
@@ -158,7 +158,7 @@ describe("password reset", () => {
     // forgot-password always 204
     const forgot = await request(app)
       .post("/api/auth/forgot-password")
-      .send({ email: monteurEmail });
+      .send({ email: technicianEmail });
     expect(forgot.status).toBe(204);
 
     // unknown email also 204 (no enumeration)
@@ -172,7 +172,7 @@ describe("password reset", () => {
     // simplest is to read the most recent reset row is impossible (hash only).
     // So we drive the flow through the token we mint here by calling the service.
     const { issuePasswordReset } = await import("./tokens.js");
-    const user = await prisma.user.findUniqueOrThrow({ where: { email: monteurEmail } });
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: technicianEmail } });
     const token = await issuePasswordReset(user.id);
 
     const newPassword = "brand-new-password-9";
@@ -184,12 +184,12 @@ describe("password reset", () => {
     // old password fails, new password works
     const oldLogin = await request(app)
       .post("/api/auth/login")
-      .send({ email: monteurEmail, password: PASSWORD });
+      .send({ email: technicianEmail, password: PASSWORD });
     expect(oldLogin.status).toBe(401);
 
     const newLogin = await request(app)
       .post("/api/auth/login")
-      .send({ email: monteurEmail, password: newPassword });
+      .send({ email: technicianEmail, password: newPassword });
     expect(newLogin.status).toBe(200);
 
     // a used reset token cannot be reused

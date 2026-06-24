@@ -39,7 +39,7 @@ export const disable2faSchema = z.object({ password: z.string().min(1) });
 export type Disable2faRequest = z.infer<typeof disable2faSchema>;
 
 // User DTO returned by /auth endpoints (mirrors backend AuthUser).
-export const userRoleSchema = z.enum(["admin", "monteur", "klant"]);
+export const userRoleSchema = z.enum(["admin", "technician", "client"]);
 export type UserRoleDto = z.infer<typeof userRoleSchema>;
 
 export const authUserSchema = z.object({

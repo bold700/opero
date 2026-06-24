@@ -4,7 +4,7 @@ import { z } from "zod";
 // CreateProjectInput / update patches / nested actions. All text is clamped in
 // the handlers (clampText/clampNumber), so these keep validation light.
 
-const projectStatusSchema = z.enum(["verkoop", "operatie", "afronding"]);
+const projectStatusSchema = z.enum(["sales", "operations", "closing"]);
 const stageSchema = z.enum(["concept", "in_progress", "ready", "done"]);
 const urgencySchema = z.enum(["normal", "urgent", "blocked"]);
 
@@ -95,7 +95,7 @@ export const completeIntakeSchema = z.object({
 export const addQuoteLineSchema = z
   .object({
     description: z.string().optional(),
-    werksoort: z.string().optional(),
+    workType: z.string().optional(),
     size: z.string().optional(),
     quantity: z.number().optional(),
     unit: z.string().optional(),
@@ -105,7 +105,7 @@ export const addQuoteLineSchema = z
 
 export const updateQuoteLineSchema = z.object({
   description: z.string().optional(),
-  werksoort: z.string().optional(),
+  workType: z.string().optional(),
   size: z.string().optional(),
   quantity: z.number().optional(),
   unit: z.string().optional(),
@@ -117,8 +117,8 @@ export const quoteFromCatalogSchema = z.object({
   quantity: z.number().optional(),
 });
 
-// Meerwerk (mirror addMeerwerk input).
-export const addMeerwerkSchema = z.object({
+// ExtraWork (mirror addExtraWork input).
+export const addExtraWorkSchema = z.object({
   name: z.string().min(1),
   quantity: z.number().optional(),
   unit: z.string().optional(),
@@ -128,10 +128,10 @@ export const addMeerwerkSchema = z.object({
   photo: z.boolean().optional(),
 });
 
-export const rejectMeerwerkSchema = z.object({
+export const rejectExtraWorkSchema = z.object({
   by: z.enum(["office", "client"]).optional(),
 });
 
-// Oplevering.
+// Handover.
 export const restpuntenSchema = z.object({ restpunten: z.string() });
-export const signOpleveringSchema = z.object({ signedBy: z.string().min(1) });
+export const signHandoverSchema = z.object({ signedBy: z.string().min(1) });

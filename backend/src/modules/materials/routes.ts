@@ -11,15 +11,15 @@ import {
   updateInventorySchema,
   createArticleSchema,
   updateArticleSchema,
-  createWerksoortSchema,
-  renameWerksoortSchema,
+  createWorkTypeSchema,
+  renameWorkTypeSchema,
   createMaterialOrderSchema,
 } from "./schema.js";
 import {
   materialDto,
   inventoryDto,
   articleDto,
-  werksoortDto,
+  workTypeDto,
   materialOrderDto,
 } from "./dto.js";
 
@@ -28,17 +28,17 @@ export const materialsRouter = Router();
 // All materials routes require auth.
 materialsRouter.use(requireAuth);
 
-// Spec matrix: Materials = admin full, monteur limited (read — they register
-// usage), klant none. Reads allow admin + monteur; klant → 403. Writes are
+// Spec matrix: Materials = admin full, technician limited (read — they register
+// usage), client none. Reads allow admin + technician; client → 403. Writes are
 // gated to admin via requireRole("admin").
 function assertCanRead(user: { role: string }) {
-  if (user.role === "admin" || user.role === "monteur") return;
+  if (user.role === "admin" || user.role === "technician") return;
   throw Forbidden("Not available");
 }
 
 // ===========================================================================
 // IMPORTANT — Express route ordering:
-// The literal sub-resource paths (/articles, /werksoorten, /orders) MUST be
+// The literal sub-resource paths (/articles, /work-types, /orders) MUST be
 // registered BEFORE the parameterized /:id routes, otherwise a request to
 // e.g. GET /articles would match GET /:id with id="articles". Sub-resources
 // come first below.
@@ -46,7 +46,7 @@ function assertCanRead(user: { role: string }) {
 
 // --- Articles (catalog) ---------------------------------------------------
 
-// GET /articles — admin + monteur read; klant 403.
+// GET /articles — admin + technician read; client 403.
 materialsRouter.get(
   "/articles",
   asyncHandler(async (req, res) => {
@@ -136,85 +136,85 @@ materialsRouter.delete(
   }),
 );
 
-// --- Werksoorten ----------------------------------------------------------
+// --- Work types -----------------------------------------------------------
 
-// GET /werksoorten — admin + monteur read; klant 403.
+// GET /work-types — admin + technician read; client 403.
 materialsRouter.get(
-  "/werksoorten",
+  "/work-types",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     assertCanRead(user);
-    const rows = await prisma.werksoort.findMany({
+    const rows = await prisma.workType.findMany({
       where: { orgId: user.orgId },
       orderBy: { name: "asc" },
     });
-    res.json(rows.map(werksoortDto));
+    res.json(rows.map(workTypeDto));
   }),
 );
 
-// POST /werksoorten — admin only. Dedupe case-insensitive per orgId; skip
+// POST /work-types — admin only. Dedupe case-insensitive per orgId; skip
 // (return the existing) if it already exists.
 materialsRouter.post(
-  "/werksoorten",
+  "/work-types",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const input = createWerksoortSchema.parse(req.body);
+    const input = createWorkTypeSchema.parse(req.body);
     const name = clampText(input.name);
-    const existing = await prisma.werksoort.findFirst({
+    const existing = await prisma.workType.findFirst({
       where: { orgId: user.orgId, name: { equals: name, mode: "insensitive" } },
     });
     if (existing) {
-      res.status(200).json(werksoortDto(existing));
+      res.status(200).json(workTypeDto(existing));
       return;
     }
     const created = await prisma.$transaction(async (tx) => {
-      const w = await tx.werksoort.create({
+      const w = await tx.workType.create({
         data: { orgId: user.orgId, name },
       });
-      await audit(tx, user, "werksoort.create", "werksoort", w.id, { name: w.name });
+      await audit(tx, user, "workType.create", "workType", w.id, { name: w.name });
       return w;
     });
-    res.status(201).json(werksoortDto(created));
+    res.status(201).json(workTypeDto(created));
   }),
 );
 
-// PATCH /werksoorten/:id — admin only, rename.
+// PATCH /work-types/:id — admin only, rename.
 materialsRouter.patch(
-  "/werksoorten/:id",
+  "/work-types/:id",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const input = renameWerksoortSchema.parse(req.body);
-    const existing = await prisma.werksoort.findFirst({
+    const input = renameWorkTypeSchema.parse(req.body);
+    const existing = await prisma.workType.findFirst({
       where: { id: req.params.id, orgId: user.orgId },
     });
-    if (!existing) throw NotFound("Werksoort not found");
+    if (!existing) throw NotFound("Work type not found");
     const updated = await prisma.$transaction(async (tx) => {
-      const w = await tx.werksoort.update({
+      const w = await tx.workType.update({
         where: { id: existing.id },
         data: { name: clampText(input.name) },
       });
-      await audit(tx, user, "werksoort.update", "werksoort", w.id, input);
+      await audit(tx, user, "workType.update", "workType", w.id, input);
       return w;
     });
-    res.json(werksoortDto(updated));
+    res.json(workTypeDto(updated));
   }),
 );
 
-// DELETE /werksoorten/:id — admin only.
+// DELETE /work-types/:id — admin only.
 materialsRouter.delete(
-  "/werksoorten/:id",
+  "/work-types/:id",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const existing = await prisma.werksoort.findFirst({
+    const existing = await prisma.workType.findFirst({
       where: { id: req.params.id, orgId: user.orgId },
     });
-    if (!existing) throw NotFound("Werksoort not found");
+    if (!existing) throw NotFound("Work type not found");
     await prisma.$transaction(async (tx) => {
-      await tx.werksoort.delete({ where: { id: existing.id } });
-      await audit(tx, user, "werksoort.delete", "werksoort", existing.id);
+      await tx.workType.delete({ where: { id: existing.id } });
+      await audit(tx, user, "workType.delete", "workType", existing.id);
     });
     res.status(204).end();
   }),
@@ -222,7 +222,7 @@ materialsRouter.delete(
 
 // --- Material orders (purchase list) --------------------------------------
 
-// GET /orders — admin + monteur read; klant 403.
+// GET /orders — admin + technician read; client 403.
 materialsRouter.get(
   "/orders",
   asyncHandler(async (req, res) => {
@@ -312,7 +312,7 @@ materialsRouter.get(
   }),
 );
 
-// GET /:id — admin + monteur read; klant 403.
+// GET /:id — admin + technician read; client 403.
 materialsRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {

@@ -14,7 +14,7 @@ import {
   type QuoteStatus,
   type Role,
   type TeamMember,
-  type WorkOrder,
+  type WorkOrderExecution,
   type WorkOrderStatus,
 } from "./types";
 
@@ -147,7 +147,7 @@ export const mockCustomers: Customer[] = [
   },
 ];
 
-const monteurNames = [
+const technicianNames = [
   "Sven Bakker",
   "Tim de Groot",
   "Ruben Visser",
@@ -177,27 +177,27 @@ export const mockTeamMembers: TeamMember[] = [
     name: "Wesley van den Berg",
     phone: "06 22 14 88 30",
     email: "wesley@opero.nl",
-    roles: ["Projectleider"],
+    roles: ["ProjectLeader"],
   },
   {
     id: "tm-002",
     name: "Danny Koster",
     phone: "06 24 71 09 52",
     email: "danny@opero.nl",
-    roles: ["Projectleider"],
+    roles: ["ProjectLeader"],
   },
   {
     id: "tm-003",
     name: "Jan Dekker",
     phone: "06 51 38 27 64",
     email: "jan@opero.nl",
-    roles: ["Voorman"],
+    roles: ["Foreman"],
   },
-  ...monteurNames.map((name, index) => ({
+  ...technicianNames.map((name, index) => ({
     id: `tm-${String(index + 4).padStart(3, "0")}`,
     name,
     phone: `06 ${10 + index} ${20 + index} ${30 + index} ${40 + index}`.slice(0, 14),
-    roles: ["Monteur"] as Role[],
+    roles: ["Technician"] as Role[],
   })),
 ];
 
@@ -394,7 +394,7 @@ function planning(seed: ProjectSeed): PlanningItem[] {
   ];
 }
 
-function workOrders(seed: ProjectSeed): WorkOrder[] {
+function workOrderExecutions(seed: ProjectSeed): WorkOrderExecution[] {
   if (!seed.plannedDate || !seed.workOrderStatus) return [];
 
   return [
@@ -516,7 +516,7 @@ function makeProject(seed: ProjectSeed): Project {
     teamLeaderId: seed.projectNumber.endsWith("7") ? "tm-006" : "tm-003",
     urgency: seed.urgency,
     value: seed.value,
-    workOrders: workOrders(seed),
+    workOrderExecutions: workOrderExecutions(seed),
   };
 }
 
@@ -537,7 +537,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-001",
     quoteStatus: "draft",
     squareMeters: 92,
-    status: "verkoop",
+    status: "sales",
     urgency: "normal",
     value: 3480,
   }),
@@ -556,7 +556,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-002",
     quoteStatus: "draft",
     squareMeters: 160,
-    status: "verkoop",
+    status: "sales",
     urgency: "urgent",
     value: 9850,
   }),
@@ -574,7 +574,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-003",
     quoteStatus: "draft",
     squareMeters: 78,
-    status: "verkoop",
+    status: "sales",
     urgency: "normal",
     value: 5140,
   }),
@@ -592,7 +592,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-004",
     quoteStatus: "sent",
     squareMeters: 64,
-    status: "verkoop",
+    status: "sales",
     urgency: "normal",
     value: 3960,
   }),
@@ -610,7 +610,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-005",
     quoteStatus: "accepted",
     squareMeters: 240,
-    status: "operatie",
+    status: "operations",
     urgency: "urgent",
     value: 14800,
   }),
@@ -629,7 +629,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-006",
     quoteStatus: "accepted",
     squareMeters: 112,
-    status: "operatie",
+    status: "operations",
     urgency: "blocked",
     value: 7720,
   }),
@@ -648,7 +648,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-007",
     quoteStatus: "accepted",
     squareMeters: 58,
-    status: "operatie",
+    status: "operations",
     urgency: "normal",
     value: 4420,
     workOrderStatus: "planned",
@@ -668,7 +668,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-008",
     quoteStatus: "accepted",
     squareMeters: 310,
-    status: "operatie",
+    status: "operations",
     urgency: "urgent",
     value: 18950,
     workOrderStatus: "in_progress",
@@ -689,7 +689,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-009",
     quoteStatus: "accepted",
     squareMeters: 48,
-    status: "afronding",
+    status: "closing",
     urgency: "normal",
     value: 3180,
     workOrderStatus: "completed",
@@ -710,7 +710,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-010",
     quoteStatus: "accepted",
     squareMeters: 88,
-    status: "afronding",
+    status: "closing",
     urgency: "normal",
     value: 5680,
     workOrderStatus: "completed",
@@ -731,7 +731,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-011",
     quoteStatus: "accepted",
     squareMeters: 72,
-    status: "afronding",
+    status: "closing",
     urgency: "normal",
     value: 6420,
     workOrderStatus: "completed",
@@ -752,7 +752,7 @@ export const mockProjects: Project[] = [
     projectNumber: "OP-2026-012",
     quoteStatus: "accepted",
     squareMeters: 54,
-    status: "afronding",
+    status: "closing",
     urgency: "normal",
     value: 3720,
     workOrderStatus: "completed",

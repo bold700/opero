@@ -1,27 +1,27 @@
 export const projectStatusIds = [
-  "verkoop",
-  "operatie",
-  "afronding",
+  "sales",
+  "operations",
+  "closing",
 ] as const;
 
 export type ProjectStatus = (typeof projectStatusIds)[number];
 
 export const projectStatusLabels: Record<ProjectStatus, string> = {
-  afronding: "Afronding",
-  operatie: "Operatie",
-  verkoop: "Verkoop",
+  closing: "Afronding",
+  operations: "Operatie",
+  sales: "Verkoop",
 };
 
 // Rollen zijn gekoppeld aan projectfases en bijbehorende rechten (zie
 // teamRoleConfig in roles.ts). Iemand kan meerdere rollen hebben.
 export type Role =
   | "Sales"
-  | "Werkvoorbereider"
+  | "WorkPlanner"
   | "Planner"
-  | "Voorman"
-  | "Monteur"
-  | "Administratie"
-  | "Projectleider";
+  | "Foreman"
+  | "Technician"
+  | "Administration"
+  | "ProjectLeader";
 
 export type MaterialReadiness =
   | "available"
@@ -81,7 +81,7 @@ export type Intake = {
 export type QuoteLineItem = {
   id: string;
   catalogItemId?: string;
-  werksoort?: Werksoort;
+  workType?: WorkType;
   description: string;
   size?: string;
   quantity: number;
@@ -132,7 +132,7 @@ export type Stage = "concept" | "in_progress" | "ready" | "done";
 //  - offerte:  type, aantal, eenheid, Ø, prijs  (wat kun je offreren)
 //  - werkbon:  type, aantal, eenheid, Ø, op locatie  (wat moet er gebeuren)
 //  - factuur:  type, verbruik, eenheid, Ø, prijs  (wat is echt gebruikt)
-export type TaakMateriaal = {
+export type TaskMaterial = {
   id: string;
   label?: string;
   name: string;
@@ -146,12 +146,12 @@ export type TaakMateriaal = {
   note?: string;
 };
 
-export type WerkbonTaak = {
+export type WorkOrderTask = {
   id: string;
   description: string;
   done: boolean;
   day?: string;
-  materials: TaakMateriaal[];
+  materials: TaskMaterial[];
   beforePhotos: string[];
   resultPhotos: string[];
   startedAt?: string;
@@ -160,19 +160,19 @@ export type WerkbonTaak = {
   note?: string;
 };
 
-export type Werkbon = {
+export type WorkOrder = {
   id: string;
   title: string;
   drawings: string[];
-  approvedByOpzichter: boolean;
-  tasks: WerkbonTaak[];
+  approvedBySupervisor: boolean;
+  tasks: WorkOrderTask[];
 };
 
-// Werksoorten zijn beheerbaar (zie store: werksoorten), dus een vrije string.
-export type Werksoort = string;
+// WorkTypes zijn beheerbaar (zie store: workTypes), dus een vrije string.
+export type WorkType = string;
 
-// Standaardlijst waarmee de werksoorten in de store geseed worden.
-export const projectTypes: Werksoort[] = [
+// Standaardlijst waarmee de workTypes in de store geseed worden.
+export const projectTypes: WorkType[] = [
   "Warme leidingisolatie",
   "Koude isolatie",
   "Akoestische isolatie",
@@ -187,16 +187,16 @@ export type ProjectTask = {
 };
 
 // De regels staan in quote.lineItems (gedeeld over opname/calculatie/offerte).
-// Opname houdt alleen foto's en condities bij.
-export type Opname = {
+// Survey houdt alleen foto's en condities bij.
+export type Survey = {
   photos: string[];
   notes: string;
 };
 
-export type MeerwerkItem = {
+export type ExtraWorkItem = {
   id: string;
   description: string;
-  // Zelfde opbouw als een taakregel, zodat meerwerk identiek leest.
+  // Zelfde opbouw als een taakregel, zodat extraWork identiek leest.
   label?: string;
   name?: string;
   quantity?: number;
@@ -213,14 +213,14 @@ export type MeerwerkItem = {
   rejectedBy?: "office" | "client";
 };
 
-export type OpleverItem = {
+export type HandoverItem = {
   id: string;
   label: string;
   done: boolean;
 };
 
-export type Oplevering = {
-  checklist: OpleverItem[];
+export type Handover = {
+  checklist: HandoverItem[];
   photos: string[];
   restpunten: string;
   signedBy?: string;
@@ -260,7 +260,7 @@ export type PlanningItem = {
   vehicle: string;
 };
 
-export type WorkOrder = {
+export type WorkOrderExecution = {
   id: string;
   projectId: string;
   date: string;
@@ -340,14 +340,14 @@ export type Project = {
   insulationType: string;
   squareMeters: number;
   description?: string;
-  werksoorten?: Werksoort[];
+  workTypes?: WorkType[];
   exclusions?: string;
-  billingType?: "vast" | "regie";
-  werkbonnen?: Werkbon[];
+  billingType?: "fixed" | "time_and_materials";
+  workOrders?: WorkOrder[];
   archived?: boolean;
-  opname?: Opname;
-  meerwerk?: MeerwerkItem[];
-  oplevering?: Oplevering;
+  survey?: Survey;
+  extraWork?: ExtraWorkItem[];
+  handover?: Handover;
   tasks?: ProjectTask[];
   stage?: Stage;
   signature?: string;
@@ -366,7 +366,7 @@ export type Project = {
   quote: Quote;
   materialRequirements: MaterialRequirement[];
   planningItems: PlanningItem[];
-  workOrders: WorkOrder[];
+  workOrderExecutions: WorkOrderExecution[];
   deliveryChecklist: DeliveryChecklist;
   invoice: Invoice;
 };

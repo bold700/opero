@@ -18,11 +18,11 @@ import {
   type QuoteLineItem,
   type MaterialRequirement,
   type PlanningItem,
-  type Werkbon,
-  type WerkbonTaak,
-  type TaakMateriaal,
-  type MeerwerkItem,
-  type OpleverItem,
+  type WorkOrder,
+  type WorkOrderTask,
+  type TaskMaterial,
+  type ExtraWorkItem,
+  type HandoverItem,
   type ProjectTask,
 } from "@opero/shared";
 import type {
@@ -30,7 +30,7 @@ import type {
   CatalogCategory,
   BillingType,
   Stage,
-  MeerwerkRejectedBy,
+  ExtraWorkRejectedBy,
 } from "@prisma/client";
 
 async function main() {
@@ -40,18 +40,18 @@ async function main() {
   // -----------------------------------------------------------------------
   await prisma.$transaction([
     // project deepest children first
-    prisma.taakMateriaal.deleteMany({}),
-    prisma.werkbonTaak.deleteMany({}),
-    prisma.werkbon.deleteMany({}),
-    prisma.opleverItem.deleteMany({}),
-    prisma.oplevering.deleteMany({}),
+    prisma.taskMaterial.deleteMany({}),
+    prisma.workOrderTask.deleteMany({}),
+    prisma.workOrder.deleteMany({}),
+    prisma.handoverItem.deleteMany({}),
+    prisma.handover.deleteMany({}),
     prisma.deliveryChecklistItem.deleteMany({}),
     prisma.deliveryChecklist.deleteMany({}),
     prisma.quoteLineItem.deleteMany({}),
     prisma.quote.deleteMany({}),
     prisma.intake.deleteMany({}),
     prisma.invoice.deleteMany({}),
-    prisma.meerwerk.deleteMany({}),
+    prisma.extraWork.deleteMany({}),
     prisma.materialRequirement.deleteMany({}),
     prisma.planningItem.deleteMany({}),
     prisma.projectTask.deleteMany({}),
@@ -69,7 +69,7 @@ async function main() {
     prisma.location.deleteMany({}),
     // catalog / werksoort
     prisma.article.deleteMany({}),
-    prisma.werksoort.deleteMany({}),
+    prisma.workType.deleteMany({}),
     // inventory before material (FK)
     prisma.inventory.deleteMany({}),
     prisma.material.deleteMany({}),
@@ -93,6 +93,8 @@ async function main() {
   // 3. Customers (keep mock ids as PK)
   // -----------------------------------------------------------------------
   for (const c of mockCustomers) {
+    // Company-looking names → business, otherwise private.
+    const isBusiness = /\b(bv|vve|vastgoed|beheer|holding|&|zn)\b/i.test(c.name);
     await prisma.customer.create({
       data: {
         id: c.id,
@@ -104,6 +106,7 @@ async function main() {
         address: c.address,
         postalCode: c.postalCode,
         city: c.city,
+        type: isBusiness ? "business" : "private",
         notes: c.notes ?? null,
       },
     });
@@ -171,7 +174,7 @@ async function main() {
   // 7. Werksoorten (one row per string; @@unique([orgId, name]))
   // -----------------------------------------------------------------------
   for (const name of projectTypes) {
-    await prisma.werksoort.upsert({
+    await prisma.workType.upsert({
       where: { orgId_name: { orgId, name } },
       create: { orgId, name },
       update: {},
@@ -190,9 +193,9 @@ async function main() {
     // Derive stage if not present on the mock.
     const stage: Stage =
       (p.stage as Stage | undefined) ??
-      (p.status === "operatie"
+      (p.status === "operations"
         ? "in_progress"
-        : p.status === "afronding"
+        : p.status === "closing"
           ? "done"
           : "concept");
 
@@ -217,7 +220,7 @@ async function main() {
         insulationType: p.insulationType,
         squareMeters: p.squareMeters,
         description: p.description ?? null,
-        werksoorten: p.werksoorten ?? [],
+        workTypes: p.workTypes ?? [],
         exclusions: p.exclusions ?? null,
         billingType: (p.billingType as BillingType | undefined) ?? null,
         archived: p.archived ?? false,
@@ -232,8 +235,8 @@ async function main() {
         plannedEndDate: p.plannedEndDate ?? null,
         value: p.value,
 
-        opnamePhotos: p.opname?.photos ?? [],
-        opnameNotes: p.opname?.notes ?? "",
+        surveyPhotos: p.survey?.photos ?? [],
+        surveyNotes: p.survey?.notes ?? "",
 
         projectLeaderId: validEmployeeId(p.projectLeaderId),
         teamLeaderId: validEmployeeId(p.teamLeaderId),
@@ -272,7 +275,7 @@ async function main() {
             lineItems: {
               create: quote.lineItems.map((li: QuoteLineItem, idx: number) => ({
                 catalogItemId: li.catalogItemId ?? null,
-                werksoort: li.werksoort ?? null,
+                workType: li.workType ?? null,
                 description: li.description,
                 size: li.size ?? null,
                 quantity: li.quantity,
@@ -346,15 +349,15 @@ async function main() {
           })),
         },
 
-        // werkbonnen (work orders in the new model) — optional, absent on mocks
-        werkbonnen: {
-          create: (p.werkbonnen ?? []).map((wb: Werkbon, wbIdx: number) => ({
+        // workOrders (work orders in the new model) — optional, absent on mocks
+        workOrders: {
+          create: (p.workOrders ?? []).map((wb: WorkOrder, wbIdx: number) => ({
             title: wb.title,
             drawings: wb.drawings,
-            approvedByOpzichter: wb.approvedByOpzichter,
+            approvedBySupervisor: wb.approvedBySupervisor,
             ordinal: wbIdx,
             tasks: {
-              create: (wb.tasks ?? []).map((t: WerkbonTaak, tIdx: number) => ({
+              create: (wb.tasks ?? []).map((t: WorkOrderTask, tIdx: number) => ({
                 description: t.description,
                 done: t.done,
                 day: t.day ?? null,
@@ -366,7 +369,7 @@ async function main() {
                 note: t.note ?? null,
                 ordinal: tIdx,
                 materials: {
-                  create: (t.materials ?? []).map((mtl: TaakMateriaal, mIdx: number) => ({
+                  create: (t.materials ?? []).map((mtl: TaskMaterial, mIdx: number) => ({
                     label: mtl.label ?? null,
                     name: mtl.name,
                     quantity: mtl.quantity,
@@ -385,9 +388,9 @@ async function main() {
           })),
         },
 
-        // meerwerk — optional, absent on mocks
-        meerwerk: {
-          create: (p.meerwerk ?? []).map((mw: MeerwerkItem) => ({
+        // extraWork — optional, absent on mocks
+        extraWork: {
+          create: (p.extraWork ?? []).map((mw: ExtraWorkItem) => ({
             description: mw.description,
             label: mw.label ?? null,
             name: mw.name ?? null,
@@ -402,21 +405,21 @@ async function main() {
             approvedByOffice: mw.approvedByOffice,
             approvedByClient: mw.approvedByClient,
             rejected: mw.rejected,
-            rejectedBy: (mw.rejectedBy as MeerwerkRejectedBy | undefined) ?? null,
+            rejectedBy: (mw.rejectedBy as ExtraWorkRejectedBy | undefined) ?? null,
           })),
         },
 
-        // oplevering — optional 1:1, absent on mocks
-        ...(p.oplevering
+        // handover — optional 1:1, absent on mocks
+        ...(p.handover
           ? {
-              oplevering: {
+              handover: {
                 create: {
-                  photos: p.oplevering.photos,
-                  restpunten: p.oplevering.restpunten,
-                  signedBy: p.oplevering.signedBy ?? null,
-                  completedAt: p.oplevering.completedAt ?? null,
+                  photos: p.handover.photos,
+                  restpunten: p.handover.restpunten,
+                  signedBy: p.handover.signedBy ?? null,
+                  completedAt: p.handover.completedAt ?? null,
                   checklist: {
-                    create: (p.oplevering.checklist ?? []).map((it: OpleverItem, idx: number) => ({
+                    create: (p.handover.checklist ?? []).map((it: HandoverItem, idx: number) => ({
                       label: it.label,
                       done: it.done,
                       ordinal: idx,
@@ -446,7 +449,7 @@ async function main() {
   const passwordHash = await bcrypt.hash("opero123", 12);
 
   const monteurEmployee = mockTeamMembers.find((tm) =>
-    tm.roles.includes("Monteur"),
+    tm.roles.includes("Technician"),
   );
   const firstCustomerId = mockCustomers[0]?.id ?? null;
 
@@ -463,10 +466,10 @@ async function main() {
   await prisma.user.create({
     data: {
       orgId,
-      email: "monteur@opero.test",
+      email: "technician@opero.test",
       passwordHash,
       name: "Monteur Demo",
-      role: "monteur",
+      role: "technician",
       totpEnabled: false,
       employeeId: validEmployeeId(monteurEmployee?.id),
     },
@@ -474,10 +477,10 @@ async function main() {
   await prisma.user.create({
     data: {
       orgId,
-      email: "klant@opero.test",
+      email: "client@opero.test",
       passwordHash,
       name: "Klant Demo",
-      role: "klant",
+      role: "client",
       totpEnabled: false,
       customerId: firstCustomerId,
     },
@@ -491,7 +494,7 @@ async function main() {
     employees,
     materials,
     articles,
-    werksoorten,
+    workTypes,
     projects,
     users,
   ] = await Promise.all([
@@ -499,7 +502,7 @@ async function main() {
     prisma.employee.count(),
     prisma.material.count(),
     prisma.article.count(),
-    prisma.werksoort.count(),
+    prisma.workType.count(),
     prisma.project.count(),
     prisma.user.count(),
   ]);
@@ -510,7 +513,7 @@ async function main() {
     employees,
     materials,
     articles,
-    werksoorten,
+    workTypes,
     projects,
     users,
   });

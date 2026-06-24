@@ -34,10 +34,10 @@ export type UpdateInventoryRequest = z.infer<typeof updateInventorySchema>;
 // --- Articles (catalog) ---------------------------------------------------
 
 export const catalogCategorySchema = z.enum([
-  "isolatie",
-  "materiaal",
-  "arbeid",
-  "logistiek",
+  "insulation",
+  "material",
+  "labor",
+  "logistics",
 ]);
 
 export const createArticleSchema = z.object({
@@ -52,17 +52,17 @@ export type CreateArticleRequest = z.infer<typeof createArticleSchema>;
 export const updateArticleSchema = createArticleSchema.partial();
 export type UpdateArticleRequest = z.infer<typeof updateArticleSchema>;
 
-// --- Werksoorten ----------------------------------------------------------
+// --- Work types -----------------------------------------------------------
 
-export const createWerksoortSchema = z.object({
+export const createWorkTypeSchema = z.object({
   name: z.string().min(1),
 });
-export type CreateWerksoortRequest = z.infer<typeof createWerksoortSchema>;
+export type CreateWorkTypeRequest = z.infer<typeof createWorkTypeSchema>;
 
-export const renameWerksoortSchema = z.object({
+export const renameWorkTypeSchema = z.object({
   name: z.string().min(1),
 });
-export type RenameWerksoortRequest = z.infer<typeof renameWerksoortSchema>;
+export type RenameWorkTypeRequest = z.infer<typeof renameWorkTypeSchema>;
 
 // --- Material orders (purchase list) --------------------------------------
 

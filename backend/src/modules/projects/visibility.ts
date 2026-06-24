@@ -2,25 +2,25 @@ import type { Prisma } from "@prisma/client";
 import type { AuthUser } from "../../auth/types.js";
 
 // Port of `getVisibleProjectsForProfile` (client/src/lib/roles.ts) for the
-// 3-role auth model (admin / monteur / klant). Returns a Prisma `where`
+// 3-role auth model (admin / technician / client). Returns a Prisma `where`
 // fragment that is combined with orgId + deletedAt:null on every list/detail
 // query, so visibility is enforced uniformly at the data layer.
 //
-// - admin:   every project in the org.
-// - klant:   only projects of their linked customer (customerId match).
-// - monteur: only projects where their employee is teamLeaderId OR
-//            projectLeaderId OR one of the installers (m:n).
+// - admin:      every project in the org.
+// - client:     only projects of their linked customer (customerId match).
+// - technician: only projects where their employee is teamLeaderId OR
+//               projectLeaderId OR one of the installers (m:n).
 export function visibleProjectsWhere(
   user: AuthUser,
 ): Prisma.ProjectWhereInput {
   if (user.role === "admin") return {};
 
-  if (user.role === "klant") {
+  if (user.role === "client") {
     // `__none__` makes the filter match nothing if the user has no customer.
     return { customerId: user.customerId ?? "__none__" };
   }
 
-  // monteur
+  // technician
   const employeeId = user.employeeId ?? "__none__";
   return {
     OR: [
@@ -45,7 +45,7 @@ export function projectScopeWhere(
 }
 
 // True when a loaded project is one the user is allowed to act on. Used for
-// monteur/klant write-gating (e.g. comment on own/assigned project).
+// technician/client write-gating (e.g. comment on own/assigned project).
 export function canViewProject(
   user: AuthUser,
   project: {
@@ -56,8 +56,8 @@ export function canViewProject(
   },
 ): boolean {
   if (user.role === "admin") return true;
-  if (user.role === "klant") return project.customerId === user.customerId;
-  // monteur
+  if (user.role === "client") return project.customerId === user.customerId;
+  // technician
   const employeeId = user.employeeId;
   if (!employeeId) return false;
   return (

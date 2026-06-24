@@ -19,7 +19,7 @@ export const employeesRouter = Router();
 employeesRouter.use(requireAuth);
 
 // GET /employees — admin only (per spec matrix, Employees is admin-only).
-// Monteur + klant: 403.
+// Technician + client: 403.
 employeesRouter.get(
   "/",
   requireRole("admin"),
@@ -152,16 +152,16 @@ employeesRouter.delete(
   }),
 );
 
-// GET /employees/:id/timesheet?from=&to= — aggregate WerkbonTaak.hours.
+// GET /employees/:id/timesheet?from=&to= — aggregate WorkOrderTask.hours.
 //
-// The schema has no direct WerkbonTaak -> Employee FK. Hours are logged per task
-// on werkbonnen of projects the employee is assigned to. For the MVP timesheet we
-// sum WerkbonTaak.hours across werkbonnen of projects where this employee is the
+// The schema has no direct WorkOrderTask -> Employee FK. Hours are logged per task
+// on workOrders of projects the employee is assigned to. For the MVP timesheet we
+// sum WorkOrderTask.hours across workOrders of projects where this employee is the
 // projectLeader OR teamLeader OR one of the installers, optionally filtered by the
 // task's `day` string (YYYY-MM-DD) with a lexicographic >= from && <= to filter.
 //
-// Guard: admin may view any employee's timesheet; a monteur may view ONLY their
-// own (user.employeeId === :id). Klant: 403.
+// Guard: admin may view any employee's timesheet; a technician may view ONLY their
+// own (user.employeeId === :id). Client: 403.
 employeesRouter.get(
   "/:id/timesheet",
   asyncHandler(async (req, res) => {
@@ -169,7 +169,7 @@ employeesRouter.get(
     const employeeId = req.params.id;
     const canView =
       user.role === "admin" ||
-      (user.role === "monteur" && user.employeeId === employeeId);
+      (user.role === "technician" && user.employeeId === employeeId);
     if (!canView) throw Forbidden("Not allowed for this timesheet");
 
     const employee = await prisma.employee.findFirst({
@@ -194,7 +194,7 @@ employeesRouter.get(
       select: {
         id: true,
         projectNumber: true,
-        werkbonnen: {
+        workOrders: {
           select: {
             tasks: {
               select: { day: true, hours: true },
@@ -213,8 +213,8 @@ employeesRouter.get(
     let totalHours = 0;
 
     for (const project of projects) {
-      for (const werkbon of project.werkbonnen) {
-        for (const task of werkbon.tasks) {
+      for (const workOrder of project.workOrders) {
+        for (const task of workOrder.tasks) {
           if (task.hours == null) continue;
           // Filter by day range only when bounds are provided.
           if (from !== undefined && (task.day == null || task.day < from)) continue;

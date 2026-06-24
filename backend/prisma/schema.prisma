@@ -26,14 +26,20 @@ datasource db {
 
 enum UserRole {
   admin
-  monteur
-  klant
+  technician
+  client
+}
+
+// Business vs private customer (display labels "Zakelijk"/"Particulier" via i18n).
+enum CustomerType {
+  business
+  private
 }
 
 enum ProjectStatus {
-  verkoop
-  operatie
-  afronding
+  sales
+  operations
+  closing
 }
 
 enum Stage {
@@ -50,8 +56,8 @@ enum ProjectUrgency {
 }
 
 enum BillingType {
-  vast
-  regie
+  fixed
+  time_and_materials
 }
 
 enum QuoteStatus {
@@ -81,10 +87,10 @@ enum WorkOrderStatus {
 }
 
 enum CatalogCategory {
-  isolatie
-  materiaal
-  arbeid
-  logistiek
+  insulation
+  material
+  labor
+  logistics
 }
 
 enum ProjectActivityType {
@@ -97,15 +103,15 @@ enum ProjectActivityType {
 // Employee job functions (types.ts Role) — distinct from auth UserRole.
 enum TeamRole {
   Sales
-  Werkvoorbereider
+  WorkPlanner
   Planner
-  Voorman
-  Monteur
-  Administratie
-  Projectleider
+  Foreman
+  Technician
+  Administration
+  ProjectLeader
 }
 
-enum MeerwerkRejectedBy {
+enum ExtraWorkRejectedBy {
   office
   client
 }
@@ -126,7 +132,7 @@ model Organization {
   materials    Material[]
   projects     Project[]
   articles     Article[]
-  werksoorten  Werksoort[]
+  workTypes    WorkType[]
   materialOrders MaterialOrder[]
   auditLogs    AuditLog[]
 }
@@ -142,7 +148,7 @@ model User {
   totpEnabled  Boolean   @default(false)
   // pending TOTP secret during enrollment (before confirmation)
   pendingTotpSecret String?
-  // klant users link to a customer; monteur users link to an employee
+  // client users link to a customer; technician users link to an employee
   customerId   String?
   employeeId   String?
   createdAt    DateTime  @default(now())
@@ -218,6 +224,7 @@ model Customer {
   address     String
   postalCode  String
   city        String
+  type        CustomerType @default(business)
   notes       String?
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
@@ -357,7 +364,7 @@ model MaterialOrderItem {
 }
 
 // ---------------------------------------------------------------------------
-// Catalog (types.ts CatalogItem) + Werksoort (managed list)
+// Catalog (types.ts CatalogItem) + WorkType (managed list)
 // ---------------------------------------------------------------------------
 
 model Article {
@@ -376,7 +383,7 @@ model Article {
   @@index([orgId])
 }
 
-model Werksoort {
+model WorkType {
   id        String   @id @default(uuid())
   orgId     String
   name      String
@@ -409,12 +416,12 @@ model Project {
   insulationType String
   squareMeters  Int            @default(0)
   description   String?
-  werksoorten   String[]
+  workTypes     String[]
   exclusions    String?
   billingType   BillingType?
   archived      Boolean        @default(false)
   stage         Stage          @default(concept)
-  status        ProjectStatus  @default(verkoop)
+  status        ProjectStatus  @default(sales)
   urgency       ProjectUrgency @default(normal)
   blocker       String?
   nextStep      String
@@ -424,9 +431,9 @@ model Project {
   plannedEndDate String?
   value         Int            @default(0)
 
-  // opname (types.ts Opname): photos + notes only
-  opnamePhotos  String[]
-  opnameNotes   String        @default("")
+  // survey (types.ts Opname): photos + notes only
+  surveyPhotos  String[]
+  surveyNotes   String        @default("")
 
   // team
   projectLeaderId String?
@@ -447,10 +454,10 @@ model Project {
   intake               Intake?
   quote                Quote?
   invoice              Invoice?
-  oplevering           Oplevering?
+  handover             Handover?
   deliveryChecklist    DeliveryChecklist?
-  werkbonnen           Werkbon[]
-  meerwerk             Meerwerk[]
+  workOrders           WorkOrder[]
+  extraWork            ExtraWork[]
   materialRequirements MaterialRequirement[]
   planningItems        PlanningItem[]
   tasks                ProjectTask[]
@@ -502,7 +509,7 @@ model QuoteLineItem {
   id            String   @id @default(uuid())
   quoteId       String
   catalogItemId String?
-  werksoort     String?
+  workType      String?
   description   String
   size          String?
   quantity      Float
@@ -516,28 +523,28 @@ model QuoteLineItem {
 }
 
 // ---------------------------------------------------------------------------
-// Werkbonnen (work orders) — the headline module
+// WorkOrders — the headline module
 // ---------------------------------------------------------------------------
 
-model Werkbon {
+model WorkOrder {
   id                 String        @id @default(uuid())
   projectId          String
   title              String
   drawings           String[]
-  approvedByOpzichter Boolean      @default(false)
+  approvedBySupervisor Boolean     @default(false)
   ordinal            Int           @default(0)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   WerkbonTaak[]
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   WorkOrderTask[]
 
   @@index([projectId])
 }
 
-model WerkbonTaak {
+model WorkOrderTask {
   id           String   @id @default(uuid())
-  werkbonId    String
+  workOrderId  String
   description  String   @default("")
   done         Boolean  @default(false)
   day          String?
@@ -549,15 +556,15 @@ model WerkbonTaak {
   note         String?
   ordinal      Int      @default(0)
 
-  werkbon   Werkbon        @relation(fields: [werkbonId], references: [id], onDelete: Cascade)
-  materials TaakMateriaal[]
+  workOrder WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  materials TaskMaterial[]
 
-  @@index([werkbonId])
+  @@index([workOrderId])
 }
 
-// The shared line-item row: feeds offerte (quantity×price), werkbon (onSite),
-// and factuur (usedQuantity×price).
-model TaakMateriaal {
+// The shared line-item row: feeds quote (quantity×price), workOrder (onSite),
+// and invoice (usedQuantity×price).
+model TaskMaterial {
   id           String  @id @default(uuid())
   taskId       String
   label        String?
@@ -572,17 +579,17 @@ model TaakMateriaal {
   note         String?
   ordinal      Int     @default(0)
 
-  task WerkbonTaak @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task WorkOrderTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
 }
 
 // ---------------------------------------------------------------------------
-// Meerwerk, oplevering, delivery checklist, project tasks
+// ExtraWork, handover, delivery checklist, project tasks
 // ---------------------------------------------------------------------------
 
-model Meerwerk {
-  id               String              @id @default(uuid())
+model ExtraWork {
+  id               String               @id @default(uuid())
   projectId        String
   description      String
   label            String?
@@ -591,21 +598,21 @@ model Meerwerk {
   unit             String?
   diameter         Float?
   unitPrice        Float?
-  amount           Int                 @default(0)
+  amount           Int                  @default(0)
   photos           String[]
   createdAt        String
-  done             Boolean             @default(false)
-  approvedByOffice Boolean             @default(false)
-  approvedByClient Boolean             @default(false)
-  rejected         Boolean             @default(false)
-  rejectedBy       MeerwerkRejectedBy?
+  done             Boolean              @default(false)
+  approvedByOffice Boolean              @default(false)
+  approvedByClient Boolean              @default(false)
+  rejected         Boolean              @default(false)
+  rejectedBy       ExtraWorkRejectedBy?
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
 }
 
-model Oplevering {
+model Handover {
   id          String   @id @default(uuid())
   projectId   String   @unique
   photos      String[]
@@ -613,20 +620,20 @@ model Oplevering {
   signedBy    String?
   completedAt String?
 
-  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  checklist OpleverItem[]
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checklist HandoverItem[]
 }
 
-model OpleverItem {
-  id           String  @id @default(uuid())
-  opleveringId String
-  label        String
-  done         Boolean @default(false)
-  ordinal      Int     @default(0)
+model HandoverItem {
+  id          String  @id @default(uuid())
+  handoverId  String
+  label       String
+  done        Boolean @default(false)
+  ordinal     Int     @default(0)
 
-  oplevering Oplevering @relation(fields: [opleveringId], references: [id], onDelete: Cascade)
+  handover Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
 
-  @@index([opleveringId])
+  @@index([handoverId])
 }
 
 model DeliveryChecklist {

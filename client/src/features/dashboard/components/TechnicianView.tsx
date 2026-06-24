@@ -1,0 +1,47 @@
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Divider from "@mui/material/Divider";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import { Card } from "../../../components/Card";
+import { KpiCard } from "./KpiCard";
+import { TONE } from "../constants";
+import type { TechnicianDashboard } from "../api";
+
+export function TechnicianView({ data }: { data: TechnicianDashboard }) {
+  return (
+    <>
+      <Box sx={{ display: "flex", gap: 2.5, flexWrap: "wrap" }}>
+        <KpiCard label="Toegewezen projecten" value={data.assignedProjectCount} tone={TONE.primary} />
+        <KpiCard label="Openstaande taken" value={data.openTaskCount} tone={TONE.info} />
+        <KpiCard label="Vandaag" value={data.todayProjects.length} tone={TONE.success} />
+      </Box>
+
+      <Card sx={{ p: 2.5 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+          Vandaag
+        </Typography>
+        {data.todayProjects.length === 0 ? (
+          <Typography color="text.secondary">Geen werkbonnen voor vandaag.</Typography>
+        ) : (
+          data.todayProjects.map((p, i, arr) => (
+            <Box key={p.id}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.5 }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700 }}>{p.customerName}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {p.address}, {p.city}
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  {p.openTaskCount} taken
+                </Typography>
+                <ChevronRightIcon sx={{ color: "text.disabled", fontSize: 20 }} />
+              </Box>
+              {i < arr.length - 1 ? <Divider /> : null}
+            </Box>
+          ))
+        )}
+      </Card>
+    </>
+  );
+}

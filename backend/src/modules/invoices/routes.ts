@@ -8,7 +8,7 @@ import { requireAuth, requireRole } from "../../auth/middleware.js";
 export const invoicesRouter = Router();
 
 // Invoices are admin-only (spec: Reports/finance = admin; invoice actions live
-// with Administratie → admin in the 3-role model).
+// with Administration → admin in the 3-role model).
 invoicesRouter.use(requireAuth, requireRole("admin"));
 
 function todayIso(): string {
@@ -46,22 +46,22 @@ function invoiceDto(inv: {
 async function loadInvoice(orgId: string, projectId: string) {
   const project = await prisma.project.findFirst({
     where: { id: projectId, orgId, deletedAt: null },
-    include: { invoice: true, quote: true, meerwerk: true },
+    include: { invoice: true, quote: true, extraWork: true },
   });
   if (!project) throw NotFound("Project not found");
   if (!project.invoice) throw NotFound("Invoice not found");
   return project;
 }
 
-// Compute invoice totals from the accepted quote + approved meerwerk
+// Compute invoice totals from the accepted quote + approved extra work
 // (mirrors the store's deriveInvoiceTotals intent in relational form).
 function deriveTotals(project: {
   value: number;
   quote: { amount: number; status: string } | null;
-  meerwerk: { amount: number; approvedByOffice: boolean; approvedByClient: boolean; rejected: boolean }[];
+  extraWork: { amount: number; approvedByOffice: boolean; approvedByClient: boolean; rejected: boolean }[];
 }) {
   const acceptedQuoteAmount = project.quote?.amount ?? project.value;
-  const extraWorkAmount = project.meerwerk
+  const extraWorkAmount = project.extraWork
     .filter((m) => m.approvedByOffice && m.approvedByClient && !m.rejected)
     .reduce((sum, m) => sum + m.amount, 0);
   return {

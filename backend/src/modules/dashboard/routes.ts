@@ -7,10 +7,10 @@ import { requireAuth } from "../../auth/middleware.js";
 import { projectScopeWhere } from "../projects/visibility.js";
 import {
   type AdminDashboard,
-  type KlantDashboard,
-  type MonteurDashboard,
-  klantProjectRow,
-  monteurProjectRow,
+  type ClientDashboard,
+  type TechnicianDashboard,
+  clientProjectRow,
+  technicianProjectRow,
 } from "./dto.js";
 
 export const dashboardRouter = Router();
@@ -19,7 +19,7 @@ export const dashboardRouter = Router();
 // role is allowed to hit the endpoint (it returns their own scoped view).
 dashboardRouter.use(requireAuth);
 
-const PROJECT_STATUSES: ProjectStatus[] = ["verkoop", "operatie", "afronding"];
+const PROJECT_STATUSES: ProjectStatus[] = ["sales", "operations", "closing"];
 const STAGES: Stage[] = ["concept", "in_progress", "ready", "done"];
 
 // Port of getIsoWeekRange/inThisWeek from dashboard-client.tsx. plannedDate is
@@ -87,7 +87,7 @@ dashboardRouter.get(
         prisma.project.count({
           where: {
             ...where,
-            status: "afronding",
+            status: "closing",
             invoice: { is: { status: { in: ["not_started", "draft"] } } },
           },
         }),
@@ -128,12 +128,12 @@ dashboardRouter.get(
       return;
     }
 
-    // -------------------------------------------------------------- monteur
-    if (user.role === "monteur") {
+    // ----------------------------------------------------------- technician
+    if (user.role === "technician") {
       const where = projectScopeWhere(user); // only assigned projects
       const today = todayIso();
 
-      // Assigned projects with their open werkbon tasks. canSeePrices(monteur)
+      // Assigned projects with their open work-order tasks. canSeePrices(technician)
       // is false, so we never select or return any price/value fields.
       const projects = await prisma.project.findMany({
         where: {
@@ -151,7 +151,7 @@ dashboardRouter.get(
           stage: true,
           plannedDate: true,
           nextStep: true,
-          werkbonnen: {
+          workOrders: {
             select: { tasks: { where: { done: false }, select: { id: true } } },
           },
         },
@@ -161,25 +161,25 @@ dashboardRouter.get(
 
       let openTaskCount = 0;
       const rows = projects.map((p) => {
-        const open = p.werkbonnen.reduce((sum, w) => sum + w.tasks.length, 0);
+        const open = p.workOrders.reduce((sum, w) => sum + w.tasks.length, 0);
         openTaskCount += open;
-        return monteurProjectRow(p, open);
+        return technicianProjectRow(p, open);
       });
 
-      const payload: MonteurDashboard = {
-        role: "monteur",
+      const payload: TechnicianDashboard = {
+        role: "technician",
         todayProjects: rows.filter((r) => r.plannedDate === today),
         upcomingProjects: rows.filter((r) => r.plannedDate !== null && r.plannedDate > today),
         openTaskCount,
         assignedProjectCount,
       };
-      // Defensive: monteurs may never receive prices.
+      // Defensive: technicians may never receive prices.
       void canSeePrices(user.role);
       res.json(payload);
       return;
     }
 
-    // ---------------------------------------------------------------- klant
+    // ---------------------------------------------------------------- client
     const where = projectScopeWhere(user); // only their customer's projects
     const projects = await prisma.project.findMany({
       where,
@@ -197,9 +197,9 @@ dashboardRouter.get(
     const byStatus = emptyCount(PROJECT_STATUSES);
     for (const p of projects) byStatus[p.status] += 1;
 
-    const payload: KlantDashboard = {
-      role: "klant",
-      projects: projects.map(klantProjectRow),
+    const payload: ClientDashboard = {
+      role: "client",
+      projects: projects.map(clientProjectRow),
       byStatus,
     };
     res.json(payload);

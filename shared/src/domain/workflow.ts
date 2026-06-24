@@ -32,7 +32,7 @@ export function getProjectMaterialReadiness(project: Project): MaterialReadiness
 
 export function canMoveToPlanned(project: Project) {
   return (
-    project.status === "operatie" &&
+    project.status === "operations" &&
     getProjectMaterialReadiness(project) === "available"
   );
 }
@@ -71,19 +71,19 @@ export function hasPlanning(project: Project) {
 
 export function getActiveWorkOrder(project: Project) {
   return (
-    project.workOrders.find((wo) => wo.status !== "completed") ??
-    project.workOrders[0]
+    project.workOrderExecutions.find((wo) => wo.status !== "completed") ??
+    project.workOrderExecutions[0]
   );
 }
 
 export function isWorkInProgress(project: Project) {
-  return project.workOrders.some((wo) => wo.status === "in_progress");
+  return project.workOrderExecutions.some((wo) => wo.status === "in_progress");
 }
 
 export function isWorkCompleted(project: Project) {
   return (
-    project.workOrders.length > 0 &&
-    project.workOrders.every((wo) => wo.status === "completed")
+    project.workOrderExecutions.length > 0 &&
+    project.workOrderExecutions.every((wo) => wo.status === "completed")
   );
 }
 
