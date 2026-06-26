@@ -2,6 +2,10 @@
   "name": "opero-monorepo",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev:client": "pnpm --filter @opero/client dev",
     "dev:backend": "pnpm --filter @opero/backend dev",
