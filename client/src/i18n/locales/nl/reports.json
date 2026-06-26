@@ -1,0 +1,28 @@
+{
+  "title": "Rapporten",
+  "loadError": "Kon rapporten niet laden",
+  "actions": {
+    "export": "Exporteren"
+  },
+  "kpis": {
+    "workOrders": "Werkbonnen",
+    "hours": "Uren",
+    "revenue": "Omzet",
+    "materialCosts": "Materiaalkosten"
+  },
+  "weeklyChart": {
+    "title": "Werkbonnen per week"
+  },
+  "recentReports": {
+    "title": "Recente rapporten",
+    "empty": "Nog geen rapporten.",
+    "reportLabel": "Rapport {{id}}",
+    "date": "Datum: {{date}}"
+  },
+  "topTechnicians": {
+    "title": "Top monteurs",
+    "name": "Naam",
+    "workOrders": "Werkbonnen",
+    "empty": "Geen gegevens."
+  }
+}

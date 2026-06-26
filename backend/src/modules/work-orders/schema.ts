@@ -15,12 +15,15 @@ export const updateWorkOrderSchema = z.object({
   title: z.string().optional(),
 });
 
-// PATCH /work-orders/:id/tasks/:taskId — mirror updateWorkOrderTask's patch shape.
+// PATCH /work-orders/:id/tasks/:taskId — task fields incl. per-zone work type +
+// assignee (nullable: pass null to clear, omit to leave unchanged).
 export const updateTaskSchema = z.object({
   description: z.string().optional(),
   day: z.string().nullable().optional(),
   done: z.boolean().optional(),
   note: z.string().nullable().optional(),
+  workTypeId: z.string().nullable().optional(),
+  assigneeId: z.string().nullable().optional(),
 });
 
 // POST /work-orders/:id/tasks/reorder — mirror reorderWorkOrderTasks.

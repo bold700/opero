@@ -1,8 +1,10 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { useTranslation } from "react-i18next";
 
 // Left brand panel of the login screen: solid lavender, logo glyph + wordmark.
 export function BrandPanel() {
+  const { t } = useTranslation();
   return (
     <Box
       sx={{
@@ -50,7 +52,7 @@ export function BrandPanel() {
           WerkbonApp
         </Typography>
         <Typography variant="h6" sx={{ fontWeight: 400, color: "text.secondary" }}>
-          Werkbonnen voor isolatiebedrijven
+          {t("auth.brand.tagline")}
         </Typography>
       </Box>
     </Box>

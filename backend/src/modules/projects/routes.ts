@@ -56,10 +56,11 @@ const STATUS_LABELS: Record<string, string> = {
   closing: "Afronding",
 };
 
+// nextStep i18n keys by status (client renders via domain.nextStep.<key>).
 const NEXT_STEP_BY_STATUS: Record<string, string> = {
-  sales: "Offerte versturen",
-  operations: "Werk uitvoeren",
-  closing: "Oplevering en factuur",
+  sales: "sendQuote",
+  operations: "executeWork",
+  closing: "handoverInvoice",
 };
 
 function todayIso(): string {
@@ -80,23 +81,42 @@ function normPriceFor(unit: string): number {
 
 // Append a ProjectActivity row inside a transaction (replaces makeActivity +
 // logChange from the store).
+// System/status/scheduled events store a language-neutral messageKey + params
+// (rendered client-side via i18n). `comment` events store the user's own text in
+// `body` (free text, not translatable). Internals are English; no display prose.
 async function appendActivity(
   tx: Tx,
   user: AuthUser,
   projectId: string,
   type: "status_change" | "comment" | "scheduled" | "system",
-  body: string,
-  statuses?: { fromStatus: "sales" | "operations" | "closing"; toStatus: "sales" | "operations" | "closing" },
+  messageKey: string,
+  opts?: {
+    params?: Record<string, unknown>;
+    statuses?: { fromStatus: "sales" | "operations" | "closing"; toStatus: "sales" | "operations" | "closing" };
+  },
 ): Promise<void> {
   await tx.projectActivity.create({
     data: {
       projectId,
       userId: user.id,
       type,
-      body,
-      fromStatus: statuses?.fromStatus,
-      toStatus: statuses?.toStatus,
+      messageKey,
+      params: (opts?.params ?? undefined) as Prisma.InputJsonValue | undefined,
+      fromStatus: opts?.statuses?.fromStatus,
+      toStatus: opts?.statuses?.toStatus,
     },
+  });
+}
+
+// Comment events carry the user's free text in `body` (no messageKey).
+async function appendComment(
+  tx: Tx,
+  user: AuthUser,
+  projectId: string,
+  text: string,
+): Promise<void> {
+  await tx.projectActivity.create({
+    data: { projectId, userId: user.id, type: "comment", body: text },
   });
 }
 
@@ -197,6 +217,31 @@ projectsRouter.post(
     });
     if (!customer) throw BadRequest("Customer not found in organization");
 
+    // Resolve the managed work type (preferred over free-text insulationType).
+    // workTypeId must belong to the org; its name mirrors into insulationType.
+    let workTypeId: string | null = null;
+    let workTypeName: string | null = null;
+    if (input.workTypeId) {
+      const wt = await prisma.workType.findFirst({
+        where: { id: input.workTypeId, orgId: user.orgId },
+      });
+      if (!wt) throw BadRequest("Work type not found in organization");
+      workTypeId = wt.id;
+      workTypeName = wt.name;
+    }
+
+    // Resolve an optional customer location (the job site); falls back to the
+    // customer's own address fields below.
+    let location: { id: string; address: string; postalCode: string; city: string } | null =
+      null;
+    if (input.locationId) {
+      const loc = await prisma.location.findFirst({
+        where: { id: input.locationId, customerId: customer.id },
+      });
+      if (!loc) throw BadRequest("Location not found for customer");
+      location = loc;
+    }
+
     // Generate next sequential project number OP-YYYY-NNN for the org/year.
     const year = new Date().getFullYear();
     const existing = await prisma.project.findMany({
@@ -211,8 +256,15 @@ projectsRouter.post(
     }, 0);
     const projectNumber = `OP-${year}-${String(maxNum + 1).padStart(3, "0")}`;
 
-    const defaultInsulation = input.insulationType?.trim() || "Nog te bepalen";
+    // Display work type: the managed name wins; else free-text; else placeholder.
+    const insulation =
+      workTypeName ?? input.insulationType?.trim() ?? "";
     const notes = input.notes ? clampText(input.notes) : "";
+
+    // Site address: chosen location, else the customer's own address.
+    const siteAddress = location?.address ?? customer.address;
+    const sitePostalCode = location?.postalCode ?? customer.postalCode;
+    const siteCity = location?.city ?? customer.city;
 
     const created = await prisma.$transaction(async (tx) => {
       const project = await tx.project.create({
@@ -222,17 +274,19 @@ projectsRouter.post(
           name: input.name?.trim() ? clampText(input.name).trim() : null,
           customerId: customer.id,
           customerName: customer.name,
-          address: customer.address,
-          postalCode: customer.postalCode,
-          city: customer.city,
-          insulationType: defaultInsulation,
+          locationId: location?.id ?? null,
+          address: siteAddress,
+          postalCode: sitePostalCode,
+          city: siteCity,
+          workTypeId,
+          insulationType: insulation,
           description: notes,
           workTypes: [],
           exclusions: "",
           stage: "concept",
           status: "sales",
           urgency: "normal",
-          nextStep: "Intake inplannen",
+          nextStepKey: "planIntake",
           materialsReady: false,
           value: 0,
           // Default nested rows (mirror buildEmptyProject).
@@ -242,8 +296,8 @@ projectsRouter.post(
               contactName: customer.contactName,
               contactEmail: customer.email,
               contactPhone: customer.phone,
-              address: `${customer.address}, ${customer.postalCode} ${customer.city}`,
-              insulationType: defaultInsulation,
+              address: `${siteAddress}, ${sitePostalCode} ${siteCity}`,
+              insulationType: insulation,
               squareMeters: 0,
               notes,
               risks: "",
@@ -258,12 +312,12 @@ projectsRouter.post(
             create: {
               items: {
                 create: [
-                  { label: "Werk uitgevoerd volgens opdracht", ordinal: 0 },
-                  { label: "Fotos geupload", ordinal: 1 },
-                  { label: "Materialen geregistreerd", ordinal: 2 },
-                  { label: "Meerwerk akkoord", ordinal: 3 },
-                  { label: "Handtekening opdrachtgever", ordinal: 4 },
-                  { label: "Kwaliteitscheck afgerond", ordinal: 5 },
+                  { labelKey: "workDone", ordinal: 0 },
+                  { labelKey: "photosUploaded", ordinal: 1 },
+                  { labelKey: "materialsRegistered", ordinal: 2 },
+                  { labelKey: "extraWorkApproved", ordinal: 3 },
+                  { labelKey: "clientSignature", ordinal: 4 },
+                  { labelKey: "qualityChecked", ordinal: 5 },
                 ],
               },
             },
@@ -271,7 +325,7 @@ projectsRouter.post(
         },
         include: projectInclude,
       });
-      await appendActivity(tx, user, project.id, "system", "Project aangemaakt");
+      await appendActivity(tx, user, project.id, "system", "project.created");
       await audit(tx, user, "project.create", "project", project.id, {
         projectNumber,
         customerId: customer.id,
@@ -375,6 +429,7 @@ projectsRouter.post(
         where: { id: existing.id },
         data: { archived: true, stage: "done", status: "closing" },
       });
+      await appendActivity(tx, user, existing.id, "system", "project.archived");
       await audit(tx, user, "project.archive", "project", existing.id);
       return tx.project.findUniqueOrThrow({
         where: { id: existing.id },
@@ -409,7 +464,7 @@ projectsRouter.post(
     const updated = await prisma.$transaction(async (tx) => {
       const data: Prisma.ProjectUpdateInput = {
         status,
-        nextStep: NEXT_STEP_BY_STATUS[status],
+        nextStepKey: NEXT_STEP_BY_STATUS[status],
       };
       // Moving to operations/closing implies accepted quote.
       if (
@@ -443,14 +498,10 @@ projectsRouter.post(
         });
       }
       await tx.project.update({ where: { id: existing.id }, data });
-      await appendActivity(
-        tx,
-        user,
-        existing.id,
-        "status_change",
-        `Status van ${STATUS_LABELS[fromStatus]} naar ${STATUS_LABELS[status]}`,
-        { fromStatus, toStatus: status },
-      );
+      await appendActivity(tx, user, existing.id, "status_change", "project.statusChanged", {
+        params: { from: fromStatus, to: status },
+        statuses: { fromStatus, toStatus: status },
+      });
       await audit(tx, user, "project.status", "project", existing.id, {
         fromStatus,
         toStatus: status,
@@ -507,13 +558,9 @@ projectsRouter.post(
         where: { id: existing.id },
         data: { stage, status },
       });
-      await appendActivity(
-        tx,
-        user,
-        existing.id,
-        "system",
-        `Fase gewijzigd naar ${stage}`,
-      );
+      await appendActivity(tx, user, existing.id, "system", "project.stageChanged", {
+        params: { stage },
+      });
       await audit(tx, user, "project.stage", "project", existing.id, { stage });
       return tx.project.findUniqueOrThrow({
         where: { id: existing.id },
@@ -559,23 +606,19 @@ projectsRouter.post(
       await tx.project.update({
         where: { id: existing.id },
         data: {
-          blocker: available
-            ? null
-            : existing.blocker ?? "Niet alle materialen zijn beschikbaar.",
-          nextStep: available ? "Project plannen" : "Inkooplijst maken",
+          // Keep a user-entered blocker; otherwise use the system-default key.
+          blocker: available ? null : existing.blocker,
+          blockerKey:
+            available || existing.blocker ? null : "materialsUnavailable",
+          nextStepKey: available ? "planProject" : "createPurchaseList",
           status: "operations",
           urgency: available ? existing.urgency : "blocked",
         },
       });
       if (fromStatus !== "operations") {
-        await appendActivity(
-          tx,
-          user,
-          existing.id,
-          "status_change",
-          "Materialencheck gestart",
-          { fromStatus, toStatus: "operations" },
-        );
+        await appendActivity(tx, user, existing.id, "status_change", "project.materialCheckStarted", {
+          statuses: { fromStatus, toStatus: "operations" },
+        });
       }
       await audit(tx, user, "project.materialsCheck", "project", existing.id);
       return tx.project.findUniqueOrThrow({
@@ -735,18 +778,18 @@ projectsRouter.post(
           squareMeters,
           blocker: blocker ?? existing.blocker,
           urgency: blocker ? "blocked" : existing.urgency,
-          nextStep: blocker ? "Blokkade afhandelen" : "Offerte versturen",
+          nextStepKey: blocker ? "resolveBlocker" : "sendQuote",
           value,
         },
       });
 
-      await appendActivity(
-        tx,
-        user,
-        existing.id,
-        "system",
-        blocker ? `Intake afgerond met blokkade: ${blocker}` : "Intake afgerond",
-      );
+      if (blocker) {
+        await appendActivity(tx, user, existing.id, "system", "project.intakeCompletedWithBlocker", {
+          params: { blocker },
+        });
+      } else {
+        await appendActivity(tx, user, existing.id, "system", "project.intakeCompleted");
+      }
       await audit(tx, user, "project.intake.complete", "project", existing.id);
       return tx.project.findUniqueOrThrow({
         where: { id: existing.id },
@@ -964,15 +1007,9 @@ projectsRouter.post(
       });
       await tx.project.update({
         where: { id: project.id },
-        data: { nextStep: "Wachten op akkoord" },
+        data: { nextStepKey: "waitingApproval" },
       });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        "system",
-        "Offerte verstuurd naar klant",
-      );
+      await appendActivity(tx, user, project.id, "system", "quote.sent");
       await audit(tx, user, "project.quote.send", "project", project.id);
     });
 
@@ -1028,22 +1065,17 @@ projectsRouter.post(
         where: { id: existing.id },
         data: {
           status: "operations",
-          blocker: available
-            ? null
-            : existing.blocker ?? "Niet alle materialen zijn beschikbaar.",
-          nextStep: available ? "Project plannen" : "Inkooplijst maken",
+          blocker: available ? null : existing.blocker,
+          blockerKey:
+            available || existing.blocker ? null : "materialsUnavailable",
+          nextStepKey: available ? "planProject" : "createPurchaseList",
           urgency: available ? existing.urgency : "blocked",
         },
       });
       if (fromStatus !== "operations") {
-        await appendActivity(
-          tx,
-          user,
-          existing.id,
-          "status_change",
-          "Offerte geaccepteerd - project naar Operatie",
-          { fromStatus, toStatus: "operations" },
-        );
+        await appendActivity(tx, user, existing.id, "status_change", "quote.accepted", {
+          statuses: { fromStatus, toStatus: "operations" },
+        });
       }
       await audit(tx, user, "project.quote.accept", "project", existing.id);
       return tx.project.findUniqueOrThrow({
@@ -1068,19 +1100,15 @@ projectsRouter.post(
     const user = req.user!;
     const { urgency } = urgencyBodySchema.parse(req.body);
     const existing = await loadProjectForUser(user, req.params.id);
-    const label =
-      urgency === "urgent"
-        ? "Urgent"
-        : urgency === "blocked"
-          ? "Geblokkeerd"
-          : "Normaal";
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.project.update({
         where: { id: existing.id },
         data: { urgency },
       });
-      await appendActivity(tx, user, existing.id, "system", `Urgentie: ${label}`);
+      await appendActivity(tx, user, existing.id, "system", "project.urgencyChanged", {
+        params: { urgency },
+      });
       await audit(tx, user, "project.urgency", "project", existing.id, { urgency });
       return tx.project.findUniqueOrThrow({
         where: { id: existing.id },
@@ -1108,8 +1136,9 @@ projectsRouter.post(
         where: { id: existing.id },
         data: {
           blocker: null,
+          blockerKey: null,
           urgency: existing.urgency === "blocked" ? "normal" : existing.urgency,
-          nextStep: "Offerte versturen",
+          nextStepKey: "sendQuote",
         },
       });
       await appendActivity(
@@ -1117,7 +1146,8 @@ projectsRouter.post(
         user,
         existing.id,
         "system",
-        `Blokkade afgehandeld: ${existing.blocker}${trimmed ? ` (${trimmed})` : ""}`,
+        trimmed ? "project.blockerResolvedWithNote" : "project.blockerResolved",
+        { params: { blocker: existing.blocker ?? "—", note: trimmed } },
       );
       await audit(tx, user, "project.resolveBlocker", "project", existing.id);
       return tx.project.findUniqueOrThrow({
@@ -1153,6 +1183,7 @@ projectsRouter.post(
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.project.update({ where: { id: existing.id }, data });
+      await appendActivity(tx, user, existing.id, "system", "project.teamAssigned");
       await audit(tx, user, "project.team", "project", existing.id, input);
       return tx.project.findUniqueOrThrow({
         where: { id: existing.id },
@@ -1200,7 +1231,7 @@ projectsRouter.post(
     if (!trimmed) throw BadRequest("Empty comment");
 
     await prisma.$transaction(async (tx) => {
-      await appendActivity(tx, user, existing.id, "comment", trimmed);
+      await appendComment(tx, user, existing.id, trimmed);
       await audit(tx, user, "project.comment", "project", existing.id);
     });
 
@@ -1258,13 +1289,9 @@ projectsRouter.post(
           createdAt: todayIso(),
         },
       });
-      await appendActivity(
-        tx,
-        user,
-        existing.id,
-        "system",
-        `Meerwerk gemeld: ${description} (${formatEuro(amount)})`,
-      );
+      await appendActivity(tx, user, existing.id, "system", "extraWork.reported", {
+        params: { description, amount: formatEuro(amount) },
+      });
       await audit(tx, user, "project.extraWork.add", "project", existing.id);
     });
 
@@ -1301,7 +1328,8 @@ projectsRouter.post(
         user,
         project.id,
         "system",
-        `Meerwerk "${item.description}": kantoor ${next ? "akkoord" : "akkoord ingetrokken"}`,
+        next ? "extraWork.officeApproved" : "extraWork.officeWithdrawn",
+        { params: { description: item.description } },
       );
       await audit(tx, user, "project.extraWork.approveOffice", "project", project.id);
     });
@@ -1333,7 +1361,8 @@ projectsRouter.post(
         user,
         project.id,
         "system",
-        `Meerwerk "${item.description}": opdrachtgever ${next ? "akkoord" : "akkoord ingetrokken"}`,
+        next ? "extraWork.clientApproved" : "extraWork.clientWithdrawn",
+        { params: { description: item.description } },
       );
       await audit(tx, user, "project.extraWork.approveClient", "project", project.id);
     });
@@ -1367,7 +1396,8 @@ projectsRouter.post(
         user,
         project.id,
         "system",
-        `Meerwerk "${item.description}": afgewezen door ${rejectedBy === "client" ? "opdrachtgever" : "kantoor"}`,
+        rejectedBy === "client" ? "extraWork.rejectedByClient" : "extraWork.rejectedByOffice",
+        { params: { description: item.description } },
       );
       await audit(tx, user, "project.extraWork.reject", "project", project.id);
     });
@@ -1392,7 +1422,8 @@ projectsRouter.post(
         user,
         project.id,
         "system",
-        `Meerwerk "${item.description}": ${next ? "afgerond" : "heropend"}`,
+        next ? "extraWork.done" : "extraWork.reopened",
+        { params: { description: item.description } },
       );
       await audit(tx, user, "project.extraWork.toggleDone", "project", project.id);
     });
@@ -1440,12 +1471,12 @@ projectsRouter.post(
     }
 
     const items = [
-      { label: "Werk uitgevoerd volgens opdracht", ordinal: 0 },
-      { label: "Voor- en na-foto's gemaakt", ordinal: 1 },
-      { label: "Brandwerende doorvoeringen geregistreerd", ordinal: 2 },
-      { label: "Meerwerk afgestemd en akkoord", ordinal: 3 },
-      { label: "Werkplek opgeruimd opgeleverd", ordinal: 4 },
-      { label: "Kwaliteitscontrole akkoord", ordinal: 5 },
+      { labelKey: "workDone", ordinal: 0 },
+      { labelKey: "beforeAfterPhotos", ordinal: 1 },
+      { labelKey: "fireSealsRegistered", ordinal: 2 },
+      { labelKey: "extraWorkAligned", ordinal: 3 },
+      { labelKey: "workplaceCleaned", ordinal: 4 },
+      { labelKey: "qualityApproved", ordinal: 5 },
     ];
 
     await prisma.$transaction(async (tx) => {
@@ -1559,13 +1590,9 @@ projectsRouter.post(
         where: { id: handover.id },
         data: { signedBy: name, completedAt: todayIso() },
       });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        "system",
-        `Oplevering ondertekend door ${name}`,
-      );
+      await appendActivity(tx, user, project.id, "system", "handover.signed", {
+        params: { name },
+      });
       await audit(tx, user, "project.handover.sign", "project", project.id);
     });
 

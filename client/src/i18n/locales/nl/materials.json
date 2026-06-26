@@ -1,0 +1,33 @@
+{
+  "title": "Materialen",
+  "searchPlaceholder": "Zoek materiaal...",
+  "addMaterial": "Materiaal toevoegen",
+  "empty": "Geen materialen gevonden.",
+  "viewAction": "bekijken",
+  "filters": {
+    "all": "Alle",
+    "ok": "Voorraad OK",
+    "low": "Bijna op",
+    "outOfStock": "Uitverkocht"
+  },
+  "kpis": {
+    "totalItems": "Totaal items",
+    "low": "Bijna op",
+    "outOfStock": "Uitverkocht",
+    "stockOk": "Voorraad OK"
+  },
+  "columns": {
+    "name": "Naam",
+    "category": "Categorie",
+    "unit": "Eenheid",
+    "stock": "Voorraad",
+    "minStock": "Min. voorraad",
+    "status": "Status",
+    "action": "Actie"
+  },
+  "status": {
+    "ok": "OK",
+    "low": "Bijna op",
+    "outOfStock": "Uitverkocht"
+  }
+}

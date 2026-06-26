@@ -1,0 +1,89 @@
+{
+  "status": {
+    "sales": "Verkoop",
+    "operations": "Operatie",
+    "closing": "Afronding"
+  },
+  "stage": {
+    "sales": "Verkoop",
+    "operations": "Operatie",
+    "closing": "Afronding",
+    "done": "Afgerond"
+  },
+  "urgency": {
+    "normal": "Normaal",
+    "urgent": "Urgent",
+    "blocked": "Geblokkeerd"
+  },
+  "project": {
+    "created": "Project aangemaakt",
+    "deleted": "Project verwijderd",
+    "archived": "Project gearchiveerd",
+    "teamAssigned": "Team toegewezen",
+    "statusChanged": "Status van $t(activity.status.{{from}}) naar $t(activity.status.{{to}})",
+    "stageChanged": "Fase gewijzigd naar $t(activity.stage.{{stage}})",
+    "urgencyChanged": "Urgentie: $t(activity.urgency.{{urgency}})",
+    "materialCheckStarted": "Materialencheck gestart",
+    "intakeCompleted": "Intake afgerond",
+    "intakeCompletedWithBlocker": "Intake afgerond met blokkade: {{blocker}}",
+    "blockerResolved": "Blokkade afgehandeld: {{blocker}}",
+    "blockerResolvedWithNote": "Blokkade afgehandeld: {{blocker}} ({{note}})"
+  },
+  "quote": {
+    "sent": "Offerte verstuurd naar klant",
+    "accepted": "Offerte geaccepteerd - project naar Operatie"
+  },
+  "invoice": {
+    "drafted": "Factuurconcept aangemaakt",
+    "sent": "Factuur verstuurd",
+    "paid": "Factuur betaald"
+  },
+  "planning": {
+    "scheduled": "Ingepland op {{date}}",
+    "scheduledWithTeam": "Ingepland op {{date}} (team {{leader}})",
+    "projectScheduled": "Project ingepland",
+    "unscheduled": "Planning verwijderd"
+  },
+  "extraWork": {
+    "reported": "Meerwerk gemeld: {{description}} ({{amount}})",
+    "officeApproved": "Meerwerk \"{{description}}\": kantoor akkoord",
+    "officeWithdrawn": "Meerwerk \"{{description}}\": kantoor akkoord ingetrokken",
+    "clientApproved": "Meerwerk \"{{description}}\": opdrachtgever akkoord",
+    "clientWithdrawn": "Meerwerk \"{{description}}\": opdrachtgever akkoord ingetrokken",
+    "rejectedByOffice": "Meerwerk \"{{description}}\": afgewezen door kantoor",
+    "rejectedByClient": "Meerwerk \"{{description}}\": afgewezen door opdrachtgever",
+    "done": "Meerwerk \"{{description}}\": afgerond",
+    "reopened": "Meerwerk \"{{description}}\": heropend"
+  },
+  "handover": {
+    "signed": "Oplevering ondertekend door {{name}}"
+  },
+  "task": {
+    "added": "Taak toegevoegd",
+    "removed": "Taak verwijderd: {{scope}}",
+    "reordered": "Taken opnieuw geordend",
+    "completedViaTimer": "{{scope}} afgerond, {{hours}} u via timer",
+    "hoursChanged": "Uren {{scope}}: {{from}} naar {{to}} u",
+    "toggledDone": "{{name}}: afgerond",
+    "toggledReopened": "{{name}}: heropend",
+    "completedAll_one": "{{count}} taak in één keer afgevinkt",
+    "completedAll_other": "{{count}} taken in één keer afgevinkt"
+  },
+  "material": {
+    "addedTask": "Taak toegevoegd bij {{scope}}: {{name}}",
+    "added": "Product toegevoegd bij {{scope}}",
+    "renamed": "Product: \"{{from}}\" gewijzigd naar \"{{to}}\"",
+    "quantityChanged": "{{name}}: gepland aantal {{from}} naar {{to}} {{unit}}",
+    "removed": "Product verwijderd: {{name}}",
+    "usageChanged": "Verbruik {{name}}: {{from}} naar {{to}} {{unit}}{{suffix}}",
+    "usageOver": " ({{delta}} {{unit}} meer dan gepland)",
+    "usageUnder": " ({{delta}} {{unit}} minder dan gepland)"
+  },
+  "workOrder": {
+    "created": "Werkbon aangemaakt: {{title}}",
+    "deleted": "Werkbon verwijderd: {{title}}",
+    "approved": "Werkbon goedgekeurd: {{title}}",
+    "unapproved": "Goedkeuring ingetrokken: {{title}}",
+    "signed": "{{title}} afgerond en ondertekend"
+  }
+}

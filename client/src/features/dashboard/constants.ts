@@ -8,11 +8,11 @@ export const TONE = {
   neutral: "#49454F",
 } as const;
 
-// English status value → Dutch display label.
-export const STATUS_LABEL: Record<string, string> = {
-  sales: "Verkoop",
-  operations: "Operatie",
-  closing: "Afronding",
+// English status value → i18n translation key (translate at call site).
+export const STATUS_LABEL_KEY: Record<string, string> = {
+  sales: "dashboard.status.sales",
+  operations: "dashboard.status.operations",
+  closing: "dashboard.status.closing",
 };
 
 export function euro(n: number): string {

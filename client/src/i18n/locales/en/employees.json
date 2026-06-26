@@ -1,0 +1,40 @@
+{
+  "title": "Employees",
+  "searchPlaceholder": "Search employee...",
+  "newEmployee": "New employee",
+  "empty": "No employees found.",
+  "moreActions": "more",
+  "kpis": {
+    "total": "Total",
+    "technicians": "Technicians",
+    "office": "Office",
+    "active": "Active"
+  },
+  "filters": {
+    "all": "All",
+    "technicians": "Technicians",
+    "office": "Office",
+    "inactive": "Inactive"
+  },
+  "table": {
+    "name": "Name",
+    "function": "Function",
+    "workOrders": "Work orders",
+    "status": "Status",
+    "action": "Action"
+  },
+  "status": {
+    "active": "Active",
+    "on_leave": "On leave",
+    "inactive": "Inactive"
+  },
+  "roles": {
+    "technician": "Technician",
+    "foreman": "Foreman",
+    "workPlanner": "Work planner",
+    "planner": "Planner",
+    "projectLeader": "Project leader",
+    "administration": "Administration",
+    "sales": "Sales"
+  }
+}

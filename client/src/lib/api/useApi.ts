@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import i18n from "../../i18n";
 import { ApiError } from "./client";
 
 type State<T> = {
@@ -21,7 +22,8 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[] = []): Stat
       })
       .catch((e) => {
         if (cancelled) return;
-        const msg = e instanceof ApiError ? e.message : "Kon gegevens niet laden";
+        // Non-component context: read the translation off the i18n instance.
+        const msg = e instanceof ApiError ? e.message : i18n.t("common.states.loadFailed");
         setState({ data: null, loading: false, error: msg });
       });
     return () => {

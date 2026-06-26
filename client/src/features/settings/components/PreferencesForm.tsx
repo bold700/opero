@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import Divider from "@mui/material/Divider";
@@ -7,23 +8,28 @@ import { ToggleRow } from "./ToggleRow";
 import { fieldGrid } from "../constants";
 
 export function PreferencesForm() {
+  const { t } = useTranslation();
   return (
     <Box>
-      <GroupLabel>Weergave</GroupLabel>
+      <GroupLabel>{t("settings.preferences.display")}</GroupLabel>
       <Box sx={fieldGrid}>
-        <TextField label="Taal" defaultValue="nl" select fullWidth>
-          <MenuItem value="nl">Nederlands</MenuItem>
-          <MenuItem value="en">Engels</MenuItem>
+        <TextField label={t("settings.preferences.language")} defaultValue="nl" select fullWidth>
+          <MenuItem value="nl">{t("settings.preferences.languageDutch")}</MenuItem>
+          <MenuItem value="en">{t("settings.preferences.languageEnglish")}</MenuItem>
         </TextField>
-        <TextField label="Thema" defaultValue="light" select fullWidth>
-          <MenuItem value="light">Licht</MenuItem>
-          <MenuItem value="dark">Donker</MenuItem>
-          <MenuItem value="system">Systeem</MenuItem>
+        <TextField label={t("settings.preferences.theme")} defaultValue="light" select fullWidth>
+          <MenuItem value="light">{t("settings.preferences.themeLight")}</MenuItem>
+          <MenuItem value="dark">{t("settings.preferences.themeDark")}</MenuItem>
+          <MenuItem value="system">{t("settings.preferences.themeSystem")}</MenuItem>
         </TextField>
       </Box>
       <Divider sx={{ my: 3 }} />
-      <GroupLabel>Privacy</GroupLabel>
-      <ToggleRow label="Prijzen tonen aan monteurs" sub="Monteurs zien bedragen op werkbonnen" on={false} />
+      <GroupLabel>{t("settings.preferences.privacy")}</GroupLabel>
+      <ToggleRow
+        label={t("settings.preferences.showPrices.label")}
+        sub={t("settings.preferences.showPrices.sub")}
+        on={false}
+      />
     </Box>
   );
 }

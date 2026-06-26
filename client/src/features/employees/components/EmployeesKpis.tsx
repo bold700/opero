@@ -1,13 +1,14 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { Card } from "../../../components/Card";
-import { KPIS } from "../constants";
+
+export type Kpi = { label: string; value: number; tone: string };
 
 // Row of KPI cards above the employees table.
-export function EmployeesKpis() {
+export function EmployeesKpis({ kpis }: { kpis: Kpi[] }) {
   return (
     <Box sx={{ display: "flex", gap: 2.5, flexWrap: { xs: "wrap", lg: "nowrap" } }}>
-      {KPIS.map((k) => (
+      {kpis.map((k) => (
         <Card
           key={k.label}
           sx={{ flex: { xs: "1 1 45%", lg: "1 1 0" }, minWidth: 180, p: 2.5 }}

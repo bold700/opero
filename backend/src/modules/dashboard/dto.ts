@@ -34,7 +34,7 @@ export type TechnicianProjectRow = {
   status: ProjectStatus;
   stage: Stage;
   plannedDate: string | null;
-  nextStep: string;
+  nextStepKey: string;
   openTaskCount: number;
 };
 
@@ -54,7 +54,7 @@ export type ClientProjectRow = {
   status: ProjectStatus;
   stage: Stage;
   plannedDate: string | null;
-  nextStep: string;
+  nextStepKey: string;
 };
 
 export type ClientDashboard = {
@@ -72,7 +72,7 @@ type TechnicianProjectSource = {
   status: ProjectStatus;
   stage: Stage;
   plannedDate: string | null;
-  nextStep: string;
+  nextStepKey: string;
 };
 
 export function technicianProjectRow(
@@ -88,7 +88,7 @@ export function technicianProjectRow(
     status: p.status,
     stage: p.stage,
     plannedDate: p.plannedDate ?? null,
-    nextStep: p.nextStep,
+    nextStepKey: p.nextStepKey,
     openTaskCount,
   };
 }
@@ -99,7 +99,7 @@ type ClientProjectSource = {
   status: ProjectStatus;
   stage: Stage;
   plannedDate: string | null;
-  nextStep: string;
+  nextStepKey: string;
 };
 
 export function clientProjectRow(p: ClientProjectSource): ClientProjectRow {
@@ -109,6 +109,6 @@ export function clientProjectRow(p: ClientProjectSource): ClientProjectRow {
     status: p.status,
     stage: p.stage,
     plannedDate: p.plannedDate ?? null,
-    nextStep: p.nextStep,
+    nextStepKey: p.nextStepKey,
   };
 }

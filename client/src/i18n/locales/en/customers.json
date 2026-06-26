@@ -1,0 +1,30 @@
+{
+  "title": "Customers",
+  "counts": {
+    "total": "Total",
+    "business": "Business",
+    "private": "Private"
+  },
+  "filters": {
+    "all": "All",
+    "business": "Business",
+    "private": "Private"
+  },
+  "typeBadge": {
+    "business": "Business",
+    "private": "Private"
+  },
+  "actions": {
+    "searchPlaceholder": "Search by name or city...",
+    "newCustomer": "New customer"
+  },
+  "table": {
+    "name": "Name",
+    "city": "City",
+    "type": "Type",
+    "workOrders": "Work orders",
+    "lastContact": "Last contact",
+    "action": "Action",
+    "viewAriaLabel": "view"
+  }
+}

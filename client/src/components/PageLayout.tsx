@@ -9,7 +9,7 @@ import { SURFACE, SPACING } from "../theme/tokens";
 //  - consistent content padding + section gap
 //
 // Usage:
-//   <PageLayout title="Werkbonnen" actions={<Button>…</Button>}>
+//   <PageLayout title={t("workOrders.title")} actions={<Button>…</Button>}>
 //     ...sections...
 //   </PageLayout>
 

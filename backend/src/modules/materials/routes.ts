@@ -17,6 +17,7 @@ import {
 } from "./schema.js";
 import {
   materialDto,
+  materialListDto,
   inventoryDto,
   articleDto,
   workTypeDto,
@@ -308,7 +309,7 @@ materialsRouter.get(
       include: { inventory: true },
       orderBy: { name: "asc" },
     });
-    res.json(rows.map(materialDto));
+    res.json(rows.map(materialListDto));
   }),
 );
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -19,7 +20,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../auth/AuthContext";
 import { navItemsForRole, type NavItem } from "./navigation";
 
-const RAIL_WIDTH = 80;
+const RAIL_WIDTH = 96;
 
 function initials(name: string): string {
   return name
@@ -36,6 +37,7 @@ function NavRail({ items }: { items: NavItem[] }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
 
   const settingsItem = items.find((i) => i.path === "/settings");
   const primary = items.filter((i) => i.path !== "/settings");
@@ -67,7 +69,7 @@ function NavRail({ items }: { items: NavItem[] }) {
       <Box
         onClick={() => navigate("/")}
         role="button"
-        aria-label="dashboard"
+        aria-label={t("nav.dashboard")}
         sx={{
           width: 44,
           height: 44,
@@ -98,7 +100,7 @@ function NavRail({ items }: { items: NavItem[] }) {
         </Box>
       </Box>
 
-      <Fab color="primary" size="medium" aria-label="nieuw" sx={{ mb: 2, boxShadow: "none" }}>
+      <Fab color="primary" size="medium" aria-label={t("common.actions.add")} sx={{ mb: 2, boxShadow: "none" }}>
         <AddIcon />
       </Fab>
 
@@ -135,8 +137,11 @@ function NavRail({ items }: { items: NavItem[] }) {
               >
                 <Icon fontSize="small" />
               </Box>
-              <Typography variant="caption" sx={{ fontWeight: active ? 600 : 400 }}>
-                {item.label}
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: active ? 600 : 400, textAlign: "center", lineHeight: 1.2, whiteSpace: "nowrap" }}
+              >
+                {t(item.labelKey)}
               </Typography>
             </Box>
           );
@@ -158,7 +163,7 @@ function NavRail({ items }: { items: NavItem[] }) {
           }}
         >
           <settingsItem.icon fontSize="small" />
-          <Typography variant="caption">{settingsItem.label}</Typography>
+          <Typography variant="caption">{t(settingsItem.labelKey)}</Typography>
         </Box>
       ) : null}
 
@@ -179,9 +184,10 @@ function ProfileMenu({
   onSettings: () => void;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const { t } = useTranslation();
   return (
     <>
-      <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ p: 0 }} aria-label="profiel">
+      <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ p: 0 }} aria-label={name}>
         <Avatar sx={{ width: 40, height: 40, bgcolor: "primary.main", fontSize: 14, fontWeight: 600 }}>
           {initials(name)}
         </Avatar>
@@ -207,7 +213,7 @@ function ProfileMenu({
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Instellingen</ListItemText>
+          <ListItemText>{t("nav.settings")}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -218,7 +224,7 @@ function ProfileMenu({
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Uitloggen</ListItemText>
+          <ListItemText>{t("common.actions.logout")}</ListItemText>
         </MenuItem>
       </Menu>
     </>
@@ -229,6 +235,7 @@ function ProfileMenu({
 function BottomNav({ items }: { items: NavItem[] }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const shown = items.filter((i) => i.path !== "/settings").slice(0, 5);
   const current = shown.find((i) =>
     i.path === "/" ? location.pathname === "/" : location.pathname.startsWith(i.path),
@@ -257,7 +264,7 @@ function BottomNav({ items }: { items: NavItem[] }) {
           return (
             <BottomNavigationAction
               key={item.path}
-              label={item.label}
+              label={t(item.labelKey)}
               value={item.path}
               icon={<Icon />}
             />

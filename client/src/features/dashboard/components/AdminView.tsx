@@ -1,22 +1,24 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
+import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import { KpiCard } from "./KpiCard";
-import { TONE, STATUS_LABEL, euro } from "../constants";
+import { TONE, STATUS_LABEL_KEY, euro } from "../constants";
 import type { AdminDashboard } from "../api";
 
 export function AdminView({ data }: { data: AdminDashboard }) {
+  const { t } = useTranslation();
   const kpis = [
-    { label: "Projecten totaal", value: data.kpis.totalProjects, tone: TONE.primary },
-    { label: "Ingepland deze week", value: data.kpis.plannedThisWeek, tone: TONE.info },
+    { label: t("dashboard.admin.kpis.totalProjects"), value: data.kpis.totalProjects, tone: TONE.primary },
+    { label: t("dashboard.admin.kpis.plannedThisWeek"), value: data.kpis.plannedThisWeek, tone: TONE.info },
     {
-      label: "Spoed / geblokkeerd",
+      label: t("dashboard.admin.kpis.urgentBlocked"),
       value: data.urgentCount + data.blockedCount,
       tone: TONE.danger,
-      sub: `${data.urgentCount} urgent · ${data.blockedCount} geblokkeerd`,
+      sub: t("dashboard.admin.kpis.urgentBlockedSub", { urgent: data.urgentCount, blocked: data.blockedCount }),
     },
-    { label: "Klaar voor facturatie", value: data.kpis.readyToInvoice, tone: TONE.success },
+    { label: t("dashboard.admin.kpis.readyToInvoice"), value: data.kpis.readyToInvoice, tone: TONE.success },
   ];
 
   return (
@@ -31,12 +33,12 @@ export function AdminView({ data }: { data: AdminDashboard }) {
         {/* Pipeline by status */}
         <Card sx={{ flex: 1, minWidth: 0, p: 2.5 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-            Projecten per status
+            {t("dashboard.admin.pipelineTitle")}
           </Typography>
           {(["sales", "operations", "closing"] as const).map((s, i, arr) => (
             <Box key={s}>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 1.5 }}>
-                <Typography sx={{ fontWeight: 600 }}>{STATUS_LABEL[s]}</Typography>
+                <Typography sx={{ fontWeight: 600 }}>{t(STATUS_LABEL_KEY[s])}</Typography>
                 <Typography sx={{ fontWeight: 700 }}>{data.byStatus[s] ?? 0}</Typography>
               </Box>
               {i < arr.length - 1 ? <Divider /> : null}
@@ -47,20 +49,20 @@ export function AdminView({ data }: { data: AdminDashboard }) {
         {/* Financials */}
         <Card sx={{ width: { xs: "100%", lg: 360 }, flexShrink: 0, p: 2.5 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-            Financieel
+            {t("dashboard.admin.financialTitle")}
           </Typography>
           <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5 }}>
-            <Typography color="text.secondary">Pipeline waarde</Typography>
+            <Typography color="text.secondary">{t("dashboard.admin.pipelineValue")}</Typography>
             <Typography sx={{ fontWeight: 700 }}>{euro(data.pipelineValue)}</Typography>
           </Box>
           <Divider />
           <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5 }}>
-            <Typography color="text.secondary">Openstaande facturen</Typography>
+            <Typography color="text.secondary">{t("dashboard.admin.openInvoices")}</Typography>
             <Typography sx={{ fontWeight: 700 }}>{data.openInvoices}</Typography>
           </Box>
           <Divider />
           <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5 }}>
-            <Typography color="text.secondary">Activiteit (7 dagen)</Typography>
+            <Typography color="text.secondary">{t("dashboard.admin.recentActivity")}</Typography>
             <Typography sx={{ fontWeight: 700 }}>{data.kpis.recentActivity}</Typography>
           </Box>
         </Card>

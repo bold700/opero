@@ -1,0 +1,10 @@
+{
+  "dashboard": "Dashboard",
+  "workOrders": "Work orders",
+  "planning": "Planning",
+  "customers": "Customers",
+  "employees": "Employees",
+  "materials": "Materials",
+  "reports": "Reports",
+  "settings": "Settings"
+}

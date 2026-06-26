@@ -1,0 +1,23 @@
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "close": "Close",
+    "search": "Search",
+    "back": "Back",
+    "confirm": "Confirm",
+    "logout": "Log out"
+  },
+  "states": {
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "loadFailed": "Could not load data",
+    "empty": "No results"
+  },
+  "misc": {
+    "all": "All"
+  }
+}

@@ -4,34 +4,30 @@ import EuroIcon from "@mui/icons-material/Euro";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import type { SvgIconComponent } from "@mui/icons-material";
 
-// Reports (Rapporten) — local display data. Demo data; wires to GET /api/reports.
-
-export const KPIS: { label: string; value: string; icon: SvgIconComponent }[] = [
-  { label: "Werkbonnen", value: "47", icon: AssignmentIcon },
-  { label: "Uren", value: "382u", icon: AccessTimeIcon },
-  { label: "Omzet", value: "€28.400", icon: EuroIcon },
-  { label: "Materiaalkosten", value: "€6.200", icon: Inventory2Icon },
+// Display metadata for the report KPI cards (i18n label key + icon, paired with
+// the live value from the API). `labelKey` resolves to a "reports.kpis.<key>"
+// string at render time — never translate at module top-level.
+export const KPI_META: { key: "workOrders" | "hours" | "revenue" | "materialCosts"; labelKey: string; icon: SvgIconComponent }[] = [
+  { key: "workOrders", labelKey: "reports.kpis.workOrders", icon: AssignmentIcon },
+  { key: "hours", labelKey: "reports.kpis.hours", icon: AccessTimeIcon },
+  { key: "revenue", labelKey: "reports.kpis.revenue", icon: EuroIcon },
+  { key: "materialCosts", labelKey: "reports.kpis.materialCosts", icon: Inventory2Icon },
 ];
 
-export const CHART = [
-  { week: "W21", value: 28 },
-  { week: "W22", value: 42 },
-  { week: "W23", value: 34 },
-  { week: "W24", value: 56 },
-  { week: "W25", value: 52 },
-];
-export const CHART_MAX = 60;
+export function euro(n: number): string {
+  return `€ ${n.toLocaleString("nl-NL")}`;
+}
 
-export const REPORTS = [
-  { id: "#121", date: "11 Jun 2025" },
-  { id: "#122", date: "12 Jun 2025" },
-  { id: "#123", date: "13 Jun 2025" },
-  { id: "#124", date: "14 Jun 2025" },
-  { id: "#125", date: "15 Jun 2025" },
-];
+export function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
-export const TOP = [
-  { initial: "M", name: "Marco van den Berg", workOrders: 12, hours: "160u" },
-  { initial: "J", name: "Jan-Willem de Boer", workOrders: 10, hours: "145u" },
-  { initial: "P", name: "Peter Bakker", workOrders: 9, hours: "132u" },
-];
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" });
+}

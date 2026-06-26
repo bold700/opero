@@ -89,7 +89,7 @@ invoicesRouter.post(
           projectId: project.id,
           userId: user.id,
           type: "system",
-          body: "Factuurconcept aangemaakt",
+          messageKey: "invoice.drafted",
         },
       });
       await audit(tx, user, "invoice.draft", "invoice", inv.id, totals);
@@ -118,7 +118,7 @@ invoicesRouter.post(
           projectId: project.id,
           userId: user.id,
           type: "system",
-          body: "Factuur verstuurd",
+          messageKey: "invoice.sent",
         },
       });
       await audit(tx, user, "invoice.send", "invoice", inv.id);
@@ -144,7 +144,7 @@ invoicesRouter.post(
           projectId: project.id,
           userId: user.id,
           type: "system",
-          body: "Factuur betaald",
+          messageKey: "invoice.paid",
         },
       });
       await audit(tx, user, "invoice.paid", "invoice", inv.id);

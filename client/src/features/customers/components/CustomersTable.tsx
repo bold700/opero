@@ -9,6 +9,7 @@ import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import type { Customer } from "../api";
 import { avatarColor, initials, formatDate } from "../constants";
@@ -16,6 +17,7 @@ import { TypeBadge } from "./TypeBadge";
 
 // The customers table card: columns + real rows.
 export function CustomersTable({ customers }: { customers: Customer[] }) {
+  const { t } = useTranslation();
   return (
     <Card noPadding>
       <Table
@@ -27,12 +29,12 @@ export function CustomersTable({ customers }: { customers: Customer[] }) {
       >
         <TableHead>
           <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
-            <TableCell>Naam</TableCell>
-            <TableCell>Stad</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>Werkbonnen</TableCell>
-            <TableCell>Laatste contact</TableCell>
-            <TableCell align="right">Actie</TableCell>
+            <TableCell>{t("customers.table.name")}</TableCell>
+            <TableCell>{t("customers.table.city")}</TableCell>
+            <TableCell>{t("customers.table.type")}</TableCell>
+            <TableCell>{t("customers.table.workOrders")}</TableCell>
+            <TableCell>{t("customers.table.lastContact")}</TableCell>
+            <TableCell align="right">{t("customers.table.action")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -53,7 +55,7 @@ export function CustomersTable({ customers }: { customers: Customer[] }) {
               <TableCell sx={{ color: "text.secondary" }}>{c.workOrderCount}</TableCell>
               <TableCell sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</TableCell>
               <TableCell align="right">
-                <IconButton size="small" aria-label="bekijken">
+                <IconButton size="small" aria-label={t("customers.table.viewAriaLabel")}>
                   <VisibilityOutlinedIcon fontSize="small" />
                 </IconButton>
               </TableCell>

@@ -1,38 +1,47 @@
 import { STATUS_TONES, type StatusTone } from "../../theme/tokens";
+import type { EmployeeStatus } from "./api";
 
-// Employees (Medewerkers) — local display data. Demo data; wires to
-// GET /api/employees.
-
-export const KPIS: { label: string; value: number; tone: string }[] = [
-  { label: "Totaal", value: 12, tone: "#1D1B20" },
-  { label: "Monteurs", value: 8, tone: "#1D1B20" },
-  { label: "Kantoor", value: 4, tone: "#1D1B20" },
-  { label: "Actief", value: 10, tone: "#1E8E5A" },
-];
-
-export const FILTERS = ["Alle", "Monteurs", "Kantoor", "Inactief"];
-
-export type EmpStatus = "actief" | "verlof" | "inactief";
-
-export const STATUS: Record<EmpStatus, { label: string; tone: StatusTone }> = {
-  actief: { label: "Actief", tone: STATUS_TONES.success },
-  verlof: { label: "Verlof", tone: STATUS_TONES.warning },
-  inactief: { label: "Inactief", tone: STATUS_TONES.neutral },
+// English status value → i18n label key + tone. Translate the key at the call site.
+export const STATUS: Record<EmployeeStatus, { labelKey: string; tone: StatusTone }> = {
+  active: { labelKey: "employees.status.active", tone: STATUS_TONES.success },
+  on_leave: { labelKey: "employees.status.on_leave", tone: STATUS_TONES.warning },
+  inactive: { labelKey: "employees.status.inactive", tone: STATUS_TONES.neutral },
 };
 
-export type Employee = {
-  initial: string;
-  name: string;
-  role: string;
-  workOrders: number;
-  status: EmpStatus;
+// Stable filter values (English) → i18n label key. Translate at the call site.
+export const FILTERS = ["all", "technicians", "office", "inactive"] as const;
+export type EmployeeFilter = (typeof FILTERS)[number];
+
+export const FILTER_LABEL_KEY: Record<EmployeeFilter, string> = {
+  all: "employees.filters.all",
+  technicians: "employees.filters.technicians",
+  office: "employees.filters.office",
+  inactive: "employees.filters.inactive",
 };
 
-export const ROWS: Employee[] = [
-  { initial: "J", name: "Jan de Vries", role: "Senior Monteur", workOrders: 6, status: "actief" },
-  { initial: "P", name: "Peter Bakker", role: "Monteur", workOrders: 23, status: "actief" },
-  { initial: "M", name: "Maria Jansen", role: "Monteur", workOrders: 24, status: "actief" },
-  { initial: "S", name: "Sara Kok", role: "Administratie", workOrders: 6, status: "actief" },
-  { initial: "T", name: "Tom Hendriks", role: "Monteur", workOrders: 23, status: "verlof" },
-  { initial: "L", name: "Lisa de Boer", role: "Kantoor", workOrders: 17, status: "inactief" },
-];
+// English TeamRole value → i18n label key. Translate at the call site.
+export const ROLE_LABEL_KEY: Record<string, string> = {
+  Technician: "employees.roles.technician",
+  Foreman: "employees.roles.foreman",
+  WorkPlanner: "employees.roles.workPlanner",
+  Planner: "employees.roles.planner",
+  ProjectLeader: "employees.roles.projectLeader",
+  Administration: "employees.roles.administration",
+  Sales: "employees.roles.sales",
+};
+
+// Roles considered "office" (vs field/monteur).
+const OFFICE_ROLES = new Set(["Administration", "Sales", "WorkPlanner", "Planner"]);
+export function isOffice(fn: string | null): boolean {
+  return fn ? OFFICE_ROLES.has(fn) : false;
+}
+
+export function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}

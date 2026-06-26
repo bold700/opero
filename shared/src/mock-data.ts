@@ -280,20 +280,21 @@ type ProjectSeed = {
   value: number;
   urgency: ProjectUrgency;
   blocker?: string;
-  nextStep: string;
+  nextStepKey: string;
   plannedDate?: string;
   materialRequirements: MaterialRequirement[];
   workOrderStatus?: WorkOrderStatus;
   deliveryCompleteIds?: string[];
 };
 
+// [stable id, i18n key] for the demo delivery checklist items.
 const deliveryLabels = [
-  ["work-complete", "Werk uitgevoerd volgens opdracht"],
-  ["photos", "Fotos geupload"],
-  ["materials", "Materialen geregistreerd"],
-  ["extras", "Meerwerk akkoord"],
-  ["signature", "Handtekening opdrachtgever"],
-  ["quality", "Kwaliteitscheck afgerond"],
+  ["work-complete", "workDone"],
+  ["photos", "photosUploaded"],
+  ["materials", "materialsRegistered"],
+  ["extras", "extraWorkApproved"],
+  ["signature", "clientSignature"],
+  ["quality", "qualityChecked"],
 ] as const;
 
 function requirement(
@@ -321,10 +322,10 @@ function requirement(
 function deliveryChecklist(doneIds: string[] = []): DeliveryChecklist {
   return {
     id: `dc-${doneIds.join("-") || "open"}`,
-    items: deliveryLabels.map(([id, label]) => ({
+    items: deliveryLabels.map(([id, labelKey]) => ({
       complete: doneIds.includes(id),
       id,
-      label,
+      labelKey,
     })),
   };
 }
@@ -404,17 +405,17 @@ function workOrderExecutions(seed: ProjectSeed): WorkOrderExecution[] {
         {
           complete: seed.workOrderStatus === "completed",
           id: `wo-${seed.id}-check-1`,
-          label: "Werkplek veilig afgezet",
+          labelKey: "workplaceSecured",
         },
         {
           complete: seed.workOrderStatus === "completed",
           id: `wo-${seed.id}-check-2`,
-          label: "Materiaal verbruik genoteerd",
+          labelKey: "materialUsageNoted",
         },
         {
           complete: seed.workOrderStatus === "completed",
           id: `wo-${seed.id}-check-3`,
-          label: "Eindcontrole met contactpersoon gedaan",
+          labelKey: "finalCheckWithContact",
         },
       ],
       customerSignature:
@@ -504,7 +505,7 @@ function makeProject(seed: ProjectSeed): Project {
     },
     invoice: invoice(seed),
     materialRequirements: seed.materialRequirements,
-    nextStep: seed.nextStep,
+    nextStepKey: seed.nextStepKey,
     plannedDate: seed.plannedDate,
     planningItems: planning(seed),
     postalCode: customer.postalCode,
@@ -533,7 +534,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: false,
     invoiceStatus: "not_started",
-    nextStep: "Intake inplannen",
+    nextStepKey: "planIntake",
     projectNumber: "OP-2026-001",
     quoteStatus: "draft",
     squareMeters: 92,
@@ -551,7 +552,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: false,
     invoiceStatus: "not_started",
-    nextStep: "Intake uitvoeren",
+    nextStepKey: "doIntake",
     plannedDate: "2026-05-18",
     projectNumber: "OP-2026-002",
     quoteStatus: "draft",
@@ -570,7 +571,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "not_started",
-    nextStep: "Offerte opstellen",
+    nextStepKey: "draftQuote",
     projectNumber: "OP-2026-003",
     quoteStatus: "draft",
     squareMeters: 78,
@@ -588,7 +589,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "not_started",
-    nextStep: "Wachten op akkoord",
+    nextStepKey: "waitingApproval",
     projectNumber: "OP-2026-004",
     quoteStatus: "sent",
     squareMeters: 64,
@@ -606,7 +607,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "not_started",
-    nextStep: "Materialen controleren",
+    nextStepKey: "checkMaterials",
     projectNumber: "OP-2026-005",
     quoteStatus: "accepted",
     squareMeters: 240,
@@ -625,7 +626,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "not_started",
-    nextStep: "Inkooplijst maken",
+    nextStepKey: "createPurchaseList",
     projectNumber: "OP-2026-006",
     quoteStatus: "accepted",
     squareMeters: 112,
@@ -643,7 +644,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "not_started",
-    nextStep: "Werkorder klaarzetten",
+    nextStepKey: "prepareWorkOrder",
     plannedDate: "2026-05-16",
     projectNumber: "OP-2026-007",
     quoteStatus: "accepted",
@@ -663,7 +664,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "not_started",
-    nextStep: "Uitvoering afronden",
+    nextStepKey: "finishExecution",
     plannedDate: "2026-05-16",
     projectNumber: "OP-2026-008",
     quoteStatus: "accepted",
@@ -684,7 +685,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "not_started",
-    nextStep: "Oplevercheck afronden",
+    nextStepKey: "completeHandover",
     plannedDate: "2026-05-13",
     projectNumber: "OP-2026-009",
     quoteStatus: "accepted",
@@ -705,7 +706,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "draft",
-    nextStep: "Factuurconcept maken",
+    nextStepKey: "draftInvoice",
     plannedDate: "2026-05-09",
     projectNumber: "OP-2026-010",
     quoteStatus: "accepted",
@@ -726,7 +727,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "sent",
-    nextStep: "Betaling opvolgen",
+    nextStepKey: "followUpPayment",
     plannedDate: "2026-05-06",
     projectNumber: "OP-2026-011",
     quoteStatus: "accepted",
@@ -747,7 +748,7 @@ export const mockProjects: Project[] = [
     ],
     intakeDone: true,
     invoiceStatus: "paid",
-    nextStep: "Afgerond",
+    nextStepKey: "done",
     plannedDate: "2026-05-03",
     projectNumber: "OP-2026-012",
     quoteStatus: "accepted",

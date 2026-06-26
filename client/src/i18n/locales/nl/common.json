@@ -1,0 +1,23 @@
+{
+  "actions": {
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "add": "Toevoegen",
+    "edit": "Bewerken",
+    "delete": "Verwijderen",
+    "close": "Sluiten",
+    "search": "Zoeken",
+    "back": "Terug",
+    "confirm": "Bevestigen",
+    "logout": "Uitloggen"
+  },
+  "states": {
+    "loading": "Laden…",
+    "error": "Er is iets misgegaan",
+    "loadFailed": "Kon gegevens niet laden",
+    "empty": "Geen resultaten"
+  },
+  "misc": {
+    "all": "Alle"
+  }
+}

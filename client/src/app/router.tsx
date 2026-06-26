@@ -4,6 +4,7 @@ import { AppShell } from "./AppShell";
 import { Login } from "../features/auth/Login";
 import { Dashboard } from "../features/dashboard/Dashboard";
 import { WorkOrders } from "../features/work-orders/WorkOrders";
+import { WorkOrderDetail } from "../features/work-order-detail/WorkOrderDetail";
 import { Customers } from "../features/customers/Customers";
 import { Planning } from "../features/planning/Planning";
 import { Employees } from "../features/employees/Employees";
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "/", element: <Dashboard /> },
               { path: "/work-orders", element: <WorkOrders /> },
+              { path: "/work-orders/:id", element: <WorkOrderDetail /> },
               { path: "/planning", element: <Planning /> },
               { path: "/customers", element: <Customers /> },
               { path: "/employees", element: <Employees /> },

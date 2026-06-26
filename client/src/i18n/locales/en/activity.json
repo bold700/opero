@@ -1,0 +1,89 @@
+{
+  "status": {
+    "sales": "Sales",
+    "operations": "Operations",
+    "closing": "Closing"
+  },
+  "stage": {
+    "sales": "Sales",
+    "operations": "Operations",
+    "closing": "Closing",
+    "done": "Done"
+  },
+  "urgency": {
+    "normal": "Normal",
+    "urgent": "Urgent",
+    "blocked": "Blocked"
+  },
+  "project": {
+    "created": "Project created",
+    "deleted": "Project deleted",
+    "archived": "Project archived",
+    "teamAssigned": "Team assigned",
+    "statusChanged": "Status from $t(activity.status.{{from}}) to $t(activity.status.{{to}})",
+    "stageChanged": "Stage changed to $t(activity.stage.{{stage}})",
+    "urgencyChanged": "Urgency: $t(activity.urgency.{{urgency}})",
+    "materialCheckStarted": "Material check started",
+    "intakeCompleted": "Intake completed",
+    "intakeCompletedWithBlocker": "Intake completed with blocker: {{blocker}}",
+    "blockerResolved": "Blocker resolved: {{blocker}}",
+    "blockerResolvedWithNote": "Blocker resolved: {{blocker}} ({{note}})"
+  },
+  "quote": {
+    "sent": "Quote sent to customer",
+    "accepted": "Quote accepted - project to Operations"
+  },
+  "invoice": {
+    "drafted": "Invoice draft created",
+    "sent": "Invoice sent",
+    "paid": "Invoice paid"
+  },
+  "planning": {
+    "scheduled": "Scheduled on {{date}}",
+    "scheduledWithTeam": "Scheduled on {{date}} (team {{leader}})",
+    "projectScheduled": "Project scheduled",
+    "unscheduled": "Planning removed"
+  },
+  "extraWork": {
+    "reported": "Extra work reported: {{description}} ({{amount}})",
+    "officeApproved": "Extra work \"{{description}}\": office approved",
+    "officeWithdrawn": "Extra work \"{{description}}\": office approval withdrawn",
+    "clientApproved": "Extra work \"{{description}}\": client approved",
+    "clientWithdrawn": "Extra work \"{{description}}\": client approval withdrawn",
+    "rejectedByOffice": "Extra work \"{{description}}\": rejected by office",
+    "rejectedByClient": "Extra work \"{{description}}\": rejected by client",
+    "done": "Extra work \"{{description}}\": completed",
+    "reopened": "Extra work \"{{description}}\": reopened"
+  },
+  "handover": {
+    "signed": "Handover signed by {{name}}"
+  },
+  "task": {
+    "added": "Task added",
+    "removed": "Task removed: {{scope}}",
+    "reordered": "Tasks reordered",
+    "completedViaTimer": "{{scope}} completed, {{hours}} h via timer",
+    "hoursChanged": "Hours {{scope}}: {{from}} to {{to}} h",
+    "toggledDone": "{{name}}: completed",
+    "toggledReopened": "{{name}}: reopened",
+    "completedAll_one": "{{count}} task completed at once",
+    "completedAll_other": "{{count}} tasks completed at once"
+  },
+  "material": {
+    "addedTask": "Task added to {{scope}}: {{name}}",
+    "added": "Product added to {{scope}}",
+    "renamed": "Product: \"{{from}}\" changed to \"{{to}}\"",
+    "quantityChanged": "{{name}}: planned quantity {{from}} to {{to}} {{unit}}",
+    "removed": "Product removed: {{name}}",
+    "usageChanged": "Usage {{name}}: {{from}} to {{to}} {{unit}}{{suffix}}",
+    "usageOver": " ({{delta}} {{unit}} more than planned)",
+    "usageUnder": " ({{delta}} {{unit}} less than planned)"
+  },
+  "workOrder": {
+    "created": "Work order created: {{title}}",
+    "deleted": "Work order deleted: {{title}}",
+    "approved": "Work order approved: {{title}}",
+    "unapproved": "Approval withdrawn: {{title}}",
+    "signed": "{{title}} completed and signed"
+  }
+}

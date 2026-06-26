@@ -1,0 +1,30 @@
+{
+  "title": "Klanten",
+  "counts": {
+    "total": "Totaal",
+    "business": "Zakelijk",
+    "private": "Particulier"
+  },
+  "filters": {
+    "all": "Alle",
+    "business": "Zakelijk",
+    "private": "Particulier"
+  },
+  "typeBadge": {
+    "business": "Zakelijk",
+    "private": "Particulier"
+  },
+  "actions": {
+    "searchPlaceholder": "Zoek op naam of stad...",
+    "newCustomer": "Nieuwe klant"
+  },
+  "table": {
+    "name": "Naam",
+    "city": "Stad",
+    "type": "Type",
+    "workOrders": "Werkbonnen",
+    "lastContact": "Laatste contact",
+    "action": "Actie",
+    "viewAriaLabel": "bekijken"
+  }
+}

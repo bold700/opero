@@ -150,7 +150,7 @@ dashboardRouter.get(
           status: true,
           stage: true,
           plannedDate: true,
-          nextStep: true,
+          nextStepKey: true,
           workOrders: {
             select: { tasks: { where: { done: false }, select: { id: true } } },
           },
@@ -190,7 +190,7 @@ dashboardRouter.get(
         status: true,
         stage: true,
         plannedDate: true,
-        nextStep: true,
+        nextStepKey: true,
       },
     });
 

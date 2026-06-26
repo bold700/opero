@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -17,8 +18,9 @@ import { login as apiLogin } from "../../../lib/api/auth";
 import { ApiError } from "../../../lib/api/client";
 
 // Right-side login form. Wired to POST /api/auth/login. Demo accounts:
-// admin@opero.test / monteur@opero.test / klant@opero.test, password "opero123".
+// admin@opero.test / technician@opero.test / client@opero.test, password "opero123".
 export function LoginForm() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { setUser } = useAuth();
   const [account, setAccount] = useState("");
@@ -34,16 +36,16 @@ export function LoginForm() {
       const res = await apiLogin(account.trim(), password);
       if ("mfaRequired" in res) {
         // 2FA enabled for this account — a code step would go here (later).
-        setError("2FA is vereist voor dit account (nog niet ondersteund).");
+        setError(t("auth.errors.mfaRequired"));
         return;
       }
       setUser(res.user);
       navigate("/");
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
-        setError("Onjuiste inloggegevens.");
+        setError(t("auth.errors.invalidCredentials"));
       } else {
-        setError("Inloggen mislukt. Probeer het opnieuw.");
+        setError(t("auth.errors.loginFailed"));
       }
     } finally {
       setSubmitting(false);
@@ -53,7 +55,7 @@ export function LoginForm() {
   const clearAdornment = (value: string, clear: () => void) =>
     value ? (
       <InputAdornment position="end">
-        <IconButton aria-label="wissen" edge="end" onClick={clear} size="small">
+        <IconButton aria-label={t("auth.clear")} edge="end" onClick={clear} size="small">
           <CancelIcon fontSize="small" />
         </IconButton>
       </InputAdornment>
@@ -73,10 +75,10 @@ export function LoginForm() {
     >
       <Box sx={{ width: "100%", maxWidth: 400 }}>
         <Typography variant="h4" sx={{ fontWeight: 400, mb: 0.5 }}>
-          Welkom terug
+          {t("auth.welcomeBack")}
         </Typography>
         <Typography variant="body1" sx={{ color: "text.secondary", mb: 3.5 }}>
-          Log in op uw account
+          {t("auth.subtitle")}
         </Typography>
 
         <Stack
@@ -90,7 +92,7 @@ export function LoginForm() {
         >
           {error ? <Alert severity="error">{error}</Alert> : null}
           <TextField
-            label="E-mailadres"
+            label={t("auth.fields.email")}
             type="email"
             value={account}
             onChange={(e) => setAccount(e.target.value)}
@@ -99,7 +101,7 @@ export function LoginForm() {
             slotProps={{ input: { endAdornment: clearAdornment(account, () => setAccount("")) } }}
           />
           <TextField
-            label="Wachtwoord"
+            label={t("auth.fields.password")}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -110,16 +112,16 @@ export function LoginForm() {
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <FormControlLabel
               control={<Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)} />}
-              label="Onthoud mij"
+              label={t("auth.rememberMe")}
             />
             <Link href="#" underline="hover" sx={{ color: "primary.main", fontWeight: 500, fontSize: 14 }}>
-              Wachtwoord vergeten?
+              {t("auth.forgotPassword")}
             </Link>
           </Box>
 
           <Box sx={{ pt: 1 }}>
             <Button type="submit" variant="contained" disabled={submitting}>
-              {submitting ? "Bezig..." : "Inloggen"}
+              {submitting ? t("auth.submitting") : t("auth.submit")}
             </Button>
           </Box>
         </Stack>

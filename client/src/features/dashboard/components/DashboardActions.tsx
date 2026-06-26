@@ -3,11 +3,13 @@ import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../auth/AuthContext";
 import { LAVENDER } from "../../../theme/tokens";
 
 // Right-side actions in the dashboard top bar: search, notifications, avatar.
 export function DashboardActions() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const initials = (user?.name ?? "JD")
     .split(" ")
@@ -17,10 +19,10 @@ export function DashboardActions() {
     .toUpperCase();
   return (
     <>
-      <IconButton aria-label="zoeken">
+      <IconButton aria-label={t("dashboard.actions.search")}>
         <SearchIcon />
       </IconButton>
-      <IconButton aria-label="meldingen">
+      <IconButton aria-label={t("dashboard.actions.notifications")}>
         <Badge badgeContent={0} color="error">
           <NotificationsNoneIcon />
         </Badge>

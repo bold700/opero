@@ -1,0 +1,33 @@
+{
+  "title": "Materials",
+  "searchPlaceholder": "Search material...",
+  "addMaterial": "Add material",
+  "empty": "No materials found.",
+  "viewAction": "view",
+  "filters": {
+    "all": "All",
+    "ok": "Stock OK",
+    "low": "Low stock",
+    "outOfStock": "Out of stock"
+  },
+  "kpis": {
+    "totalItems": "Total items",
+    "low": "Low stock",
+    "outOfStock": "Out of stock",
+    "stockOk": "Stock OK"
+  },
+  "columns": {
+    "name": "Name",
+    "category": "Category",
+    "unit": "Unit",
+    "stock": "Stock",
+    "minStock": "Min. stock",
+    "status": "Status",
+    "action": "Action"
+  },
+  "status": {
+    "ok": "OK",
+    "low": "Low stock",
+    "outOfStock": "Out of stock"
+  }
+}

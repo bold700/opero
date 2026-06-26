@@ -34,15 +34,20 @@ function todayIso(): string {
 
 // Append a ProjectActivity row inside a transaction (mirror makeActivity +
 // logChange from the store).
+// Stores a language-neutral messageKey + params (rendered client-side via i18n).
+// Internals are English; no display prose is stored.
 async function appendActivity(
   tx: Tx,
   user: AuthUser,
   projectId: string,
   type: "status_change" | "comment" | "scheduled" | "system",
-  body: string,
-  statuses?: {
-    fromStatus: "sales" | "operations" | "closing";
-    toStatus: "sales" | "operations" | "closing";
+  messageKey: string,
+  opts?: {
+    params?: Record<string, unknown>;
+    statuses?: {
+      fromStatus: "sales" | "operations" | "closing";
+      toStatus: "sales" | "operations" | "closing";
+    };
   },
 ): Promise<void> {
   await tx.projectActivity.create({
@@ -50,9 +55,10 @@ async function appendActivity(
       projectId,
       userId: user.id,
       type,
-      body,
-      fromStatus: statuses?.fromStatus,
-      toStatus: statuses?.toStatus,
+      messageKey,
+      params: (opts?.params ?? undefined) as Prisma.InputJsonValue | undefined,
+      fromStatus: opts?.statuses?.fromStatus,
+      toStatus: opts?.statuses?.toStatus,
     },
   });
 }
@@ -295,7 +301,7 @@ planningRouter.post(
       }
       if (shouldAdvance) {
         projectData.status = "operations";
-        projectData.nextStep = "Werkorder voorbereiden";
+        projectData.nextStepKey = "prepareWorkOrder";
       }
       await tx.project.update({ where: { id: existing.id }, data: projectData });
 
@@ -304,7 +310,8 @@ planningRouter.post(
         user,
         existing.id,
         "scheduled",
-        `Ingepland op ${date}${leader ? ` (team ${leader.name})` : ""}`,
+        leader ? "planning.scheduledWithTeam" : "planning.scheduled",
+        { params: { date, leader: leader?.name } },
       );
       await audit(tx, user, "planning.schedule", "project", existing.id, {
         date,
@@ -374,6 +381,7 @@ planningRouter.delete(
         where: { id: existing.id },
         data: { plannedDate: null, plannedEndDate: null },
       });
+      await appendActivity(tx, user, existing.id, "system", "planning.unscheduled");
       await audit(tx, user, "planning.unschedule", "project", existing.id);
     });
 
@@ -414,7 +422,7 @@ planningRouter.post(
         where: { id: existing.id },
         data: {
           status: "operations",
-          nextStep: "Werkorder voorbereiden",
+          nextStepKey: "prepareWorkOrder",
           plannedDate,
         },
       });
@@ -441,14 +449,9 @@ planningRouter.post(
         await tx.planningItem.create({ data: createData });
       }
 
-      await appendActivity(
-        tx,
-        user,
-        existing.id,
-        "status_change",
-        "Project ingepland",
-        { fromStatus, toStatus: "operations" },
-      );
+      await appendActivity(tx, user, existing.id, "status_change", "planning.projectScheduled", {
+        statuses: { fromStatus, toStatus: "operations" },
+      });
       await audit(tx, user, "planning.markPlanned", "project", existing.id);
     });
 

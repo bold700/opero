@@ -1,6 +1,4 @@
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
+import { useTranslation } from "react-i18next";
 import IconButton from "@mui/material/IconButton";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
@@ -10,10 +8,19 @@ import TableCell from "@mui/material/TableCell";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
-import { ROWS, STATUS } from "../constants";
+import type { WorkOrderRow } from "../api";
+import { STATUS, formatDate } from "../constants";
 
-// The work orders table card: columns, demo rows, and pagination footer.
-export function WorkOrdersTable() {
+// The work orders table card: columns + real rows. Row / eye click opens the
+// work-order detail.
+export function WorkOrdersTable({
+  rows,
+  onOpen,
+}: {
+  rows: WorkOrderRow[];
+  onOpen: (id: string) => void;
+}) {
+  const { t } = useTranslation();
   return (
     <Card noPadding>
       <Table
@@ -25,65 +32,57 @@ export function WorkOrdersTable() {
       >
         <TableHead>
           <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
-            <TableCell>Werkbon #</TableCell>
-            <TableCell>Klant</TableCell>
-            <TableCell>Locatie</TableCell>
-            <TableCell>Type werk</TableCell>
-            <TableCell>Monteur</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell>Datum</TableCell>
-            <TableCell align="right">Actie</TableCell>
+            <TableCell>{t("workOrders.table.number")}</TableCell>
+            <TableCell>{t("workOrders.table.customer")}</TableCell>
+            <TableCell>{t("workOrders.table.location")}</TableCell>
+            <TableCell>{t("workOrders.table.workType")}</TableCell>
+            <TableCell>{t("workOrders.table.technician")}</TableCell>
+            <TableCell>{t("workOrders.table.status")}</TableCell>
+            <TableCell>{t("workOrders.table.date")}</TableCell>
+            <TableCell align="right">{t("workOrders.table.action")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {ROWS.map((r) => (
-            <TableRow key={r.number} hover sx={{ "&:last-child td": { border: 0 } }}>
-              <TableCell sx={{ fontWeight: 700 }}>{r.number}</TableCell>
-              <TableCell>{r.customer}</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>{r.location}</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>{r.type}</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>{r.monteur}</TableCell>
-              <TableCell>
-                <StatusBadge label={STATUS[r.status].label} tone={STATUS[r.status].tone} />
-              </TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>{r.date}</TableCell>
-              <TableCell align="right">
-                <IconButton size="small" aria-label="bekijken">
-                  <VisibilityOutlinedIcon fontSize="small" />
-                </IconButton>
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+                {t("workOrders.table.empty")}
               </TableCell>
             </TableRow>
-          ))}
+          ) : (
+            rows.map((r) => (
+              <TableRow
+                key={r.id}
+                hover
+                onClick={() => onOpen(r.id)}
+                sx={{ cursor: "pointer", "&:last-child td": { border: 0 } }}
+              >
+                <TableCell sx={{ fontWeight: 700 }}>{r.number}</TableCell>
+                <TableCell>{r.customerName}</TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{r.city}</TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{r.workType}</TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{r.technician}</TableCell>
+                <TableCell>
+                  <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
+                </TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{formatDate(r.date)}</TableCell>
+                <TableCell align="right">
+                  <IconButton
+                    size="small"
+                    aria-label={t("workOrders.table.viewAria")}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpen(r.id);
+                    }}
+                  >
+                    <VisibilityOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
-
-      {/* Pagination */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", px: 3, py: 2, borderTop: "1px solid", borderColor: "#F0EDF1" }}>
-        <Typography variant="body2" color="text.secondary">
-          Pagina 1 van 5
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Button size="small" disabled sx={{ textTransform: "none", color: "text.secondary" }}>
-            Vorige
-          </Button>
-          {[1, 2, 3].map((p) => (
-            <IconButton
-              key={p}
-              size="small"
-              sx={
-                p === 1
-                  ? { bgcolor: "primary.main", color: "#fff", width: 32, height: 32, "&:hover": { bgcolor: "primary.dark" } }
-                  : { color: "text.secondary", width: 32, height: 32 }
-              }
-            >
-              {p}
-            </IconButton>
-          ))}
-          <Button size="small" sx={{ textTransform: "none", color: "primary.main", fontWeight: 600 }}>
-            Volgende
-          </Button>
-        </Box>
-      </Box>
     </Card>
   );
 }

@@ -110,12 +110,38 @@ async function main() {
         notes: c.notes ?? null,
       },
     });
+    // Saved job-site locations: the main address, plus a second site for
+    // business customers (so the create-flow location picker has real options).
+    await prisma.location.create({
+      data: {
+        customerId: c.id,
+        label: isBusiness ? "Hoofdlocatie" : "Thuisadres",
+        address: c.address,
+        postalCode: c.postalCode,
+        city: c.city,
+      },
+    });
+    if (isBusiness) {
+      await prisma.location.create({
+        data: {
+          customerId: c.id,
+          label: "Tweede locatie",
+          address: `Magazijnweg ${10 + mockCustomers.indexOf(c)}`,
+          postalCode: c.postalCode,
+          city: c.city,
+        },
+      });
+    }
   }
 
   // -----------------------------------------------------------------------
   // 4. Employees (keep mock ids). roles strings map 1:1 to TeamRole enum.
   // -----------------------------------------------------------------------
-  for (const tm of mockTeamMembers) {
+  for (let i = 0; i < mockTeamMembers.length; i++) {
+    const tm = mockTeamMembers[i];
+    // Most active; sprinkle a few on_leave / inactive for realistic variety.
+    const status =
+      i % 7 === 3 ? "on_leave" : i % 11 === 5 ? "inactive" : "active";
     await prisma.employee.create({
       data: {
         id: tm.id,
@@ -124,6 +150,7 @@ async function main() {
         phone: tm.phone,
         email: tm.email ?? null,
         roles: tm.roles as TeamRole[],
+        status,
       },
     });
   }
@@ -135,8 +162,15 @@ async function main() {
   // 5. Materials + Inventory (keep ids)
   // -----------------------------------------------------------------------
   for (const m of mockMaterials) {
+    // Derive a category from the material name for the list view.
+    const n = m.name.toLowerCase();
+    const category = /folie/.test(n)
+      ? "Folie"
+      : /schroef|plug|beugel|bevestig/.test(n)
+        ? "Bevestiging"
+        : "Isolatie";
     await prisma.material.create({
-      data: { id: m.id, orgId, name: m.name, unit: m.unit },
+      data: { id: m.id, orgId, name: m.name, unit: m.unit, category },
     });
   }
   for (const inv of mockInventory) {
@@ -171,7 +205,7 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
-  // 7. Werksoorten (one row per string; @@unique([orgId, name]))
+  // 7. Work types (managed list; one row per canonical name)
   // -----------------------------------------------------------------------
   for (const name of projectTypes) {
     await prisma.workType.upsert({
@@ -180,11 +214,43 @@ async function main() {
       update: {},
     });
   }
+  // name -> id lookup so projects can link to a real WorkType row.
+  const workTypeByName = new Map(
+    (await prisma.workType.findMany({ where: { orgId } })).map((w) => [
+      w.name,
+      w.id,
+    ]),
+  );
+  // Map each demo project's free-text insulationType to a canonical WorkType.
+  // (Real projects pick from the list directly; this only cleans up seed data.)
+  function resolveWorkType(raw: string): { id: string; name: string } {
+    const lower = raw.toLowerCase();
+    const match =
+      projectTypes.find((t) => lower.includes(t.toLowerCase().split("-")[0])) ??
+      (lower.includes("spouw")
+        ? "Spouwmuurisolatie"
+        : lower.includes("dak")
+          ? "Dakisolatie"
+          : lower.includes("vloer")
+            ? "Vloerisolatie"
+            : lower.includes("kruipruimte") || lower.includes("bodem")
+              ? "Kruipruimte-isolatie"
+              : lower.includes("gevel")
+                ? "Gevelisolatie"
+                : lower.includes("plafond")
+                  ? "Plafondisolatie"
+                  : lower.includes("binnenwand")
+                    ? "Binnenwandisolatie"
+                    : projectTypes[0]);
+    const id = workTypeByName.get(match);
+    return { id: id!, name: match };
+  }
 
   // -----------------------------------------------------------------------
   // 8. Projects — nested create so children insert with the parent.
   // -----------------------------------------------------------------------
   for (const p of mockProjects) {
+    const workType = resolveWorkType(p.insulationType);
     const intake = p.intake;
     const quote = p.quote;
     const invoice = p.invoice;
@@ -217,7 +283,8 @@ async function main() {
         contactName: p.contactName ?? null,
         contactPhone: p.contactPhone ?? null,
         instructions: p.instructions ?? null,
-        insulationType: p.insulationType,
+        workTypeId: workType.id,
+        insulationType: workType.name,
         squareMeters: p.squareMeters,
         description: p.description ?? null,
         workTypes: p.workTypes ?? [],
@@ -228,7 +295,8 @@ async function main() {
         status: p.status,
         urgency: p.urgency,
         blocker: p.blocker ?? null,
-        nextStep: p.nextStep,
+        blockerKey: p.blockerKey ?? null,
+        nextStepKey: p.nextStepKey,
         signature: p.signature ?? null,
         materialsReady: p.materialsReady ?? false,
         plannedDate: p.plannedDate ?? null,
@@ -307,10 +375,10 @@ async function main() {
             items: {
               create: checklist.items.map(
                 (
-                  it: { id: string; label: string; complete: boolean },
+                  it: { id: string; labelKey: string; complete: boolean },
                   idx: number,
                 ) => ({
-                  label: it.label,
+                  labelKey: it.labelKey,
                   complete: it.complete,
                   ordinal: idx,
                 }),
@@ -420,7 +488,7 @@ async function main() {
                   completedAt: p.handover.completedAt ?? null,
                   checklist: {
                     create: (p.handover.checklist ?? []).map((it: HandoverItem, idx: number) => ({
-                      label: it.label,
+                      labelKey: it.labelKey,
                       done: it.done,
                       ordinal: idx,
                     })),
@@ -444,11 +512,48 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
+  // 8b. Work orders — the mocks carry none, so generate one per operational
+  //     project (status operations/closing) with a couple of tasks, varying
+  //     completion so the list shows Open / In progress / Done states.
+  // -----------------------------------------------------------------------
+  const operationalProjects = mockProjects.filter(
+    (p) => p.status === "operations" || p.status === "closing",
+  );
+  for (let i = 0; i < operationalProjects.length; i++) {
+    const p = operationalProjects[i];
+    // Vary task completion: 0 = none done (Open), 1 = some (In progress), 2 = all (Done).
+    const mode = i % 3;
+    await prisma.workOrder.create({
+      data: {
+        projectId: p.id,
+        title: "Werkbon 1",
+        ordinal: 0,
+        tasks: {
+          create: [
+            {
+              description: "Voorbereiding en materiaal controleren",
+              done: mode === 2,
+              ordinal: 0,
+              startedAt: mode >= 1 ? new Date().toISOString() : null,
+              endedAt: mode === 2 ? new Date().toISOString() : null,
+            },
+            {
+              description: "Isolatie aanbrengen",
+              done: mode === 2,
+              ordinal: 1,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // 9. Demo users
   // -----------------------------------------------------------------------
   const passwordHash = await bcrypt.hash("opero123", 12);
 
-  const monteurEmployee = mockTeamMembers.find((tm) =>
+  const technicianEmployee = mockTeamMembers.find((tm) =>
     tm.roles.includes("Technician"),
   );
   const firstCustomerId = mockCustomers[0]?.id ?? null;
@@ -468,10 +573,10 @@ async function main() {
       orgId,
       email: "technician@opero.test",
       passwordHash,
-      name: "Monteur Demo",
+      name: "Technician Demo",
       role: "technician",
       totpEnabled: false,
-      employeeId: validEmployeeId(monteurEmployee?.id),
+      employeeId: validEmployeeId(technicianEmployee?.id),
     },
   });
   await prisma.user.create({
@@ -479,7 +584,7 @@ async function main() {
       orgId,
       email: "client@opero.test",
       passwordHash,
-      name: "Klant Demo",
+      name: "Client Demo",
       role: "client",
       totpEnabled: false,
       customerId: firstCustomerId,

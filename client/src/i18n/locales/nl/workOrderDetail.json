@@ -1,0 +1,83 @@
+{
+  "title": "Werkbon",
+  "notFound": "Werkbon niet gevonden",
+  "actionFailed": "Actie mislukt",
+  "finishedToast": "Werkbon afgerond",
+  "stage": {
+    "sales": "Verkoop",
+    "operations": "Operatie",
+    "closing": "Afronding",
+    "done": "Afgerond"
+  },
+  "urgency": {
+    "normal": "Normaal",
+    "urgent": "Spoed",
+    "blocked": "Geblokkeerd"
+  },
+  "extraWorkStatus": {
+    "rejected": "Afgewezen",
+    "approved": "Goedgekeurd",
+    "waitingClient": "Wacht op klant",
+    "waitingOffice": "Wacht op kantoor"
+  },
+  "header": {
+    "back": "terug",
+    "signed": "Ondertekend",
+    "signedBy": "door {{name}}",
+    "finish": "Werkbon afronden",
+    "exportPdf": "Exporteer PDF",
+    "defaultTitle": "Werkbon {{n}}"
+  },
+  "photos": {
+    "title": "Foto's",
+    "comingSoon": "Binnenkort beschikbaar",
+    "hint": "Foto's toevoegen wordt mogelijk zodra bestandsopslag actief is."
+  },
+  "activity": {
+    "title": "Activiteit",
+    "empty": "Nog geen activiteit."
+  },
+  "tasks": {
+    "title": "Taken",
+    "addTask": "Taak toevoegen",
+    "emptyHint": "Nog geen taken. {{hint}}",
+    "emptyHintAction": "Klik \"Taak toevoegen\".",
+    "unnamed": "Naamloze taak",
+    "namePlaceholder": "Taakomschrijving",
+    "renameHint": "Klik om te hernoemen",
+    "workType": "Type werk",
+    "workTypeNone": "Geen",
+    "assignee": "Monteur",
+    "assigneeNone": "Niet toegewezen",
+    "materialsLabel": "Materialen",
+    "addMaterial": "Materiaal"
+  },
+  "material": {
+    "delete": "materiaal verwijderen",
+    "placeholder": "Materiaal",
+    "quantity": "Aantal",
+    "unit": "Eenheid",
+    "price": "Prijs"
+  },
+  "extraWork": {
+    "title": "Meerwerk",
+    "report": "Meerwerk melden",
+    "empty": "Geen meerwerk gemeld.",
+    "descriptionPlaceholder": "Omschrijving meerwerk",
+    "submit": "Melden",
+    "officeApproved": "Kantoor ✓",
+    "officeApprove": "Kantoor goedkeuren",
+    "reject": "Afwijzen",
+    "clientApproved": "Akkoord ✓",
+    "clientApprove": "Akkoord geven"
+  },
+  "task": {
+    "delete": "verwijderen"
+  },
+  "signOff": {
+    "title": "Werkbon afronden",
+    "description": "Alle taken worden afgerond en het project gaat naar de afrondingsfase. Vul de naam van de ondertekenaar in ter bevestiging.",
+    "signerLabel": "Naam ondertekenaar",
+    "confirm": "Afronden"
+  }
+}

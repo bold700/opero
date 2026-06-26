@@ -1,0 +1,66 @@
+{
+  "title": "Work orders",
+  "counts": {
+    "total": "Total",
+    "open": "Open",
+    "onTheWay": "On the way",
+    "urgent": "Urgent",
+    "done": "Done"
+  },
+  "filters": {
+    "all": "All",
+    "open": "Open",
+    "onTheWay": "On the way",
+    "urgent": "Urgent",
+    "done": "Done"
+  },
+  "status": {
+    "open": "Open",
+    "onTheWay": "On the way",
+    "urgent": "Urgent",
+    "done": "Done"
+  },
+  "actions": {
+    "searchPlaceholder": "Search by number or customer...",
+    "newWorkOrder": "New work order"
+  },
+  "table": {
+    "number": "Work order #",
+    "customer": "Customer",
+    "location": "Location",
+    "workType": "Work type",
+    "technician": "Technician",
+    "status": "Status",
+    "date": "Date",
+    "action": "Action",
+    "empty": "No work orders found.",
+    "viewAria": "view"
+  },
+  "create": {
+    "title": "New work order",
+    "customerLabel": "Customer",
+    "customerHelper": "Choose the customer",
+    "customersLoading": "Loading customers…",
+    "customersLoadError": "Could not load customers",
+    "projectLabel": "Project",
+    "projectsLoading": "Loading projects…",
+    "projectHelperPickCustomer": "Choose a customer first",
+    "projectHelper": "Choose a project or create a new one",
+    "projectsLoadError": "Could not load projects",
+    "newProject": "+ New project",
+    "newProjectSection": "New project",
+    "projectNameLabel": "Project name",
+    "locationLabel": "Job site",
+    "locationCustomerAddress": "Customer's address",
+    "locationNew": "+ New location",
+    "locationLabelName": "Location name (optional)",
+    "locationAddress": "Address",
+    "locationPostalCode": "Postal code",
+    "locationCity": "City",
+    "workOrderTitleLabel": "Work order title (optional)",
+    "workOrderTitlePlaceholder": "E.g. Work order 1",
+    "cancel": "Cancel",
+    "submit": "Create",
+    "submitError": "Creation failed"
+  }
+}

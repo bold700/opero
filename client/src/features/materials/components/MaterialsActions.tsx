@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -6,11 +7,12 @@ import AddIcon from "@mui/icons-material/Add";
 
 // Right-side actions in the materials top bar: search + add material.
 export function MaterialsActions() {
+  const { t } = useTranslation();
   return (
     <>
       <TextField
         size="small"
-        placeholder="Zoek materiaal..."
+        placeholder={t("materials.searchPlaceholder")}
         sx={{ width: { xs: 180, sm: 280 } }}
         slotProps={{
           input: {
@@ -23,7 +25,7 @@ export function MaterialsActions() {
         }}
       />
       <Button variant="contained" startIcon={<AddIcon />}>
-        Materiaal toevoegen
+        {t("materials.addMaterial")}
       </Button>
     </>
   );

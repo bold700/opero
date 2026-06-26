@@ -1,0 +1,36 @@
+{
+  "title": "Planning",
+  "emptyWeek": "No planning for this week.",
+  "newAppointment": "New appointment",
+  "details": "Details",
+  "openWorkOrder": "Open work order",
+  "duration": "{{hours}}h 00m",
+  "views": {
+    "day": "Day",
+    "week": "Week",
+    "month": "Month"
+  },
+  "weekdays": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
+  },
+  "months": {
+    "january": "January",
+    "february": "February",
+    "march": "March",
+    "april": "April",
+    "may": "May",
+    "june": "June",
+    "july": "July",
+    "august": "August",
+    "september": "September",
+    "october": "October",
+    "november": "November",
+    "december": "December"
+  }
+}

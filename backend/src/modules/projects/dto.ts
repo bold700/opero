@@ -23,6 +23,7 @@ import { canSeePrices, type UserRole } from "@opero/shared";
 
 // Shape of a project loaded with all nested relations we expose.
 export type ProjectWithRelations = Project & {
+  workType: { id: string; name: string } | null;
   intake: Intake | null;
   quote: (Quote & { lineItems: QuoteLineItem[] }) | null;
   invoice: Invoice | null;
@@ -149,7 +150,7 @@ function handoverDto(o: Handover & { checklist: HandoverItem[] }) {
     completedAt: o.completedAt ?? undefined,
     checklist: [...o.checklist]
       .sort((a, b) => a.ordinal - b.ordinal)
-      .map((c) => ({ id: c.id, label: c.label, done: c.done })),
+      .map((c) => ({ id: c.id, labelKey: c.labelKey, done: c.done })),
   };
 }
 
@@ -161,7 +162,7 @@ function deliveryChecklistDto(
     qualityNotes: d.qualityNotes ?? undefined,
     items: [...d.items]
       .sort((a, b) => a.ordinal - b.ordinal)
-      .map((i) => ({ id: i.id, label: i.label, complete: i.complete })),
+      .map((i) => ({ id: i.id, labelKey: i.labelKey, complete: i.complete })),
   };
 }
 
@@ -178,7 +179,11 @@ export function activityDto(
     userId: a.userId ?? undefined,
     userName: a.user?.name ?? undefined,
     type: a.type,
-    body: a.body,
+    // System/status/scheduled events carry a messageKey + params (i18n on the
+    // client). Comments carry free text in `body`.
+    messageKey: a.messageKey ?? undefined,
+    params: (a.params as Record<string, unknown> | null) ?? undefined,
+    body: a.body ?? undefined,
     fromStatus: a.fromStatus ?? undefined,
     toStatus: a.toStatus ?? undefined,
     createdAt: a.createdAt.toISOString(),
@@ -192,11 +197,12 @@ export function projectSummaryDto(p: Project, role: UserRole) {
     id: p.id,
     projectNumber: p.projectNumber,
     name: p.name ?? undefined,
+    customerId: p.customerId,
     customerName: p.customerName,
     status: p.status,
     stage: p.stage,
     urgency: p.urgency,
-    nextStep: p.nextStep,
+    nextStepKey: p.nextStepKey,
     plannedDate: p.plannedDate ?? undefined,
     ...(showPrices ? { value: p.value } : {}),
   };
@@ -219,6 +225,8 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
     contactName: p.contactName ?? undefined,
     contactPhone: p.contactPhone ?? undefined,
     instructions: p.instructions ?? undefined,
+    workTypeId: p.workTypeId ?? undefined,
+    workTypeName: p.workType?.name ?? undefined,
     insulationType: p.insulationType,
     squareMeters: p.squareMeters,
     description: p.description ?? undefined,
@@ -230,7 +238,8 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
     status: p.status,
     urgency: p.urgency,
     blocker: p.blocker ?? undefined,
-    nextStep: p.nextStep,
+    blockerKey: p.blockerKey ?? undefined,
+    nextStepKey: p.nextStepKey,
     materialsReady: p.materialsReady,
     plannedDate: p.plannedDate ?? undefined,
     plannedEndDate: p.plannedEndDate ?? undefined,
@@ -260,6 +269,7 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
 
 // Prisma include used by GET /:id to load the full aggregate.
 export const projectInclude = {
+  workType: { select: { id: true, name: true } },
   intake: true,
   quote: { include: { lineItems: true } },
   invoice: true,

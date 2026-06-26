@@ -36,6 +36,13 @@ enum CustomerType {
   private
 }
 
+// Employee availability (display labels "Actief"/"Verlof"/"Inactief" via i18n).
+enum EmployeeStatus {
+  active
+  on_leave
+  inactive
+}
+
 enum ProjectStatus {
   sales
   operations
@@ -157,10 +164,11 @@ model User {
   org            Organization     @relation(fields: [orgId], references: [id])
   customer       Customer?        @relation(fields: [customerId], references: [id])
   employee       Employee?        @relation(fields: [employeeId], references: [id])
-  sessions       AuthSession[]
-  passwordResets PasswordReset[]
-  activity       ProjectActivity[]
-  auditLogs      AuditLog[]
+  sessions          AuthSession[]
+  passwordResets    PasswordReset[]
+  activity          ProjectActivity[]
+  auditLogs         AuditLog[]
+  signedWorkOrders  WorkOrder[]      @relation("WorkOrderSignedBy")
 
   @@index([orgId])
   @@index([customerId])
@@ -281,6 +289,7 @@ model Employee {
   phone     String
   email     String?
   roles     TeamRole[]
+  status    EmployeeStatus @default(active)
   deletedAt DateTime?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
@@ -297,6 +306,9 @@ model Employee {
   planningAsTeamLeader PlanningItem[] @relation("PlanningTeamLeader")
   planningAsInstaller  PlanningItem[] @relation("PlanningInstallers")
 
+  // per-task assignments (work-order zones)
+  assignedTasks WorkOrderTask[] @relation("TaskAssignee")
+
   @@index([orgId])
 }
 
@@ -309,6 +321,7 @@ model Material {
   orgId     String
   name      String
   unit      String
+  category  String    @default("Overig")
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -389,7 +402,9 @@ model WorkType {
   name      String
   createdAt DateTime @default(now())
 
-  org Organization @relation(fields: [orgId], references: [id])
+  org      Organization @relation(fields: [orgId], references: [id])
+  projects Project[]
+  tasks    WorkOrderTask[]
 
   @@unique([orgId, name])
   @@index([orgId])
@@ -413,6 +428,10 @@ model Project {
   contactName   String?
   contactPhone  String?
   instructions  String?
+  // Work type is a managed reference (WorkType). workTypeId is the source of
+  // truth; insulationType is a denormalized display mirror set from the chosen
+  // WorkType.name so list/read paths stay simple and never hold free-text drift.
+  workTypeId    String?
   insulationType String
   squareMeters  Int            @default(0)
   description   String?
@@ -423,8 +442,13 @@ model Project {
   stage         Stage          @default(concept)
   status        ProjectStatus  @default(sales)
   urgency       ProjectUrgency @default(normal)
+  // Free-text blocker (a user-entered reason). When the blocker is a system
+  // default, blockerKey holds an i18n key instead (rendered client-side).
   blocker       String?
-  nextStep      String
+  blockerKey    String?
+  // The next action, stored as a language-neutral i18n key (e.g. "sendQuote").
+  // The client renders it via t(`domain.nextStep.${nextStepKey}`).
+  nextStepKey   String
   signature     String?
   materialsReady Boolean       @default(false)
   plannedDate   String?
@@ -446,6 +470,7 @@ model Project {
   org      Organization @relation(fields: [orgId], references: [id])
   customer Customer     @relation(fields: [customerId], references: [id])
   location Location?    @relation(fields: [locationId], references: [id])
+  workType WorkType?    @relation(fields: [workTypeId], references: [id])
 
   projectLeader Employee?  @relation("ProjectLeader", fields: [projectLeaderId], references: [id])
   teamLeader    Employee?  @relation("ProjectTeamLeader", fields: [teamLeaderId], references: [id])
@@ -533,11 +558,19 @@ model WorkOrder {
   drawings           String[]
   approvedBySupervisor Boolean     @default(false)
   ordinal            Int           @default(0)
+  // Per-work-order sign-off. A project has many work orders, so completion is a
+  // property of THE work order, not the project. signedAt set → this work order
+  // is signed off and locked for editing; sibling work orders and the project's
+  // own stage are unaffected.
+  signature          String?
+  signedAt           DateTime?
+  signedById         String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   WorkOrderTask[]
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  signedBy User?           @relation("WorkOrderSignedBy", fields: [signedById], references: [id], onDelete: SetNull)
+  tasks    WorkOrderTask[]
 
   @@index([projectId])
 }
@@ -548,6 +581,10 @@ model WorkOrderTask {
   description  String   @default("")
   done         Boolean  @default(false)
   day          String?
+  // Each task (zone) carries its own work type + assigned technician — different
+  // zones of one work order can be different work, done by different people.
+  workTypeId   String?
+  assigneeId   String?
   beforePhotos String[]
   resultPhotos String[]
   startedAt    String?
@@ -557,6 +594,8 @@ model WorkOrderTask {
   ordinal      Int      @default(0)
 
   workOrder WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workType  WorkType?      @relation(fields: [workTypeId], references: [id], onDelete: SetNull)
+  assignee  Employee?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   materials TaskMaterial[]
 
   @@index([workOrderId])
@@ -627,7 +666,8 @@ model Handover {
 model HandoverItem {
   id          String  @id @default(uuid())
   handoverId  String
-  label       String
+  // i18n key (rendered via t(`domain.checklist.${labelKey}`)).
+  labelKey    String
   done        Boolean @default(false)
   ordinal     Int     @default(0)
 
@@ -648,7 +688,8 @@ model DeliveryChecklist {
 model DeliveryChecklistItem {
   id          String  @id @default(uuid())
   checklistId String
-  label       String
+  // i18n key for the checklist item (rendered via t(`domain.checklist.${labelKey}`)).
+  labelKey    String
   complete    Boolean @default(false)
   ordinal     Int     @default(0)
 
@@ -727,7 +768,13 @@ model ProjectActivity {
   projectId  String
   userId     String?
   type       ProjectActivityType
-  body       String
+  // System events store a language-neutral messageKey + structured params; the
+  // client renders them via i18n (t(`activity.${messageKey}`, params)). Internals
+  // are English; no display prose is stored. `body` holds free text for the
+  // `comment` type only (the user's own words, not translatable).
+  messageKey String?
+  params     Json?
+  body       String?
   fromStatus ProjectStatus?
   toStatus   ProjectStatus?
   createdAt  DateTime            @default(now())

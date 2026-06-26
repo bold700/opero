@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -6,11 +7,12 @@ import AddIcon from "@mui/icons-material/Add";
 
 // Right-side actions in the employees top bar: search + new employee.
 export function EmployeesActions() {
+  const { t } = useTranslation();
   return (
     <>
       <TextField
         size="small"
-        placeholder="Zoek medewerker..."
+        placeholder={t("employees.searchPlaceholder")}
         sx={{ width: { xs: 180, sm: 280 } }}
         slotProps={{
           input: {
@@ -23,7 +25,7 @@ export function EmployeesActions() {
         }}
       />
       <Button variant="contained" startIcon={<AddIcon />}>
-        Nieuwe medewerker
+        {t("employees.newEmployee")}
       </Button>
     </>
   );

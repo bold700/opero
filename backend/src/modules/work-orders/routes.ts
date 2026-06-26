@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
-import { canSeePrices, statusForStage, type UserRole } from "@opero/shared";
+import { canSeePrices, type UserRole } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
@@ -12,6 +12,8 @@ import { canViewProject } from "../projects/visibility.js";
 import {
   workOrderDto,
   workOrderInclude,
+  workOrderListDto,
+  workOrderListInclude,
   type WorkOrderWithRelations,
 } from "./dto.js";
 import {
@@ -47,16 +49,24 @@ workOrdersRouter.use(requireAuth);
 // Helpers
 // =========================================================================
 
-// Append a ProjectActivity "system" row inside a transaction (mirrors the
-// store's logChange → makeActivity for the major events).
+// Append a ProjectActivity "system" row inside a transaction. Stores a
+// language-neutral messageKey + structured params (English internals); the
+// client renders it via i18n. No display prose is stored.
 async function appendActivity(
   tx: Tx,
   user: AuthUser,
   projectId: string,
-  body: string,
+  messageKey: string,
+  params?: Record<string, unknown>,
 ): Promise<void> {
   await tx.projectActivity.create({
-    data: { projectId, userId: user.id, type: "system", body },
+    data: {
+      projectId,
+      userId: user.id,
+      type: "system",
+      messageKey,
+      params: (params ?? undefined) as Prisma.InputJsonValue | undefined,
+    },
   });
 }
 
@@ -171,7 +181,12 @@ function taskScopeLabel(
   task: { description: string } | null,
   workOrderTitle: string,
 ): string {
-  return task?.description?.trim() || workOrderTitle || "Werkbon";
+  return task?.description?.trim() || workOrderTitle || "—";
+}
+
+// Work-order display label for activity: its title, or "#N" when untitled.
+function woLabel(wb: { title: string; ordinal: number }): string {
+  return wb.title.trim() || `#${wb.ordinal + 1}`;
 }
 
 // =========================================================================
@@ -207,14 +222,27 @@ workOrdersRouter.get(
 
     const rows = await prisma.workOrder.findMany({
       where: { project: projectWhere },
-      include: workOrderInclude,
-      orderBy: [{ projectId: "asc" }, { ordinal: "asc" }, { createdAt: "asc" }],
+      include: workOrderListInclude,
+      orderBy: [{ createdAt: "desc" }, { ordinal: "asc" }],
     });
-    res.json(
-      rows.map((wb) =>
-        workOrderDto(wb as WorkOrderWithRelations, user.role as UserRole),
-      ),
-    );
+    res.json(rows.map((wb) => workOrderListDto(wb)));
+  }),
+);
+
+// GET /work-orders/assignable — field staff {id, name} for per-task assignment.
+// Readable by admin + technician (the employees list is admin-only, but
+// technicians assign tasks on the detail screen). Must precede "/:id".
+workOrdersRouter.get(
+  "/assignable",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    if (user.role === "client") throw Forbidden("Not allowed");
+    const rows = await prisma.employee.findMany({
+      where: { orgId: user.orgId, deletedAt: null, status: "active" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+    res.json(rows);
   }),
 );
 
@@ -266,11 +294,16 @@ workOrdersRouter.post(
       const wb = await tx.workOrder.create({
         data: {
           projectId: project.id,
-          title: input.title?.trim() || `Werkbon ${count + 1}`,
+          // Empty title → the client renders a translated fallback that includes
+          // the 1-based index. No display prose stored in the DB.
+          title: input.title?.trim() ?? "",
           drawings: [],
           ordinal: count,
         },
         include: workOrderInclude,
+      });
+      await appendActivity(tx, user, project.id, "workOrder.created", {
+        title: woLabel(wb),
       });
       await audit(tx, user, "workOrder.create", "workOrder", wb.id, {
         projectId: project.id,
@@ -311,8 +344,15 @@ workOrdersRouter.delete(
     const user = req.user!;
     const { project } = await loadProjectForWorkOrder(user, req.params.id);
     if (user.role !== "admin") throw Forbidden("Admin only");
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { title: true, ordinal: true },
+    });
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.delete({ where: { id: req.params.id } });
+      await appendActivity(tx, user, project.id, "workOrder.deleted", {
+        title: woLabel(wb),
+      });
       await audit(tx, user, "workOrder.delete", "workOrder", req.params.id);
       // Materials gone → keep quote amount in sync.
       await recomputeQuoteAmount(tx, project.id);
@@ -326,19 +366,27 @@ workOrdersRouter.post(
   "/:id/approve",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    await loadProjectForWorkOrder(user, req.params.id);
+    const { project } = await loadProjectForWorkOrder(user, req.params.id);
     if (user.role !== "admin") throw Forbidden("Admin only");
     const wb = await prisma.workOrder.findUniqueOrThrow({
       where: { id: req.params.id },
-      select: { approvedBySupervisor: true },
+      select: { approvedBySupervisor: true, title: true, ordinal: true },
     });
+    const next = !wb.approvedBySupervisor;
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
-        data: { approvedBySupervisor: !wb.approvedBySupervisor },
+        data: { approvedBySupervisor: next },
       });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        next ? "workOrder.approved" : "workOrder.unapproved",
+        { title: woLabel(wb) },
+      );
       await audit(tx, user, "workOrder.approve", "workOrder", req.params.id, {
-        approvedBySupervisor: !wb.approvedBySupervisor,
+        approvedBySupervisor: next,
       });
     });
     res.json(await reloadWorkOrder(user, req.params.id));
@@ -383,14 +431,15 @@ workOrdersRouter.post(
       const task = await tx.workOrderTask.create({
         data: { workOrderId: req.params.id, ordinal: count },
       });
-      await appendActivity(tx, user, project.id, "Zone toegevoegd");
+      await appendActivity(tx, user, project.id, "task.added");
       await audit(tx, user, "workOrder.task.add", "workOrderTask", task.id);
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
   }),
 );
 
-// PATCH /work-orders/:id/tasks/:taskId — update description/day/done/note.
+// PATCH /work-orders/:id/tasks/:taskId — update description/day/done/note plus
+// the per-zone work type + assignee (both validated against the org).
 workOrdersRouter.patch(
   "/:id/tasks/:taskId",
   asyncHandler(async (req, res) => {
@@ -398,6 +447,21 @@ workOrdersRouter.patch(
     const input = updateTaskSchema.parse(req.body);
     await requireWritableWorkOrder(user, req.params.id);
     const task = await loadTask(req.params.id, req.params.taskId);
+
+    // Validate FKs belong to the org (null clears; undefined leaves unchanged).
+    if (input.workTypeId) {
+      const wt = await prisma.workType.findFirst({
+        where: { id: input.workTypeId, orgId: user.orgId },
+      });
+      if (!wt) throw BadRequest("Work type not found in organization");
+    }
+    if (input.assigneeId) {
+      const emp = await prisma.employee.findFirst({
+        where: { id: input.assigneeId, orgId: user.orgId, deletedAt: null },
+      });
+      if (!emp) throw BadRequest("Employee not found in organization");
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.workOrderTask.update({
         where: { id: task.id },
@@ -414,6 +478,10 @@ workOrdersRouter.patch(
                 ? null
                 : clampText(input.note)
               : undefined,
+          workTypeId:
+            input.workTypeId !== undefined ? input.workTypeId : undefined,
+          assigneeId:
+            input.assigneeId !== undefined ? input.assigneeId : undefined,
         },
       });
       await audit(tx, user, "workOrder.task.update", "workOrderTask", task.id, input);
@@ -436,7 +504,7 @@ workOrdersRouter.delete(
     const scope = taskScopeLabel(task, wb.title);
     await prisma.$transaction(async (tx) => {
       await tx.workOrderTask.delete({ where: { id: task.id } });
-      await appendActivity(tx, user, project.id, `Zone verwijderd: ${scope}`);
+      await appendActivity(tx, user, project.id, "task.removed", { scope });
       await audit(tx, user, "workOrder.task.remove", "workOrderTask", task.id);
       await recomputeQuoteAmount(tx, project.id);
     });
@@ -470,7 +538,7 @@ workOrdersRouter.post(
             data: { ordinal: i },
           });
         }
-        await appendActivity(tx, user, project.id, "Zones opnieuw geordend");
+        await appendActivity(tx, user, project.id, "task.reordered");
       });
     }
     res.json(await reloadWorkOrder(user, req.params.id));
@@ -482,13 +550,22 @@ workOrdersRouter.post(
   "/:id/tasks/:taskId/toggle",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    await requireWritableWorkOrder(user, req.params.id);
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
     const task = await loadTask(req.params.id, req.params.taskId);
+    const name = task.description?.trim() || `#${task.ordinal + 1}`;
     await prisma.$transaction(async (tx) => {
       await tx.workOrderTask.update({
         where: { id: task.id },
         data: { done: !task.done },
       });
+      // Record the completion/reopen in the project activity (audit trail).
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        task.done ? "task.toggledReopened" : "task.toggledDone",
+        { name },
+      );
       await audit(tx, user, "workOrder.task.toggle", "workOrderTask", task.id, {
         done: !task.done,
       });
@@ -545,14 +622,10 @@ workOrdersRouter.post(
         data: { endedAt, done: true, hours: hours ?? null },
       });
       if (task.startedAt) {
-        await appendActivity(
-          tx,
-          user,
-          project.id,
-          `${taskScopeLabel(task, wb.title)} afgerond, ${
-            hours ?? 0
-          } u via timer`,
-        );
+        await appendActivity(tx, user, project.id, "task.completedViaTimer", {
+          scope: taskScopeLabel(task, wb.title),
+          hours: hours ?? 0,
+        });
       }
       await audit(tx, user, "workOrder.task.end", "workOrderTask", task.id, { hours });
     });
@@ -579,14 +652,11 @@ workOrdersRouter.patch(
         data: { hours: next },
       });
       if ((task.hours ?? 0) !== input.hours) {
-        await appendActivity(
-          tx,
-          user,
-          project.id,
-          `Uren ${taskScopeLabel(task, wb.title)}: ${task.hours ?? 0} naar ${
-            input.hours > 0 ? input.hours : 0
-          } u`,
-        );
+        await appendActivity(tx, user, project.id, "task.hoursChanged", {
+          scope: taskScopeLabel(task, wb.title),
+          from: task.hours ?? 0,
+          to: input.hours > 0 ? input.hours : 0,
+        });
       }
       await audit(tx, user, "workOrder.task.hours", "workOrderTask", task.id, {
         hours: next,
@@ -715,14 +785,14 @@ workOrdersRouter.post(
           ordinal: count,
         },
       });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        seeded
-          ? `Taak toegevoegd bij ${scope}: ${input?.name ?? ""}`
-          : `Product toegevoegd bij ${scope}`,
-      );
+      if (seeded) {
+        await appendActivity(tx, user, project.id, "material.addedTask", {
+          scope,
+          name: input?.name ?? "",
+        });
+      } else {
+        await appendActivity(tx, user, project.id, "material.added", { scope });
+      }
       await audit(tx, user, "workOrder.material.add", "taskMaterial", mat.id);
       // unitPrice may have been seeded → keep quote amount in sync.
       await recomputeQuoteAmount(tx, project.id);
@@ -769,24 +839,18 @@ workOrdersRouter.patch(
         },
       });
       if (input.name !== undefined && clampText(input.name) !== before.name) {
-        await appendActivity(
-          tx,
-          user,
-          project.id,
-          `Product: "${before.name || "leeg"}" gewijzigd naar "${
-            clampText(input.name) || "leeg"
-          }"`,
-        );
+        await appendActivity(tx, user, project.id, "material.renamed", {
+          from: before.name || "—",
+          to: clampText(input.name) || "—",
+        });
       }
       if (input.quantity !== undefined && input.quantity !== before.quantity) {
-        await appendActivity(
-          tx,
-          user,
-          project.id,
-          `${before.name || "Product"}: gepland aantal ${before.quantity} naar ${
-            input.quantity
-          } ${before.unit}`,
-        );
+        await appendActivity(tx, user, project.id, "material.quantityChanged", {
+          name: before.name || "—",
+          from: before.quantity,
+          to: input.quantity,
+          unit: before.unit,
+        });
       }
       await audit(tx, user, "workOrder.material.update", "taskMaterial", before.id, input);
       // qty/price may have changed → recompute quote amount.
@@ -805,12 +869,9 @@ workOrdersRouter.delete(
     const before = await loadMaterial(req.params.id, req.params.matId);
     await prisma.$transaction(async (tx) => {
       await tx.taskMaterial.delete({ where: { id: before.id } });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        `Product verwijderd: ${before.name || "product"}`,
-      );
+      await appendActivity(tx, user, project.id, "material.removed", {
+        name: before.name || "—",
+      });
       await audit(tx, user, "workOrder.material.remove", "taskMaterial", before.id);
       await recomputeQuoteAmount(tx, project.id);
     });
@@ -834,20 +895,15 @@ workOrdersRouter.post(
       });
       if ((before.usedQuantity ?? 0) !== used) {
         const diff = used - before.quantity;
-        const suffix =
-          diff > 0
-            ? ` (${diff} ${before.unit} meer dan gepland)`
-            : diff < 0
-              ? ` (${-diff} ${before.unit} minder dan gepland)`
-              : "";
-        await appendActivity(
-          tx,
-          user,
-          project.id,
-          `Verbruik ${before.name || "product"}: ${
-            before.usedQuantity ?? 0
-          } naar ${used} ${before.unit}${suffix}`,
-        );
+        await appendActivity(tx, user, project.id, "material.usageChanged", {
+          name: before.name || "—",
+          from: before.usedQuantity ?? 0,
+          to: used,
+          unit: before.unit,
+          // Over/under-plan note, keyed so the client renders it; "" when on plan.
+          deltaKind: diff > 0 ? "over" : diff < 0 ? "under" : "none",
+          delta: Math.abs(diff),
+        });
       }
       await audit(tx, user, "workOrder.material.usage", "taskMaterial", before.id, {
         used,
@@ -873,9 +929,8 @@ workOrdersRouter.post(
         tx,
         user,
         project.id,
-        `${before.label || before.name || "taak"}: ${
-          before.done ? "heropend" : "afgerond"
-        }`,
+        before.done ? "task.toggledReopened" : "task.toggledDone",
+        { name: before.label || before.name || "—" },
       );
       await audit(tx, user, "workOrder.material.toggle", "taskMaterial", before.id, {
         done: !before.done,
@@ -889,46 +944,50 @@ workOrdersRouter.post(
 // COMPLETION
 // =========================================================================
 
-// Mark all NAMED materials (across the project's workOrders) done. Returns the
-// count newly flipped (mirrors completeAllTasks). Caller wraps in a tx.
-async function completeAllTasks(
+// Mark this work order's open tasks and its named materials done. Returns the
+// count of tasks newly flipped. Caller wraps in a tx.
+async function completeWorkOrderTasks(
   tx: Tx,
-  projectId: string,
+  workOrderId: string,
 ): Promise<number> {
-  const named = await tx.taskMaterial.findMany({
-    where: {
-      task: { workOrder: { projectId } },
-      done: false,
-      NOT: { name: "" },
-    },
+  const openTasks = await tx.workOrderTask.findMany({
+    where: { workOrderId, done: false },
     select: { id: true },
   });
-  if (named.length > 0) {
-    await tx.taskMaterial.updateMany({
-      where: { id: { in: named.map((m) => m.id) } },
+  if (openTasks.length > 0) {
+    await tx.workOrderTask.updateMany({
+      where: { id: { in: openTasks.map((t) => t.id) } },
       data: { done: true },
     });
   }
-  return named.length;
+  await tx.taskMaterial.updateMany({
+    where: {
+      task: { workOrderId },
+      done: false,
+      NOT: { name: "" },
+    },
+    data: { done: true },
+  });
+  return openTasks.length;
 }
 
-// POST /work-orders/:id/complete-all — mark all named materials done.
+// POST /work-orders/:id/complete-all — mark this work order's tasks/materials done.
 workOrdersRouter.post(
   "/:id/complete-all",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const { workOrder, project } = await requireWritableWorkOrder(
+      user,
+      req.params.id,
+    );
     await prisma.$transaction(async (tx) => {
-      const changed = await completeAllTasks(tx, project.id);
+      const changed = await completeWorkOrderTasks(tx, workOrder.id);
       if (changed > 0) {
-        await appendActivity(
-          tx,
-          user,
-          project.id,
-          `${changed} ${changed === 1 ? "taak" : "taken"} in één keer afgevinkt`,
-        );
+        await appendActivity(tx, user, project.id, "task.completedAll", {
+          count: changed,
+        });
       }
-      await audit(tx, user, "workOrder.complete-all", "project", project.id, {
+      await audit(tx, user, "workOrder.complete-all", "workOrder", workOrder.id, {
         changed,
       });
     });
@@ -936,31 +995,37 @@ workOrdersRouter.post(
   }),
 );
 
-// POST /work-orders/:id/finish {signature} — finishWorkOrder: complete all,
-// store signature, set project stage=done (→ status=closing).
+// POST /work-orders/:id/finish {signature} — sign off THIS work order: complete
+// its own tasks/materials, store its signature + signedAt + signer. This locks
+// only this work order; sibling work orders and the project stage are untouched.
 workOrdersRouter.post(
   "/:id/finish",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = finishSchema.parse(req.body);
-    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const { workOrder, project } = await requireWritableWorkOrder(
+      user,
+      req.params.id,
+    );
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: workOrder.id },
+      select: { title: true, signedAt: true, ordinal: true },
+    });
+    if (wb.signedAt) throw BadRequest("Work order is already signed off");
     await prisma.$transaction(async (tx) => {
-      await completeAllTasks(tx, project.id);
-      await tx.project.update({
-        where: { id: project.id },
+      await completeWorkOrderTasks(tx, workOrder.id);
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
         data: {
           signature: clampText(input.signature),
-          stage: "done",
-          status: statusForStage("done"), // → "closing"
+          signedAt: new Date(),
+          signedById: user.id,
         },
       });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        "Werkbon afgerond en ondertekend",
-      );
-      await audit(tx, user, "workOrder.finish", "workOrder", req.params.id);
+      await appendActivity(tx, user, project.id, "workOrder.signed", {
+        title: wb.title || `#${wb.ordinal + 1}`,
+      });
+      await audit(tx, user, "workOrder.finish", "workOrder", workOrder.id);
     });
     res.json(await reloadWorkOrder(user, req.params.id));
   }),

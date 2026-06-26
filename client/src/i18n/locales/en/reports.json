@@ -1,0 +1,28 @@
+{
+  "title": "Reports",
+  "loadError": "Could not load reports",
+  "actions": {
+    "export": "Export"
+  },
+  "kpis": {
+    "workOrders": "Work orders",
+    "hours": "Hours",
+    "revenue": "Revenue",
+    "materialCosts": "Material costs"
+  },
+  "weeklyChart": {
+    "title": "Work orders per week"
+  },
+  "recentReports": {
+    "title": "Recent reports",
+    "empty": "No reports yet.",
+    "reportLabel": "Report {{id}}",
+    "date": "Date: {{date}}"
+  },
+  "topTechnicians": {
+    "title": "Top technicians",
+    "name": "Name",
+    "workOrders": "Work orders",
+    "empty": "No data."
+  }
+}

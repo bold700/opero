@@ -1,0 +1,40 @@
+{
+  "nextStep": {
+    "planIntake": "Schedule intake",
+    "doIntake": "Perform intake",
+    "draftQuote": "Draft quote",
+    "sendQuote": "Send quote",
+    "waitingApproval": "Awaiting approval",
+    "checkMaterials": "Check materials",
+    "createPurchaseList": "Create purchase list",
+    "resolveBlocker": "Resolve blocker",
+    "planProject": "Plan project",
+    "prepareWorkOrder": "Prepare work order",
+    "executeWork": "Execute work",
+    "finishExecution": "Finish execution",
+    "completeHandover": "Complete handover check",
+    "draftInvoice": "Create invoice draft",
+    "followUpPayment": "Follow up payment",
+    "handoverInvoice": "Handover and invoice",
+    "done": "Completed"
+  },
+  "blocker": {
+    "materialsUnavailable": "Not all materials are available."
+  },
+  "checklist": {
+    "workDone": "Work performed as ordered",
+    "photosUploaded": "Photos uploaded",
+    "beforeAfterPhotos": "Before and after photos taken",
+    "materialsRegistered": "Materials registered",
+    "materialUsageNoted": "Material usage recorded",
+    "fireSealsRegistered": "Fire-stop penetrations registered",
+    "extraWorkApproved": "Extra work approved",
+    "extraWorkAligned": "Extra work aligned and approved",
+    "clientSignature": "Client signature",
+    "qualityChecked": "Quality check completed",
+    "qualityApproved": "Quality control approved",
+    "workplaceCleaned": "Workplace cleaned and delivered",
+    "workplaceSecured": "Workplace safely cordoned off",
+    "finalCheckWithContact": "Final check with contact done"
+  }
+}

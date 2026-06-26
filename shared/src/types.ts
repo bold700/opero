@@ -172,7 +172,18 @@ export type WorkOrder = {
 export type WorkType = string;
 
 // Standaardlijst waarmee de workTypes in de store geseed worden.
+// Canonical, managed work types (the office-maintained list a project picks
+// from). These are real insulation categories — not per-project descriptions.
+// Display strings (NL); they're org content, not i18n keys.
 export const projectTypes: WorkType[] = [
+  "Spouwmuurisolatie",
+  "Dakisolatie",
+  "Vloerisolatie",
+  "Kruipruimte-isolatie",
+  "Bodemisolatie",
+  "Gevelisolatie",
+  "Plafondisolatie",
+  "Binnenwandisolatie",
   "Warme leidingisolatie",
   "Koude isolatie",
   "Akoestische isolatie",
@@ -215,7 +226,7 @@ export type ExtraWorkItem = {
 
 export type HandoverItem = {
   id: string;
-  label: string;
+  labelKey: string;
   done: boolean;
 };
 
@@ -270,7 +281,7 @@ export type WorkOrderExecution = {
   tasks: string[];
   checklist: {
     id: string;
-    label: string;
+    labelKey: string;
     complete: boolean;
   }[];
   requiredMaterials: MaterialRequirement[];
@@ -291,7 +302,7 @@ export type DeliveryChecklist = {
   id: string;
   items: {
     id: string;
-    label: string;
+    labelKey: string;
     complete: boolean;
   }[];
   qualityNotes?: string;
@@ -361,7 +372,8 @@ export type Project = {
   value: number;
   urgency: ProjectUrgency;
   blocker?: string;
-  nextStep: string;
+  blockerKey?: string;
+  nextStepKey: string;
   intake: Intake;
   quote: Quote;
   materialRequirements: MaterialRequirement[];

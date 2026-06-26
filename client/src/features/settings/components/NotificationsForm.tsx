@@ -1,23 +1,31 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import { GroupLabel } from "./GroupLabel";
 import { ToggleRow } from "./ToggleRow";
 
+// Notification rows — keys map to settings.notifications.<key>.{label,sub} translations.
+const ROWS: { key: string; on: boolean }[] = [
+  { key: "newWorkOrder", on: true },
+  { key: "urgentOnSite", on: true },
+  { key: "extraWorkApproval", on: true },
+  { key: "weeklySummary", on: false },
+];
+
 export function NotificationsForm() {
-  const rows = [
-    { label: "Nieuwe werkbon toegewezen", sub: "Push en e-mail wanneer je een werkbon krijgt", on: true },
-    { label: "Spoedmelding op locatie", sub: "Direct een melding bij een spoedgeval", on: true },
-    { label: "Meerwerk wacht op goedkeuring", sub: "Wanneer een klant moet goedkeuren", on: true },
-    { label: "Wekelijkse samenvatting", sub: "Elke maandag een overzicht per e-mail", on: false },
-  ];
+  const { t } = useTranslation();
   return (
     <Box>
-      <GroupLabel>Meldingsvoorkeuren</GroupLabel>
+      <GroupLabel>{t("settings.notifications.preferences")}</GroupLabel>
       <Box>
-        {rows.map((r, i) => (
-          <Box key={r.label}>
-            <ToggleRow {...r} />
-            {i < rows.length - 1 ? <Divider /> : null}
+        {ROWS.map((r, i) => (
+          <Box key={r.key}>
+            <ToggleRow
+              label={t(`settings.notifications.${r.key}.label`)}
+              sub={t(`settings.notifications.${r.key}.sub`)}
+              on={r.on}
+            />
+            {i < ROWS.length - 1 ? <Divider /> : null}
           </Box>
         ))}
       </Box>

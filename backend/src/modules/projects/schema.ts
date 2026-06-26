@@ -13,7 +13,11 @@ const urgencySchema = z.enum(["normal", "urgent", "blocked"]);
 export const createProjectSchema = z.object({
   customerId: z.string().min(1),
   name: z.string().optional(),
+  // Work type is chosen from the managed WorkType list (preferred). Free-text
+  // insulationType is still accepted for back-compat but workTypeId wins.
+  workTypeId: z.string().optional(),
   insulationType: z.string().optional(),
+  locationId: z.string().optional(),
   notes: z.string().optional(),
 });
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;

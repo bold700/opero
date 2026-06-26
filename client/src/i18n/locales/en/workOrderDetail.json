@@ -1,0 +1,83 @@
+{
+  "title": "Work order",
+  "notFound": "Work order not found",
+  "actionFailed": "Action failed",
+  "finishedToast": "Work order completed",
+  "stage": {
+    "sales": "Sales",
+    "operations": "Operations",
+    "closing": "Closing",
+    "done": "Done"
+  },
+  "urgency": {
+    "normal": "Normal",
+    "urgent": "Urgent",
+    "blocked": "Blocked"
+  },
+  "extraWorkStatus": {
+    "rejected": "Rejected",
+    "approved": "Approved",
+    "waitingClient": "Awaiting client",
+    "waitingOffice": "Awaiting office"
+  },
+  "header": {
+    "back": "back",
+    "signed": "Signed",
+    "signedBy": "by {{name}}",
+    "finish": "Complete work order",
+    "exportPdf": "Export PDF",
+    "defaultTitle": "Work order {{n}}"
+  },
+  "photos": {
+    "title": "Photos",
+    "comingSoon": "Coming soon",
+    "hint": "Adding photos becomes available once file storage is enabled."
+  },
+  "activity": {
+    "title": "Activity",
+    "empty": "No activity yet."
+  },
+  "tasks": {
+    "title": "Tasks",
+    "addTask": "Add task",
+    "emptyHint": "No tasks yet. {{hint}}",
+    "emptyHintAction": "Click \"Add task\".",
+    "unnamed": "Unnamed task",
+    "namePlaceholder": "Task description",
+    "renameHint": "Click to rename",
+    "workType": "Work type",
+    "workTypeNone": "None",
+    "assignee": "Technician",
+    "assigneeNone": "Unassigned",
+    "materialsLabel": "Materials",
+    "addMaterial": "Material"
+  },
+  "material": {
+    "delete": "delete material",
+    "placeholder": "Material",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "price": "Price"
+  },
+  "extraWork": {
+    "title": "Extra work",
+    "report": "Report extra work",
+    "empty": "No extra work reported.",
+    "descriptionPlaceholder": "Extra work description",
+    "submit": "Report",
+    "officeApproved": "Office ✓",
+    "officeApprove": "Approve (office)",
+    "reject": "Reject",
+    "clientApproved": "Agreed ✓",
+    "clientApprove": "Give approval"
+  },
+  "task": {
+    "delete": "delete"
+  },
+  "signOff": {
+    "title": "Complete work order",
+    "description": "All tasks will be completed and the project moves to the closing phase. Enter the signer's name to confirm.",
+    "signerLabel": "Signer's name",
+    "confirm": "Complete"
+  }
+}

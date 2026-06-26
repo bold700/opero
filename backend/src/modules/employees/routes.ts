@@ -11,7 +11,7 @@ import {
   updateEmployeeSchema,
   toggleRoleSchema,
 } from "./schema.js";
-import { employeeDto } from "./dto.js";
+import { employeeDto, employeeListDto, employeeListInclude } from "./dto.js";
 
 export const employeesRouter = Router();
 
@@ -28,8 +28,9 @@ employeesRouter.get(
     const rows = await prisma.employee.findMany({
       where: { orgId: user.orgId, deletedAt: null },
       orderBy: { name: "asc" },
+      include: employeeListInclude,
     });
-    res.json(rows.map(employeeDto));
+    res.json(rows.map(employeeListDto));
   }),
 );
 

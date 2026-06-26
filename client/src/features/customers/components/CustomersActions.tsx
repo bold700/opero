@@ -3,14 +3,16 @@ import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
+import { useTranslation } from "react-i18next";
 
 // Right-side actions in the customers top bar: search + new customer.
 export function CustomersActions() {
+  const { t } = useTranslation();
   return (
     <>
       <TextField
         size="small"
-        placeholder="Zoek op naam of stad..."
+        placeholder={t("customers.actions.searchPlaceholder")}
         sx={{ width: { xs: 180, sm: 280 } }}
         slotProps={{
           input: {
@@ -23,7 +25,7 @@ export function CustomersActions() {
         }}
       />
       <Button variant="contained" startIcon={<AddIcon />}>
-        Nieuwe klant
+        {t("customers.actions.newCustomer")}
       </Button>
     </>
   );

@@ -1,27 +1,34 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { Card } from "../../../components/Card";
-import { DAYS, HOURS, EVENTS, EVENT_COLOR, HOUR_START, HOUR_PX, TIME_COL } from "../constants";
+import { HOURS, EVENT_COLOR, HOUR_START, HOUR_PX, TIME_COL, type CalEvent } from "../constants";
+import type { CalDay } from "../transform";
 
 // The week time grid: day header, time column, and absolutely-positioned events.
 export function WeekGrid({
+  days,
+  events,
   todayIndex,
   selectedId,
   onSelect,
 }: {
+  days: CalDay[];
+  events: CalEvent[];
   todayIndex: number;
-  selectedId: string;
+  selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Card noPadding>
       {/* Day header row */}
       <Box sx={{ display: "flex", borderBottom: "1px solid", borderColor: "#F0EDF1" }}>
         <Box sx={{ width: TIME_COL, flexShrink: 0 }} />
-        {DAYS.map((d, i) => (
-          <Box key={d.date} sx={{ flex: 1, textAlign: "center", py: 1.5, borderLeft: "1px solid", borderColor: "#F0EDF1", color: i === todayIndex ? "primary.main" : "text.secondary" }}>
+        {days.map((d, i) => (
+          <Box key={d.iso} sx={{ flex: 1, textAlign: "center", py: 1.5, borderLeft: "1px solid", borderColor: "#F0EDF1", color: i === todayIndex ? "primary.main" : "text.secondary" }}>
             <Typography variant="body2" sx={{ fontWeight: i === todayIndex ? 700 : 500 }}>
-              {d.label} {d.date}
+              {t(`planning.weekdays.${d.weekdayKey}`)} {d.date}
             </Typography>
           </Box>
         ))}
@@ -41,14 +48,14 @@ export function WeekGrid({
         </Box>
 
         {/* Day columns */}
-        {DAYS.map((d, dayIdx) => (
-          <Box key={d.date} sx={{ flex: 1, position: "relative", borderLeft: "1px solid", borderColor: "#F0EDF1" }}>
+        {days.map((d, dayIdx) => (
+          <Box key={d.iso} sx={{ flex: 1, position: "relative", borderLeft: "1px solid", borderColor: "#F0EDF1" }}>
             {/* hour cells */}
             {HOURS.map((h) => (
               <Box key={h} sx={{ height: HOUR_PX, borderBottom: "1px solid", borderColor: "#F7F5F8" }} />
             ))}
             {/* events for this day */}
-            {EVENTS.filter((e) => e.day === dayIdx).map((e) => {
+            {events.filter((e) => e.day === dayIdx).map((e) => {
               const c = EVENT_COLOR[e.color];
               const top = (e.start - HOUR_START) * HOUR_PX;
               const height = (e.end - e.start) * HOUR_PX;

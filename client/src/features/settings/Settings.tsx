@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -13,19 +14,19 @@ import { PreferencesForm } from "./components/PreferencesForm";
 // Settings (Instellingen) — M3 master/detail. A slim labeled section list +
 // a structured form panel. Demo data; wires to /api/settings + /api/auth/me.
 export function Settings() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [active, setActive] = useState<SectionId>("profile");
-  const current = SECTIONS.find((s) => s.id === active)!;
 
   return (
     <Box sx={{ bgcolor: PAGE_BG, minHeight: "100dvh" }}>
       {/* Page header */}
       <Box sx={{ px: 4, py: 3, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Instellingen
+          {t("settings.title")}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Beheer je account, je bedrijf en je voorkeuren.
+          {t("settings.subtitle")}
         </Typography>
       </Box>
 
@@ -53,10 +54,10 @@ export function Settings() {
                 <Icon fontSize="small" sx={{ mt: 0.25, color: selected ? "primary.main" : "text.secondary" }} />
                 <Box sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600, fontSize: 14, color: selected ? "primary.main" : "text.primary" }}>
-                    {s.title}
+                    {t(`settings.sections.${s.id}.title`)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {s.subtitle}
+                    {t(`settings.sections.${s.id}.subtitle`)}
                   </Typography>
                 </Box>
               </Box>
@@ -69,10 +70,10 @@ export function Settings() {
           {/* Panel header */}
           <Box sx={{ px: 3, py: 2.5, borderBottom: "1px solid", borderColor: "#F0EDF1" }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {current.title}
+              {t(`settings.sections.${active}.title`)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {current.subtitle}
+              {t(`settings.sections.${active}.subtitle`)}
             </Typography>
           </Box>
 
@@ -86,8 +87,8 @@ export function Settings() {
 
           {/* Footer actions */}
           <Box sx={{ px: 3, py: 2, borderTop: "1px solid", borderColor: "#F0EDF1", display: "flex", justifyContent: "flex-end", gap: 1.5, bgcolor: "#FBFAFC" }}>
-            <Button variant="text" color="inherit">Annuleren</Button>
-            <Button variant="contained">Opslaan</Button>
+            <Button variant="text" color="inherit">{t("common.actions.cancel")}</Button>
+            <Button variant="contained">{t("common.actions.save")}</Button>
           </Box>
         </Paper>
       </Box>

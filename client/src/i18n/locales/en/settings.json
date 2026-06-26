@@ -1,0 +1,77 @@
+{
+  "title": "Settings",
+  "subtitle": "Manage your account, your company and your preferences.",
+  "sections": {
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Name, photo and contact details"
+    },
+    "company": {
+      "title": "Company",
+      "subtitle": "Company details and billing"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "subtitle": "When and how you get notifications"
+    },
+    "preferences": {
+      "title": "Preferences",
+      "subtitle": "Language, theme and display"
+    }
+  },
+  "profile": {
+    "photo": "Profile photo",
+    "photoHint": "JPG or PNG, max 2 MB",
+    "changePhoto": "Change photo",
+    "remove": "Remove",
+    "personalData": "Personal details",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email address",
+    "phone": "Phone number",
+    "role": "Role"
+  },
+  "company": {
+    "companyData": "Company details",
+    "companyName": "Company name",
+    "companyEmail": "Company email",
+    "companyAddress": "Company address",
+    "billing": "Billing",
+    "phone": "Phone number",
+    "vat": "VAT / Tax number"
+  },
+  "notifications": {
+    "preferences": "Notification preferences",
+    "newWorkOrder": {
+      "label": "New work order assigned",
+      "sub": "Push and email when you get a work order"
+    },
+    "urgentOnSite": {
+      "label": "Urgent alert on site",
+      "sub": "An immediate notification for an emergency"
+    },
+    "extraWorkApproval": {
+      "label": "Extra work awaiting approval",
+      "sub": "When a customer needs to approve"
+    },
+    "weeklySummary": {
+      "label": "Weekly summary",
+      "sub": "An overview by email every Monday"
+    }
+  },
+  "preferences": {
+    "display": "Display",
+    "language": "Language",
+    "languageDutch": "Dutch",
+    "languageEnglish": "English",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "privacy": "Privacy",
+    "showPrices": {
+      "label": "Show prices to technicians",
+      "sub": "Technicians see amounts on work orders"
+    }
+  }
+}

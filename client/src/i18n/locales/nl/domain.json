@@ -1,0 +1,40 @@
+{
+  "nextStep": {
+    "planIntake": "Intake inplannen",
+    "doIntake": "Intake uitvoeren",
+    "draftQuote": "Offerte opstellen",
+    "sendQuote": "Offerte versturen",
+    "waitingApproval": "Wachten op akkoord",
+    "checkMaterials": "Materialen controleren",
+    "createPurchaseList": "Inkooplijst maken",
+    "resolveBlocker": "Blokkade afhandelen",
+    "planProject": "Project plannen",
+    "prepareWorkOrder": "Werkorder voorbereiden",
+    "executeWork": "Werk uitvoeren",
+    "finishExecution": "Uitvoering afronden",
+    "completeHandover": "Oplevercheck afronden",
+    "draftInvoice": "Factuurconcept maken",
+    "followUpPayment": "Betaling opvolgen",
+    "handoverInvoice": "Oplevering en factuur",
+    "done": "Afgerond"
+  },
+  "blocker": {
+    "materialsUnavailable": "Niet alle materialen zijn beschikbaar."
+  },
+  "checklist": {
+    "workDone": "Werk uitgevoerd volgens opdracht",
+    "photosUploaded": "Foto's geüpload",
+    "beforeAfterPhotos": "Voor- en na-foto's gemaakt",
+    "materialsRegistered": "Materialen geregistreerd",
+    "materialUsageNoted": "Materiaalverbruik genoteerd",
+    "fireSealsRegistered": "Brandwerende doorvoeringen geregistreerd",
+    "extraWorkApproved": "Meerwerk akkoord",
+    "extraWorkAligned": "Meerwerk afgestemd en akkoord",
+    "clientSignature": "Handtekening opdrachtgever",
+    "qualityChecked": "Kwaliteitscheck afgerond",
+    "qualityApproved": "Kwaliteitscontrole akkoord",
+    "workplaceCleaned": "Werkplek opgeruimd opgeleverd",
+    "workplaceSecured": "Werkplek veilig afgezet",
+    "finalCheckWithContact": "Eindcontrole met contactpersoon gedaan"
+  }
+}

@@ -1,15 +1,9 @@
-import type { CustomerType } from "./api";
+// Display helpers for the customers list. Labels are resolved via i18n at the
+// call site; the values here stay stable English keys.
 
-// Display helpers for the customers list. (Dutch labels here are placeholders
-// until i18n; the underlying values stay English — see api.ts.)
-
-export const FILTERS = ["Alle", "Zakelijk", "Particulier"];
-
-// Dutch display label for a customer type.
-export const TYPE_LABEL: Record<CustomerType, string> = {
-  business: "Zakelijk",
-  private: "Particulier",
-};
+// Stable filter keys; each maps to a "customers.filters.<key>" translation.
+export const FILTERS = ["all", "business", "private"] as const;
+export type CustomerFilter = (typeof FILTERS)[number];
 
 // Deterministic avatar color from a name, so the same customer always gets the
 // same color without storing it.

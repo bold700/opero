@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -12,12 +13,13 @@ import type { CalEvent } from "../constants";
 
 // Right-side details panel for the selected calendar event.
 export function DetailsPanel({ event }: { event: CalEvent }) {
+  const { t } = useTranslation();
   const time = `${String(event.start).padStart(2, "0")}:00 — ${String(event.end).padStart(2, "0")}:00`;
-  const dur = `${event.end - event.start}u 00m`;
+  const dur = t("planning.duration", { hours: event.end - event.start });
   return (
     <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider" }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-        Details
+        {t("planning.details")}
       </Typography>
       <Typography variant="h6" sx={{ fontWeight: 700 }}>
         {event.customer}
@@ -37,7 +39,7 @@ export function DetailsPanel({ event }: { event: CalEvent }) {
         </Box>
         <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", color: "text.secondary" }}>
           <PersonOutlineIcon fontSize="small" />
-          <Typography variant="body2" sx={{ color: "text.primary" }}>{event.monteur}</Typography>
+          <Typography variant="body2" sx={{ color: "text.primary" }}>{event.technician}</Typography>
         </Box>
       </Box>
 
@@ -47,10 +49,10 @@ export function DetailsPanel({ event }: { event: CalEvent }) {
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
         <Button variant="contained" startIcon={<OpenInNewIcon />}>
-          Werkbon openen
+          {t("planning.openWorkOrder")}
         </Button>
         <Button variant="outlined" startIcon={<EditOutlinedIcon />}>
-          Bewerken
+          {t("common.actions.edit")}
         </Button>
       </Box>
     </Box>

@@ -148,7 +148,9 @@ describe("full project lifecycle", () => {
     expect(dbProject?.invoice?.status).toBe("paid");
     expect(dbProject?.quote?.status).toBe("accepted");
     expect(dbProject?.workOrders.length).toBeGreaterThan(0);
-    expect(dbProject?.signature).toBe("Klant Handtekening");
+    // Sign-off now lives on the work order, not the project.
+    expect(dbProject?.workOrders[0]?.signature).toBe("Klant Handtekening");
+    expect(dbProject?.workOrders[0]?.signedAt).not.toBeNull();
 
     // 8. audit log captured the mutations
     const auditCount = await prisma.auditLog.count({

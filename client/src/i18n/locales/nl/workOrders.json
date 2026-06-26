@@ -1,0 +1,65 @@
+{
+  "title": "Werkbonnen",
+  "counts": {
+    "total": "Totaal",
+    "open": "Open",
+    "onTheWay": "Onderweg",
+    "urgent": "Spoed",
+    "done": "Klaar"
+  },
+  "filters": {
+    "all": "Alle",
+    "open": "Open",
+    "onTheWay": "Onderweg",
+    "urgent": "Spoed",
+    "done": "Klaar"
+  },
+  "status": {
+    "open": "Open",
+    "onTheWay": "Onderweg",
+    "urgent": "Spoed",
+    "done": "Klaar"
+  },
+  "actions": {
+    "searchPlaceholder": "Zoek op nummer of klant...",
+    "newWorkOrder": "Nieuwe werkbon"
+  },
+  "table": {
+    "number": "Werkbon #",
+    "customer": "Klant",
+    "location": "Locatie",
+    "workType": "Type werk",
+    "technician": "Monteur",
+    "status": "Status",
+    "date": "Datum",
+    "action": "Actie",
+    "empty": "Geen werkbonnen gevonden.",
+    "viewAria": "bekijken"
+  },
+  "create": {
+    "title": "Nieuwe werkbon",
+    "customerLabel": "Klant",
+    "customerHelper": "Kies de klant",
+    "customersLoading": "Klanten laden…",
+    "customersLoadError": "Kon klanten niet laden",
+    "projectLabel": "Project",
+    "projectsLoading": "Projecten laden…",
+    "projectHelperPickCustomer": "Kies eerst een klant",
+    "projectHelper": "Kies een project of maak een nieuw aan",
+    "projectsLoadError": "Kon projecten niet laden",
+    "newProject": "+ Nieuw project",
+    "newProjectSection": "Nieuw project",
+    "projectNameLabel": "Projectnaam",
+    "locationLabel": "Werklocatie",
+    "locationCustomerAddress": "Adres van de klant",
+    "locationNew": "+ Nieuwe locatie",
+    "locationLabelName": "Naam locatie (optioneel)",
+    "locationAddress": "Adres",
+    "locationPostalCode": "Postcode",
+    "locationCity": "Plaats",
+    "workOrderTitleLabel": "Titel werkbon (optioneel)",
+    "cancel": "Annuleren",
+    "submit": "Aanmaken",
+    "submitError": "Aanmaken mislukt"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "title": "Medewerkers",
+  "searchPlaceholder": "Zoek medewerker...",
+  "newEmployee": "Nieuwe medewerker",
+  "empty": "Geen medewerkers gevonden.",
+  "moreActions": "meer",
+  "kpis": {
+    "total": "Totaal",
+    "technicians": "Monteurs",
+    "office": "Kantoor",
+    "active": "Actief"
+  },
+  "filters": {
+    "all": "Alle",
+    "technicians": "Monteurs",
+    "office": "Kantoor",
+    "inactive": "Inactief"
+  },
+  "table": {
+    "name": "Naam",
+    "function": "Functie",
+    "workOrders": "Werkbonnen",
+    "status": "Status",
+    "action": "Actie"
+  },
+  "status": {
+    "active": "Actief",
+    "on_leave": "Verlof",
+    "inactive": "Inactief"
+  },
+  "roles": {
+    "technician": "Monteur",
+    "foreman": "Voorman",
+    "workPlanner": "Werkvoorbereider",
+    "planner": "Planner",
+    "projectLeader": "Projectleider",
+    "administration": "Administratie",
+    "sales": "Sales"
+  }
+}

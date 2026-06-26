@@ -1,0 +1,77 @@
+{
+  "title": "Instellingen",
+  "subtitle": "Beheer je account, je bedrijf en je voorkeuren.",
+  "sections": {
+    "profile": {
+      "title": "Profiel",
+      "subtitle": "Naam, foto en contactgegevens"
+    },
+    "company": {
+      "title": "Bedrijf",
+      "subtitle": "Bedrijfsgegevens en facturatie"
+    },
+    "notifications": {
+      "title": "Meldingen",
+      "subtitle": "Wanneer en hoe je meldingen krijgt"
+    },
+    "preferences": {
+      "title": "Voorkeuren",
+      "subtitle": "Taal, thema en weergave"
+    }
+  },
+  "profile": {
+    "photo": "Profielfoto",
+    "photoHint": "JPG of PNG, max 2 MB",
+    "changePhoto": "Foto wijzigen",
+    "remove": "Verwijderen",
+    "personalData": "Persoonlijke gegevens",
+    "firstName": "Voornaam",
+    "lastName": "Achternaam",
+    "email": "E-mailadres",
+    "phone": "Telefoonnummer",
+    "role": "Functie"
+  },
+  "company": {
+    "companyData": "Bedrijfsgegevens",
+    "companyName": "Bedrijfsnaam",
+    "companyEmail": "Bedrijfse-mail",
+    "companyAddress": "Bedrijfsadres",
+    "billing": "Facturatie",
+    "phone": "Telefoonnummer",
+    "vat": "BTW / Belastingnummer"
+  },
+  "notifications": {
+    "preferences": "Meldingsvoorkeuren",
+    "newWorkOrder": {
+      "label": "Nieuwe werkbon toegewezen",
+      "sub": "Push en e-mail wanneer je een werkbon krijgt"
+    },
+    "urgentOnSite": {
+      "label": "Spoedmelding op locatie",
+      "sub": "Direct een melding bij een spoedgeval"
+    },
+    "extraWorkApproval": {
+      "label": "Meerwerk wacht op goedkeuring",
+      "sub": "Wanneer een klant moet goedkeuren"
+    },
+    "weeklySummary": {
+      "label": "Wekelijkse samenvatting",
+      "sub": "Elke maandag een overzicht per e-mail"
+    }
+  },
+  "preferences": {
+    "display": "Weergave",
+    "language": "Taal",
+    "languageDutch": "Nederlands",
+    "languageEnglish": "Engels",
+    "theme": "Thema",
+    "themeLight": "Licht",
+    "themeDark": "Donker",
+    "themeSystem": "Systeem",
+    "privacy": "Privacy",
+    "showPrices": {
+      "label": "Prijzen tonen aan monteurs",
+      "sub": "Monteurs zien bedragen op werkbonnen"
+    }
+  }
+}

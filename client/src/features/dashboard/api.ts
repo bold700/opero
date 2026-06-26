@@ -27,7 +27,7 @@ export type TechnicianProjectRow = {
   status: string;
   stage: string;
   plannedDate: string | null;
-  nextStep: string;
+  nextStepKey: string;
   openTaskCount: number;
 };
 
@@ -45,7 +45,7 @@ export type ClientProjectRow = {
   status: string;
   stage: string;
   plannedDate: string | null;
-  nextStep: string;
+  nextStepKey: string;
 };
 
 export type ClientDashboard = {

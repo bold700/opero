@@ -1,0 +1,41 @@
+{
+  "welcome": "Welkom",
+  "welcomeNamed": "Welkom, {{name}}",
+  "actions": {
+    "search": "zoeken",
+    "notifications": "meldingen"
+  },
+  "status": {
+    "sales": "Verkoop",
+    "operations": "Operatie",
+    "closing": "Afronding"
+  },
+  "admin": {
+    "kpis": {
+      "totalProjects": "Projecten totaal",
+      "plannedThisWeek": "Ingepland deze week",
+      "urgentBlocked": "Spoed / geblokkeerd",
+      "urgentBlockedSub": "{{urgent}} urgent · {{blocked}} geblokkeerd",
+      "readyToInvoice": "Klaar voor facturatie"
+    },
+    "pipelineTitle": "Projecten per status",
+    "financialTitle": "Financieel",
+    "pipelineValue": "Pipeline waarde",
+    "openInvoices": "Openstaande facturen",
+    "recentActivity": "Activiteit (7 dagen)"
+  },
+  "technician": {
+    "kpis": {
+      "assignedProjects": "Toegewezen projecten",
+      "openTasks": "Openstaande taken",
+      "today": "Vandaag"
+    },
+    "todayTitle": "Vandaag",
+    "noWorkOrders": "Geen werkbonnen voor vandaag.",
+    "taskCount": "{{count}} taken"
+  },
+  "client": {
+    "title": "Mijn projecten",
+    "noProjects": "Geen projecten gevonden."
+  }
+}

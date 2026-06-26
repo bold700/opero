@@ -1,0 +1,41 @@
+{
+  "welcome": "Welcome",
+  "welcomeNamed": "Welcome, {{name}}",
+  "actions": {
+    "search": "search",
+    "notifications": "notifications"
+  },
+  "status": {
+    "sales": "Sales",
+    "operations": "Operations",
+    "closing": "Closing"
+  },
+  "admin": {
+    "kpis": {
+      "totalProjects": "Total projects",
+      "plannedThisWeek": "Planned this week",
+      "urgentBlocked": "Urgent / blocked",
+      "urgentBlockedSub": "{{urgent}} urgent · {{blocked}} blocked",
+      "readyToInvoice": "Ready to invoice"
+    },
+    "pipelineTitle": "Projects by status",
+    "financialTitle": "Financial",
+    "pipelineValue": "Pipeline value",
+    "openInvoices": "Open invoices",
+    "recentActivity": "Activity (7 days)"
+  },
+  "technician": {
+    "kpis": {
+      "assignedProjects": "Assigned projects",
+      "openTasks": "Open tasks",
+      "today": "Today"
+    },
+    "todayTitle": "Today",
+    "noWorkOrders": "No work orders for today.",
+    "taskCount": "{{count}} tasks"
+  },
+  "client": {
+    "title": "My projects",
+    "noProjects": "No projects found."
+  }
+}

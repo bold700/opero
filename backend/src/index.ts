@@ -20,6 +20,7 @@ import { projectsRouter } from "./modules/projects/routes.js";
 import { workOrdersRouter } from "./modules/work-orders/routes.js";
 import { planningRouter } from "./modules/planning/routes.js";
 import { dashboardRouter } from "./modules/dashboard/routes.js";
+import { reportsRouter } from "./modules/reports/routes.js";
 import { invoicesRouter } from "./modules/invoices/routes.js";
 
 export const app = express();
@@ -58,6 +59,7 @@ app.use("/api/projects", projectsRouter);
 app.use("/api/work-orders", workOrdersRouter);
 app.use("/api/planning", planningRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/reports", reportsRouter);
 // invoices uses /projects/:projectId/invoice/* paths → mount at /api.
 app.use("/api", invoicesRouter);
 
