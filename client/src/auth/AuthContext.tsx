@@ -1,8 +1,18 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import i18n from "../i18n";
 import type { AuthUser } from "../lib/api/auth";
 import { me as fetchMe, logout as apiLogout } from "../lib/api/auth";
 import { getAccessToken } from "../lib/api/tokens";
 import { setOnAuthExpired } from "../lib/api/client";
+
+// The user's server-stored language wins across devices: apply it whenever we
+// learn who the user is (login restore + after a preferences update).
+function applyUserLanguage(user: AuthUser): void {
+  const lang = user.preferences?.language;
+  if (lang && i18n.language !== lang) {
+    void i18n.changeLanguage(lang);
+  }
+}
 
 export type CurrentUser = AuthUser;
 
@@ -31,7 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     fetchMe()
-      .then((u) => setUserState(u))
+      .then((u) => {
+        setUserState(u);
+        applyUserLanguage(u);
+      })
       .catch(() => setUserState(null))
       .finally(() => setLoading(false));
   }, []);
@@ -41,7 +54,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       isAuthenticated: user !== null,
       loading,
-      setUser: (u) => setUserState(u),
+      setUser: (u) => {
+        setUserState(u);
+        applyUserLanguage(u);
+      },
       logout: async () => {
         await apiLogout();
         setUserState(null);

@@ -34,7 +34,7 @@
     "date": "Datum",
     "action": "Actie",
     "empty": "Geen werkbonnen gevonden.",
-    "viewAria": "bekijken"
+    "viewAria": "werkbon openen"
   },
   "create": {
     "title": "Nieuwe werkbon",

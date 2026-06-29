@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
 import { useAuth } from "../../auth/AuthContext";
 import { PAGE_BG, cardSx, SECTIONS, type SectionId } from "./constants";
 import { ProfileForm } from "./components/ProfileForm";
@@ -16,6 +16,11 @@ import { PreferencesForm } from "./components/PreferencesForm";
 export function Settings() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const sections = useMemo(
+    () => SECTIONS.filter((s) => !s.adminOnly || isAdmin),
+    [isAdmin],
+  );
   const [active, setActive] = useState<SectionId>("profile");
 
   return (
@@ -33,7 +38,7 @@ export function Settings() {
       <Box sx={{ p: 4, display: "flex", gap: 3, flexDirection: { xs: "column", md: "row" }, alignItems: "flex-start" }}>
         {/* Section list (master) */}
         <Box sx={{ width: { xs: "100%", md: 260 }, flexShrink: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
-          {SECTIONS.map((s) => {
+          {sections.map((s) => {
             const selected = s.id === active;
             const Icon = s.icon;
             return (
@@ -77,18 +82,12 @@ export function Settings() {
             </Typography>
           </Box>
 
-          {/* Panel body */}
+          {/* Panel body — each tab owns its own save action. */}
           <Box sx={{ p: 3 }}>
-            {active === "profile" && <ProfileForm name={user?.name ?? "Jan de Vries"} />}
+            {active === "profile" && <ProfileForm />}
             {active === "company" && <CompanyForm />}
             {active === "notifications" && <NotificationsForm />}
             {active === "preferences" && <PreferencesForm />}
-          </Box>
-
-          {/* Footer actions */}
-          <Box sx={{ px: 3, py: 2, borderTop: "1px solid", borderColor: "#F0EDF1", display: "flex", justifyContent: "flex-end", gap: 1.5, bgcolor: "#FBFAFC" }}>
-            <Button variant="text" color="inherit">{t("common.actions.cancel")}</Button>
-            <Button variant="contained">{t("common.actions.save")}</Button>
           </Box>
         </Paper>
       </Box>

@@ -1,0 +1,223 @@
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Button from "@mui/material/Button";
+import Box from "@mui/material/Box";
+import Alert from "@mui/material/Alert";
+import CircularProgress from "@mui/material/CircularProgress";
+import { useForm } from "../../../lib/useForm";
+import { required, email } from "../../../lib/validation";
+import type { Customer, CustomerInput, CustomerType } from "../api";
+
+// All-string form shape (what the inputs hold).
+type Form = {
+  name: string;
+  type: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  notes: string;
+};
+
+const EMPTY: Form = {
+  name: "",
+  type: "business",
+  contactName: "",
+  email: "",
+  phone: "",
+  address: "",
+  postalCode: "",
+  city: "",
+  notes: "",
+};
+
+const RULES = {
+  name: [required],
+  email: [email],
+};
+
+// Create / edit a customer. One form for both: pass `customer` to edit, omit to
+// create. Name is required; email is validated if present.
+export function CustomerDialog({
+  open,
+  customer,
+  busy,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  customer?: Customer | null;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (input: CustomerInput) => void;
+}) {
+  const { t } = useTranslation();
+  const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
+    EMPTY,
+    RULES,
+  );
+
+  // Seed the form when opening (edit → existing values, create → empty).
+  useEffect(() => {
+    if (!open) return;
+    reset(
+      customer
+        ? {
+            name: customer.name,
+            type: customer.type,
+            contactName: customer.contactName,
+            email: customer.email,
+            phone: customer.phone,
+            address: customer.address,
+            postalCode: customer.postalCode,
+            city: customer.city,
+            notes: customer.notes ?? "",
+          }
+        : EMPTY,
+    );
+  }, [open, customer, reset]);
+
+  // Helper to wire an input to its error key (translated).
+  const err = (key: keyof Form) => {
+    const k = errorFor(key);
+    return { error: !!k, helperText: k ? t(k) : undefined };
+  };
+
+  const handleSave = () => {
+    if (!isValid) {
+      touchAll();
+      return;
+    }
+    onSubmit({
+      name: values.name.trim(),
+      type: values.type as CustomerType,
+      contactName: values.contactName,
+      email: values.email.trim(),
+      phone: values.phone,
+      address: values.address,
+      postalCode: values.postalCode,
+      city: values.city,
+      notes: values.notes,
+    });
+  };
+
+  return (
+    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        {customer ? t("customers.dialog.editTitle") : t("customers.dialog.newTitle")}
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          {error ? <Alert severity="error">{error}</Alert> : null}
+
+          <TextField
+            label={t("customers.dialog.name")}
+            value={values.name}
+            onChange={setField("name")}
+            onBlur={onBlur("name")}
+            disabled={busy}
+            required
+            autoFocus
+            size="small"
+            {...err("name")}
+          />
+          <TextField
+            select
+            label={t("customers.dialog.type")}
+            value={values.type}
+            onChange={setField("type")}
+            disabled={busy}
+            size="small"
+          >
+            <MenuItem value="business">{t("customers.typeBadge.business")}</MenuItem>
+            <MenuItem value="private">{t("customers.typeBadge.private")}</MenuItem>
+          </TextField>
+          <TextField
+            label={t("customers.dialog.contactName")}
+            value={values.contactName}
+            onChange={setField("contactName")}
+            disabled={busy}
+            size="small"
+          />
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              label={t("customers.dialog.email")}
+              value={values.email}
+              onChange={setField("email")}
+              onBlur={onBlur("email")}
+              disabled={busy}
+              size="small"
+              sx={{ flex: 1 }}
+              {...err("email")}
+            />
+            <TextField
+              label={t("customers.dialog.phone")}
+              value={values.phone}
+              onChange={setField("phone")}
+              disabled={busy}
+              size="small"
+              sx={{ flex: 1 }}
+            />
+          </Box>
+          <TextField
+            label={t("customers.dialog.address")}
+            value={values.address}
+            onChange={setField("address")}
+            disabled={busy}
+            size="small"
+          />
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              label={t("customers.dialog.postalCode")}
+              value={values.postalCode}
+              onChange={setField("postalCode")}
+              disabled={busy}
+              size="small"
+              sx={{ width: 160 }}
+            />
+            <TextField
+              label={t("customers.dialog.city")}
+              value={values.city}
+              onChange={setField("city")}
+              disabled={busy}
+              size="small"
+              sx={{ flex: 1 }}
+            />
+          </Box>
+          <TextField
+            label={t("customers.dialog.notes")}
+            value={values.notes}
+            onChange={setField("notes")}
+            disabled={busy}
+            size="small"
+            multiline
+            minRows={2}
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} disabled={busy}>
+          {t("common.actions.cancel")}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={busy || !isValid}
+          startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
+        >
+          {t("common.actions.save")}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}

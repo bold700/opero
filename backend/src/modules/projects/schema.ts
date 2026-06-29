@@ -8,6 +8,9 @@ const projectStatusSchema = z.enum(["sales", "operations", "closing"]);
 const stageSchema = z.enum(["concept", "in_progress", "ready", "done"]);
 const urgencySchema = z.enum(["normal", "urgent", "blocked"]);
 
+// DELETE photo routes carry the object key to remove in the body.
+export const removePhotoSchema = z.object({ photo: z.string().min(1) });
+
 // POST / — create. Mirror CreateProjectInput (customerId required; the rest are
 // optional seeds copied from the customer / used as defaults).
 export const createProjectSchema = z.object({
@@ -37,6 +40,7 @@ export const updateProjectSchema = z.object({
   plannedEndDate: z.string().nullable().optional(),
   materialsReady: z.boolean().optional(),
   exclusions: z.string().optional(),
+  billingType: z.enum(["fixed", "time_and_materials"]).nullable().optional(),
 });
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 

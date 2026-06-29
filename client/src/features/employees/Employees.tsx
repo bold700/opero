@@ -1,24 +1,49 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
-import { getEmployees, type EmployeeRow } from "./api";
+import { useCreateParam } from "../../lib/useCreateParam";
+import {
+  getEmployees,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  type EmployeeRow,
+  type EmployeeInput,
+} from "./api";
 import { FILTERS, FILTER_LABEL_KEY, isOffice, type EmployeeFilter } from "./constants";
 import { EmployeesActions } from "./components/EmployeesActions";
 import { EmployeesKpis } from "./components/EmployeesKpis";
 import { EmployeesTable } from "./components/EmployeesTable";
+import { EmployeeDialog } from "./components/EmployeeDialog";
 
 export function Employees() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canManage = user?.role === "admin";
+
   const [activeFilter, setActiveFilter] = useState<EmployeeFilter>("all");
-  const { data, loading, error } = useApi<EmployeeRow[]>(getEmployees);
+  const [search, setSearch] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const { data, loading, error } = useApi<EmployeeRow[]>(getEmployees, [reloadKey]);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<EmployeeRow | null>(null);
+  const [deleting, setDeleting] = useState<EmployeeRow | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const rows = data ?? [];
+  const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const kpis = useMemo(
     () => [
@@ -31,20 +56,79 @@ export function Employees() {
   );
 
   const filtered = useMemo(() => {
+    let out = rows;
     switch (activeFilter) {
       case "technicians":
-        return rows.filter((r) => !isOffice(r.function));
+        out = out.filter((r) => !isOffice(r.function));
+        break;
       case "office":
-        return rows.filter((r) => isOffice(r.function));
+        out = out.filter((r) => isOffice(r.function));
+        break;
       case "inactive":
-        return rows.filter((r) => r.status === "inactive");
-      default:
-        return rows;
+        out = out.filter((r) => r.status === "inactive");
+        break;
     }
-  }, [rows, activeFilter]);
+    const q = search.trim().toLowerCase();
+    if (q) out = out.filter((r) => r.name.toLowerCase().includes(q));
+    return out;
+  }, [rows, activeFilter, search]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormError(null);
+    setDialogOpen(true);
+  };
+  // Open the create dialog when arriving via the quick-create menu (?create=1).
+  useCreateParam(openCreate, canManage);
+  const openEdit = (e: EmployeeRow) => {
+    setEditing(e);
+    setFormError(null);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = async (input: EmployeeInput) => {
+    setBusy(true);
+    setFormError(null);
+    try {
+      if (editing) await updateEmployee(editing.id, input);
+      else await createEmployee(input);
+      setDialogOpen(false);
+      setToast(t(editing ? "employees.toast.updated" : "employees.toast.created"));
+      refresh();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : t("employees.toast.saveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await deleteEmployee(deleting.id);
+      setDeleting(null);
+      setToast(t("employees.toast.deleted"));
+      refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("employees.toast.deleteError"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <PageLayout title={t("employees.title")} actions={<EmployeesActions />}>
+    <PageLayout
+      title={t("employees.title")}
+      actions={
+        <EmployeesActions
+          search={search}
+          onSearch={setSearch}
+          onCreate={openCreate}
+          canCreate={canManage}
+        />
+      }
+    >
       <EmployeesKpis kpis={kpis} />
 
       {/* Filter chips */}
@@ -71,8 +155,39 @@ export function Employees() {
       ) : error ? (
         <Alert severity="error">{error}</Alert>
       ) : (
-        <EmployeesTable rows={filtered} />
+        <EmployeesTable
+          rows={filtered}
+          canManage={canManage}
+          onEdit={openEdit}
+          onDelete={setDeleting}
+        />
       )}
+
+      <EmployeeDialog
+        open={dialogOpen}
+        employee={editing}
+        busy={busy}
+        error={formError}
+        onClose={() => setDialogOpen(false)}
+        onSubmit={handleSubmit}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title={t("employees.delete.title")}
+        body={deleting ? t("employees.delete.body", { name: deleting.name }) : undefined}
+        busy={busy}
+        destructive
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+      />
+
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        message={toast ?? ""}
+      />
     </PageLayout>
   );
 }

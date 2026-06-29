@@ -1,6 +1,5 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Avatar from "@mui/material/Avatar";
 import Table from "@mui/material/Table";
@@ -8,15 +7,27 @@ import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import type { Customer } from "../api";
 import { avatarColor, initials, formatDate } from "../constants";
 import { TypeBadge } from "./TypeBadge";
 
-// The customers table card: columns + real rows.
-export function CustomersTable({ customers }: { customers: Customer[] }) {
+// The customers table card: columns + real rows, with edit/delete row actions
+// (admin only).
+export function CustomersTable({
+  customers,
+  canManage,
+  onEdit,
+  onDelete,
+}: {
+  customers: Customer[];
+  canManage: boolean;
+  onEdit: (c: Customer) => void;
+  onDelete: (c: Customer) => void;
+}) {
   const { t } = useTranslation();
   return (
     <Card noPadding>
@@ -38,29 +49,44 @@ export function CustomersTable({ customers }: { customers: Customer[] }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {customers.map((c) => (
-            <TableRow key={c.id} hover sx={{ "&:last-child td": { border: 0 } }}>
-              <TableCell>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(c.name), fontSize: 13, fontWeight: 700 }}>
-                    {initials(c.name)}
-                  </Avatar>
-                  <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                </Box>
-              </TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>{c.city}</TableCell>
-              <TableCell>
-                <TypeBadge type={c.type} />
-              </TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>{c.workOrderCount}</TableCell>
-              <TableCell sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</TableCell>
-              <TableCell align="right">
-                <IconButton size="small" aria-label={t("customers.table.viewAriaLabel")}>
-                  <VisibilityOutlinedIcon fontSize="small" />
-                </IconButton>
+          {customers.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+                {t("customers.table.empty")}
               </TableCell>
             </TableRow>
-          ))}
+          ) : (
+            customers.map((c) => (
+              <TableRow key={c.id} hover sx={{ "&:last-child td": { border: 0 } }}>
+                <TableCell>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(c.name), fontSize: 13, fontWeight: 700 }}>
+                      {initials(c.name)}
+                    </Avatar>
+                    <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{c.city}</TableCell>
+                <TableCell>
+                  <TypeBadge type={c.type} />
+                </TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{c.workOrderCount}</TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</TableCell>
+                <TableCell align="right">
+                  {canManage ? (
+                    <Box sx={{ display: "inline-flex", gap: 0.5 }}>
+                      <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(c)}>
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(c)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
     </Card>

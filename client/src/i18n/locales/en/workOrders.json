@@ -34,7 +34,7 @@
     "date": "Date",
     "action": "Action",
     "empty": "No work orders found.",
-    "viewAria": "view"
+    "viewAria": "open work order"
   },
   "create": {
     "title": "New work order",

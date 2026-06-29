@@ -7,53 +7,88 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutlined";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { STATUS_TONES, SPACING } from "../../../theme/tokens";
-import type { CalEvent } from "../constants";
+import { humanize } from "../../../lib/labels";
+import type { PlanningEntry } from "../api";
 
-// Right-side details panel for the selected calendar event.
-export function DetailsPanel({ event }: { event: CalEvent }) {
+// Right-side details panel for the selected calendar entry, with actions
+// (admin only): open the work order, reschedule, remove from planning.
+export function DetailsPanel({
+  entry,
+  canManage,
+  busy,
+  onOpenWorkOrder,
+  onEdit,
+  onRemove,
+}: {
+  entry: PlanningEntry;
+  canManage: boolean;
+  busy: boolean;
+  onOpenWorkOrder: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
   const { t } = useTranslation();
-  const time = `${String(event.start).padStart(2, "0")}:00 — ${String(event.end).padStart(2, "0")}:00`;
-  const dur = t("planning.duration", { hours: event.end - event.start });
+  const time =
+    entry.startTime && entry.endTime
+      ? `${entry.startTime} — ${entry.endTime}`
+      : entry.date;
+
   return (
     <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider" }}>
       <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
         {t("planning.details")}
       </Typography>
       <Typography variant="h6" sx={{ fontWeight: 700 }}>
-        {event.customer}
+        {entry.customerName}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {event.type}
+        {entry.projectNumber}
       </Typography>
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2 }}>
         <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", color: "text.secondary" }}>
           <PlaceOutlinedIcon fontSize="small" />
-          <Typography variant="body2" sx={{ color: "text.primary" }}>{event.address}</Typography>
+          <Typography variant="body2" sx={{ color: "text.primary" }}>
+            {entry.address}
+            {entry.city ? `, ${entry.city}` : ""}
+          </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", color: "text.secondary" }}>
           <AccessTimeIcon fontSize="small" />
-          <Typography variant="body2" sx={{ color: "text.primary" }}>{time} ({dur})</Typography>
+          <Typography variant="body2" sx={{ color: "text.primary" }}>{time}</Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", color: "text.secondary" }}>
           <PersonOutlineIcon fontSize="small" />
-          <Typography variant="body2" sx={{ color: "text.primary" }}>{event.technician}</Typography>
+          <Typography variant="body2" sx={{ color: "text.primary" }}>
+            {entry.teamLeaderName ?? t("planning.schedule.unassigned")}
+          </Typography>
         </Box>
       </Box>
 
       <Box sx={{ mb: 3 }}>
-        <StatusBadge label={event.status} tone={STATUS_TONES.open} />
+        <StatusBadge
+          label={t(`planning.status.${entry.status}`, { defaultValue: humanize(entry.status) })}
+          tone={STATUS_TONES.open}
+        />
       </Box>
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-        <Button variant="contained" startIcon={<OpenInNewIcon />}>
+        <Button variant="contained" startIcon={<OpenInNewIcon />} onClick={onOpenWorkOrder}>
           {t("planning.openWorkOrder")}
         </Button>
-        <Button variant="outlined" startIcon={<EditOutlinedIcon />}>
-          {t("common.actions.edit")}
-        </Button>
+        {canManage ? (
+          <>
+            <Button variant="outlined" startIcon={<EditOutlinedIcon />} onClick={onEdit} disabled={busy}>
+              {t("common.actions.edit")}
+            </Button>
+            <Button variant="text" color="error" startIcon={<DeleteOutlineIcon />} onClick={onRemove} disabled={busy}>
+              {t("planning.removeFromPlanning")}
+            </Button>
+          </>
+        ) : null}
       </Box>
     </Box>
   );

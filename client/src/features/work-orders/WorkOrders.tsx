@@ -9,6 +9,7 @@ import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER, RADIUS } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
+import { useCreateParam } from "../../lib/useCreateParam";
 import { getWorkOrders, type WorkOrderRow } from "./api";
 import { FILTERS } from "./constants";
 import { WorkOrdersActions } from "./components/WorkOrdersActions";
@@ -34,6 +35,9 @@ export function WorkOrders() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const { data, loading, error } = useApi<WorkOrderRow[]>(getWorkOrders);
+
+  // Open the create dialog when arriving via the quick-create menu (?create=1).
+  useCreateParam(() => setCreateOpen(true), canCreate);
 
   const rows = data ?? [];
 

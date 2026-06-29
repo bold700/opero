@@ -37,7 +37,16 @@ export function hasAnyAccess(section: Section, role: UserRole): boolean {
   return accessFor(section, role) !== "none";
 }
 
-// Technicians must not see prices/financials (ported from the store's canSeePrices).
-export function canSeePrices(role: UserRole): boolean {
-  return role !== "technician";
+// Whether the requesting role may see prices/financials.
+//
+// Admins and clients always see prices. Technicians see them only when the org
+// has NOT enabled the "hide prices from technicians" privacy setting. The flag
+// defaults to true (hide), preserving the historical technician behaviour, and
+// an admin can flip it off in Settings → Preferences.
+export function canSeePrices(
+  role: UserRole,
+  hidePricesFromTechnicians = true,
+): boolean {
+  if (role !== "technician") return true;
+  return !hidePricesFromTechnicians;
 }

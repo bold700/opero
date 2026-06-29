@@ -1,8 +1,25 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import request from "supertest";
-import { app } from "../index.js";
-import { prisma } from "../db/client.js";
-import { hashPassword } from "../auth/service.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// Use the local-disk storage adapter for the signature upload (no cloud creds).
+vi.stubEnv("STORAGE_BUCKET", "");
+vi.stubEnv("STORAGE_ENDPOINT", "");
+vi.stubEnv("STORAGE_ACCESS_KEY", "");
+vi.stubEnv("STORAGE_SECRET_KEY", "");
+
+const { default: request } = await import("supertest");
+const sharp = (await import("sharp")).default;
+const { app } = await import("../index.js");
+const { prisma } = await import("../db/client.js");
+const { hashPassword } = await import("../auth/service.js");
+
+// A small valid PNG buffer for the signature upload.
+async function signaturePng(): Promise<Buffer> {
+  return sharp({
+    create: { width: 200, height: 80, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 0 } },
+  })
+    .png()
+    .toBuffer();
+}
 
 // End-to-end happy path across the Phase 3 modules, plus role-guard + price-strip
 // spot checks. Uses the seeded org; creates a throwaway admin to drive it.
@@ -118,7 +135,8 @@ describe("full project lifecycle", () => {
     const finish = await request(app)
       .post(`/api/work-orders/${wbId}/finish`)
       .set(auth(adminToken))
-      .send({ signature: "Klant Handtekening" });
+      .field("signedByName", "Klant Handtekening")
+      .attach("file", await signaturePng(), "signature.png");
     expect([200, 204]).toContain(finish.status);
 
     // 6. invoice draft → send → paid
@@ -148,8 +166,10 @@ describe("full project lifecycle", () => {
     expect(dbProject?.invoice?.status).toBe("paid");
     expect(dbProject?.quote?.status).toBe("accepted");
     expect(dbProject?.workOrders.length).toBeGreaterThan(0);
-    // Sign-off now lives on the work order, not the project.
-    expect(dbProject?.workOrders[0]?.signature).toBe("Klant Handtekening");
+    // Sign-off now lives on the work order, not the project. `signature` holds
+    // the stored signature image's object key; the typed name is signedByName.
+    expect(dbProject?.workOrders[0]?.signature).toMatch(/\/wo-signature\/.*\.png$/);
+    expect(dbProject?.workOrders[0]?.signedByName).toBe("Klant Handtekening");
     expect(dbProject?.workOrders[0]?.signedAt).not.toBeNull();
 
     // 8. audit log captured the mutations

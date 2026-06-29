@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -7,9 +7,12 @@ import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
+import { SignaturePad, type SignaturePadHandle } from "../../../components/SignaturePad";
 
-// Sign-off: a typed-name confirmation for now (a real signature pad arrives with
-// the file-storage phase). On confirm we POST /finish with the typed name.
+// Sign-off: the signer types their name AND draws a signature. On confirm we
+// POST /finish (multipart) with the signature PNG + the typed name. This locks
+// the work order.
 export function SignOffDialog({
   open,
   busy,
@@ -19,35 +22,72 @@ export function SignOffDialog({
   open: boolean;
   busy: boolean;
   onClose: () => void;
-  onConfirm: (signature: string) => void;
+  onConfirm: (signatureImage: Blob, signedByName: string) => void;
 }) {
   const { t } = useTranslation();
-  const [signature, setSignature] = useState("");
+  const [name, setName] = useState("");
+  const [hasInk, setHasInk] = useState(false);
+  const padRef = useRef<SignaturePadHandle>(null);
+
+  const reset = () => {
+    setName("");
+    setHasInk(false);
+    padRef.current?.clear();
+  };
+
+  const handleClose = () => {
+    if (busy) return;
+    reset();
+    onClose();
+  };
+
+  const handleConfirm = async () => {
+    const blob = await padRef.current?.toBlob();
+    if (!blob || !name.trim()) return;
+    onConfirm(blob, name.trim());
+  };
+
+  const canConfirm = !busy && hasInk && name.trim().length > 0;
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="xs">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrderDetail.signOff.title")}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
           {t("workOrderDetail.signOff.description")}
         </Typography>
+
         <TextField
           fullWidth
           label={t("workOrderDetail.signOff.signerLabel")}
-          value={signature}
-          onChange={(e) => setSignature(e.target.value)}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           autoFocus
+          sx={{ mb: 2 }}
         />
+
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.75 }}>
+          <Typography variant="caption" color="text.secondary">
+            {t("workOrderDetail.signOff.drawLabel")}
+          </Typography>
+          <Button
+            size="small"
+            onClick={() => {
+              padRef.current?.clear();
+              setHasInk(false);
+            }}
+            disabled={busy || !hasInk}
+          >
+            {t("workOrderDetail.signOff.clear")}
+          </Button>
+        </Box>
+        <SignaturePad ref={padRef} onChange={setHasInk} />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={busy}>
+        <Button onClick={handleClose} disabled={busy}>
           {t("common.actions.cancel")}
         </Button>
-        <Button
-          variant="contained"
-          onClick={() => onConfirm(signature.trim())}
-          disabled={busy || !signature.trim()}
-        >
+        <Button variant="contained" onClick={handleConfirm} disabled={!canConfirm}>
           {t("workOrderDetail.signOff.confirm")}
         </Button>
       </DialogActions>

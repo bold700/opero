@@ -8,13 +8,16 @@ import {
   resetPasswordSchema as resetSchema,
   enable2faSchema,
   disable2faSchema,
+  updateProfileSchema,
+  updatePreferencesSchema,
 } from "@opero/shared";
 import { prisma } from "../db/client.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
+import { audit } from "../lib/audit.js";
 import { BadRequest, Unauthorized } from "../lib/httpError.js";
 import { authRateLimit } from "../lib/rateLimit.js";
 import { sendEmail } from "../lib/email.js";
-import { hashPassword, toAuthUser, verifyPassword } from "./service.js";
+import { hashPassword, toAuthUser, verifyPassword, mergePreferences } from "./service.js";
 import {
   consumePasswordReset,
   consumeRefreshToken,
@@ -114,11 +117,77 @@ authRouter.post(
 );
 
 // --- GET /me --------------------------------------------------------------
+// Read fresh from the DB (the JWT payload can be stale after a profile edit).
 authRouter.get(
   "/me",
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json({ user: req.user });
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) throw Unauthorized();
+    res.json({ user: toAuthUser(user) });
+  }),
+);
+
+// --- PATCH /profile — the logged-in user edits their own name/email/phone ---
+authRouter.patch(
+  "/profile",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const input = updateProfileSchema.parse(req.body);
+    const userId = req.user!.id;
+
+    const data: { name?: string; email?: string; phone?: string | null } = {};
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw BadRequest("Name is required");
+      data.name = name;
+    }
+    if (input.email !== undefined) {
+      const email = input.email.trim().toLowerCase();
+      // Email is the unique login id — reject if another user already has it.
+      const taken = await prisma.user.findFirst({
+        where: { email, NOT: { id: userId } },
+      });
+      if (taken) throw BadRequest("Email already in use");
+      data.email = email;
+    }
+    if (input.phone !== undefined) {
+      data.phone = input.phone.trim() || null;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({ where: { id: userId }, data });
+      await audit(tx, req.user!, "user.profile.update", "user", u.id, input);
+      return u;
+    });
+    res.json({ user: toAuthUser(updated) });
+  }),
+);
+
+// --- PATCH /preferences — own language + notification toggles --------------
+authRouter.patch(
+  "/preferences",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const input = updatePreferencesSchema.parse(req.body);
+    const userId = req.user!.id;
+
+    // Merge the partial onto the user's current (defaulted) prefs.
+    const current = mergePreferences(req.user!.preferences);
+    const next = {
+      language: input.language ?? current.language,
+      notifications: { ...current.notifications, ...(input.notifications ?? {}) },
+    };
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({
+        where: { id: userId },
+        data: { preferences: next },
+      });
+      await audit(tx, req.user!, "user.preferences.update", "user", u.id, input);
+      return u;
+    });
+    res.json({ user: toAuthUser(updated) });
   }),
 );
 

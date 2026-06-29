@@ -1,36 +1,42 @@
 {
   "title": "Planning",
-  "emptyWeek": "Geen planning voor deze week.",
+  "emptyWeek": "Selecteer een afspraak voor details.",
   "newAppointment": "Nieuwe afspraak",
   "details": "Details",
   "openWorkOrder": "Werkbon openen",
-  "duration": "{{hours}}u 00m",
+  "removeFromPlanning": "Uit planning verwijderen",
+  "status": {
+    "sales": "Verkoop",
+    "operations": "Operatie",
+    "closing": "Afronding"
+  },
   "views": {
     "day": "Dag",
     "week": "Week",
-    "month": "Maand"
+    "month": "Maand",
+    "list": "Lijst"
   },
-  "weekdays": {
-    "mon": "Ma",
-    "tue": "Di",
-    "wed": "Wo",
-    "thu": "Do",
-    "fri": "Vr",
-    "sat": "Za",
-    "sun": "Zo"
+  "schedule": {
+    "newTitle": "Project inplannen",
+    "editTitle": "Planning bewerken",
+    "project": "Project",
+    "date": "Datum",
+    "teamLeader": "Teamleider",
+    "unassigned": "Niet toegewezen",
+    "startTime": "Starttijd",
+    "endTime": "Eindtijd",
+    "noTime": "Geen tijd",
+    "pickStartFirst": "Kies eerst een starttijd",
+    "dateInPast": "Datum mag niet in het verleden liggen"
   },
-  "months": {
-    "january": "januari",
-    "february": "februari",
-    "march": "maart",
-    "april": "april",
-    "may": "mei",
-    "june": "juni",
-    "july": "juli",
-    "august": "augustus",
-    "september": "september",
-    "october": "oktober",
-    "november": "november",
-    "december": "december"
+  "remove": {
+    "title": "Uit planning verwijderen",
+    "body": "Weet je zeker dat je \"{{name}}\" uit de planning wilt verwijderen?"
+  },
+  "toast": {
+    "scheduled": "Planning bijgewerkt",
+    "removed": "Uit planning verwijderd",
+    "scheduleError": "Inplannen mislukt",
+    "removeError": "Verwijderen mislukt"
   }
 }

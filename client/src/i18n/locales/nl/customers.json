@@ -25,6 +25,31 @@
     "workOrders": "Werkbonnen",
     "lastContact": "Laatste contact",
     "action": "Actie",
-    "viewAriaLabel": "bekijken"
+    "viewAriaLabel": "bekijken",
+    "empty": "Geen klanten gevonden."
+  },
+  "dialog": {
+    "newTitle": "Nieuwe klant",
+    "editTitle": "Klant bewerken",
+    "name": "Naam",
+    "type": "Type",
+    "contactName": "Contactpersoon",
+    "email": "E-mail",
+    "phone": "Telefoon",
+    "address": "Adres",
+    "postalCode": "Postcode",
+    "city": "Plaats",
+    "notes": "Notities"
+  },
+  "delete": {
+    "title": "Klant verwijderen",
+    "body": "Weet je zeker dat je \"{{name}}\" wilt verwijderen?"
+  },
+  "toast": {
+    "created": "Klant aangemaakt",
+    "updated": "Klant bijgewerkt",
+    "deleted": "Klant verwijderd",
+    "saveError": "Opslaan mislukt",
+    "deleteError": "Verwijderen mislukt"
   }
 }

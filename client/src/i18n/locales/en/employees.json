@@ -36,5 +36,25 @@
     "projectLeader": "Project leader",
     "administration": "Administration",
     "sales": "Sales"
+  },
+  "dialog": {
+    "newTitle": "New employee",
+    "editTitle": "Edit employee",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email",
+    "roles": "Roles",
+    "status": "Status"
+  },
+  "delete": {
+    "title": "Delete employee",
+    "body": "Are you sure you want to delete \"{{name}}\"?"
+  },
+  "toast": {
+    "created": "Employee created",
+    "updated": "Employee updated",
+    "deleted": "Employee deleted",
+    "saveError": "Save failed",
+    "deleteError": "Delete failed"
   }
 }

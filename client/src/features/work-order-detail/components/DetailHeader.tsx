@@ -7,7 +7,8 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
-import { STAGE_LABEL_KEY, URGENCY } from "../constants";
+import { URGENCY } from "../constants";
+import { humanize } from "../../../lib/labels";
 import { STATUS_TONES } from "../../../theme/tokens";
 import type { Project, WorkOrder } from "../api";
 
@@ -32,7 +33,6 @@ export function DetailHeader({
 }) {
   const { t } = useTranslation();
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
-  const stageKey = STAGE_LABEL_KEY[project.stage];
 
   return (
     <Card>
@@ -55,7 +55,9 @@ export function DetailHeader({
           </Typography>
           <Box sx={{ display: "flex", gap: 1, mt: 1.25, flexWrap: "wrap", alignItems: "center" }}>
             <StatusBadge
-              label={stageKey ? t(`workOrderDetail.stage.${stageKey}`) : project.stage}
+              label={t(`workOrderDetail.stage.${project.stage}`, {
+                defaultValue: humanize(project.stage),
+              })}
               tone={STATUS_TONES.open}
             />
             <StatusBadge label={t(`workOrderDetail.urgency.${urgency.key}`)} tone={urgency.tone} />

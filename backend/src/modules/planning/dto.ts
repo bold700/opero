@@ -6,8 +6,14 @@ import type { Prisma } from "@prisma/client";
 // A project row carrying just the fields the calendar feed needs, plus its
 // planning items (with installers) and assigned installers.
 export const planningProjectInclude = {
-  planningItems: { include: { installers: { select: { id: true } } } },
+  planningItems: {
+    include: {
+      installers: { select: { id: true } },
+      teamLeader: { select: { name: true } },
+    },
+  },
   installers: { select: { id: true } },
+  teamLeader: { select: { name: true } },
 } satisfies Prisma.ProjectInclude;
 
 type PlanningProject = Prisma.ProjectGetPayload<{
@@ -21,11 +27,14 @@ export type PlanningEntry = {
   projectId: string;
   projectNumber: string;
   customerName: string;
+  address: string;
+  city: string;
   date: string;
   startTime?: string;
   endTime?: string;
   plannedEndDate?: string;
   teamLeaderId?: string;
+  teamLeaderName?: string;
   installerIds: string[];
   vehicle?: string;
   status: string;
@@ -43,11 +52,15 @@ export function planningEntriesForProject(p: PlanningProject): PlanningEntry[] {
       projectId: p.id,
       projectNumber: p.projectNumber,
       customerName: p.customerName,
+      address: p.address,
+      city: p.city,
       date: item.date,
       startTime: item.startTime || undefined,
       endTime: item.endTime || undefined,
       plannedEndDate: p.plannedEndDate ?? undefined,
       teamLeaderId: item.teamLeaderId ?? p.teamLeaderId ?? undefined,
+      teamLeaderName:
+        item.teamLeader?.name ?? p.teamLeader?.name ?? undefined,
       installerIds:
         item.installers.length > 0
           ? item.installers.map((i) => i.id)
@@ -63,9 +76,12 @@ export function planningEntriesForProject(p: PlanningProject): PlanningEntry[] {
         projectId: p.id,
         projectNumber: p.projectNumber,
         customerName: p.customerName,
+        address: p.address,
+        city: p.city,
         date: p.plannedDate,
         plannedEndDate: p.plannedEndDate ?? undefined,
         teamLeaderId: p.teamLeaderId ?? undefined,
+        teamLeaderName: p.teamLeader?.name ?? undefined,
         installerIds: projectInstallerIds,
         status: p.status,
       },

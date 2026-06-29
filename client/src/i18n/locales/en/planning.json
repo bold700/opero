@@ -1,36 +1,42 @@
 {
   "title": "Planning",
-  "emptyWeek": "No planning for this week.",
+  "emptyWeek": "Select an appointment for details.",
   "newAppointment": "New appointment",
   "details": "Details",
   "openWorkOrder": "Open work order",
-  "duration": "{{hours}}h 00m",
+  "removeFromPlanning": "Remove from planning",
+  "status": {
+    "sales": "Sales",
+    "operations": "Operations",
+    "closing": "Closing"
+  },
   "views": {
     "day": "Day",
     "week": "Week",
-    "month": "Month"
+    "month": "Month",
+    "list": "List"
   },
-  "weekdays": {
-    "mon": "Mon",
-    "tue": "Tue",
-    "wed": "Wed",
-    "thu": "Thu",
-    "fri": "Fri",
-    "sat": "Sat",
-    "sun": "Sun"
+  "schedule": {
+    "newTitle": "Schedule project",
+    "editTitle": "Edit planning",
+    "project": "Project",
+    "date": "Date",
+    "teamLeader": "Team leader",
+    "unassigned": "Unassigned",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "noTime": "No time",
+    "pickStartFirst": "Pick a start time first",
+    "dateInPast": "Date can't be in the past"
   },
-  "months": {
-    "january": "January",
-    "february": "February",
-    "march": "March",
-    "april": "April",
-    "may": "May",
-    "june": "June",
-    "july": "July",
-    "august": "August",
-    "september": "September",
-    "october": "October",
-    "november": "November",
-    "december": "December"
+  "remove": {
+    "title": "Remove from planning",
+    "body": "Are you sure you want to remove \"{{name}}\" from the planning?"
+  },
+  "toast": {
+    "scheduled": "Planning updated",
+    "removed": "Removed from planning",
+    "scheduleError": "Scheduling failed",
+    "removeError": "Remove failed"
   }
 }

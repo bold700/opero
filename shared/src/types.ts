@@ -190,6 +190,20 @@ export const projectTypes: WorkType[] = [
   "Brandwerende doorvoeringen",
 ];
 
+// Canonical material categories — a FIXED set (closed enum). Internals are
+// English keys; the UI translates them via i18n (materials.category.<key>).
+// "other" is the catch-all default for materials with no explicit category.
+export const materialCategories = [
+  "insulation",
+  "fastening",
+  "foil",
+  "sealing",
+  "tools",
+  "floor_insulation",
+  "other",
+] as const;
+export type MaterialCategory = (typeof materialCategories)[number];
+
 export type ProjectTask = {
   id: string;
   label: string;

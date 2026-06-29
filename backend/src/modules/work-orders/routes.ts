@@ -1,12 +1,21 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
-import { canSeePrices, type UserRole } from "@opero/shared";
+import {
+  type UserRole,
+  PREJOB_CHECK_ITEMS,
+  type PrejobCheckItem,
+  normalizePrejobCheck,
+  canDispatch,
+} from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
-import { requireAuth } from "../../auth/middleware.js";
+import { resolveHidePrices } from "../../lib/orgPricing.js";
+import { storeUpload, deleteStored, storeSignature } from "../../lib/attachUpload.js";
+import { uploadSingle } from "../../lib/upload.js";
+import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
 import { canViewProject } from "../projects/visibility.js";
 import {
@@ -19,7 +28,7 @@ import {
 import {
   addMaterialSchema,
   createWorkOrderSchema,
-  finishSchema,
+  prejobCheckSchema,
   removePhotoSchema,
   reorderTasksSchema,
   taskHoursSchema,
@@ -154,7 +163,8 @@ async function reloadWorkOrder(user: AuthUser, workOrderId: string) {
     include: workOrderInclude,
   });
   if (!wb) throw NotFound("Work order not found");
-  return workOrderDto(wb as WorkOrderWithRelations, user.role as UserRole);
+  const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
+  return await workOrderDto(wb as WorkOrderWithRelations, user.role as UserRole, hidePrices);
 }
 
 // Load a task belonging to a workOrder, or 404.
@@ -310,9 +320,10 @@ workOrdersRouter.post(
       });
       return wb;
     });
+    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
     res
       .status(201)
-      .json(workOrderDto(created as WorkOrderWithRelations, user.role as UserRole));
+      .json(await workOrderDto(created as WorkOrderWithRelations, user.role as UserRole, hidePrices));
   }),
 );
 
@@ -393,24 +404,175 @@ workOrdersRouter.post(
   }),
 );
 
-// POST /work-orders/:id/drawings — append a drawing placeholder. admin or
-// technician-assigned. TODO(Phase 7): replace placeholder with real upload.
+// POST /work-orders/:id/drawings — upload a drawing (image or PDF). admin or
+// technician-assigned. multipart "file".
 workOrdersRouter.post(
   "/:id/drawings",
+  uploadSingle,
   asyncHandler(async (req, res) => {
     const user = req.user!;
     await requireWritableWorkOrder(user, req.params.id);
-    const placeholder = `tekening-${Date.now()}.pdf`; // TODO(Phase 7) real upload
+    const key = await storeUpload(user, req.file, "wo-drawing", req.params.id, {
+      allowPdf: true,
+    });
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
-        data: { drawings: { push: placeholder } },
+        data: { drawings: { push: key } },
       });
       await audit(tx, user, "workOrder.drawing.add", "workOrder", req.params.id, {
-        drawing: placeholder,
+        drawing: key,
       });
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/drawings {photo} — remove a drawing by its object key.
+workOrdersRouter.delete(
+  "/:id/drawings",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = removePhotoSchema.parse(req.body);
+    await requireWritableWorkOrder(user, req.params.id);
+    const wb = await prisma.workOrder.findUnique({
+      where: { id: req.params.id },
+      select: { drawings: true },
+    });
+    if (!wb) throw NotFound("Work order not found");
+    const existed = wb.drawings.includes(input.photo);
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: req.params.id },
+        data: { drawings: wb.drawings.filter((d) => d !== input.photo) },
+      });
+      await audit(tx, user, "workOrder.drawing.remove", "workOrder", req.params.id, {
+        drawing: input.photo,
+      });
+    });
+    if (existed) await deleteStored(input.photo);
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// PRE-JOB CHECK + DISPATCH GATE
+// A monteur may not be dispatched until the pre-job checklist is complete AND
+// at least one pre-job photo is attached.
+// =========================================================================
+
+// PATCH /work-orders/:id/prejob-check {key, done} — set one checklist item.
+workOrdersRouter.patch(
+  "/:id/prejob-check",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { key, done } = prejobCheckSchema.parse(req.body);
+    if (!(PREJOB_CHECK_ITEMS as readonly string[]).includes(key)) {
+      throw BadRequest("Unknown pre-job checklist item");
+    }
+    await requireWritableWorkOrder(user, req.params.id);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { prejobCheck: true, dispatchedAt: true },
+    });
+    if (wb.dispatchedAt) throw BadRequest("Work order is already dispatched");
+    const next = normalizePrejobCheck(wb.prejobCheck);
+    if (done) next[key as PrejobCheckItem] = true;
+    else delete next[key as PrejobCheckItem];
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: req.params.id },
+        data: { prejobCheck: next },
+      });
+      await audit(tx, user, "workOrder.prejob.check", "workOrder", req.params.id, {
+        key,
+        done,
+      });
+    });
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/prejob-photos — upload a pre-job photo (multipart "file").
+workOrdersRouter.post(
+  "/:id/prejob-photos",
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWorkOrder(user, req.params.id);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { dispatchedAt: true },
+    });
+    if (wb.dispatchedAt) throw BadRequest("Work order is already dispatched");
+    const key = await storeUpload(user, req.file, "wo-prejob", req.params.id);
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: req.params.id },
+        data: { prejobPhotos: { push: key } },
+      });
+      await audit(tx, user, "workOrder.prejob.photo.add", "workOrder", req.params.id, {
+        photo: key,
+      });
+    });
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/prejob-photos {photo} — remove a pre-job photo by key.
+workOrdersRouter.delete(
+  "/:id/prejob-photos",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = removePhotoSchema.parse(req.body);
+    await requireWritableWorkOrder(user, req.params.id);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { prejobPhotos: true, dispatchedAt: true },
+    });
+    if (wb.dispatchedAt) throw BadRequest("Work order is already dispatched");
+    const existed = wb.prejobPhotos.includes(input.photo);
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: req.params.id },
+        data: { prejobPhotos: wb.prejobPhotos.filter((p) => p !== input.photo) },
+      });
+      await audit(tx, user, "workOrder.prejob.photo.remove", "workOrder", req.params.id, {
+        photo: input.photo,
+      });
+    });
+    if (existed) await deleteStored(input.photo);
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/dispatch — send the monteur out. Hard-gated: requires a
+// complete pre-job checklist AND at least one pre-job photo. admin only.
+workOrdersRouter.post(
+  "/:id/dispatch",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { prejobCheck: true, prejobPhotos: true, dispatchedAt: true, title: true, ordinal: true },
+    });
+    if (wb.dispatchedAt) throw BadRequest("Work order is already dispatched");
+    if (!canDispatch(normalizePrejobCheck(wb.prejobCheck), wb.prejobPhotos.length)) {
+      throw BadRequest("Pre-job check incomplete: complete the checklist and add at least one photo");
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: req.params.id },
+        data: { dispatchedAt: new Date(), dispatchedById: user.id },
+      });
+      await appendActivity(tx, user, project.id, "workOrder.dispatched", {
+        title: wb.title || `#${wb.ordinal + 1}`,
+      });
+      await audit(tx, user, "workOrder.dispatch", "workOrder", req.params.id);
+    });
+    res.json(await reloadWorkOrder(user, req.params.id));
   }),
 );
 
@@ -667,33 +829,37 @@ workOrdersRouter.patch(
 );
 
 // =========================================================================
-// TASK PHOTOS — TODO(Phase 7): real uploads; for now append placeholders.
+// TASK PHOTOS — real uploads to object storage.
 // =========================================================================
 
+// Shared: validate + store the uploaded image, then push its key onto the task's
+// before/result array (+ audit). The caller supplies the multer-parsed file.
 async function appendPhoto(
   user: AuthUser,
   workOrderId: string,
   taskId: string,
   field: "beforePhotos" | "resultPhotos",
-  prefix: string,
+  scope: "wo-task-before" | "wo-task-result",
+  file: Express.Multer.File | undefined,
 ) {
   const task = await loadTask(workOrderId, taskId);
-  const placeholder = `${prefix}-${Date.now()}.jpg`; // TODO(Phase 7) real upload
+  const key = await storeUpload(user, file, scope, taskId);
   await prisma.$transaction(async (tx) => {
     await tx.workOrderTask.update({
       where: { id: task.id },
-      data: { [field]: { push: placeholder } },
+      data: { [field]: { push: key } },
     });
     await audit(tx, user, "workOrder.task.photo.add", "workOrderTask", task.id, {
       field,
-      photo: placeholder,
+      photo: key,
     });
   });
 }
 
-// POST /work-orders/:id/tasks/:taskId/photos/before
+// POST /work-orders/:id/tasks/:taskId/photos/before — multipart "file".
 workOrdersRouter.post(
   "/:id/tasks/:taskId/photos/before",
+  uploadSingle,
   asyncHandler(async (req, res) => {
     const user = req.user!;
     await requireWritableWorkOrder(user, req.params.id);
@@ -702,15 +868,17 @@ workOrdersRouter.post(
       req.params.id,
       req.params.taskId,
       "beforePhotos",
-      "begin",
+      "wo-task-before",
+      req.file,
     );
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
   }),
 );
 
-// POST /work-orders/:id/tasks/:taskId/photos/result
+// POST /work-orders/:id/tasks/:taskId/photos/result — multipart "file".
 workOrdersRouter.post(
   "/:id/tasks/:taskId/photos/result",
+  uploadSingle,
   asyncHandler(async (req, res) => {
     const user = req.user!;
     await requireWritableWorkOrder(user, req.params.id);
@@ -719,13 +887,15 @@ workOrdersRouter.post(
       req.params.id,
       req.params.taskId,
       "resultPhotos",
-      "resultaat",
+      "wo-task-result",
+      req.file,
     );
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
   }),
 );
 
 // DELETE /work-orders/:id/tasks/:taskId/photos {photo} — remove from either set.
+// `photo` is the stored object key. Purges the object from storage too.
 workOrdersRouter.delete(
   "/:id/tasks/:taskId/photos",
   asyncHandler(async (req, res) => {
@@ -733,6 +903,9 @@ workOrdersRouter.delete(
     const input = removePhotoSchema.parse(req.body);
     await requireWritableWorkOrder(user, req.params.id);
     const task = await loadTask(req.params.id, req.params.taskId);
+    const existed =
+      task.beforePhotos.includes(input.photo) ||
+      task.resultPhotos.includes(input.photo);
     await prisma.$transaction(async (tx) => {
       await tx.workOrderTask.update({
         where: { id: task.id },
@@ -745,6 +918,7 @@ workOrdersRouter.delete(
         photo: input.photo,
       });
     });
+    if (existed) await deleteStored(input.photo);
     res.json(await reloadWorkOrder(user, req.params.id));
   }),
 );
@@ -995,14 +1169,17 @@ workOrdersRouter.post(
   }),
 );
 
-// POST /work-orders/:id/finish {signature} — sign off THIS work order: complete
-// its own tasks/materials, store its signature + signedAt + signer. This locks
-// only this work order; sibling work orders and the project stage are untouched.
+// POST /work-orders/:id/finish — sign off THIS work order with a drawn signature
+// image (multipart "file") + the signer's typed name ("signedByName"). Completes
+// its own tasks/materials, stores the signature object key + name + signedAt +
+// signer. Locks only this work order; siblings and the project stage are untouched.
 workOrdersRouter.post(
   "/:id/finish",
+  uploadSingle,
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const input = finishSchema.parse(req.body);
+    const signedByName = clampText(String(req.body?.signedByName ?? "")).trim();
+    if (!signedByName) throw BadRequest("Signer name is required");
     const { workOrder, project } = await requireWritableWorkOrder(
       user,
       req.params.id,
@@ -1012,12 +1189,17 @@ workOrdersRouter.post(
       select: { title: true, signedAt: true, ordinal: true },
     });
     if (wb.signedAt) throw BadRequest("Work order is already signed off");
+
+    // Store the drawn signature image (PNG) before opening the transaction.
+    const signatureKey = await storeSignature(user, req.file, workOrder.id);
+
     await prisma.$transaction(async (tx) => {
       await completeWorkOrderTasks(tx, workOrder.id);
       await tx.workOrder.update({
         where: { id: workOrder.id },
         data: {
-          signature: clampText(input.signature),
+          signature: signatureKey,
+          signedByName,
           signedAt: new Date(),
           signedById: user.id,
         },
@@ -1025,7 +1207,9 @@ workOrdersRouter.post(
       await appendActivity(tx, user, project.id, "workOrder.signed", {
         title: wb.title || `#${wb.ordinal + 1}`,
       });
-      await audit(tx, user, "workOrder.finish", "workOrder", workOrder.id);
+      await audit(tx, user, "workOrder.finish", "workOrder", workOrder.id, {
+        signedByName,
+      });
     });
     res.json(await reloadWorkOrder(user, req.params.id));
   }),

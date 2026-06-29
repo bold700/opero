@@ -19,6 +19,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../auth/AuthContext";
 import { navItemsForRole, type NavItem } from "./navigation";
+import { QuickCreateMenu } from "./QuickCreateMenu";
+import { quickCreateActionsForRole } from "./quickCreate";
 
 const RAIL_WIDTH = 96;
 
@@ -38,7 +40,10 @@ function NavRail({ items }: { items: NavItem[] }) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { t } = useTranslation();
+  const [createAnchor, setCreateAnchor] = useState<HTMLElement | null>(null);
 
+  const role = user?.role ?? "client";
+  const canCreate = quickCreateActionsForRole(role).length > 0;
   const settingsItem = items.find((i) => i.path === "/settings");
   const primary = items.filter((i) => i.path !== "/settings");
 
@@ -100,9 +105,30 @@ function NavRail({ items }: { items: NavItem[] }) {
         </Box>
       </Box>
 
-      <Fab color="primary" size="medium" aria-label={t("common.actions.add")} sx={{ mb: 2, boxShadow: "none" }}>
-        <AddIcon />
-      </Fab>
+      {canCreate ? (
+        <>
+          <Fab
+            color="primary"
+            size="medium"
+            aria-label={t("quickCreate.heading")}
+            onClick={(e) => setCreateAnchor((a) => (a ? null : e.currentTarget))}
+            sx={{
+              mb: 2,
+              boxShadow: "none",
+              transition: "transform .2s ease, background-color .2s ease",
+              transform: createAnchor ? "rotate(45deg)" : "none",
+              "&:hover": { boxShadow: "none" },
+            }}
+          >
+            <AddIcon />
+          </Fab>
+          <QuickCreateMenu
+            anchorEl={createAnchor}
+            role={role}
+            onClose={() => setCreateAnchor(null)}
+          />
+        </>
+      ) : null}
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, flex: 1 }}>
         {primary.map((item) => {
@@ -231,47 +257,77 @@ function ProfileMenu({
   );
 }
 
-// M3 bottom navigation (mobile). Shows the top destinations for the role.
+// M3 bottom navigation (mobile). Shows the top destinations for the role, plus a
+// floating quick-create button above the bar.
 function BottomNav({ items }: { items: NavItem[] }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const [createAnchor, setCreateAnchor] = useState<HTMLElement | null>(null);
+  const role = user?.role ?? "client";
+  const canCreate = quickCreateActionsForRole(role).length > 0;
   const shown = items.filter((i) => i.path !== "/settings").slice(0, 5);
   const current = shown.find((i) =>
     i.path === "/" ? location.pathname === "/" : location.pathname.startsWith(i.path),
   );
 
   return (
-    <Paper
-      elevation={3}
-      square
-      sx={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        display: { xs: "block", md: "none" },
-        zIndex: 1100,
-      }}
-    >
-      <BottomNavigation
-        value={current?.path ?? "/"}
-        onChange={(_e, value) => navigate(value)}
-        showLabels
+    <Box sx={{ display: { xs: "block", md: "none" } }}>
+      {canCreate ? (
+        <>
+          <Fab
+            color="primary"
+            aria-label={t("quickCreate.heading")}
+            onClick={(e) => setCreateAnchor((a) => (a ? null : e.currentTarget))}
+            sx={{
+              position: "fixed",
+              bottom: 72,
+              right: 16,
+              zIndex: 1101,
+              transition: "transform .2s ease",
+              transform: createAnchor ? "rotate(45deg)" : "none",
+            }}
+          >
+            <AddIcon />
+          </Fab>
+          <QuickCreateMenu
+            anchorEl={createAnchor}
+            role={role}
+            onClose={() => setCreateAnchor(null)}
+          />
+        </>
+      ) : null}
+      <Paper
+        elevation={3}
+        square
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1100,
+        }}
       >
-        {shown.map((item) => {
-          const Icon = item.icon;
-          return (
-            <BottomNavigationAction
-              key={item.path}
-              label={t(item.labelKey)}
-              value={item.path}
-              icon={<Icon />}
-            />
-          );
-        })}
-      </BottomNavigation>
-    </Paper>
+        <BottomNavigation
+          value={current?.path ?? "/"}
+          onChange={(_e, value) => navigate(value)}
+          showLabels
+        >
+          {shown.map((item) => {
+            const Icon = item.icon;
+            return (
+              <BottomNavigationAction
+                key={item.path}
+                label={t(item.labelKey)}
+                value={item.path}
+                icon={<Icon />}
+              />
+            );
+          })}
+        </BottomNavigation>
+      </Paper>
+    </Box>
   );
 }
 

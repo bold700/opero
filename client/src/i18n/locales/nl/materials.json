@@ -29,5 +29,35 @@
     "ok": "OK",
     "low": "Bijna op",
     "outOfStock": "Uitverkocht"
+  },
+  "category": {
+    "insulation": "Isolatie",
+    "fastening": "Bevestiging",
+    "foil": "Folie",
+    "sealing": "Afdichting",
+    "tools": "Gereedschap",
+    "floor_insulation": "Bodemisolatie",
+    "other": "Overig"
+  },
+  "dialog": {
+    "newTitle": "Nieuw materiaal",
+    "editTitle": "Materiaal bewerken",
+    "name": "Naam",
+    "unit": "Eenheid",
+    "category": "Categorie",
+    "stock": "Voorraad",
+    "minStock": "Min. voorraad",
+    "supplier": "Leverancier"
+  },
+  "delete": {
+    "title": "Materiaal verwijderen",
+    "body": "Weet je zeker dat je \"{{name}}\" wilt verwijderen?"
+  },
+  "toast": {
+    "created": "Materiaal aangemaakt",
+    "updated": "Materiaal bijgewerkt",
+    "deleted": "Materiaal verwijderd",
+    "saveError": "Opslaan mislukt",
+    "deleteError": "Verwijderen mislukt"
   }
 }

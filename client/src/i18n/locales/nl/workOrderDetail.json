@@ -4,9 +4,9 @@
   "actionFailed": "Actie mislukt",
   "finishedToast": "Werkbon afgerond",
   "stage": {
-    "sales": "Verkoop",
-    "operations": "Operatie",
-    "closing": "Afronding",
+    "concept": "Concept",
+    "in_progress": "In uitvoering",
+    "ready": "Gereed",
     "done": "Afgerond"
   },
   "urgency": {
@@ -30,8 +30,25 @@
   },
   "photos": {
     "title": "Foto's",
-    "comingSoon": "Binnenkort beschikbaar",
-    "hint": "Foto's toevoegen wordt mogelijk zodra bestandsopslag actief is."
+    "before": "Vooraf",
+    "result": "Resultaat",
+    "noTasks": "Voeg eerst een taak toe om foto's te koppelen.",
+    "untitledZone": "Naamloze zone"
+  },
+  "prejob": {
+    "title": "Controle vooraf",
+    "description": "Vul deze checklist in en voeg minstens één foto toe voordat de monteur op pad gaat.",
+    "items": {
+      "address_confirmed": "Adres en toegang bevestigd",
+      "materials_ready": "Benodigde materialen gereed",
+      "safety_reviewed": "Risico's en veiligheid op locatie bekeken",
+      "customer_informed": "Klant geïnformeerd over het bezoek"
+    },
+    "photos": "Foto's vooraf",
+    "dispatch": "Monteur op pad sturen",
+    "dispatched": "Verzonden",
+    "dispatchedToast": "Monteur op pad gestuurd",
+    "gateHint": "Vul de checklist in en voeg een foto toe om te verzenden."
   },
   "activity": {
     "title": "Activiteit",
@@ -76,8 +93,10 @@
   },
   "signOff": {
     "title": "Werkbon afronden",
-    "description": "Alle taken worden afgerond en het project gaat naar de afrondingsfase. Vul de naam van de ondertekenaar in ter bevestiging.",
+    "description": "Alle taken worden afgerond en deze werkbon wordt vergrendeld. Vul de naam van de ondertekenaar in en onderteken hieronder ter bevestiging.",
     "signerLabel": "Naam ondertekenaar",
+    "drawLabel": "Handtekening",
+    "clear": "Wissen",
     "confirm": "Afronden"
   }
 }

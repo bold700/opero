@@ -1,63 +1,210 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
+import Snackbar from "@mui/material/Snackbar";
 import { TopBar } from "../../components/PageLayout";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { useAuth } from "../../auth/AuthContext";
+import { useCreateParam } from "../../lib/useCreateParam";
 import { SURFACE, SPACING } from "../../theme/tokens";
-import { useApi } from "../../lib/api/useApi";
-import { getPlanning, type PlanningEntry } from "./api";
-import { weekStartFor, weekDays, toCalEvents, todayIndexIn } from "./transform";
+import {
+  getPlanning,
+  scheduleProject,
+  unscheduleProject,
+  getProjectsForScheduling,
+  getAssignableEmployees,
+  type PlanningEntry,
+  type ScheduleInput,
+  type SchedulableProject,
+  type AssignableEmployee,
+} from "./api";
 import { PlanningActions } from "./components/PlanningActions";
 import { DetailsPanel } from "./components/DetailsPanel";
-import { DayStrip } from "./components/DayStrip";
-import { WeekGrid } from "./components/WeekGrid";
-
-// Translation key suffixes for month names, indexed by Date.getMonth().
-const MONTH_KEYS = [
-  "january", "february", "march", "april", "may", "june",
-  "july", "august", "september", "october", "november", "december",
-];
+import { CalendarView, type CalendarViewName } from "./components/CalendarView";
+import { ScheduleDialog } from "./components/ScheduleDialog";
 
 export function Planning() {
-  const { t } = useTranslation();
-  const [view, setView] = useState("week");
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManage = user?.role === "admin";
+
+  const [view, setView] = useState<CalendarViewName>("timeGridWeek");
+  const [dateWindow, setDateWindow] = useState<{ from: string; to: string } | null>(null);
+  const [entries, setEntries] = useState<PlanningEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data, loading, error } = useApi<PlanningEntry[]>(() => getPlanning());
 
-  const entries = useMemo(() => data ?? [], [data]);
-  const weekStart = useMemo(() => weekStartFor(entries), [entries]);
-  const days = useMemo(() => weekDays(weekStart), [weekStart]);
-  const events = useMemo(() => toCalEvents(entries, days), [entries, days]);
-  const todayIndex = todayIndexIn(days);
-  const monthLabel = `${t(`planning.months.${MONTH_KEYS[weekStart.getMonth()]}`)} ${weekStart.getFullYear()}`;
+  // Dropdown sources for the schedule dialog.
+  const [projects, setProjects] = useState<SchedulableProject[]>([]);
+  const [employees, setEmployees] = useState<AssignableEmployee[]>([]);
 
-  const selected = events.find((e) => e.id === selectedId) ?? events[0] ?? null;
+  // Dialog state.
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [editing, setEditing] = useState<PlanningEntry | null>(null);
+  const [defaultDate, setDefaultDate] = useState<string | undefined>();
+  const [removing, setRemoving] = useState<PlanningEntry | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Fetch the feed for the visible window (called by FullCalendar's datesSet).
+  const load = useCallback(async (from: string, to: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      setEntries(await getPlanning(from, to));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Kon planning niet laden");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (dateWindow) load(dateWindow.from, dateWindow.to);
+  }, [dateWindow, load]);
+
+  // Load dropdown data once (admins only — they're the schedulers).
+  useEffect(() => {
+    if (!canManage) return;
+    getProjectsForScheduling().then(setProjects).catch(() => setProjects([]));
+    getAssignableEmployees().then(setEmployees).catch(() => setEmployees([]));
+  }, [canManage]);
+
+  const refresh = () => {
+    if (dateWindow) load(dateWindow.from, dateWindow.to);
+  };
+
+  const selected =
+    entries.find((e) => `${e.projectId}-${e.date}` === selectedId) ?? null;
+
+  const fcLocale = i18n.language.startsWith("nl") ? "nl" : "en";
+
+  const openCreate = (date?: string) => {
+    setEditing(null);
+    setDefaultDate(date);
+    setFormError(null);
+    setScheduleOpen(true);
+  };
+  // Open the schedule dialog when arriving via the quick-create menu (?create=1).
+  useCreateParam(() => openCreate(), canManage);
+  const openEdit = (entry: PlanningEntry) => {
+    setEditing(entry);
+    setDefaultDate(entry.date);
+    setFormError(null);
+    setScheduleOpen(true);
+  };
+
+  const handleSchedule = async (projectId: string, input: ScheduleInput) => {
+    setBusy(true);
+    setFormError(null);
+    try {
+      await scheduleProject(projectId, input);
+      setScheduleOpen(false);
+      setToast(t("planning.toast.scheduled"));
+      refresh();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : t("planning.toast.scheduleError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Drag-to-reschedule: same project, new date/time. Reject drops into the past.
+  const handleDrop = async (
+    entry: PlanningEntry,
+    date: string,
+    startTime?: string,
+    endTime?: string,
+  ) => {
+    const today = new Date().toLocaleDateString("en-CA");
+    if (date < today) {
+      setToast(t("planning.schedule.dateInPast"));
+      refresh(); // snap the event back
+      return;
+    }
+    setBusy(true);
+    try {
+      await scheduleProject(entry.projectId, { date, startTime, endTime });
+      setToast(t("planning.toast.scheduled"));
+      refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("planning.toast.scheduleError"));
+      refresh(); // revert the optimistic drag by reloading
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!removing) return;
+    setBusy(true);
+    try {
+      await unscheduleProject(removing.projectId);
+      setRemoving(null);
+      setSelectedId(null);
+      setToast(t("planning.toast.removed"));
+      refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("planning.toast.removeError"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Box sx={{ bgcolor: SURFACE, minHeight: "100dvh" }}>
-      <TopBar title={t("planning.title")} actions={<PlanningActions view={view} onView={setView} />} />
+      <TopBar
+        title={t("planning.title")}
+        actions={
+          <PlanningActions
+            view={view}
+            onView={setView}
+            onCreate={() => openCreate()}
+            canCreate={canManage}
+          />
+        }
+      />
 
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : error ? (
+      {error ? (
         <Box sx={{ p: SPACING.pagePadding }}>
           <Alert severity="error">{error}</Alert>
         </Box>
       ) : (
-        <Box sx={{ display: "flex", alignItems: "stretch", minHeight: "calc(100dvh - 64px)" }}>
-          {/* Calendar */}
-          <Box sx={{ flex: 1, minWidth: 0, p: SPACING.pagePadding }}>
-            <DayStrip days={days} monthLabel={monthLabel} todayIndex={todayIndex} />
-            <WeekGrid days={days} events={events} todayIndex={todayIndex} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
+        <Box sx={{ display: "flex", alignItems: "stretch", height: "calc(100dvh - 64px)" }}>
+          <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, p: SPACING.pagePadding, position: "relative", display: "flex", flexDirection: "column" }}>
+            {loading ? (
+              <Box sx={{ position: "absolute", top: 12, right: 24, zIndex: 2 }}>
+                <CircularProgress size={20} />
+              </Box>
+            ) : null}
+            <CalendarView
+              events={entries}
+              view={view}
+              locale={fcLocale}
+              editable={canManage}
+              onDatesSet={(from, to) => setDateWindow({ from, to })}
+              onEventClick={(entry) => setSelectedId(`${entry.projectId}-${entry.date}`)}
+              onDateClick={(date) => canManage && openCreate(date)}
+              onEventDrop={handleDrop}
+            />
           </Box>
 
-          {/* Details side panel */}
           {selected ? (
-            <DetailsPanel event={selected} />
+            <DetailsPanel
+              entry={selected}
+              canManage={canManage}
+              busy={busy}
+              onOpenWorkOrder={() => navigate(`/work-orders?project=${selected.projectId}`)}
+              onEdit={() => openEdit(selected)}
+              onRemove={() => setRemoving(selected)}
+            />
           ) : (
             <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider" }}>
               <Typography color="text.secondary">{t("planning.emptyWeek")}</Typography>
@@ -65,6 +212,39 @@ export function Planning() {
           )}
         </Box>
       )}
+
+      <ScheduleDialog
+        open={scheduleOpen}
+        projects={projects}
+        employees={employees}
+        lockedProject={
+          editing
+            ? { id: editing.projectId, label: `${editing.projectNumber} · ${editing.customerName}` }
+            : null
+        }
+        defaultDate={defaultDate}
+        busy={busy}
+        error={formError}
+        onClose={() => setScheduleOpen(false)}
+        onSubmit={handleSchedule}
+      />
+
+      <ConfirmDialog
+        open={removing !== null}
+        title={t("planning.remove.title")}
+        body={removing ? t("planning.remove.body", { name: removing.customerName }) : undefined}
+        busy={busy}
+        destructive
+        onClose={() => setRemoving(null)}
+        onConfirm={handleRemove}
+      />
+
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        message={toast ?? ""}
+      />
     </Box>
   );
 }

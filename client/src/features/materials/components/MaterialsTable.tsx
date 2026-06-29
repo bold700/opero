@@ -7,14 +7,26 @@ import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { MaterialRow } from "../api";
 import { STATUS, swatchColor } from "../constants";
 
-// The materials table card: columns + real rows.
-export function MaterialsTable({ rows }: { rows: MaterialRow[] }) {
+// The materials table card: columns + real rows, with edit/delete row actions
+// (admin only).
+export function MaterialsTable({
+  rows,
+  canManage,
+  onEdit,
+  onDelete,
+}: {
+  rows: MaterialRow[];
+  canManage: boolean;
+  onEdit: (m: MaterialRow) => void;
+  onDelete: (m: MaterialRow) => void;
+}) {
   const { t } = useTranslation();
   return (
     <Card noPadding>
@@ -52,7 +64,9 @@ export function MaterialsTable({ rows }: { rows: MaterialRow[] }) {
                     <Typography sx={{ fontWeight: 600 }}>{r.name}</Typography>
                   </Box>
                 </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>{r.category}</TableCell>
+                <TableCell sx={{ color: "text.secondary" }}>
+                  {t(`materials.category.${r.category}`, { defaultValue: r.category })}
+                </TableCell>
                 <TableCell sx={{ color: "text.secondary" }}>{r.unit}</TableCell>
                 <TableCell sx={{ color: "text.secondary" }}>{r.stock}</TableCell>
                 <TableCell sx={{ color: "text.secondary" }}>{r.minStock}</TableCell>
@@ -60,9 +74,16 @@ export function MaterialsTable({ rows }: { rows: MaterialRow[] }) {
                   <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton size="small" aria-label={t("materials.viewAction")}>
-                    <VisibilityOutlinedIcon fontSize="small" />
-                  </IconButton>
+                  {canManage ? (
+                    <Box sx={{ display: "inline-flex", gap: 0.5 }}>
+                      <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(r)}>
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(r)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))

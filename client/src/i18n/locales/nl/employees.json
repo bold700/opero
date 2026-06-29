@@ -36,5 +36,25 @@
     "projectLeader": "Projectleider",
     "administration": "Administratie",
     "sales": "Sales"
+  },
+  "dialog": {
+    "newTitle": "Nieuwe medewerker",
+    "editTitle": "Medewerker bewerken",
+    "name": "Naam",
+    "phone": "Telefoon",
+    "email": "E-mail",
+    "roles": "Functies",
+    "status": "Status"
+  },
+  "delete": {
+    "title": "Medewerker verwijderen",
+    "body": "Weet je zeker dat je \"{{name}}\" wilt verwijderen?"
+  },
+  "toast": {
+    "created": "Medewerker aangemaakt",
+    "updated": "Medewerker bijgewerkt",
+    "deleted": "Medewerker verwijderd",
+    "saveError": "Opslaan mislukt",
+    "deleteError": "Verwijderen mislukt"
   }
 }

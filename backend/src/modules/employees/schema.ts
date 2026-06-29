@@ -21,6 +21,7 @@ export const createEmployeeSchema = z.object({
   phone: z.string().default(""),
   email: z.string().optional(),
   roles: z.array(teamRoleSchema).optional(),
+  status: z.enum(["active", "on_leave", "inactive"]).optional(),
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();

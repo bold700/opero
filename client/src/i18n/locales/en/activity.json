@@ -5,9 +5,9 @@
     "closing": "Closing"
   },
   "stage": {
-    "sales": "Sales",
-    "operations": "Operations",
-    "closing": "Closing",
+    "concept": "Concept",
+    "in_progress": "In progress",
+    "ready": "Ready",
     "done": "Done"
   },
   "urgency": {
@@ -84,6 +84,7 @@
     "deleted": "Work order deleted: {{title}}",
     "approved": "Work order approved: {{title}}",
     "unapproved": "Approval withdrawn: {{title}}",
-    "signed": "{{title}} completed and signed"
+    "signed": "{{title}} completed and signed",
+    "dispatched": "{{title}} dispatched"
   }
 }

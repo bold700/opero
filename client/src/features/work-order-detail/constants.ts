@@ -1,13 +1,6 @@
 import { STATUS_TONES, type StatusTone } from "../../theme/tokens";
 
 // Translation key suffixes for project stage shown in the detail header.
-// Resolved to display text at call sites via t("workOrderDetail.stage.<key>").
-export const STAGE_LABEL_KEY: Record<string, string> = {
-  sales: "sales",
-  operations: "operations",
-  closing: "closing",
-  done: "done",
-};
 
 // Urgency → translation key suffix + badge tone. Translate at call sites via
 // t("workOrderDetail.urgency.<key>").

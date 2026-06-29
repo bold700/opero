@@ -11,6 +11,61 @@ export const loginSchema = z.object({
 });
 export type LoginRequest = z.infer<typeof loginSchema>;
 
+// PATCH /auth/profile — the logged-in user edits their own profile.
+export const updateProfileSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+});
+export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>;
+
+// Per-user notification toggles.
+export const notificationPrefsSchema = z.object({
+  newWorkOrder: z.boolean(),
+  urgentOnSite: z.boolean(),
+  extraWorkApproval: z.boolean(),
+  weeklySummary: z.boolean(),
+});
+export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
+
+// The full per-user preferences object (what the user DTO always returns).
+export type UserPreferences = {
+  language: "nl" | "en";
+  notifications: NotificationPrefs;
+};
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  newWorkOrder: true,
+  urgentOnSite: true,
+  extraWorkApproval: true,
+  weeklySummary: false,
+};
+
+export const DEFAULT_USER_PREFERENCES: UserPreferences = {
+  language: "nl",
+  notifications: DEFAULT_NOTIFICATION_PREFS,
+};
+
+// PATCH /auth/preferences — the logged-in user updates their own prefs (partial).
+export const updatePreferencesSchema = z.object({
+  language: z.enum(["nl", "en"]).optional(),
+  notifications: notificationPrefsSchema.partial().optional(),
+});
+export type UpdatePreferencesRequest = z.infer<typeof updatePreferencesSchema>;
+
+// PATCH /organization — admin edits company details + the hide-prices flag.
+export const updateOrganizationSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email().or(z.literal("")).optional(),
+  address: z.string().optional(),
+  postalCode: z.string().optional(),
+  city: z.string().optional(),
+  phone: z.string().optional(),
+  vatNumber: z.string().optional(),
+  hidePricesFromTechnicians: z.boolean().optional(),
+});
+export type UpdateOrganizationRequest = z.infer<typeof updateOrganizationSchema>;
+
 export const login2faSchema = z.object({
   mfaToken: z.string().min(1),
   code: z.string().min(6).max(10),
@@ -58,6 +113,9 @@ export type AuthUserDto = z.infer<typeof authUserSchema>;
 
 export const createCustomerSchema = z.object({
   name: z.string().min(1),
+  // Optional: when omitted, the server derives it from the name. When supplied,
+  // the user's choice wins.
+  type: z.enum(["business", "private"]).optional(),
   contactName: z.string().default(""),
   email: z.string().default(""),
   phone: z.string().default(""),

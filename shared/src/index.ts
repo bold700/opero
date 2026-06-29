@@ -20,3 +20,6 @@ export * from "./schemas";
 
 // Spec Roles & Permissions matrix (shared by API guards + web nav gating).
 export * from "./permissions";
+
+// Pre-job photo check + dispatch gate (checklist keys + completeness logic).
+export * from "./prejob";

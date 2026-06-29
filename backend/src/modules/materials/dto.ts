@@ -56,13 +56,15 @@ export function materialListDto(m: Material & { inventory?: Inventory | null }) 
   };
 }
 
-export function articleDto(a: Article) {
+// The article catalog carries a unitPrice (it's the price list). Strip it for
+// technicians when the org hides prices from them; admins always see it.
+export function articleDto(a: Article, showPrices = true) {
   return {
     id: a.id,
     category: a.category,
     name: a.name,
     unit: a.unit,
-    unitPrice: a.unitPrice,
+    ...(showPrices ? { unitPrice: a.unitPrice } : {}),
     defaultQuantity: a.defaultQuantity,
   };
 }

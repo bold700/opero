@@ -4,9 +4,9 @@
   "actionFailed": "Action failed",
   "finishedToast": "Work order completed",
   "stage": {
-    "sales": "Sales",
-    "operations": "Operations",
-    "closing": "Closing",
+    "concept": "Concept",
+    "in_progress": "In progress",
+    "ready": "Ready",
     "done": "Done"
   },
   "urgency": {
@@ -30,8 +30,25 @@
   },
   "photos": {
     "title": "Photos",
-    "comingSoon": "Coming soon",
-    "hint": "Adding photos becomes available once file storage is enabled."
+    "before": "Before",
+    "result": "Result",
+    "noTasks": "Add a task first to attach photos.",
+    "untitledZone": "Untitled zone"
+  },
+  "prejob": {
+    "title": "Pre-job check",
+    "description": "Complete this checklist and add at least one photo before the technician is dispatched.",
+    "items": {
+      "address_confirmed": "Address and access confirmed",
+      "materials_ready": "Required materials ready",
+      "safety_reviewed": "Site risks and safety reviewed",
+      "customer_informed": "Customer informed of the visit"
+    },
+    "photos": "Pre-job photos",
+    "dispatch": "Dispatch technician",
+    "dispatched": "Dispatched",
+    "dispatchedToast": "Technician dispatched",
+    "gateHint": "Complete the checklist and add a photo to dispatch."
   },
   "activity": {
     "title": "Activity",
@@ -76,8 +93,10 @@
   },
   "signOff": {
     "title": "Complete work order",
-    "description": "All tasks will be completed and the project moves to the closing phase. Enter the signer's name to confirm.",
+    "description": "All tasks will be completed and this work order is locked. Enter the signer's name and sign below to confirm.",
     "signerLabel": "Signer's name",
+    "drawLabel": "Signature",
+    "clear": "Clear",
     "confirm": "Complete"
   }
 }

@@ -4,7 +4,9 @@ import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
+import { resolveHidePrices } from "../../lib/orgPricing.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
+import { canSeePrices, materialCategories, type UserRole } from "@opero/shared";
 import {
   createMaterialSchema,
   updateMaterialSchema,
@@ -37,6 +39,14 @@ function assertCanRead(user: { role: string }) {
   throw Forbidden("Not available");
 }
 
+// Category must be one of the managed list (or omitted → DB default "Overig").
+function assertValidCategory(category: string | undefined) {
+  if (category === undefined) return;
+  if (!(materialCategories as readonly string[]).includes(category)) {
+    throw BadRequest("Invalid material category");
+  }
+}
+
 // ===========================================================================
 // IMPORTANT — Express route ordering:
 // The literal sub-resource paths (/articles, /work-types, /orders) MUST be
@@ -44,6 +54,15 @@ function assertCanRead(user: { role: string }) {
 // e.g. GET /articles would match GET /:id with id="articles". Sub-resources
 // come first below.
 // ===========================================================================
+
+// GET /categories — the managed material-category list (admin + technician).
+materialsRouter.get(
+  "/categories",
+  asyncHandler(async (req, res) => {
+    assertCanRead(req.user!);
+    res.json(materialCategories);
+  }),
+);
 
 // --- Articles (catalog) ---------------------------------------------------
 
@@ -57,7 +76,9 @@ materialsRouter.get(
       where: { orgId: user.orgId },
       orderBy: { name: "asc" },
     });
-    res.json(rows.map(articleDto));
+    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
+    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+    res.json(rows.map((a) => articleDto(a, showPrices)));
   }),
 );
 
@@ -335,12 +356,14 @@ materialsRouter.post(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createMaterialSchema.parse(req.body);
+    assertValidCategory(input.category);
     const created = await prisma.$transaction(async (tx) => {
       const m = await tx.material.create({
         data: {
           orgId: user.orgId,
           name: clampText(input.name),
           unit: clampText(input.unit),
+          ...(input.category ? { category: clampText(input.category) } : {}),
         },
       });
       await audit(tx, user, "material.create", "material", m.id, { name: m.name });
@@ -377,6 +400,7 @@ materialsRouter.patch(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateMaterialSchema.parse(req.body);
+    assertValidCategory(input.category);
     const existing = await prisma.material.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
     });
@@ -387,6 +411,8 @@ materialsRouter.patch(
         data: {
           name: input.name !== undefined ? clampText(input.name) : undefined,
           unit: input.unit !== undefined ? clampText(input.unit) : undefined,
+          category:
+            input.category !== undefined ? clampText(input.category) : undefined,
         },
         include: { inventory: true },
       });
@@ -430,10 +456,31 @@ materialsRouter.patch(
       include: { inventory: true },
     });
     if (!material) throw NotFound("Material not found");
-    if (!material.inventory) throw BadRequest("Material has no inventory row");
     const updated = await prisma.$transaction(async (tx) => {
+      // Upsert: create the inventory row if this material doesn't have one yet
+      // (so stock can be set on a material that was created without it).
+      if (!material.inventory) {
+        const inv = await tx.inventory.create({
+          data: {
+            materialId: material.id,
+            materialName: material.name,
+            unit: input.unit ? clampText(input.unit) : material.unit,
+            quantityInStock:
+              input.quantityInStock !== undefined
+                ? clampNumber(input.quantityInStock)
+                : 0,
+            supplier: input.supplier ? clampText(input.supplier) : "",
+            reorderPoint:
+              input.reorderPoint !== undefined
+                ? clampNumber(input.reorderPoint)
+                : 0,
+          },
+        });
+        await audit(tx, user, "inventory.create", "inventory", inv.id, input);
+        return inv;
+      }
       const inv = await tx.inventory.update({
-        where: { id: material.inventory!.id },
+        where: { id: material.inventory.id },
         data: {
           quantityInStock:
             input.quantityInStock !== undefined

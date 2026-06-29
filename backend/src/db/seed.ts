@@ -162,13 +162,13 @@ async function main() {
   // 5. Materials + Inventory (keep ids)
   // -----------------------------------------------------------------------
   for (const m of mockMaterials) {
-    // Derive a category from the material name for the list view.
+    // Derive a category KEY from the material name (i18n-translated in the UI).
     const n = m.name.toLowerCase();
     const category = /folie/.test(n)
-      ? "Folie"
+      ? "foil"
       : /schroef|plug|beugel|bevestig/.test(n)
-        ? "Bevestiging"
-        : "Isolatie";
+        ? "fastening"
+        : "insulation";
     await prisma.material.create({
       data: { id: m.id, orgId, name: m.name, unit: m.unit, category },
     });

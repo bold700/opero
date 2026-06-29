@@ -6,13 +6,26 @@ import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 
 // Right-side actions in the employees top bar: search + new employee.
-export function EmployeesActions() {
+// Search is controlled by the page; create is admin-only.
+export function EmployeesActions({
+  search,
+  onSearch,
+  onCreate,
+  canCreate,
+}: {
+  search: string;
+  onSearch: (value: string) => void;
+  onCreate: () => void;
+  canCreate: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <>
       <TextField
         size="small"
         placeholder={t("employees.searchPlaceholder")}
+        value={search}
+        onChange={(e) => onSearch(e.target.value)}
         sx={{ width: { xs: 180, sm: 280 } }}
         slotProps={{
           input: {
@@ -24,9 +37,11 @@ export function EmployeesActions() {
           },
         }}
       />
-      <Button variant="contained" startIcon={<AddIcon />}>
-        {t("employees.newEmployee")}
-      </Button>
+      {canCreate ? (
+        <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
+          {t("employees.newEmployee")}
+        </Button>
+      ) : null}
     </>
   );
 }

@@ -1,6 +1,5 @@
 import { Router } from "express";
 import type { ProjectStatus, Stage } from "@prisma/client";
-import { canSeePrices } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../auth/middleware.js";
@@ -173,8 +172,9 @@ dashboardRouter.get(
         openTaskCount,
         assignedProjectCount,
       };
-      // Defensive: technicians may never receive prices.
-      void canSeePrices(user.role);
+      // The technician dashboard never carries money fields (technicianProjectRow
+      // omits project value/prices entirely), so there is nothing to strip here
+      // regardless of the org's hide-prices setting.
       res.json(payload);
       return;
     }

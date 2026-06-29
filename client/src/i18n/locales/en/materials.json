@@ -29,5 +29,35 @@
     "ok": "OK",
     "low": "Low stock",
     "outOfStock": "Out of stock"
+  },
+  "category": {
+    "insulation": "Insulation",
+    "fastening": "Fastening",
+    "foil": "Foil",
+    "sealing": "Sealing",
+    "tools": "Tools",
+    "floor_insulation": "Floor insulation",
+    "other": "Other"
+  },
+  "dialog": {
+    "newTitle": "New material",
+    "editTitle": "Edit material",
+    "name": "Name",
+    "unit": "Unit",
+    "category": "Category",
+    "stock": "Stock",
+    "minStock": "Min. stock",
+    "supplier": "Supplier"
+  },
+  "delete": {
+    "title": "Delete material",
+    "body": "Are you sure you want to delete \"{{name}}\"?"
+  },
+  "toast": {
+    "created": "Material created",
+    "updated": "Material updated",
+    "deleted": "Material deleted",
+    "saveError": "Save failed",
+    "deleteError": "Delete failed"
   }
 }

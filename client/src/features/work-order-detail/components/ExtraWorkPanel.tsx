@@ -6,6 +6,7 @@ import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
+import { PhotoGrid } from "../../../components/PhotoGrid";
 import { HAIRLINE } from "../../../theme/tokens";
 import { extraWorkBadge, euro } from "../constants";
 import type { ExtraWork, NewExtraWork } from "../api";
@@ -22,6 +23,8 @@ export function ExtraWorkPanel({
   onApproveOffice,
   onApproveClient,
   onReject,
+  onUploadPhoto,
+  onDeletePhoto,
 }: {
   items: ExtraWork[];
   role: "admin" | "technician" | "client";
@@ -31,6 +34,8 @@ export function ExtraWorkPanel({
   onApproveOffice: (id: string) => void;
   onApproveClient: (id: string) => void;
   onReject: (id: string) => void;
+  onUploadPhoto: (id: string, file: File) => void;
+  onDeletePhoto: (id: string, key: string) => void;
 }) {
   const { t } = useTranslation();
   const [reporting, setReporting] = useState(false);
@@ -131,6 +136,19 @@ export function ExtraWorkPanel({
                   </Button>
                 ) : null}
               </Box>
+
+              {/* Photo evidence for the extra work / blockage report. */}
+              {m.photos.length > 0 || canReport ? (
+                <Box sx={{ mt: 1.5 }}>
+                  <PhotoGrid
+                    photos={m.photos}
+                    canEdit={canReport}
+                    busy={busy}
+                    onAdd={(file) => onUploadPhoto(m.id, file)}
+                    onRemove={(key) => onDeletePhoto(m.id, key)}
+                  />
+                </Box>
+              ) : null}
             </Box>
           );
         })

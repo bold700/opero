@@ -1,5 +1,12 @@
 import type { TaskMaterial, WorkOrder, WorkOrderTask } from "@prisma/client";
-import { canSeePrices, type UserRole } from "@opero/shared";
+import {
+  canSeePrices,
+  type UserRole,
+  normalizePrejobCheck,
+  isPrejobChecklistComplete,
+  canDispatch,
+} from "@opero/shared";
+import { photoRefs, photoUrl } from "../../lib/photoUrls.js";
 
 // DTO mappers — never return raw rows with internal columns to clients.
 //
@@ -41,7 +48,12 @@ function materialDto(m: TaskMaterial, showPrices: boolean) {
   };
 }
 
-function taskDto(t: TaskWithRelations, showPrices: boolean) {
+async function taskDto(t: TaskWithRelations, showPrices: boolean) {
+  // Photo arrays hold object keys → resolve to {key, url} for the client.
+  const [beforePhotos, resultPhotos] = await Promise.all([
+    photoRefs(t.beforePhotos),
+    photoRefs(t.resultPhotos),
+  ]);
   return {
     id: t.id,
     workOrderId: t.workOrderId,
@@ -53,8 +65,8 @@ function taskDto(t: TaskWithRelations, showPrices: boolean) {
     workTypeName: t.workType?.name ?? undefined,
     assigneeId: t.assigneeId ?? undefined,
     assigneeName: t.assignee?.name ?? undefined,
-    beforePhotos: t.beforePhotos,
-    resultPhotos: t.resultPhotos,
+    beforePhotos,
+    resultPhotos,
     startedAt: t.startedAt ?? undefined,
     endedAt: t.endedAt ?? undefined,
     hours: t.hours ?? undefined,
@@ -66,24 +78,44 @@ function taskDto(t: TaskWithRelations, showPrices: boolean) {
   };
 }
 
-// Full nested workOrder DTO. Takes the requesting role so prices are stripped
-// for technicians / client where canSeePrices is false.
-export function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
-  const showPrices = canSeePrices(role);
+// Full nested workOrder DTO. Takes the requesting role + the org's hide-prices
+// flag so prices are stripped for technicians when the org enables that privacy
+// setting (admins/clients always see prices).
+export async function workOrderDto(
+  wb: WorkOrderWithRelations,
+  role: UserRole,
+  hidePrices: boolean,
+) {
+  const showPrices = canSeePrices(role, hidePrices);
+  const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
+  const [drawings, signatureUrl, prejobPhotos, tasks] = await Promise.all([
+    photoRefs(wb.drawings),
+    photoUrl(wb.signature),
+    photoRefs(wb.prejobPhotos),
+    Promise.all(sortedTasks.map((t) => taskDto(t, showPrices))),
+  ]);
+  const prejobCheck = normalizePrejobCheck(wb.prejobCheck);
   return {
     id: wb.id,
     projectId: wb.projectId,
     title: wb.title,
-    drawings: wb.drawings,
+    drawings,
     approvedBySupervisor: wb.approvedBySupervisor,
     ordinal: wb.ordinal,
-    // Per-work-order sign-off state.
+    // Pre-job check + dispatch gate.
+    prejobCheck,
+    prejobPhotos,
+    prejobComplete: isPrejobChecklistComplete(prejobCheck),
+    canDispatch: canDispatch(prejobCheck, wb.prejobPhotos.length),
+    dispatchedAt: wb.dispatchedAt ? wb.dispatchedAt.toISOString() : undefined,
+    // Per-work-order sign-off state. `signature` is the stored object key;
+    // `signatureUrl` is the renderable URL. `signedByName` is the name typed at
+    // sign-off (often the customer's), falling back to the signing user's name.
     signature: wb.signature ?? undefined,
+    signatureUrl,
     signedAt: wb.signedAt ? wb.signedAt.toISOString() : undefined,
-    signedByName: wb.signedBy?.name ?? undefined,
-    tasks: [...wb.tasks]
-      .sort((a, b) => a.ordinal - b.ordinal)
-      .map((t) => taskDto(t, showPrices)),
+    signedByName: wb.signedByName ?? wb.signedBy?.name ?? undefined,
+    tasks,
   };
 }
 

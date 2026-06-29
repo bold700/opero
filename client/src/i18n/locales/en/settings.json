@@ -16,29 +16,42 @@
     },
     "preferences": {
       "title": "Preferences",
-      "subtitle": "Language, theme and display"
+      "subtitle": "Language and display"
     }
   },
   "profile": {
     "photo": "Profile photo",
     "photoHint": "JPG or PNG, max 2 MB",
+    "photoComingSoon": "Coming soon",
     "changePhoto": "Change photo",
     "remove": "Remove",
     "personalData": "Personal details",
+    "name": "Name",
     "firstName": "First name",
     "lastName": "Last name",
     "email": "Email address",
     "phone": "Phone number",
-    "role": "Role"
+    "role": "Role",
+    "roles": {
+      "admin": "Admin",
+      "technician": "Technician",
+      "client": "Client"
+    },
+    "saved": "Profile saved",
+    "saveError": "Save failed"
   },
   "company": {
     "companyData": "Company details",
     "companyName": "Company name",
     "companyEmail": "Company email",
     "companyAddress": "Company address",
+    "postalCode": "Postal code",
+    "city": "City",
     "billing": "Billing",
     "phone": "Phone number",
-    "vat": "VAT / Tax number"
+    "vat": "VAT / Tax number",
+    "saved": "Company details saved",
+    "saveError": "Save failed"
   },
   "notifications": {
     "preferences": "Notification preferences",
@@ -57,21 +70,21 @@
     "weeklySummary": {
       "label": "Weekly summary",
       "sub": "An overview by email every Monday"
-    }
+    },
+    "saved": "Notification preferences saved",
+    "saveError": "Save failed"
   },
   "preferences": {
     "display": "Display",
     "language": "Language",
     "languageDutch": "Dutch",
     "languageEnglish": "English",
-    "theme": "Theme",
-    "themeLight": "Light",
-    "themeDark": "Dark",
-    "themeSystem": "System",
     "privacy": "Privacy",
     "showPrices": {
       "label": "Show prices to technicians",
       "sub": "Technicians see amounts on work orders"
-    }
+    },
+    "saved": "Preferences saved",
+    "saveError": "Save failed"
   }
 }

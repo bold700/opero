@@ -22,11 +22,19 @@ import {
   addMaterial,
   deleteMaterial,
   toggleMaterial,
+  uploadTaskPhoto,
+  deleteTaskPhoto,
   finishWorkOrder,
   reportExtraWork,
   approveOffice,
   approveClient,
   rejectExtraWork,
+  uploadExtraWorkPhoto,
+  deleteExtraWorkPhoto,
+  setPrejobCheck,
+  uploadPrejobPhoto,
+  deletePrejobPhoto,
+  dispatchWorkOrder,
   type WorkOrder,
   type Project,
   type NewExtraWork,
@@ -35,6 +43,7 @@ import {
 } from "./api";
 import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
+import { PreJobPanel } from "./components/PreJobPanel";
 import { PhotosPanel } from "./components/PhotosPanel";
 import { ExtraWorkPanel } from "./components/ExtraWorkPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
@@ -158,7 +167,48 @@ export function WorkOrderDetail() {
               onToggleMaterial={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
             />
 
-            <PhotosPanel />
+            <PreJobPanel
+              workOrder={wo}
+              isAdmin={role === "admin"}
+              busy={busy}
+              onToggleCheck={(key, done) =>
+                run(async () => {
+                  setWo(await setPrejobCheck(wo.id, key, done));
+                })
+              }
+              onUploadPhoto={(file) =>
+                run(async () => {
+                  setWo(await uploadPrejobPhoto(wo.id, file));
+                })
+              }
+              onDeletePhoto={(key) =>
+                run(async () => {
+                  setWo(await deletePrejobPhoto(wo.id, key));
+                })
+              }
+              onDispatch={() =>
+                run(async () => {
+                  setWo(await dispatchWorkOrder(wo.id));
+                  setToast(t("workOrderDetail.prejob.dispatchedToast"));
+                })
+              }
+            />
+
+            <PhotosPanel
+              workOrder={wo}
+              canWrite={canWrite && !finished}
+              busy={busy}
+              onUpload={(taskId, kind, file) =>
+                run(async () => {
+                  setWo(await uploadTaskPhoto(wo.id, taskId, kind, file));
+                })
+              }
+              onDelete={(taskId, key) =>
+                run(async () => {
+                  setWo(await deleteTaskPhoto(wo.id, taskId, key));
+                })
+              }
+            />
 
             <ExtraWorkPanel
               items={project.extraWork}
@@ -169,6 +219,8 @@ export function WorkOrderDetail() {
               onApproveOffice={(mw) => run(async () => { await approveOffice(project.id, mw); await refreshProject(); })}
               onApproveClient={(mw) => run(async () => { await approveClient(project.id, mw); await refreshProject(); })}
               onReject={(mw) => run(async () => { await rejectExtraWork(project.id, mw); await refreshProject(); })}
+              onUploadPhoto={(mw, file) => run(async () => { await uploadExtraWorkPhoto(project.id, mw, file); await refreshProject(); })}
+              onDeletePhoto={(mw, key) => run(async () => { await deleteExtraWorkPhoto(project.id, mw, key); await refreshProject(); })}
             />
           </Box>
 
@@ -182,10 +234,9 @@ export function WorkOrderDetail() {
         open={signOpen}
         busy={busy}
         onClose={() => setSignOpen(false)}
-        onConfirm={(signature) =>
+        onConfirm={(signatureImage, signedByName) =>
           run(async () => {
-            await finishWorkOrder(wo.id, signature);
-            await refreshWorkOrder();
+            setWo(await finishWorkOrder(wo.id, signatureImage, signedByName));
             await refreshProject();
             setSignOpen(false);
             setToast(t("workOrderDetail.finishedToast"));

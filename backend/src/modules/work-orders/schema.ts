@@ -42,6 +42,13 @@ export const removePhotoSchema = z.object({
   photo: z.string().min(1),
 });
 
+// PATCH /work-orders/:id/prejob-check — set/toggle a checklist item.
+// key is validated against PREJOB_CHECK_ITEMS in the handler.
+export const prejobCheckSchema = z.object({
+  key: z.string().min(1),
+  done: z.boolean(),
+});
+
 // POST /work-orders/:id/tasks/:taskId/materials — add blank OR seeded line
 // (mirror addTaskMaterial / addTaskLine). All fields optional → blank row.
 export const addMaterialSchema = z

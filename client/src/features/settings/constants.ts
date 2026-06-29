@@ -24,9 +24,9 @@ export const fieldGrid = {
 export type SectionId = "profile" | "company" | "notifications" | "preferences";
 
 // Section list — labels are translated at the call site via t("settings.sections.<id>.*").
-export const SECTIONS: { id: SectionId; icon: SvgIconComponent }[] = [
+export const SECTIONS: { id: SectionId; icon: SvgIconComponent; adminOnly?: boolean }[] = [
   { id: "profile", icon: PersonOutlineIcon },
-  { id: "company", icon: BusinessOutlinedIcon },
+  { id: "company", icon: BusinessOutlinedIcon, adminOnly: true },
   { id: "notifications", icon: NotificationsNoneIcon },
   { id: "preferences", icon: TuneIcon },
 ];

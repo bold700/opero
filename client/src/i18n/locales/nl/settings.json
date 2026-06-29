@@ -16,29 +16,42 @@
     },
     "preferences": {
       "title": "Voorkeuren",
-      "subtitle": "Taal, thema en weergave"
+      "subtitle": "Taal en weergave"
     }
   },
   "profile": {
     "photo": "Profielfoto",
     "photoHint": "JPG of PNG, max 2 MB",
+    "photoComingSoon": "Binnenkort beschikbaar",
     "changePhoto": "Foto wijzigen",
     "remove": "Verwijderen",
     "personalData": "Persoonlijke gegevens",
+    "name": "Naam",
     "firstName": "Voornaam",
     "lastName": "Achternaam",
     "email": "E-mailadres",
     "phone": "Telefoonnummer",
-    "role": "Functie"
+    "role": "Functie",
+    "roles": {
+      "admin": "Admin",
+      "technician": "Monteur",
+      "client": "Klant"
+    },
+    "saved": "Profiel opgeslagen",
+    "saveError": "Opslaan mislukt"
   },
   "company": {
     "companyData": "Bedrijfsgegevens",
     "companyName": "Bedrijfsnaam",
     "companyEmail": "Bedrijfse-mail",
     "companyAddress": "Bedrijfsadres",
+    "postalCode": "Postcode",
+    "city": "Plaats",
     "billing": "Facturatie",
     "phone": "Telefoonnummer",
-    "vat": "BTW / Belastingnummer"
+    "vat": "BTW / Belastingnummer",
+    "saved": "Bedrijfsgegevens opgeslagen",
+    "saveError": "Opslaan mislukt"
   },
   "notifications": {
     "preferences": "Meldingsvoorkeuren",
@@ -57,21 +70,21 @@
     "weeklySummary": {
       "label": "Wekelijkse samenvatting",
       "sub": "Elke maandag een overzicht per e-mail"
-    }
+    },
+    "saved": "Meldingsvoorkeuren opgeslagen",
+    "saveError": "Opslaan mislukt"
   },
   "preferences": {
     "display": "Weergave",
     "language": "Taal",
     "languageDutch": "Nederlands",
     "languageEnglish": "Engels",
-    "theme": "Thema",
-    "themeLight": "Licht",
-    "themeDark": "Donker",
-    "themeSystem": "Systeem",
     "privacy": "Privacy",
     "showPrices": {
       "label": "Prijzen tonen aan monteurs",
       "sub": "Monteurs zien bedragen op werkbonnen"
-    }
+    },
+    "saved": "Voorkeuren opgeslagen",
+    "saveError": "Opslaan mislukt"
   }
 }

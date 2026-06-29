@@ -19,5 +19,11 @@
   },
   "misc": {
     "all": "Alle"
+  },
+  "validation": {
+    "required": "Verplicht veld",
+    "email": "Ongeldig e-mailadres",
+    "number": "Ongeldig getal",
+    "nonNegative": "Mag niet negatief zijn"
   }
 }

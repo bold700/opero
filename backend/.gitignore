@@ -1,0 +1,2 @@
+# Local-disk storage adapter writes here (dev only). Never commit uploads.
+/var/uploads/

@@ -2,15 +2,29 @@ import type { UserRole } from "@opero/shared";
 import { api } from "./client";
 import { clearTokens, getRefreshToken, setTokens } from "./tokens";
 
+export type NotificationPrefs = {
+  newWorkOrder: boolean;
+  urgentOnSite: boolean;
+  extraWorkApproval: boolean;
+  weeklySummary: boolean;
+};
+
+export type UserPreferences = {
+  language: "nl" | "en";
+  notifications: NotificationPrefs;
+};
+
 export type AuthUser = {
   id: string;
   orgId: string;
   email: string;
   name: string;
+  phone: string | null;
   role: UserRole;
   customerId: string | null;
   employeeId: string | null;
   totpEnabled: boolean;
+  preferences: UserPreferences;
 };
 
 type LoginSuccess = { accessToken: string; refreshToken: string; user: AuthUser };

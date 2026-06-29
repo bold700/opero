@@ -15,8 +15,12 @@ const envSchema = z.object({
     .default("development"),
   STORAGE_BUCKET: z.string().optional().default(""),
   STORAGE_ENDPOINT: z.string().optional().default(""),
+  STORAGE_REGION: z.string().optional().default("eu-west-3"),
   STORAGE_ACCESS_KEY: z.string().optional().default(""),
   STORAGE_SECRET_KEY: z.string().optional().default(""),
+  // Public origin of THIS API, used to build absolute URLs for locally-stored
+  // uploads (GET /uploads/:key). Defaults to localhost:PORT for dev.
+  PUBLIC_API_URL: z.string().optional().default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

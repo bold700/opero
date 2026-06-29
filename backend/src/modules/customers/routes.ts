@@ -15,6 +15,15 @@ import { contactPersonDto, customerDto, customerListDto, locationDto } from "./d
 
 export const customersRouter = Router();
 
+// Default customer type from the name when the user doesn't pick one: a
+// company-looking name → business, otherwise private. Only a default — an
+// explicit `type` from the request always wins.
+function deriveCustomerType(name: string): "business" | "private" {
+  return /\b(bv|b\.v\.|vve|vastgoed|beheer|holding|groep|&|zn|nv|n\.v\.)\b/i.test(name)
+    ? "business"
+    : "private";
+}
+
 // All customer routes require auth.
 customersRouter.use(requireAuth);
 
@@ -91,6 +100,8 @@ customersRouter.post(
         data: {
           orgId: user.orgId,
           name: clampText(input.name),
+          // User's choice wins; else derive from the name (company-ish → business).
+          type: input.type ?? deriveCustomerType(input.name),
           contactName: clampText(input.contactName),
           email: clampText(input.email),
           phone: clampText(input.phone),
@@ -131,6 +142,7 @@ customersRouter.patch(
           postalCode:
             input.postalCode !== undefined ? clampText(input.postalCode) : undefined,
           city: input.city !== undefined ? clampText(input.city) : undefined,
+          type: input.type !== undefined ? input.type : undefined,
           notes: input.notes !== undefined ? clampText(input.notes) : undefined,
         },
       });

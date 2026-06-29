@@ -5,7 +5,7 @@ import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { WorkOrderRow } from "../api";
@@ -75,7 +75,7 @@ export function WorkOrdersTable({
                       onOpen(r.id);
                     }}
                   >
-                    <VisibilityOutlinedIcon fontSize="small" />
+                    <ChevronRightIcon fontSize="small" />
                   </IconButton>
                 </TableCell>
               </TableRow>

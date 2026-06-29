@@ -63,6 +63,7 @@ employeesRouter.post(
           phone: clampText(input.phone),
           email: input.email ? clampText(input.email) : null,
           roles: (input.roles ?? []) as TeamRole[],
+          status: input.status ?? "active",
         },
       });
       await audit(tx, user, "employee.create", "employee", e.id, { name: e.name });
@@ -92,6 +93,7 @@ employeesRouter.patch(
           email: input.email !== undefined ? clampText(input.email) : undefined,
           roles:
             input.roles !== undefined ? (input.roles as TeamRole[]) : undefined,
+          status: input.status !== undefined ? input.status : undefined,
         },
       });
       await audit(tx, user, "employee.update", "employee", e.id, input);

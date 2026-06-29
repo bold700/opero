@@ -15,6 +15,8 @@ import reports from "./nl/reports.json";
 import settings from "./nl/settings.json";
 import activity from "./nl/activity.json";
 import domain from "./nl/domain.json";
+import photos from "./nl/photos.json";
+import quickCreate from "./nl/quickCreate.json";
 
 export const nl = {
   common,
@@ -31,4 +33,6 @@ export const nl = {
   settings,
   activity,
   domain,
+  photos,
+  quickCreate,
 };

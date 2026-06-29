@@ -10,6 +10,10 @@ import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
+import { resolveHidePrices } from "../../lib/orgPricing.js";
+import { storeUpload, deleteStored } from "../../lib/attachUpload.js";
+import { uploadSingle } from "../../lib/upload.js";
+import { buildUrlMap } from "../../lib/photoUrls.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
 import {
@@ -17,7 +21,31 @@ import {
   projectSummaryDto,
   activityDto,
   projectInclude,
+  type ProjectWithRelations,
 } from "./dto.js";
+
+// Role + org-aware DTO wrappers: resolve the org's hide-prices flag once, then
+// serialize. Used everywhere a project DTO is returned so technicians only see
+// prices when the org allows it. Also prebuilds the photo key→url lookup so the
+// (synchronous) DTO can emit renderable urls.
+async function projectDtoFor(user: AuthUser, p: ProjectWithRelations) {
+  const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
+  const photoKeys = [
+    ...p.surveyPhotos,
+    ...p.extraWork.flatMap((m) => m.photos),
+    ...(p.handover?.photos ?? []),
+  ];
+  const urlOf = await buildUrlMap(photoKeys);
+  return projectDto(p, user.role as UserRole, hidePrices, urlOf);
+}
+
+async function projectSummaryListFor(
+  user: AuthUser,
+  rows: import("@prisma/client").Project[],
+) {
+  const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
+  return rows.map((p) => projectSummaryDto(p, user.role as UserRole, hidePrices));
+}
 import { projectScopeWhere, canViewProject } from "./visibility.js";
 import {
   createProjectSchema,
@@ -37,6 +65,7 @@ import {
   rejectExtraWorkSchema,
   restpuntenSchema,
   signHandoverSchema,
+  removePhotoSchema,
 } from "./schema.js";
 
 export const projectsRouter = Router();
@@ -182,7 +211,7 @@ projectsRouter.get(
       where: projectScopeWhere(user),
       orderBy: { createdAt: "desc" },
     });
-    res.json(rows.map((p) => projectSummaryDto(p, user.role as UserRole)));
+    res.json(await projectSummaryListFor(user, rows));
   }),
 );
 
@@ -196,7 +225,7 @@ projectsRouter.get(
       include: projectInclude,
     });
     if (!project) throw NotFound("Project not found");
-    res.json(projectDto(project, user.role as UserRole));
+    res.json(await projectDtoFor(user, project));
   }),
 );
 
@@ -333,7 +362,7 @@ projectsRouter.post(
       return project;
     });
 
-    res.status(201).json(projectDto(created, user.role as UserRole));
+    res.status(201).json(await projectDtoFor(user, created));
   }),
 );
 
@@ -388,6 +417,7 @@ projectsRouter.patch(
       data.materialsReady = input.materialsReady;
     if (input.exclusions !== undefined)
       data.exclusions = clampText(input.exclusions);
+    if (input.billingType !== undefined) data.billingType = input.billingType;
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.project.update({ where: { id: existing.id }, data });
@@ -398,7 +428,7 @@ projectsRouter.patch(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -436,7 +466,7 @@ projectsRouter.post(
         include: projectInclude,
       });
     });
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -512,7 +542,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -568,7 +598,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -627,7 +657,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -688,7 +718,7 @@ projectsRouter.patch(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -797,7 +827,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -820,7 +850,7 @@ async function reloadProject(user: AuthUser, projectId: string) {
     where: { id: projectId },
     include: projectInclude,
   });
-  return projectDto(p, user.role as UserRole);
+  return projectDtoFor(user, p);
 }
 
 // POST /:id/quote/lines — add blank or from body. admin.
@@ -1084,7 +1114,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -1116,7 +1146,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -1156,7 +1186,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -1191,7 +1221,7 @@ projectsRouter.post(
       });
     });
 
-    res.json(projectDto(updated, user.role as UserRole));
+    res.json(await projectDtoFor(user, updated));
   }),
 );
 
@@ -1270,8 +1300,8 @@ projectsRouter.post(
     const label = input.label ? clampText(input.label).trim() : null;
     const description = label || `${quantity} ${unit} ${name}`.trim();
     const amount = Math.round(quantity * unitPrice);
-    // TODO(Phase 7): real upload — placeholder filename for now.
-    const photos = input.photo ? [`extra-work-${Date.now()}.jpg`] : [];
+    // Photos are uploaded separately via POST /:id/extra-work/:mwId/photo after
+    // the row exists (real multipart upload, not a create-time flag).
 
     await prisma.$transaction(async (tx) => {
       await tx.extraWork.create({
@@ -1285,7 +1315,7 @@ projectsRouter.post(
           diameter: input.diameter ? clampNumber(input.diameter) : null,
           unitPrice,
           amount,
-          photos,
+          photos: [],
           createdAt: todayIso(),
         },
       });
@@ -1308,6 +1338,98 @@ async function loadExtraWork(user: AuthUser, projectId: string, mwId: string) {
   if (!item) throw NotFound("Extra work not found");
   return { project, item };
 }
+
+// POST /:id/extra-work/:mwId/photo — upload a photo for an extra-work item.
+projectsRouter.post(
+  "/:id/extra-work/:mwId/photo",
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+    const key = await storeUpload(user, req.file, "extra-work", item.id);
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: { photos: { push: key } },
+      });
+      await audit(tx, user, "project.extraWork.photo", "project", project.id, {
+        photo: key,
+      });
+    });
+    res.status(201).json(await reloadProject(user, project.id));
+  }),
+);
+
+// DELETE /:id/extra-work/:mwId/photo {photo} — remove a photo by object key.
+projectsRouter.delete(
+  "/:id/extra-work/:mwId/photo",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = removePhotoSchema.parse(req.body);
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+    const existed = item.photos.includes(input.photo);
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: { photos: item.photos.filter((p) => p !== input.photo) },
+      });
+      await audit(tx, user, "project.extraWork.photo.remove", "project", project.id, {
+        photo: input.photo,
+      });
+    });
+    if (existed) await deleteStored(input.photo);
+    res.json(await reloadProject(user, project.id));
+  }),
+);
+
+// POST /:id/survey/photo — upload a survey (opname) photo onto the project.
+projectsRouter.post(
+  "/:id/survey/photo",
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const project = await loadProjectForUser(user, req.params.id);
+    const key = await storeUpload(user, req.file, "survey", project.id);
+    await prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id: project.id },
+        data: { surveyPhotos: { push: key } },
+      });
+      await audit(tx, user, "project.survey.photo", "project", project.id, {
+        photo: key,
+      });
+    });
+    res.status(201).json(await reloadProject(user, project.id));
+  }),
+);
+
+// DELETE /:id/survey/photo {photo} — remove a survey photo by object key.
+projectsRouter.delete(
+  "/:id/survey/photo",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = removePhotoSchema.parse(req.body);
+    const project = await loadProjectForUser(user, req.params.id);
+    const full = await prisma.project.findUnique({
+      where: { id: project.id },
+      select: { surveyPhotos: true },
+    });
+    const existed = full?.surveyPhotos.includes(input.photo) ?? false;
+    await prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id: project.id },
+        data: {
+          surveyPhotos: (full?.surveyPhotos ?? []).filter((p) => p !== input.photo),
+        },
+      });
+      await audit(tx, user, "project.survey.photo.remove", "project", project.id, {
+        photo: input.photo,
+      });
+    });
+    if (existed) await deleteStored(input.photo);
+    res.json(await reloadProject(user, project.id));
+  }),
+);
 
 // POST /:id/extra-work/:mwId/approve-office — admin. Toggle. Mirror store.
 projectsRouter.post(
@@ -1534,23 +1656,47 @@ projectsRouter.post(
   }),
 );
 
-// POST /:id/handover/photo — placeholder filename. Mirror addHandoverPhoto.
+// POST /:id/handover/photo — upload a handover photo (multipart "file").
 projectsRouter.post(
   "/:id/handover/photo",
+  uploadSingle,
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { project, handover } = await loadHandover(user, req.params.id);
-    // TODO(Phase 7): real upload — placeholder filename for now.
-    const filename = `handover-${Date.now()}.jpg`;
+    const key = await storeUpload(user, req.file, "handover", handover.id);
 
     await prisma.$transaction(async (tx) => {
       await tx.handover.update({
         where: { id: handover.id },
-        data: { photos: { push: filename } },
+        data: { photos: { push: key } },
       });
-      await audit(tx, user, "project.handover.photo", "project", project.id);
+      await audit(tx, user, "project.handover.photo", "project", project.id, {
+        photo: key,
+      });
     });
 
+    res.json(await reloadProject(user, project.id));
+  }),
+);
+
+// DELETE /:id/handover/photo {photo} — remove a handover photo by object key.
+projectsRouter.delete(
+  "/:id/handover/photo",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = removePhotoSchema.parse(req.body);
+    const { project, handover } = await loadHandover(user, req.params.id);
+    const existed = handover.photos.includes(input.photo);
+    await prisma.$transaction(async (tx) => {
+      await tx.handover.update({
+        where: { id: handover.id },
+        data: { photos: handover.photos.filter((p) => p !== input.photo) },
+      });
+      await audit(tx, user, "project.handover.photo.remove", "project", project.id, {
+        photo: input.photo,
+      });
+    });
+    if (existed) await deleteStored(input.photo);
     res.json(await reloadProject(user, project.id));
   }),
 );

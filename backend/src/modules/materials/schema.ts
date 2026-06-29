@@ -9,6 +9,7 @@ import { z } from "zod";
 export const createMaterialSchema = z.object({
   name: z.string().min(1),
   unit: z.string().min(1),
+  category: z.string().optional(),
   quantityInStock: z.number().optional(),
   supplier: z.string().optional(),
   reorderPoint: z.number().optional(),
@@ -19,6 +20,7 @@ export const updateMaterialSchema = z
   .object({
     name: z.string().min(1),
     unit: z.string().min(1),
+    category: z.string(),
   })
   .partial();
 export type UpdateMaterialRequest = z.infer<typeof updateMaterialSchema>;

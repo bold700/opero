@@ -14,6 +14,11 @@ import type {
   QuoteLineItem,
 } from "@prisma/client";
 import { canSeePrices, type UserRole } from "@opero/shared";
+import { refsFrom } from "../../lib/photoUrls.js";
+
+// A synchronous key→url lookup, prebuilt in the route wrapper (projectDtoFor)
+// so these nested mappers can stay sync while still emitting renderable urls.
+type UrlOf = (key: string | null | undefined) => string | undefined;
 
 // DTO mappers — never return raw rows with internal columns to clients.
 //
@@ -108,7 +113,7 @@ function invoiceDto(inv: Invoice, showPrices: boolean) {
   };
 }
 
-function extraWorkDto(m: ExtraWork, showPrices: boolean) {
+function extraWorkDto(m: ExtraWork, showPrices: boolean, urlOf: UrlOf) {
   return {
     id: m.id,
     description: m.description,
@@ -118,7 +123,7 @@ function extraWorkDto(m: ExtraWork, showPrices: boolean) {
     unit: m.unit ?? undefined,
     diameter: m.diameter ?? undefined,
     ...(showPrices ? { unitPrice: m.unitPrice ?? undefined, amount: m.amount } : {}),
-    photos: m.photos,
+    photos: refsFrom(m.photos, urlOf),
     createdAt: m.createdAt,
     done: m.done,
     approvedByOffice: m.approvedByOffice,
@@ -141,10 +146,10 @@ function materialRequirementDto(r: MaterialRequirement) {
   };
 }
 
-function handoverDto(o: Handover & { checklist: HandoverItem[] }) {
+function handoverDto(o: Handover & { checklist: HandoverItem[] }, urlOf: UrlOf) {
   return {
     id: o.id,
-    photos: o.photos,
+    photos: refsFrom(o.photos, urlOf),
     restpunten: o.restpunten,
     signedBy: o.signedBy ?? undefined,
     completedAt: o.completedAt ?? undefined,
@@ -190,9 +195,10 @@ export function activityDto(
   };
 }
 
-// Lightweight list/summary DTO. `value` omitted for technicians.
-export function projectSummaryDto(p: Project, role: UserRole) {
-  const showPrices = canSeePrices(role);
+// Lightweight list/summary DTO. `value` omitted for technicians when the org
+// hides prices from them.
+export function projectSummaryDto(p: Project, role: UserRole, hidePrices: boolean) {
+  const showPrices = canSeePrices(role, hidePrices);
   return {
     id: p.id,
     projectNumber: p.projectNumber,
@@ -208,10 +214,15 @@ export function projectSummaryDto(p: Project, role: UserRole) {
   };
 }
 
-// Full nested aggregate DTO. Takes the requesting role so prices are stripped
-// for technicians.
-export function projectDto(p: ProjectWithRelations, role: UserRole) {
-  const showPrices = canSeePrices(role);
+// Full nested aggregate DTO. Takes the requesting role + the org's hide-prices
+// flag so prices are stripped for technicians when the org enables it.
+export function projectDto(
+  p: ProjectWithRelations,
+  role: UserRole,
+  hidePrices: boolean,
+  urlOf: UrlOf,
+) {
+  const showPrices = canSeePrices(role, hidePrices);
   return {
     id: p.id,
     projectNumber: p.projectNumber,
@@ -244,7 +255,7 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
     plannedDate: p.plannedDate ?? undefined,
     plannedEndDate: p.plannedEndDate ?? undefined,
     ...(showPrices ? { value: p.value } : {}),
-    surveyPhotos: p.surveyPhotos,
+    surveyPhotos: refsFrom(p.surveyPhotos, urlOf),
     surveyNotes: p.surveyNotes,
     // team ids
     projectLeaderId: p.projectLeaderId ?? undefined,
@@ -254,11 +265,11 @@ export function projectDto(p: ProjectWithRelations, role: UserRole) {
     intake: p.intake ? intakeDto(p.intake) : undefined,
     quote: p.quote ? quoteDto(p.quote, showPrices) : undefined,
     invoice: p.invoice ? invoiceDto(p.invoice, showPrices) : undefined,
-    handover: p.handover ? handoverDto(p.handover) : undefined,
+    handover: p.handover ? handoverDto(p.handover, urlOf) : undefined,
     deliveryChecklist: p.deliveryChecklist
       ? deliveryChecklistDto(p.deliveryChecklist)
       : undefined,
-    extraWork: p.extraWork.map((m) => extraWorkDto(m, showPrices)),
+    extraWork: p.extraWork.map((m) => extraWorkDto(m, showPrices, urlOf)),
     materialRequirements: p.materialRequirements.map(materialRequirementDto),
     tasks: [...p.tasks]
       .sort((a, b) => a.ordinal - b.ordinal)

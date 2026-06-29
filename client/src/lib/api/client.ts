@@ -108,10 +108,59 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
   return payload as T;
 }
 
+// Multipart upload. Sends a single file as field "file" (+ optional text fields).
+// Must NOT set Content-Type — the browser sets the multipart boundary itself.
+// Reuses the same 401-refresh-retry flow as request().
+async function upload<T>(path: string, file: Blob, fields?: Record<string, string>): Promise<T> {
+  const build = () => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (fields) for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    return fd;
+  };
+
+  const send = () => {
+    const headers: Record<string, string> = {};
+    const token = getAccessToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return fetch(`${API_URL}${path}`, { method: "POST", headers, body: build() });
+  };
+
+  let res = await send();
+  if (res.status === 401) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      res = await send();
+    } else {
+      clearTokens();
+      onAuthExpired?.();
+      throw new ApiError(401, "Sessie verlopen");
+    }
+  }
+
+  if (res.status === 204) return undefined as T;
+  let payload: unknown = null;
+  const text = await res.text();
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+  if (!res.ok) {
+    const err = (payload as { error?: { message?: string; code?: string } })?.error;
+    throw new ApiError(res.status, err?.message ?? `Upload failed (${res.status})`, err?.code);
+  }
+  return payload as T;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown, opts?: { auth?: boolean }) =>
     request<T>(path, { method: "POST", body, auth: opts?.auth }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: "DELETE", body }),
+  upload,
 };

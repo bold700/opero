@@ -5,9 +5,9 @@
     "closing": "Afronding"
   },
   "stage": {
-    "sales": "Verkoop",
-    "operations": "Operatie",
-    "closing": "Afronding",
+    "concept": "Concept",
+    "in_progress": "In uitvoering",
+    "ready": "Gereed",
     "done": "Afgerond"
   },
   "urgency": {
@@ -84,6 +84,7 @@
     "deleted": "Werkbon verwijderd: {{title}}",
     "approved": "Werkbon goedgekeurd: {{title}}",
     "unapproved": "Goedkeuring ingetrokken: {{title}}",
-    "signed": "{{title}} afgerond en ondertekend"
+    "signed": "{{title}} afgerond en ondertekend",
+    "dispatched": "{{title}} op pad gestuurd"
   }
 }

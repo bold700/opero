@@ -8,14 +8,26 @@ import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { EmployeeRow } from "../api";
 import { STATUS, ROLE_LABEL_KEY, initials } from "../constants";
 
-// The employees table card: columns + real rows.
-export function EmployeesTable({ rows }: { rows: EmployeeRow[] }) {
+// The employees table card: columns + real rows, with edit/delete row actions
+// (admin only).
+export function EmployeesTable({
+  rows,
+  canManage,
+  onEdit,
+  onDelete,
+}: {
+  rows: EmployeeRow[];
+  canManage: boolean;
+  onEdit: (e: EmployeeRow) => void;
+  onDelete: (e: EmployeeRow) => void;
+}) {
   const { t } = useTranslation();
   return (
     <Card noPadding>
@@ -61,9 +73,16 @@ export function EmployeesTable({ rows }: { rows: EmployeeRow[] }) {
                   <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton size="small" aria-label={t("employees.moreActions")}>
-                    <MoreVertIcon fontSize="small" />
-                  </IconButton>
+                  {canManage ? (
+                    <Box sx={{ display: "inline-flex", gap: 0.5 }}>
+                      <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(r)}>
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(r)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))

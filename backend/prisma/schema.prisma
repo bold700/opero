@@ -130,6 +130,17 @@ enum ExtraWorkRejectedBy {
 model Organization {
   id        String   @id @default(uuid())
   name      String
+  // Company / billing details (admin-managed; shown on invoices later).
+  email      String?
+  address    String?
+  postalCode String?
+  city       String?
+  phone      String?
+  vatNumber  String?
+  // Org-wide privacy: when true, technicians do NOT see prices. Default true
+  // preserves today's behavior (technicians never saw prices); admins can flip
+  // it off to let technicians see amounts on work orders.
+  hidePricesFromTechnicians Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -150,6 +161,10 @@ model User {
   email        String    @unique
   passwordHash String
   name         String
+  phone        String?
+  // Per-user preferences (language + notification toggles) as a small JSON blob.
+  // Server-persisted so they follow the user across devices.
+  preferences  Json?
   role         UserRole
   totpSecret   String?
   totpEnabled  Boolean   @default(false)
@@ -321,7 +336,7 @@ model Material {
   orgId     String
   name      String
   unit      String
-  category  String    @default("Overig")
+  category  String    @default("other")
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -562,9 +577,21 @@ model WorkOrder {
   // property of THE work order, not the project. signedAt set → this work order
   // is signed off and locked for editing; sibling work orders and the project's
   // own stage are unaffected.
+  // `signature` holds the object key of the drawn signature image. signedByName
+  // is the name the signer typed at sign-off (often the customer's, distinct
+  // from the logged-in user in signedById), printed on the work order record.
   signature          String?
+  signedByName       String?
   signedAt           DateTime?
   signedById         String?
+  // Pre-job check + dispatch gate. A monteur may not be dispatched until the
+  // pre-job checklist is complete AND at least one pre-job photo exists.
+  // `prejobCheck` is a small JSON map of checklist item key → boolean (done);
+  // `prejobPhotos` holds object keys. dispatchedAt set → the job has been sent out.
+  prejobCheck        Json?
+  prejobPhotos       String[]
+  dispatchedAt       DateTime?
+  dispatchedById     String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 

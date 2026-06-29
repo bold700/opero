@@ -25,6 +25,31 @@
     "workOrders": "Work orders",
     "lastContact": "Last contact",
     "action": "Action",
-    "viewAriaLabel": "view"
+    "viewAriaLabel": "view",
+    "empty": "No customers found."
+  },
+  "dialog": {
+    "newTitle": "New customer",
+    "editTitle": "Edit customer",
+    "name": "Name",
+    "type": "Type",
+    "contactName": "Contact person",
+    "email": "Email",
+    "phone": "Phone",
+    "address": "Address",
+    "postalCode": "Postal code",
+    "city": "City",
+    "notes": "Notes"
+  },
+  "delete": {
+    "title": "Delete customer",
+    "body": "Are you sure you want to delete \"{{name}}\"?"
+  },
+  "toast": {
+    "created": "Customer created",
+    "updated": "Customer updated",
+    "deleted": "Customer deleted",
+    "saveError": "Save failed",
+    "deleteError": "Delete failed"
   }
 }

@@ -15,6 +15,8 @@ import reports from "./en/reports.json";
 import settings from "./en/settings.json";
 import activity from "./en/activity.json";
 import domain from "./en/domain.json";
+import photos from "./en/photos.json";
+import quickCreate from "./en/quickCreate.json";
 
 export const en = {
   common,
@@ -31,4 +33,6 @@ export const en = {
   settings,
   activity,
   domain,
+  photos,
+  quickCreate,
 };
