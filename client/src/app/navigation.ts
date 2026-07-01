@@ -30,7 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: "/customers", labelKey: "nav.customers", icon: CustomersIcon, roles: ["admin", "client"] },
   { path: "/employees", labelKey: "nav.employees", icon: EmployeesIcon, roles: ["admin"] },
   { path: "/materials", labelKey: "nav.materials", icon: MaterialsIcon, roles: ["admin", "technician"] },
-  { path: "/reports", labelKey: "nav.reports", icon: ReportsIcon, roles: ["admin", "technician"] },
+  { path: "/reports", labelKey: "nav.reports", icon: ReportsIcon, roles: ["admin"] },
   { path: "/settings", labelKey: "nav.settings", icon: SettingsIcon, roles: ALL },
 ];
 

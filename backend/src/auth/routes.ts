@@ -10,7 +10,9 @@ import {
   disable2faSchema,
   updateProfileSchema,
   updatePreferencesSchema,
+  changePasswordSchema,
 } from "@opero/shared";
+import { env } from "../env.js";
 import { prisma } from "../db/client.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { audit } from "../lib/audit.js";
@@ -236,6 +238,44 @@ authRouter.delete(
   }),
 );
 
+// --- POST /change-password — the logged-in user changes their own password --
+// Verifies the current password, sets the new one, revokes ALL sessions (so any
+// other device is logged out), then re-issues THIS session so the caller stays
+// logged in. Returns a fresh { accessToken, refreshToken } pair.
+authRouter.post(
+  "/change-password",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+    const userId = req.user!.id;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+      throw Unauthorized("Current password is incorrect");
+    }
+    if (await verifyPassword(newPassword, user.passwordHash)) {
+      throw BadRequest("New password must be different from the current one");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash: await hashPassword(newPassword) },
+      });
+      // Revoke every session — the fresh pair below re-establishes this one.
+      await tx.authSession.updateMany({
+        where: { userId, revoked: false },
+        data: { revoked: true },
+      });
+      await audit(tx, req.user!, "user.password.change", "user", userId);
+    });
+
+    // Re-issue the current session so the user isn't logged out of this device.
+    const tokens = await issueSession(user.id, user.role, user.orgId);
+    res.json(tokens);
+  }),
+);
+
 // --- POST /forgot-password (always 204, no enumeration) -------------------
 authRouter.post(
   "/forgot-password",
@@ -245,10 +285,15 @@ authRouter.post(
     const user = await prisma.user.findUnique({ where: { email } });
     if (user) {
       const token = await issuePasswordReset(user.id);
+      // Email a link to the reset page, not the raw token. The token expires in
+      // 1 hour (see issuePasswordReset).
+      const resetUrl = `${env.APP_URL.replace(/\/$/, "")}/reset-password?token=${token}`;
       await sendEmail({
         to: email,
-        subject: "Opero — wachtwoord resetten",
-        text: `Gebruik deze token om je wachtwoord te resetten: ${token}`,
+        subject: "Opero — wachtwoord resetten / reset your password",
+        text:
+          `Klik op deze link om je wachtwoord te resetten (verloopt over 1 uur):\n${resetUrl}\n\n` +
+          `Click this link to reset your password (expires in 1 hour):\n${resetUrl}`,
       });
     }
     res.status(204).end();

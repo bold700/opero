@@ -18,6 +18,7 @@ import domain from "./en/domain.json";
 import photos from "./en/photos.json";
 import quickCreate from "./en/quickCreate.json";
 import search from "./en/search.json";
+import notifications from "./en/notifications.json";
 
 export const en = {
   common,
@@ -37,4 +38,5 @@ export const en = {
   photos,
   quickCreate,
   search,
+  notifications,
 };

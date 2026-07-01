@@ -10,6 +10,7 @@ import { ProfileForm } from "./components/ProfileForm";
 import { CompanyForm } from "./components/CompanyForm";
 import { NotificationsForm } from "./components/NotificationsForm";
 import { PreferencesForm } from "./components/PreferencesForm";
+import { SecurityForm } from "./components/SecurityForm";
 
 // Settings (Instellingen) — M3 master/detail. A slim labeled section list +
 // a structured form panel. Demo data; wires to /api/settings + /api/auth/me.
@@ -88,6 +89,7 @@ export function Settings() {
             {active === "company" && <CompanyForm />}
             {active === "notifications" && <NotificationsForm />}
             {active === "preferences" && <PreferencesForm />}
+            {active === "security" && <SecurityForm />}
           </Box>
         </Paper>
       </Box>

@@ -17,6 +17,10 @@
     "preferences": {
       "title": "Preferences",
       "subtitle": "Language and display"
+    },
+    "security": {
+      "title": "Security",
+      "subtitle": "Password and two-factor authentication"
     }
   },
   "profile": {
@@ -87,5 +91,37 @@
     },
     "saved": "Preferences saved",
     "saveError": "Save failed"
+  },
+  "security": {
+    "twoFactor": "Two-factor authentication",
+    "twoFactorTitle": "Authenticator app (2FA)",
+    "on": "On",
+    "onDescription": "You'll enter a code from your authenticator app each time you sign in.",
+    "offDescription": "Add an extra layer of security with a code from an authenticator app.",
+    "enable": "Enable",
+    "disable": "Disable",
+    "setupTitle": "Set up two-factor authentication",
+    "setupStep1": "Scan this QR code with your authenticator app (Google Authenticator, 1Password, Authy…).",
+    "manualEntry": "Or enter this key manually:",
+    "setupStep2": "Then enter the 6-digit code from the app to confirm.",
+    "codeLabel": "Authentication code",
+    "invalidCode": "That code didn't match. Try again.",
+    "enabledToast": "Two-factor authentication enabled",
+    "disableTitle": "Disable two-factor authentication",
+    "disableDescription": "Enter your password to turn off two-factor authentication.",
+    "passwordLabel": "Password",
+    "wrongPassword": "Incorrect password.",
+    "disabledToast": "Two-factor authentication disabled",
+    "error": "Something went wrong. Try again.",
+    "password": "Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "changePassword": "Change password",
+    "passwordChanged": "Password changed",
+    "wrongCurrent": "Current password is incorrect.",
+    "passwordsDontMatch": "Passwords don't match.",
+    "passwordTooShort": "Use at least {{min}} characters.",
+    "sameAsCurrent": "New password must be different."
   }
 }

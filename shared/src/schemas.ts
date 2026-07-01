@@ -87,6 +87,15 @@ export const resetPasswordSchema = z.object({
 });
 export type ResetPasswordRequest = z.infer<typeof resetPasswordSchema>;
 
+// PATCH-style change of a logged-in user's own password. `refreshToken` lets the
+// server re-issue the CURRENT session after revoking all others (no self-logout).
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+  refreshToken: z.string().min(1).optional(),
+});
+export type ChangePasswordRequest = z.infer<typeof changePasswordSchema>;
+
 export const enable2faSchema = z.object({ code: z.string().min(6).max(10) });
 export type Enable2faRequest = z.infer<typeof enable2faSchema>;
 

@@ -1,0 +1,9 @@
+{
+  "title": "Notifications",
+  "empty": "You're all caught up",
+  "extraWorkAwaitingOffice": "Extra work needs your approval: {{description}} ({{customer}})",
+  "extraWorkAwaitingClient": "Extra work is waiting for your approval: {{description}} ({{customer}})",
+  "projectUrgent": "Urgent: {{number}} · {{customer}}",
+  "projectBlocked": "Blocked: {{number}} · {{customer}}",
+  "newWorkOrderAssigned": "New work order assigned: {{title}} ({{customer}})"
+}

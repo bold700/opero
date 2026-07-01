@@ -4,6 +4,13 @@
   "actions": {
     "export": "Exporteren"
   },
+  "export": {
+    "section": "Sectie",
+    "metric": "Item",
+    "value": "Waarde",
+    "weekly": "Werkbonnen per week",
+    "topEmployees": "Beste monteurs"
+  },
   "kpis": {
     "workOrders": "Werkbonnen",
     "hours": "Uren",

@@ -15,24 +15,20 @@ Buttons/links that render but have no handler or no backend behind them.
   (`SearchField.tsx`) + real role-scoped `GET /api/search?q=` across customers/projects/work
   orders. Verified end-to-end (admin/technician/client scoping, cross-org isolation).
 
-- [ ] **2. Dashboard bell / notifications** 🔔 — `DashboardActions.tsx`
-  No `onClick`; `Badge badgeContent={0}` hardcoded; no notifications backend (only the
-  per-user *toggle preferences* exist, not a feed).
-  *Fix options:* (a) derive a lightweight action feed from existing data ("3 items awaiting
-  approval", "2 urgent on site") — no new table, or (b) real `Notification` table +
-  `GET /notifications` + mark-read + unread badge.
+- [x] **2. Dashboard bell / notifications** 🔔 — ✅ DONE. Derived action feed
+  (`GET /api/notifications`): extra work awaiting approval, urgent/blocked projects, newly
+  assigned work orders — role-scoped + gated by the notification-preference toggles (which now
+  actually do something). Unread badge via a `User.notificationsSeenAt` marker; opening the bell
+  marks seen. Dropdown with per-item navigation. Verified (role/pref/seen/cross-org) + integration
+  test.
 
-- [ ] **3. Dashboard avatar** — `DashboardActions.tsx`
-  No `onClick`. Now shows the uploaded photo, but clicking does nothing.
-  *Fix:* open the same profile menu the nav rail uses (settings/logout), or remove (the rail
-  already has a working one).
+- [x] **3. Dashboard avatar** — ✅ DONE. Now a clickable button → navigates to Settings
+  (with a tooltip). Still shows the uploaded photo / initials.
 
-- [ ] **4. "Forgot password?" link** — `client/src/features/auth/components/LoginForm.tsx:117`
-  `href="#"` — goes nowhere. No reset page exists (see #10).
+- [x] **4. "Forgot password?" link** — ✅ DONE. Now routes to `/forgot-password` (built in #10).
 
-- [ ] **5. Reports "Export" button** — `client/src/features/reports/components/ReportsActions.tsx`
-  No `onClick`.
-  *Fix:* wire CSV export (small), or remove until scoped. PDF would be heavier.
+- [x] **5. Reports "Export" button** — ✅ DONE. Exports the current report figures (KPIs, weekly
+  chart, top technicians) to a CSV download. Disabled until data loads.
 
 - [ ] **6. Work-order "Export PDF" button** — `client/src/features/work-order-detail/components/DetailHeader.tsx:80`
   `disabled` placeholder. Real fix = server-side PDF generation (its own chunk of work).
@@ -42,10 +38,8 @@ Buttons/links that render but have no handler or no backend behind them.
 
 ## 🟡 Bugs / mismatches
 
-- [ ] **7. Reports nav vs permission mismatch** — `client/src/app/navigation.ts:33`
-  Nav shows Reports to `["admin","technician"]`, but the API (`backend/src/modules/reports/routes.ts`)
-  is **admin-only** → a technician clicks in and gets 403 / empty state.
-  *Fix:* change nav `roles` to `["admin"]` (one line), OR serve a technician-scoped report view.
+- [x] **7. Reports nav vs permission mismatch** — ✅ DONE. Nav now `roles: ["admin"]`, matching
+  the admin-only API. Technicians no longer see a Reports item that 403s.
 
 ---
 
@@ -53,22 +47,24 @@ Buttons/links that render but have no handler or no backend behind them.
 
 Finished server features that nobody can reach from the app.
 
-- [ ] **8. Two-factor auth (2FA)** — backend complete, zero UI
-  Endpoints: `POST /auth/2fa/setup`, `/2fa/enable`, `/2fa/disable` + the TOTP login flow all
-  work. There is **no Settings UI** to enable it, and **no "Security" tab** at all.
-  *Fix:* a Security settings section: show QR (`/2fa/setup` returns `qrDataUrl`), confirm with a
-  code (`/2fa/enable`), and a disable flow (`/2fa/disable`, needs password). Cheapest of the
-  three security items since the backend is done.
+- [x] **8. Two-factor auth (2FA)** — ✅ DONE. New Settings → Security tab: enable via QR + code
+  confirmation, disable via password. Refetches /me so `totpEnabled` updates app-wide. ALSO built
+  the previously-stub **login code-entry step** (without it, enabling 2FA would have locked users
+  out). Full lifecycle verified end-to-end (setup→enable→login-with-code→disable) + integration
+  test. No seed account has 2FA on. Follow-up: recovery/backup codes (backend has none).
 
-- [ ] **9. Change password (in-app)** — no backend endpoint AND no UI
-  A logged-in user can't change their password. Only the email-reset flow exists.
-  *Fix:* add `POST /auth/change-password` (verify current → set new) + a form in the Security tab.
+- [x] **9. Change password (in-app)** — ✅ DONE. `POST /auth/change-password` (verify current →
+  set new → revoke all sessions but re-issue the current one, so no self-logout) + a Change
+  password group in the Security tab (current/new/confirm, inline validation). Verified end-to-end
+  (wrong current 401, too-short/same 400, success re-issues session + old token revoked) +
+  integration test. Seed passwords untouched.
 
-- [ ] **10. Password reset page** — backend works, no client page
-  `POST /auth/forgot-password` + `/reset-password` work, but there's no page to (a) enter your
-  email to request a reset, or (b) use the emailed token to set a new password.
-  *Fix:* a `/forgot-password` page (email input) + a `/reset-password?token=` page. Wire #4's link.
-  *Note:* depends on real email (#11) to actually deliver the token in production.
+- [x] **10. Password reset page** — ✅ DONE (dev-complete). Built `/forgot-password` (email → generic
+  no-enumeration success) + `/reset-password?token=` (new password → success/expired), wired the
+  login link, and changed the email to send a reset LINK (`APP_URL/reset-password?token=`).
+  Verified end-to-end (reset works, old pw fails, reused/bad token 400, unknown email still 204).
+  ⚠️ **Prod delivery blocked on #11 (real email)** — works now via the dev console log; the instant
+  a provider is wired, it delivers for real with no further code changes.
 
 ---
 
@@ -95,8 +91,8 @@ Finished server features that nobody can reach from the app.
 - [ ] **15. Rotate Supabase keys** — keys were pasted into chat; treat as compromised. Rotate in
   Supabase → Project Settings → Storage → S3 access keys. (Only live in `backend/.env`, gitignored.)
 
-- [ ] **16. Rename seed org** — currently "Mega Gay Company" in the seed; rename to something
-  neutral before any client demo. (`backend/src/db/seed.ts`)
+- [x] **16. Rename seed org** — ✅ N/A. The live org is already "Test company DV"; seed default is
+  "Opero Demo". No longer an issue.
 
 ---
 

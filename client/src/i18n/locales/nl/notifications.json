@@ -1,0 +1,9 @@
+{
+  "title": "Meldingen",
+  "empty": "Je bent helemaal bij",
+  "extraWorkAwaitingOffice": "Meerwerk wacht op jouw goedkeuring: {{description}} ({{customer}})",
+  "extraWorkAwaitingClient": "Meerwerk wacht op jouw goedkeuring: {{description}} ({{customer}})",
+  "projectUrgent": "Spoed: {{number}} · {{customer}}",
+  "projectBlocked": "Geblokkeerd: {{number}} · {{customer}}",
+  "newWorkOrderAssigned": "Nieuwe werkbon toegewezen: {{title}} ({{customer}})"
+}

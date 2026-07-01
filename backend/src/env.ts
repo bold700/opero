@@ -10,6 +10,10 @@ const envSchema = z.object({
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
   PORT: z.coerce.number().int().positive().default(8787),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  // Public origin of the WEB app (the client). Used to build user-facing links,
+  // e.g. the password-reset URL emailed to users. Set to the deployed web origin
+  // in production.
+  APP_URL: z.string().default("http://localhost:3000"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -21,6 +25,10 @@ const envSchema = z.object({
   // Public origin of THIS API, used to build absolute URLs for locally-stored
   // uploads (GET /uploads/:key). Defaults to localhost:PORT for dev.
   PUBLIC_API_URL: z.string().optional().default(""),
+  // Transactional email via Resend. When both are set, real emails are sent (in
+  // any env). When unset: dev/test log to console; production fails loud.
+  RESEND_API_KEY: z.string().optional().default(""),
+  EMAIL_FROM: z.string().optional().default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

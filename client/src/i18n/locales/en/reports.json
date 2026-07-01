@@ -4,6 +4,13 @@
   "actions": {
     "export": "Export"
   },
+  "export": {
+    "section": "Section",
+    "metric": "Item",
+    "value": "Value",
+    "weekly": "Work orders per week",
+    "topEmployees": "Top technicians"
+  },
   "kpis": {
     "workOrders": "Work orders",
     "hours": "Hours",

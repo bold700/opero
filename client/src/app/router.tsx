@@ -2,6 +2,8 @@ import { createBrowserRouter } from "react-router-dom";
 import { RequireAuth, RequireRouteAccess } from "../auth/guards";
 import { AppShell } from "./AppShell";
 import { Login } from "../features/auth/Login";
+import { ForgotPassword } from "../features/auth/ForgotPassword";
+import { ResetPassword } from "../features/auth/ResetPassword";
 import { Dashboard } from "../features/dashboard/Dashboard";
 import { WorkOrders } from "../features/work-orders/WorkOrders";
 import { WorkOrderDetail } from "../features/work-order-detail/WorkOrderDetail";
@@ -19,6 +21,14 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />,
+  },
+  {
+    path: "/reset-password",
+    element: <ResetPassword />,
   },
   {
     element: <RequireAuth />,

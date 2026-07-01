@@ -35,7 +35,7 @@ export function Reports() {
   }
 
   return (
-    <PageLayout title={t("reports.title")} actions={<ReportsActions />}>
+    <PageLayout title={t("reports.title")} actions={<ReportsActions data={data} />}>
       <ReportsKpis kpis={data.kpis} />
 
       {/* Chart + recent reports */}

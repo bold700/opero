@@ -168,6 +168,9 @@ model User {
   // Per-user preferences (language + notification toggles) as a small JSON blob.
   // Server-persisted so they follow the user across devices.
   preferences  Json?
+  // When the user last opened the notifications bell — anything newer counts as
+  // "unread" for the badge. Null = never opened (everything counts as new).
+  notificationsSeenAt DateTime?
   role         UserRole
   totpSecret   String?
   totpEnabled  Boolean   @default(false)

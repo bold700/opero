@@ -23,3 +23,6 @@ export * from "./permissions";
 
 // Pre-job photo check + dispatch gate (checklist keys + completeness logic).
 export * from "./prejob";
+
+// Notifications bell — derived action-feed types + category→pref gating.
+export * from "./notifications";

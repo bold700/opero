@@ -17,6 +17,10 @@
     "preferences": {
       "title": "Voorkeuren",
       "subtitle": "Taal en weergave"
+    },
+    "security": {
+      "title": "Beveiliging",
+      "subtitle": "Wachtwoord en tweestapsverificatie"
     }
   },
   "profile": {
@@ -87,5 +91,37 @@
     },
     "saved": "Voorkeuren opgeslagen",
     "saveError": "Opslaan mislukt"
+  },
+  "security": {
+    "twoFactor": "Tweestapsverificatie",
+    "twoFactorTitle": "Authenticator-app (2FA)",
+    "on": "Aan",
+    "onDescription": "Je voert bij elke login een code uit je authenticator-app in.",
+    "offDescription": "Voeg een extra beveiligingslaag toe met een code uit een authenticator-app.",
+    "enable": "Inschakelen",
+    "disable": "Uitschakelen",
+    "setupTitle": "Tweestapsverificatie instellen",
+    "setupStep1": "Scan deze QR-code met je authenticator-app (Google Authenticator, 1Password, Authy…).",
+    "manualEntry": "Of voer deze sleutel handmatig in:",
+    "setupStep2": "Voer daarna de 6-cijferige code uit de app in ter bevestiging.",
+    "codeLabel": "Verificatiecode",
+    "invalidCode": "Die code klopt niet. Probeer het opnieuw.",
+    "enabledToast": "Tweestapsverificatie ingeschakeld",
+    "disableTitle": "Tweestapsverificatie uitschakelen",
+    "disableDescription": "Voer je wachtwoord in om tweestapsverificatie uit te schakelen.",
+    "passwordLabel": "Wachtwoord",
+    "wrongPassword": "Onjuist wachtwoord.",
+    "disabledToast": "Tweestapsverificatie uitgeschakeld",
+    "error": "Er ging iets mis. Probeer het opnieuw.",
+    "password": "Wachtwoord",
+    "currentPassword": "Huidig wachtwoord",
+    "newPassword": "Nieuw wachtwoord",
+    "confirmPassword": "Bevestig nieuw wachtwoord",
+    "changePassword": "Wachtwoord wijzigen",
+    "passwordChanged": "Wachtwoord gewijzigd",
+    "wrongCurrent": "Huidig wachtwoord is onjuist.",
+    "passwordsDontMatch": "Wachtwoorden komen niet overeen.",
+    "passwordTooShort": "Gebruik minstens {{min}} tekens.",
+    "sameAsCurrent": "Nieuw wachtwoord moet anders zijn."
   }
 }
