@@ -21,8 +21,9 @@
   },
   "profile": {
     "photo": "Profile photo",
-    "photoHint": "JPG or PNG, max 2 MB",
-    "photoComingSoon": "Coming soon",
+    "photoHint": "JPG, PNG or WebP",
+    "photoSaved": "Photo updated",
+    "photoRemoved": "Photo removed",
     "changePhoto": "Change photo",
     "remove": "Remove",
     "personalData": "Personal details",

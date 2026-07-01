@@ -14,6 +14,18 @@ export async function updateProfile(input: ProfileInput): Promise<AuthUser> {
   return res.user;
 }
 
+// POST /auth/avatar (multipart) → returns the updated user with avatarUrl.
+export async function uploadAvatar(file: Blob): Promise<AuthUser> {
+  const res = await api.upload<{ user: AuthUser }>("/auth/avatar", file);
+  return res.user;
+}
+
+// DELETE /auth/avatar → returns the updated user (avatar cleared).
+export async function deleteAvatar(): Promise<AuthUser> {
+  const res = await api.delete<{ user: AuthUser }>("/auth/avatar");
+  return res.user;
+}
+
 // --- Preferences (language + notification toggles, per-user, server-side) ---
 
 export type PreferencesInput = {

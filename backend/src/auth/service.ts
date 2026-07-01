@@ -5,6 +5,7 @@ import {
   DEFAULT_NOTIFICATION_PREFS,
   type UserPreferences,
 } from "@opero/shared";
+import { photoUrl } from "../lib/photoUrls.js";
 import type { AuthUser } from "./types.js";
 
 const BCRYPT_COST = 12;
@@ -28,7 +29,9 @@ export function verifyPassword(plain: string, hash: string): Promise<boolean> {
 }
 
 // Public user shape returned to clients — never leak passwordHash/totpSecret.
-export function toAuthUser(user: User): AuthUser {
+// Async because the avatar object key is resolved to a (presigned) URL via the
+// storage layer.
+export async function toAuthUser(user: User): Promise<AuthUser> {
   return {
     id: user.id,
     orgId: user.orgId,
@@ -39,6 +42,8 @@ export function toAuthUser(user: User): AuthUser {
     customerId: user.customerId,
     employeeId: user.employeeId,
     totpEnabled: user.totpEnabled,
+    avatar: user.avatar ?? undefined,
+    avatarUrl: await photoUrl(user.avatar),
     preferences: mergePreferences(user.preferences),
   };
 }

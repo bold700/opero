@@ -27,7 +27,7 @@ export function DashboardActions() {
           <NotificationsNoneIcon />
         </Badge>
       </IconButton>
-      <Avatar sx={{ width: 36, height: 36, bgcolor: LAVENDER, color: "primary.main", fontSize: 13, fontWeight: 700 }}>
+      <Avatar src={user?.avatarUrl} sx={{ width: 36, height: 36, bgcolor: LAVENDER, color: "primary.main", fontSize: 13, fontWeight: 700 }}>
         {initials}
       </Avatar>
     </>

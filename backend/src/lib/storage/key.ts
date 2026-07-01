@@ -19,7 +19,8 @@ export type StorageScope =
   | "wo-prejob"
   | "survey"
   | "extra-work"
-  | "handover";
+  | "handover"
+  | "user-avatar";
 
 // Only allow a small, safe set of extensions through into keys.
 const SAFE_EXT = new Set(["jpg", "jpeg", "png", "webp", "pdf"]);

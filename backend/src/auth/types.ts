@@ -13,6 +13,8 @@ export type AuthUser = {
   customerId: string | null;
   employeeId: string | null;
   totpEnabled: boolean;
+  avatar?: string;
+  avatarUrl?: string;
   preferences: UserPreferences;
 };
 

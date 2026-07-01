@@ -162,6 +162,9 @@ model User {
   passwordHash String
   name         String
   phone        String?
+  // Profile photo — the object key of the uploaded avatar image (or null).
+  // Resolved to a URL in the auth DTO via the storage layer.
+  avatar       String?
   // Per-user preferences (language + notification toggles) as a small JSON blob.
   // Server-persisted so they follow the user across devices.
   preferences  Json?

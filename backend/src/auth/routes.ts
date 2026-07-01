@@ -18,6 +18,8 @@ import { BadRequest, Unauthorized } from "../lib/httpError.js";
 import { authRateLimit } from "../lib/rateLimit.js";
 import { sendEmail } from "../lib/email.js";
 import { hashPassword, toAuthUser, verifyPassword, mergePreferences } from "./service.js";
+import { storeUpload, deleteStored } from "../lib/attachUpload.js";
+import { uploadSingle } from "../lib/upload.js";
 import {
   consumePasswordReset,
   consumeRefreshToken,
@@ -64,7 +66,7 @@ authRouter.post(
       return;
     }
     const tokens = await issueSession(user.id, user.role, user.orgId);
-    res.json({ ...tokens, user: toAuthUser(user) });
+    res.json({ ...tokens, user: await toAuthUser(user) });
   }),
 );
 
@@ -88,7 +90,7 @@ authRouter.post(
       throw Unauthorized("Invalid 2FA code");
     }
     const tokens = await issueSession(user.id, user.role, user.orgId);
-    res.json({ ...tokens, user: toAuthUser(user) });
+    res.json({ ...tokens, user: await toAuthUser(user) });
   }),
 );
 
@@ -124,7 +126,7 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
     if (!user) throw Unauthorized();
-    res.json({ user: toAuthUser(user) });
+    res.json({ user: await toAuthUser(user) });
   }),
 );
 
@@ -160,7 +162,7 @@ authRouter.patch(
       await audit(tx, req.user!, "user.profile.update", "user", u.id, input);
       return u;
     });
-    res.json({ user: toAuthUser(updated) });
+    res.json({ user: await toAuthUser(updated) });
   }),
 );
 
@@ -187,7 +189,50 @@ authRouter.patch(
       await audit(tx, req.user!, "user.preferences.update", "user", u.id, input);
       return u;
     });
-    res.json({ user: toAuthUser(updated) });
+    res.json({ user: await toAuthUser(updated) });
+  }),
+);
+
+// --- POST /avatar — upload the logged-in user's profile photo (multipart) ---
+authRouter.post(
+  "/avatar",
+  requireAuth,
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const key = await storeUpload(user, req.file, "user-avatar", user.id);
+    // Remove the previous avatar object (best-effort) so we don't leak storage.
+    const previous = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { avatar: true },
+    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({ where: { id: user.id }, data: { avatar: key } });
+      await audit(tx, user, "user.avatar.update", "user", u.id);
+      return u;
+    });
+    if (previous?.avatar && previous.avatar !== key) await deleteStored(previous.avatar);
+    res.json({ user: await toAuthUser(updated) });
+  }),
+);
+
+// --- DELETE /avatar — remove the logged-in user's profile photo -----------
+authRouter.delete(
+  "/avatar",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const existing = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { avatar: true },
+    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({ where: { id: user.id }, data: { avatar: null } });
+      await audit(tx, user, "user.avatar.remove", "user", u.id);
+      return u;
+    });
+    if (existing?.avatar) await deleteStored(existing.avatar);
+    res.json({ user: await toAuthUser(updated) });
   }),
 );
 

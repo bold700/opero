@@ -193,7 +193,14 @@ function NavRail({ items }: { items: NavItem[] }) {
         </Box>
       ) : null}
 
-      {user ? <ProfileMenu name={user.name} onLogout={logout} onSettings={() => navigate("/settings")} /> : null}
+      {user ? (
+        <ProfileMenu
+          name={user.name}
+          avatarUrl={user.avatarUrl}
+          onLogout={logout}
+          onSettings={() => navigate("/settings")}
+        />
+      ) : null}
     </Paper>
   );
 }
@@ -202,10 +209,12 @@ function NavRail({ items }: { items: NavItem[] }) {
 // logout). Keeps the rail clean — no standalone logout button.
 function ProfileMenu({
   name,
+  avatarUrl,
   onLogout,
   onSettings,
 }: {
   name: string;
+  avatarUrl?: string;
   onLogout: () => void;
   onSettings: () => void;
 }) {
@@ -214,7 +223,7 @@ function ProfileMenu({
   return (
     <>
       <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ p: 0 }} aria-label={name}>
-        <Avatar sx={{ width: 40, height: 40, bgcolor: "primary.main", fontSize: 14, fontWeight: 600 }}>
+        <Avatar src={avatarUrl} sx={{ width: 40, height: 40, bgcolor: "primary.main", fontSize: 14, fontWeight: 600 }}>
           {initials(name)}
         </Avatar>
       </IconButton>

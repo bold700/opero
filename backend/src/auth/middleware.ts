@@ -25,7 +25,7 @@ export async function requireAuth(
     }
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) throw Unauthorized("User no longer exists");
-    req.user = toAuthUser(user);
+    req.user = await toAuthUser(user);
     next();
   } catch (err) {
     next(err);
