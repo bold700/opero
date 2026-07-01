@@ -11,11 +11,9 @@ Status legend: ⬜ todo · 🔄 doing · ✅ done
 
 Buttons/links that render but have no handler or no backend behind them.
 
-- [ ] **1. Dashboard search** 🔍 — `client/src/features/dashboard/components/DashboardActions.tsx`
-  No `onClick`; no search endpoint exists.
-  *Fix options:* (a) scoped client-side "jump to" over loaded entities (no backend), or
-  (b) real `GET /search?q=` across customers/work-orders/projects (org-scoped, role-filtered).
-  Or remove the icon if search isn't wanted yet.
+- [x] **1. Dashboard search** 🔍 — ✅ DONE. Inline search field in the top bar
+  (`SearchField.tsx`) + real role-scoped `GET /api/search?q=` across customers/projects/work
+  orders. Verified end-to-end (admin/technician/client scoping, cross-org isolation).
 
 - [ ] **2. Dashboard bell / notifications** 🔔 — `DashboardActions.tsx`
   No `onClick`; `Badge badgeContent={0}` hardcoded; no notifications backend (only the

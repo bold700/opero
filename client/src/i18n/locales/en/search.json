@@ -1,0 +1,9 @@
+{
+  "placeholder": "Search customers, work orders…",
+  "empty": "No matches",
+  "groups": {
+    "customers": "Customers",
+    "projects": "Projects",
+    "workOrders": "Work orders"
+  }
+}

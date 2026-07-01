@@ -1,0 +1,9 @@
+{
+  "placeholder": "Zoek klanten, werkbonnen…",
+  "empty": "Geen resultaten",
+  "groups": {
+    "customers": "Klanten",
+    "projects": "Projecten",
+    "workOrders": "Werkbonnen"
+  }
+}

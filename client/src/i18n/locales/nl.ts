@@ -17,6 +17,7 @@ import activity from "./nl/activity.json";
 import domain from "./nl/domain.json";
 import photos from "./nl/photos.json";
 import quickCreate from "./nl/quickCreate.json";
+import search from "./nl/search.json";
 
 export const nl = {
   common,
@@ -35,4 +36,5 @@ export const nl = {
   domain,
   photos,
   quickCreate,
+  search,
 };
