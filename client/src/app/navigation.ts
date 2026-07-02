@@ -37,7 +37,9 @@ export const NAV_ITEMS: NavItem[] = [
   { path: "/materials", labelKey: "nav.materials", icon: MaterialsIcon, roles: ["admin", "technician"] },
   { path: "/reports", labelKey: "nav.reports", icon: ReportsIcon, roles: ["admin"] },
   // Own timesheet — the technician's "Reports = own hours" access (spec matrix).
-  { path: "/timesheet", labelKey: "nav.timesheet", icon: TimesheetIcon, roles: ["admin", "technician"] },
+  // Technician-only: admins see company-wide hours in Reports, not a personal
+  // timesheet (and an admin login usually has no linked employee record anyway).
+  { path: "/timesheet", labelKey: "nav.timesheet", icon: TimesheetIcon, roles: ["technician"] },
   { path: "/users", labelKey: "nav.users", icon: UsersIcon, roles: ["admin"] },
   { path: "/settings", labelKey: "nav.settings", icon: SettingsIcon, roles: ALL },
 ];
