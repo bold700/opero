@@ -23,6 +23,8 @@ import { FILTERS, type CustomerFilter } from "./constants";
 import { CustomersActions } from "./components/CustomersActions";
 import { CustomersTable } from "./components/CustomersTable";
 import { CustomerDialog } from "./components/CustomerDialog";
+import { InviteDialog, type InviteFixedTarget } from "../users/components/InviteDialog";
+import { inviteUser, type InviteInput } from "../users/api";
 
 export function Customers() {
   const { t } = useTranslation();
@@ -42,6 +44,11 @@ export function Customers() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Invite flow — provision a portal login for this customer (person known).
+  const [inviteTarget, setInviteTarget] = useState<InviteFixedTarget | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const customers = data ?? [];
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
@@ -93,6 +100,26 @@ export function Customers() {
       setFormError(e instanceof Error ? e.message : t("customers.toast.saveError"));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const openInvite = (c: Customer) => {
+    setInviteError(null);
+    setInviteTarget({ kind: "customer", id: c.id, name: c.name });
+  };
+
+  const handleInvite = async (input: InviteInput) => {
+    setInviting(true);
+    setInviteError(null);
+    try {
+      const created = await inviteUser(input);
+      setInviteTarget(null);
+      setToast(t("users.toast.invited", { email: created.email }));
+      refresh();
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : t("users.toast.inviteError"));
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -164,6 +191,7 @@ export function Customers() {
           canManage={canManage}
           onEdit={openEdit}
           onDelete={setDeleting}
+          onInvite={openInvite}
         />
       )}
 
@@ -174,6 +202,15 @@ export function Customers() {
         error={formError}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
+      />
+
+      <InviteDialog
+        open={inviteTarget !== null}
+        fixed={inviteTarget}
+        busy={inviting}
+        error={inviteError}
+        onClose={() => setInviteTarget(null)}
+        onSubmit={handleInvite}
       />
 
       <ConfirmDialog

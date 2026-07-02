@@ -100,6 +100,17 @@ export async function issuePasswordReset(userId: string): Promise<string> {
   return raw;
 }
 
+// An invite is the same "set a password via a token" mechanism as a reset, just
+// longer-lived (invites sit in an inbox). Consumed by the same set-password flow.
+export async function issueInvite(userId: string): Promise<string> {
+  const raw = randomToken();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  await prisma.passwordReset.create({
+    data: { userId, tokenHash: hashToken(raw), expiresAt },
+  });
+  return raw;
+}
+
 export async function consumePasswordReset(
   raw: string,
 ): Promise<{ userId: string } | null> {

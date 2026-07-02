@@ -4,12 +4,29 @@
   "actions": {
     "export": "Exporteren"
   },
+  "period": {
+    "previous": "Vorige maand",
+    "next": "Volgende maand",
+    "presets": "Periode",
+    "thisMonth": "Deze maand",
+    "lastMonth": "Vorige maand",
+    "thisQuarter": "Dit kwartaal",
+    "thisYear": "Dit jaar",
+    "allTime": "Alles"
+  },
+  "filters": {
+    "all": "Alle",
+    "workOrders": "Werkbonnen",
+    "hours": "Uren",
+    "materials": "Materialen"
+  },
   "export": {
+    "period": "Periode",
     "section": "Sectie",
     "metric": "Item",
     "value": "Waarde",
     "weekly": "Werkbonnen per week",
-    "topEmployees": "Beste monteurs"
+    "topEmployees": "Top monteurs"
   },
   "kpis": {
     "workOrders": "Werkbonnen",
@@ -18,18 +35,19 @@
     "materialCosts": "Materiaalkosten"
   },
   "weeklyChart": {
-    "title": "Werkbonnen per week"
+    "title": "Werkbonnen per week",
+    "tooltip": "{{week}}: {{count}} werkbonnen"
   },
-  "recentReports": {
-    "title": "Recente rapporten",
-    "empty": "Nog geen rapporten.",
-    "reportLabel": "Rapport {{id}}",
-    "date": "Datum: {{date}}"
+  "recentWorkOrders": {
+    "title": "Recente werkbonnen",
+    "empty": "Geen werkbonnen in deze periode.",
+    "signed": "Ondertekend"
   },
   "topTechnicians": {
     "title": "Top monteurs",
     "name": "Naam",
     "workOrders": "Werkbonnen",
+    "hours": "Uren",
     "empty": "Geen gegevens."
   }
 }

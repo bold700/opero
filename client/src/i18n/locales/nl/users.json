@@ -1,0 +1,53 @@
+{
+  "title": "Toegang",
+  "empty": "Nog geen accounts.",
+  "roles": {
+    "admin": "Beheerder",
+    "technician": "Monteur",
+    "client": "Klant"
+  },
+  "status": {
+    "invited": "Uitgenodigd",
+    "active": "Actief",
+    "disabled": "Uitgeschakeld",
+    "none": "Geen login"
+  },
+  "filters": {
+    "all": "Alle",
+    "active": "Actief",
+    "invited": "Uitgenodigd",
+    "disabled": "Uitgeschakeld"
+  },
+  "table": {
+    "name": "Naam",
+    "role": "Rol",
+    "status": "Status",
+    "action": "Actie"
+  },
+  "actions": {
+    "resend": "Uitnodiging opnieuw",
+    "disable": "Uitschakelen",
+    "enable": "Inschakelen"
+  },
+  "invite": {
+    "new": "Gebruiker uitnodigen",
+    "title": "Gebruiker uitnodigen",
+    "subtitle": "Ze ontvangen een e-mail met een link om hun wachtwoord in te stellen en hun account te activeren.",
+    "linkedTo": "Login voor {{name}}",
+    "role": "Rol",
+    "send": "Uitnodiging versturen",
+    "pickPerson": "Wie heeft een login nodig?",
+    "employees": "Werknemers",
+    "customers": "Klanten",
+    "noInvitable": "Iedereen met een e-mailadres heeft al een login.",
+    "clientRoleNote": "{{name}} krijgt een klant-login voor het klantportaal."
+  },
+  "toast": {
+    "invited": "Uitnodiging verstuurd naar {{email}}.",
+    "inviteError": "Kon de uitnodiging niet versturen.",
+    "resent": "Uitnodiging opnieuw verstuurd naar {{name}}.",
+    "disabled": "Toegang van {{name}} is uitgeschakeld.",
+    "enabled": "Toegang van {{name}} is hersteld.",
+    "actionError": "Er ging iets mis. Probeer het opnieuw."
+  }
+}

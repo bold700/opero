@@ -270,10 +270,13 @@ workOrdersRouter.get(
 // WORK ORDER CRUD
 // =========================================================================
 
-// POST /work-orders {projectId, title?} — create. admin OR technician-assigned
-// (ensureWorkOrder is operational, not financial). client: 403.
+// POST /work-orders {projectId, title?} — create. Admin only: setting up a
+// werkbon (customer + project context) is an office task. Technicians are
+// ASSIGNED werkbons and fill them in (tasks/photos/signature) via the write
+// endpoints below — they don't create. See docs/roles-and-permissions.md.
 workOrdersRouter.post(
   "/",
+  requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createWorkOrderSchema.parse(req.body);
@@ -289,13 +292,9 @@ workOrdersRouter.post(
         installers: { select: { id: true } },
       },
     });
-    if (!project || !canViewProject(user, project)) {
+    if (!project) {
       throw NotFound("Project not found");
     }
-    const canWrite =
-      user.role === "admin" ||
-      (user.role === "technician" && canViewProject(user, project));
-    if (!canWrite) throw Forbidden("Not allowed to create work orders here");
 
     const created = await prisma.$transaction(async (tx) => {
       const count = await tx.workOrder.count({

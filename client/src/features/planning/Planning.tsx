@@ -190,8 +190,17 @@ export function Planning() {
               locale={fcLocale}
               editable={canManage}
               onDatesSet={(from, to) => setDateWindow({ from, to })}
-              onEventClick={(entry) => setSelectedId(`${entry.projectId}-${entry.date}`)}
-              onDateClick={(date) => canManage && openCreate(date)}
+              onEventClick={(entry) => {
+                const id = `${entry.projectId}-${entry.date}`;
+                // Clicking the already-selected event deselects it.
+                setSelectedId((cur) => (cur === id ? null : id));
+              }}
+              onDateClick={(date) => {
+                // Clicking empty calendar space clears any selection; admins
+                // then get the schedule dialog for that day.
+                setSelectedId(null);
+                if (canManage) openCreate(date);
+              }}
               onEventDrop={handleDrop}
             />
           </Box>
@@ -201,6 +210,7 @@ export function Planning() {
               entry={selected}
               canManage={canManage}
               busy={busy}
+              onClose={() => setSelectedId(null)}
               onOpenWorkOrder={() => navigate(`/work-orders?project=${selected.projectId}`)}
               onEdit={() => openEdit(selected)}
               onRemove={() => setRemoving(selected)}

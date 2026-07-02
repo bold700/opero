@@ -96,6 +96,26 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordRequest = z.infer<typeof changePasswordSchema>;
 
+// POST /users/invite — an admin provisions a login for an EXISTING person and
+// sends them an activation (invite) email. A login is always tied to a person
+// record: admin/technician logins are Employees, client logins are Customers.
+// There is no free-typed email — the email + name come from the linked record.
+// The account is created `invited` and can't log in until they set a password.
+export const inviteUserSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("employee"),
+    employeeId: z.string().min(1),
+    // Office staff (admin) or field staff (technician) — both are Employees.
+    role: z.enum(["admin", "technician"]),
+  }),
+  z.object({
+    kind: z.literal("customer"),
+    customerId: z.string().min(1),
+    // A customer login is always the client role.
+  }),
+]);
+export type InviteUserRequest = z.infer<typeof inviteUserSchema>;
+
 export const enable2faSchema = z.object({ code: z.string().min(6).max(10) });
 export type Enable2faRequest = z.infer<typeof enable2faSchema>;
 

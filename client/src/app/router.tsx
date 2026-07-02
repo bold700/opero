@@ -12,6 +12,8 @@ import { Planning } from "../features/planning/Planning";
 import { Employees } from "../features/employees/Employees";
 import { Materials } from "../features/materials/Materials";
 import { Reports } from "../features/reports/Reports";
+import { Timesheet } from "../features/timesheet/Timesheet";
+import { Users } from "../features/users/Users";
 import { Settings } from "../features/settings/Settings";
 import { Placeholder } from "../pages/Placeholder";
 
@@ -47,6 +49,8 @@ export const router = createBrowserRouter([
               { path: "/employees", element: <Employees /> },
               { path: "/materials", element: <Materials /> },
               { path: "/reports", element: <Reports /> },
+              { path: "/timesheet", element: <Timesheet /> },
+              { path: "/users", element: <Users /> },
               { path: "/settings", element: <Settings /> },
             ],
           },

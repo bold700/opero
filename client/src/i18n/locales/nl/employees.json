@@ -21,7 +21,10 @@
     "function": "Functie",
     "workOrders": "Werkbonnen",
     "status": "Status",
-    "action": "Actie"
+    "action": "Actie",
+    "login": "Login",
+    "invite": "Uitnodigen",
+    "loginNeedsEmail": "Voeg eerst een e-mailadres toe om deze persoon uit te nodigen."
   },
   "status": {
     "active": "Actief",

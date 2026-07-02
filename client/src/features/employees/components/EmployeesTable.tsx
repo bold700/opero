@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
+import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
@@ -12,6 +13,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
+import { AccountStatusChip } from "../../users/components/AccountStatusChip";
 import type { EmployeeRow } from "../api";
 import { STATUS, ROLE_LABEL_KEY, initials } from "../constants";
 
@@ -22,11 +24,13 @@ export function EmployeesTable({
   canManage,
   onEdit,
   onDelete,
+  onInvite,
 }: {
   rows: EmployeeRow[];
   canManage: boolean;
   onEdit: (e: EmployeeRow) => void;
   onDelete: (e: EmployeeRow) => void;
+  onInvite: (e: EmployeeRow) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -44,13 +48,14 @@ export function EmployeesTable({
             <TableCell>{t("employees.table.function")}</TableCell>
             <TableCell>{t("employees.table.workOrders")}</TableCell>
             <TableCell>{t("employees.table.status")}</TableCell>
+            <TableCell>{t("employees.table.login")}</TableCell>
             <TableCell align="right">{t("employees.table.action")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+              <TableCell colSpan={6} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
                 {t("employees.empty")}
               </TableCell>
             </TableRow>
@@ -71,6 +76,22 @@ export function EmployeesTable({
                 <TableCell sx={{ color: "text.secondary" }}>{r.workOrderCount}</TableCell>
                 <TableCell>
                   <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
+                </TableCell>
+                <TableCell>
+                  {r.account ? (
+                    <AccountStatusChip account={r.account} />
+                  ) : canManage ? (
+                    <Button
+                      size="small"
+                      onClick={() => onInvite(r)}
+                      disabled={!r.email}
+                      title={!r.email ? t("employees.table.loginNeedsEmail") : undefined}
+                    >
+                      {t("employees.table.invite")}
+                    </Button>
+                  ) : (
+                    <AccountStatusChip account={null} />
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   {canManage ? (

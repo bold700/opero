@@ -30,6 +30,15 @@ enum UserRole {
   client
 }
 
+// User account lifecycle. `invited` = provisioned by an admin but not yet
+// activated (no usable password) — cannot log in until they set one via the
+// invite link. `active` = normal. `disabled` = access revoked, kept for history.
+enum UserStatus {
+  invited
+  active
+  disabled
+}
+
 // Business vs private customer (display labels "Zakelijk"/"Particulier" via i18n).
 enum CustomerType {
   business
@@ -172,6 +181,10 @@ model User {
   // "unread" for the badge. Null = never opened (everything counts as new).
   notificationsSeenAt DateTime?
   role         UserRole
+  // Account lifecycle. `invited` users can't log in until they activate.
+  status       UserStatus @default(active)
+  invitedById  String?
+  activatedAt  DateTime?
   totpSecret   String?
   totpEnabled  Boolean   @default(false)
   // pending TOTP secret during enrollment (before confirmation)

@@ -1,51 +1,63 @@
+import { useCallback, useState } from "react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import { PageLayout } from "../../components/PageLayout";
 import { useApi } from "../../lib/api/useApi";
-import { getReports, type ReportsData } from "./api";
+import { getReports, type ReportsData, type ReportFilter } from "./api";
+import { monthPeriod, type Period } from "./constants";
 import { ReportsActions } from "./components/ReportsActions";
 import { ReportsKpis } from "./components/ReportsKpis";
 import { WeeklyChart } from "./components/WeeklyChart";
-import { RecentReports } from "./components/RecentReports";
 import { TopEmployees } from "./components/TopEmployees";
+import { RecentWorkOrders } from "./components/RecentWorkOrders";
+import { PeriodPicker } from "./components/PeriodPicker";
+import { FilterChips } from "./components/FilterChips";
 
-// Reports (Rapporten) — M3 analytics page: KPI cards, weekly bar chart, recent
-// reports list, top employees. Wired to GET /api/reports.
+// Reports — company analytics for the office (admin). A period + focus filter
+// drive live KPIs, a work-orders chart, top technicians, and recent work orders.
+// Wired to GET /api/reports?from&to.
 export function Reports() {
   const { t } = useTranslation();
-  const { data, loading, error } = useApi<ReportsData>(getReports);
+  const [period, setPeriod] = useState<Period>(() => monthPeriod());
+  const [filter, setFilter] = useState<ReportFilter>("all");
 
-  if (loading) {
-    return (
-      <PageLayout title={t("reports.title")} actions={<ReportsActions />}>
+  const fetcher = useCallback(() => getReports(period.from, period.to), [period]);
+  const { data, loading, error } = useApi<ReportsData>(fetcher, [period.from, period.to]);
+
+  const controls = (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+      <PeriodPicker period={period} onChange={setPeriod} />
+      <ReportsActions data={data} period={period} />
+    </Box>
+  );
+
+  return (
+    <PageLayout title={t("reports.title")} actions={controls}>
+      <FilterChips value={filter} onChange={setFilter} />
+
+      {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>
-      </PageLayout>
-    );
-  }
-  if (error || !data) {
-    return (
-      <PageLayout title={t("reports.title")} actions={<ReportsActions />}>
+      ) : error || !data ? (
         <Alert severity="error">{error ?? t("reports.loadError")}</Alert>
-      </PageLayout>
-    );
-  }
+      ) : (
+        <>
+          <ReportsKpis kpis={data.kpis} filter={filter} />
 
-  return (
-    <PageLayout title={t("reports.title")} actions={<ReportsActions data={data} />}>
-      <ReportsKpis kpis={data.kpis} />
-
-      {/* Chart + recent reports */}
-      <Box sx={{ display: "flex", gap: 2.5, flexDirection: { xs: "column", lg: "row" }, alignItems: "stretch" }}>
-        <WeeklyChart chart={data.chart} />
-        <RecentReports reports={data.recentReports} />
-      </Box>
-
-      {/* Top employees */}
-      <TopEmployees employees={data.topEmployees} />
+          {/* Left column: chart + top technicians stacked. Right column: recent
+              work orders alongside both — so nothing spans full width. */}
+          <Box sx={{ display: "flex", gap: 2.5, flexDirection: { xs: "column", lg: "row" }, alignItems: "flex-start" }}>
+            <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2.5 }}>
+              <WeeklyChart chart={data.chart} />
+              <TopEmployees employees={data.topEmployees} />
+            </Box>
+            <RecentWorkOrders workOrders={data.recentWorkOrders} />
+          </Box>
+        </>
+      )}
     </PageLayout>
   );
 }

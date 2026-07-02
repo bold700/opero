@@ -1,0 +1,11 @@
+{
+  "title": "Mijn uren",
+  "empty": "Geen uren geregistreerd voor deze periode.",
+  "noEmployee": "Je account is niet gekoppeld aan een werknemer, dus er zijn geen uren om te tonen.",
+  "total": "Totaal",
+  "table": {
+    "day": "Dag",
+    "project": "Werkbon",
+    "hours": "Uren"
+  }
+}

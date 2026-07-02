@@ -19,6 +19,8 @@ import photos from "./en/photos.json";
 import quickCreate from "./en/quickCreate.json";
 import search from "./en/search.json";
 import notifications from "./en/notifications.json";
+import users from "./en/users.json";
+import timesheet from "./en/timesheet.json";
 
 export const en = {
   common,
@@ -39,4 +41,6 @@ export const en = {
   quickCreate,
   search,
   notifications,
+  users,
+  timesheet,
 };

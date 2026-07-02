@@ -1,6 +1,7 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
+import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
@@ -11,6 +12,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
+import { AccountStatusChip } from "../../users/components/AccountStatusChip";
 import type { Customer } from "../api";
 import { avatarColor, initials, formatDate } from "../constants";
 import { TypeBadge } from "./TypeBadge";
@@ -22,11 +24,13 @@ export function CustomersTable({
   canManage,
   onEdit,
   onDelete,
+  onInvite,
 }: {
   customers: Customer[];
   canManage: boolean;
   onEdit: (c: Customer) => void;
   onDelete: (c: Customer) => void;
+  onInvite: (c: Customer) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -45,13 +49,14 @@ export function CustomersTable({
             <TableCell>{t("customers.table.type")}</TableCell>
             <TableCell>{t("customers.table.workOrders")}</TableCell>
             <TableCell>{t("customers.table.lastContact")}</TableCell>
+            <TableCell>{t("customers.table.login")}</TableCell>
             <TableCell align="right">{t("customers.table.action")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {customers.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
+              <TableCell colSpan={7} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
                 {t("customers.table.empty")}
               </TableCell>
             </TableRow>
@@ -72,6 +77,22 @@ export function CustomersTable({
                 </TableCell>
                 <TableCell sx={{ color: "text.secondary" }}>{c.workOrderCount}</TableCell>
                 <TableCell sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</TableCell>
+                <TableCell>
+                  {c.account ? (
+                    <AccountStatusChip account={c.account} />
+                  ) : canManage ? (
+                    <Button
+                      size="small"
+                      onClick={() => onInvite(c)}
+                      disabled={!c.email}
+                      title={!c.email ? t("customers.table.loginNeedsEmail") : undefined}
+                    >
+                      {t("customers.table.invite")}
+                    </Button>
+                  ) : (
+                    <AccountStatusChip account={null} />
+                  )}
+                </TableCell>
                 <TableCell align="right">
                   {canManage ? (
                     <Box sx={{ display: "inline-flex", gap: 0.5 }}>

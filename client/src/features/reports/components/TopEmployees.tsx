@@ -10,13 +10,13 @@ import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import { LAVENDER } from "../../../theme/tokens";
 import type { ReportsData } from "../api";
-import { initials } from "../constants";
+import { initials, formatHours } from "../constants";
 
-// Top employees ranking table.
+// Top technicians ranking table — work orders + hours in the selected period.
 export function TopEmployees({ employees }: { employees: ReportsData["topEmployees"] }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
-    <Card>
+    <Card sx={{ width: "100%", minWidth: 0 }}>
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
         {t("reports.topTechnicians.title")}
       </Typography>
@@ -25,12 +25,13 @@ export function TopEmployees({ employees }: { employees: ReportsData["topEmploye
           <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
             <TableCell>{t("reports.topTechnicians.name")}</TableCell>
             <TableCell align="right">{t("reports.topTechnicians.workOrders")}</TableCell>
+            <TableCell align="right">{t("reports.topTechnicians.hours")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {employees.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={2} sx={{ color: "text.secondary", textAlign: "center", py: 3 }}>
+              <TableCell colSpan={3} sx={{ color: "text.secondary", textAlign: "center", py: 3 }}>
                 {t("reports.topTechnicians.empty")}
               </TableCell>
             </TableRow>
@@ -46,6 +47,7 @@ export function TopEmployees({ employees }: { employees: ReportsData["topEmploye
                   </Box>
                 </TableCell>
                 <TableCell align="right" sx={{ color: "text.secondary" }}>{emp.workOrderCount}</TableCell>
+                <TableCell align="right" sx={{ color: "text.secondary" }}>{formatHours(emp.hours, i18n.language)}</TableCell>
               </TableRow>
             ))
           )}

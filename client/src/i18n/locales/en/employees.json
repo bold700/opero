@@ -21,7 +21,10 @@
     "function": "Function",
     "workOrders": "Work orders",
     "status": "Status",
-    "action": "Action"
+    "action": "Action",
+    "login": "Login",
+    "invite": "Invite",
+    "loginNeedsEmail": "Add an email address first to invite this person."
   },
   "status": {
     "active": "Active",

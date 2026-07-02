@@ -4,7 +4,24 @@
   "actions": {
     "export": "Export"
   },
+  "period": {
+    "previous": "Previous month",
+    "next": "Next month",
+    "presets": "Period",
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "thisQuarter": "This quarter",
+    "thisYear": "This year",
+    "allTime": "All time"
+  },
+  "filters": {
+    "all": "All",
+    "workOrders": "Work orders",
+    "hours": "Hours",
+    "materials": "Materials"
+  },
   "export": {
+    "period": "Period",
     "section": "Section",
     "metric": "Item",
     "value": "Value",
@@ -18,18 +35,19 @@
     "materialCosts": "Material costs"
   },
   "weeklyChart": {
-    "title": "Work orders per week"
+    "title": "Work orders per week",
+    "tooltip": "{{week}}: {{count}} work orders"
   },
-  "recentReports": {
-    "title": "Recent reports",
-    "empty": "No reports yet.",
-    "reportLabel": "Report {{id}}",
-    "date": "Date: {{date}}"
+  "recentWorkOrders": {
+    "title": "Recent work orders",
+    "empty": "No work orders in this period.",
+    "signed": "Signed"
   },
   "topTechnicians": {
     "title": "Top technicians",
     "name": "Name",
     "workOrders": "Work orders",
+    "hours": "Hours",
     "empty": "No data."
   }
 }

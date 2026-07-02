@@ -19,6 +19,8 @@ import photos from "./nl/photos.json";
 import quickCreate from "./nl/quickCreate.json";
 import search from "./nl/search.json";
 import notifications from "./nl/notifications.json";
+import users from "./nl/users.json";
+import timesheet from "./nl/timesheet.json";
 
 export const nl = {
   common,
@@ -39,4 +41,6 @@ export const nl = {
   quickCreate,
   search,
   notifications,
+  users,
+  timesheet,
 };

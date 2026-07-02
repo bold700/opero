@@ -25,6 +25,7 @@ import { organizationRouter } from "./modules/organization/routes.js";
 import { invoicesRouter } from "./modules/invoices/routes.js";
 import { searchRouter } from "./modules/search/routes.js";
 import { notificationsRouter } from "./modules/notifications/routes.js";
+import { usersRouter } from "./modules/users/routes.js";
 import { uploadsRouter } from "./modules/uploads/routes.js";
 import { logStorageBackend } from "./lib/storage/index.js";
 
@@ -68,6 +69,7 @@ app.use("/api/reports", reportsRouter);
 app.use("/api/organization", organizationRouter);
 app.use("/api/search", searchRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/users", usersRouter);
 // invoices uses /projects/:projectId/invoice/* paths → mount at /api.
 app.use("/api", invoicesRouter);
 // Serve locally-stored uploads (no-op on the S3 adapter — browser hits S3

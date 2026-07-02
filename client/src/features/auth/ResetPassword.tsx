@@ -21,6 +21,10 @@ export function ResetPassword() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
+  // Invite links (?invite=1) reuse this page but read as "set up your account"
+  // rather than "reset your password".
+  const invite = params.get("invite") === "1";
+  const ns = invite ? "auth.invite" : "auth.reset";
 
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -65,7 +69,7 @@ export function ResetPassword() {
       return (
         <Stack spacing={2}>
           <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
-            {t("auth.reset.done")}
+            {t(`${ns}.done`)}
           </Alert>
           <Button component={RouterLink} to="/login" variant="contained">
             {t("auth.reset.goToLogin")}
@@ -118,7 +122,7 @@ export function ResetPassword() {
         />
         <Box sx={{ pt: 1 }}>
           <Button type="submit" variant="contained" disabled={!canSubmit}>
-            {busy ? t("auth.submitting") : t("auth.reset.submit")}
+            {busy ? t("auth.submitting") : t(`${ns}.submit`)}
           </Button>
         </Box>
       </Stack>
@@ -128,7 +132,7 @@ export function ResetPassword() {
   return (
     <Box sx={{ minHeight: "100dvh", display: "flex", flexDirection: { xs: "column", md: "row" } }}>
       <BrandPanel />
-      <AuthPanel title={t("auth.reset.title")} subtitle={t("auth.reset.subtitle")}>
+      <AuthPanel title={t(`${ns}.title`)} subtitle={t(`${ns}.subtitle`)}>
         {body()}
       </AuthPanel>
     </Box>

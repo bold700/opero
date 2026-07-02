@@ -56,6 +56,7 @@ customersRouter.get(
       where,
       orderBy: { name: "asc" },
       include: {
+        users: { select: { id: true, status: true } },
         projects: {
           where: { deletedAt: null },
           select: {
@@ -82,6 +83,7 @@ customersRouter.get(
     assertCanAccessCustomer(user, req.params.id);
     const row = await prisma.customer.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+      include: { users: { select: { id: true, status: true } } },
     });
     if (!row) throw NotFound("Customer not found");
     res.json(customerDto(row));

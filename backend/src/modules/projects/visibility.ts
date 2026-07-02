@@ -36,11 +36,18 @@ export function projectScopeWhere(
   user: AuthUser,
   extra?: Prisma.ProjectWhereInput,
 ): Prisma.ProjectWhereInput {
+  const visibility = visibleProjectsWhere(user);
+  // CAUTION: both `visibility` (technician → { OR: [...assigned...] }) and `extra`
+  // (e.g. the planning calendar-presence { OR: [plannedDate, planningItems] }) can
+  // each carry a top-level `OR`. A naive spread would let one `OR` overwrite the
+  // other and SILENTLY DROP the visibility scope — that's how a technician could
+  // see every scheduled project. Combine via AND so both constraints always hold.
   return {
-    orgId: user.orgId,
-    deletedAt: null,
-    ...visibleProjectsWhere(user),
-    ...extra,
+    AND: [
+      { orgId: user.orgId, deletedAt: null },
+      visibility,
+      ...(extra ? [extra] : []),
+    ],
   };
 }
 

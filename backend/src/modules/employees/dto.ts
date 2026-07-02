@@ -1,8 +1,17 @@
-import type { Employee, TeamRole } from "@prisma/client";
+import type { Employee, TeamRole, User } from "@prisma/client";
 
 // DTO mapper — never return raw rows with internal columns to clients.
 
-export function employeeDto(e: Employee) {
+// The login account (if any) linked to this domain record, so the UI can show
+// login status and offer invite/resend/disable. An employee has at most one.
+type LinkedUser = Pick<User, "id" | "status">;
+
+export function accountDto(users: LinkedUser[] | undefined) {
+  const u = users?.[0];
+  return u ? { userId: u.id, status: u.status } : null;
+}
+
+export function employeeDto(e: Employee & { users?: LinkedUser[] }) {
   return {
     id: e.id,
     name: e.name,
@@ -10,12 +19,14 @@ export function employeeDto(e: Employee) {
     email: e.email ?? undefined,
     roles: e.roles,
     status: e.status,
+    account: accountDto(e.users),
   };
 }
 
 // The list view (per the design) also needs a single "function" label and a
 // work-order count (how many projects the employee is assigned to).
 type EmployeeWithStats = Employee & {
+  users?: LinkedUser[];
   _count: {
     projectsAsLeader: number;
     projectsAsTeamLeader: number;
@@ -52,6 +63,8 @@ export function employeeListDto(e: EmployeeWithStats) {
 }
 
 export const employeeListInclude = {
+  // Only invited/active users link a login; disabled ones still show status.
+  users: { select: { id: true, status: true } },
   _count: {
     select: {
       projectsAsLeader: true,

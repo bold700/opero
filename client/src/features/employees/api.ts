@@ -1,4 +1,5 @@
 import { api } from "../../lib/api/client";
+import type { LinkedAccount } from "../users/api";
 
 export type EmployeeStatus = "active" | "on_leave" | "inactive";
 
@@ -30,6 +31,8 @@ export type EmployeeRow = {
   function: string | null;
   status: EmployeeStatus;
   workOrderCount: number;
+  // The linked login account, if any (null = no login provisioned yet).
+  account: LinkedAccount;
 };
 
 // Editable fields (the create/update schema).

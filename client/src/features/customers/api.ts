@@ -1,4 +1,5 @@
 import { api } from "../../lib/api/client";
+import type { LinkedAccount } from "../users/api";
 
 export type CustomerType = "business" | "private";
 
@@ -16,6 +17,8 @@ export type Customer = {
   workOrderCount: number;
   lastContact: string | null;
   notes?: string;
+  // The linked login account, if any (null = no portal login provisioned yet).
+  account: LinkedAccount;
 };
 
 // Editable fields (the create/update schema). `name` is required; the rest

@@ -1,7 +1,17 @@
-// The spec's Roles & Permissions matrix (work-order-app-spec.md §1), encoded
-// literally so both the API (guards) and the web (nav/UI gating) read one source.
+// The Roles & Permissions matrix, encoded cell-for-cell from the authoritative
+// spec at docs/roles-and-permissions.md. THAT DOC IS THE SOURCE OF TRUTH — if
+// this table disagrees with it, this table is the bug.
 //
-// Roles: admin (FULL everywhere), technician (LIMITED), client (LIMITED/NONE).
+// Roles: admin (FULL everywhere), technician/monteur (LIMITED field access),
+// client/klant (LIMITED own-data / NONE).
+//
+// NOTE: "limited" is coarse — it doesn't distinguish read vs write, nor HOW the
+// access is delivered. See the per-cell notes in the doc. Two that matter here:
+//   - customers/technician = "limited" means "customer info ON their own work
+//     order" (name/address embedded in the werkbon payload) — NOT the Customers
+//     list/section. The backend correctly keeps GET /customers admin+client only.
+//   - reports/technician = "limited" means "own timesheet" (the /timesheet view),
+//     NOT the company-wide reports.
 
 export type UserRole = "admin" | "technician" | "client";
 
@@ -13,11 +23,12 @@ export type Section =
   | "employees"
   | "materials"
   | "reports"
-  | "settings";
+  | "settings"
+  | "users";
 
 export type Access = "full" | "limited" | "none";
 
-// Mirrors the spec's Access Matrix table cell-for-cell.
+// Mirrors docs/roles-and-permissions.md cell-for-cell.
 export const PERMISSION_MATRIX: Record<Section, Record<UserRole, Access>> = {
   dashboard:   { admin: "full", technician: "limited", client: "limited" },
   work_orders: { admin: "full", technician: "limited", client: "limited" },
@@ -27,6 +38,8 @@ export const PERMISSION_MATRIX: Record<Section, Record<UserRole, Access>> = {
   materials:   { admin: "full", technician: "limited", client: "none" },
   reports:     { admin: "full", technician: "limited", client: "none" },
   settings:    { admin: "full", technician: "limited", client: "limited" },
+  // Access / user provisioning — admin-only (not in the original spec table).
+  users:       { admin: "full", technician: "none", client: "none" },
 };
 
 export function accessFor(section: Section, role: UserRole): Access {

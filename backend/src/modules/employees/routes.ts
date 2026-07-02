@@ -42,6 +42,7 @@ employeesRouter.get(
     const user = req.user!;
     const row = await prisma.employee.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+      include: { users: { select: { id: true, status: true } } },
     });
     if (!row) throw NotFound("Employee not found");
     res.json(employeeDto(row));

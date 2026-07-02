@@ -10,8 +10,9 @@ import type { SvgIconComponent } from "@mui/icons-material";
 // the feature route with `?create=1`; that page auto-opens its create dialog.
 //
 // `roles` here is about who may CREATE the thing, which is stricter than who may
-// VIEW the section (see navigation.ts). E.g. a technician can create a work order
-// but not a customer.
+// VIEW the section (see navigation.ts). All quick-create actions are admin-only:
+// setting up a werkbon (customer + project) is an office task. Technicians are
+// ASSIGNED werkbons and fill them in on the detail screen — they don't create.
 export type QuickCreateAction = {
   /** stable id, also used for the i18n label key: quickCreate.<key>. */
   key: string;
@@ -23,7 +24,7 @@ export type QuickCreateAction = {
 
 // Order matters — the headline action (new work order) comes first.
 export const QUICK_CREATE_ACTIONS: QuickCreateAction[] = [
-  { key: "workOrder", icon: WorkOrderIcon, route: "/work-orders?create=1", roles: ["admin", "technician"] },
+  { key: "workOrder", icon: WorkOrderIcon, route: "/work-orders?create=1", roles: ["admin"] },
   { key: "planning", icon: PlanningIcon, route: "/planning?create=1", roles: ["admin"] },
   { key: "customer", icon: CustomerIcon, route: "/customers?create=1", roles: ["admin"] },
   { key: "employee", icon: EmployeeIcon, route: "/employees?create=1", roles: ["admin"] },

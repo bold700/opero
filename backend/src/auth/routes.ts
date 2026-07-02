@@ -63,6 +63,14 @@ authRouter.post(
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
       throw Unauthorized("Invalid credentials");
     }
+    // Provisioned-but-not-activated users can't log in until they set a password
+    // via their invite link. Disabled users are treated as invalid (no enumeration).
+    if (user.status === "invited") {
+      throw Unauthorized("This account hasn't been activated yet. Check your email for the invite.");
+    }
+    if (user.status === "disabled") {
+      throw Unauthorized("Invalid credentials");
+    }
     if (user.totpEnabled) {
       res.json({ mfaRequired: true, mfaToken: signMfaToken(user.id) });
       return;
@@ -307,9 +315,20 @@ authRouter.post(
     const { token, newPassword } = resetSchema.parse(req.body);
     const consumed = await consumePasswordReset(token);
     if (!consumed) throw BadRequest("Invalid or expired reset token");
+    // Setting a password from a valid token also ACTIVATES an invited user — the
+    // same flow serves "accept invite" and "reset password". Disabled users stay
+    // disabled (a token shouldn't silently re-enable revoked access).
+    const target = await prisma.user.findUnique({
+      where: { id: consumed.userId },
+      select: { status: true },
+    });
+    const activate = target?.status === "invited";
     await prisma.user.update({
       where: { id: consumed.userId },
-      data: { passwordHash: await hashPassword(newPassword) },
+      data: {
+        passwordHash: await hashPassword(newPassword),
+        ...(activate ? { status: "active", activatedAt: new Date() } : {}),
+      },
     });
     // Revoke all existing sessions after a password reset.
     await prisma.authSession.updateMany({

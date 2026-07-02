@@ -6,5 +6,7 @@
   "employees": "Employees",
   "materials": "Materials",
   "reports": "Reports",
-  "settings": "Settings"
+  "users": "Access",
+  "settings": "Settings",
+  "timesheet": "My hours"
 }

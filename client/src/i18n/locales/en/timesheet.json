@@ -1,0 +1,11 @@
+{
+  "title": "My hours",
+  "empty": "No hours logged for this period.",
+  "noEmployee": "Your account isn't linked to an employee record, so there are no hours to show.",
+  "total": "Total",
+  "table": {
+    "day": "Day",
+    "project": "Work order",
+    "hours": "Hours"
+  }
+}

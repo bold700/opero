@@ -26,7 +26,10 @@
     "lastContact": "Last contact",
     "action": "Action",
     "viewAriaLabel": "view",
-    "empty": "No customers found."
+    "empty": "No customers found.",
+    "login": "Login",
+    "invite": "Invite",
+    "loginNeedsEmail": "Add an email address first to invite this customer."
   },
   "dialog": {
     "newTitle": "New customer",

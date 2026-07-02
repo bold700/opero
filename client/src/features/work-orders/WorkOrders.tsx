@@ -29,7 +29,9 @@ export function WorkOrders() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuth();
-  const canCreate = user?.role === "admin" || user?.role === "technician";
+  // Werkbon setup (customer + project) is an office task — admin only. Technicians
+  // are assigned werkbons and fill them in on the detail screen; they don't create.
+  const canCreate = user?.role === "admin";
 
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");

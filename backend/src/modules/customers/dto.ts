@@ -1,8 +1,17 @@
-import type { ContactPerson, Customer, Location } from "@prisma/client";
+import type { ContactPerson, Customer, Location, User } from "@prisma/client";
 
 // DTO mappers — never return raw rows with internal columns to clients.
 
-export function customerDto(c: Customer) {
+// The login account (if any) linked to this customer, so the UI can show login
+// status and offer invite/resend/disable.
+type LinkedUser = Pick<User, "id" | "status">;
+
+function accountDto(users: LinkedUser[] | undefined) {
+  const u = users?.[0];
+  return u ? { userId: u.id, status: u.status } : null;
+}
+
+export function customerDto(c: Customer & { users?: LinkedUser[] }) {
   return {
     id: c.id,
     name: c.name,
@@ -14,12 +23,14 @@ export function customerDto(c: Customer) {
     city: c.city,
     type: c.type,
     notes: c.notes ?? undefined,
+    account: accountDto(c.users),
   };
 }
 
 // The shape the customer LIST view needs: base fields + derived work-order count
 // and last-contact date (design requires these columns).
 type CustomerWithStats = Customer & {
+  users?: LinkedUser[];
   projects: { _count: { workOrders: number }; activity: { createdAt: Date }[] }[];
 };
 

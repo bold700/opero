@@ -6,5 +6,7 @@
   "employees": "Werknemers",
   "materials": "Materialen",
   "reports": "Rapporten",
-  "settings": "Instellingen"
+  "users": "Toegang",
+  "settings": "Instellingen",
+  "timesheet": "Mijn uren"
 }

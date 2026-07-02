@@ -26,7 +26,10 @@
     "lastContact": "Laatste contact",
     "action": "Actie",
     "viewAriaLabel": "bekijken",
-    "empty": "Geen klanten gevonden."
+    "empty": "Geen klanten gevonden.",
+    "login": "Login",
+    "invite": "Uitnodigen",
+    "loginNeedsEmail": "Voeg eerst een e-mailadres toe om deze klant uit te nodigen."
   },
   "dialog": {
     "newTitle": "Nieuwe klant",

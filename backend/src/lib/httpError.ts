@@ -20,3 +20,5 @@ export const Unauthorized = (message = "Unauthorized") =>
   new HttpError(401, "UNAUTHORIZED", message);
 export const Forbidden = (message = "Forbidden") =>
   new HttpError(403, "FORBIDDEN", message);
+export const Conflict = (message = "Conflict") =>
+  new HttpError(409, "CONFLICT", message);

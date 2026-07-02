@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutlined";
@@ -19,6 +21,7 @@ export function DetailsPanel({
   entry,
   canManage,
   busy,
+  onClose,
   onOpenWorkOrder,
   onEdit,
   onRemove,
@@ -26,6 +29,7 @@ export function DetailsPanel({
   entry: PlanningEntry;
   canManage: boolean;
   busy: boolean;
+  onClose: () => void;
   onOpenWorkOrder: () => void;
   onEdit: () => void;
   onRemove: () => void;
@@ -38,9 +42,14 @@ export function DetailsPanel({
 
   return (
     <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider" }}>
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-        {t("planning.details")}
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+          {t("planning.details")}
+        </Typography>
+        <IconButton size="small" aria-label={t("common.actions.close")} onClick={onClose} sx={{ mr: -1 }}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </Box>
       <Typography variant="h6" sx={{ fontWeight: 700 }}>
         {entry.customerName}
       </Typography>
