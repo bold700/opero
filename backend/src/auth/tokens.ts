@@ -123,3 +123,27 @@ export async function consumePasswordReset(
   });
   return { userId: row.userId };
 }
+
+// A pending email change — the login email only switches once the token from the
+// confirmation link (sent to the NEW address) is consumed. Short-lived like a reset.
+export async function issueEmailChange(
+  userId: string,
+  newEmail: string,
+): Promise<string> {
+  const raw = randomToken();
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1h
+  await prisma.emailChange.create({
+    data: { userId, newEmail, tokenHash: hashToken(raw), expiresAt },
+  });
+  return raw;
+}
+
+export async function consumeEmailChange(
+  raw: string,
+): Promise<{ userId: string; newEmail: string } | null> {
+  const tokenHash = hashToken(raw);
+  const row = await prisma.emailChange.findUnique({ where: { tokenHash } });
+  if (!row || row.used || row.expiresAt < new Date()) return null;
+  await prisma.emailChange.update({ where: { id: row.id }, data: { used: true } });
+  return { userId: row.userId, newEmail: row.newEmail };
+}

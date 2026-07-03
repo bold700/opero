@@ -11,13 +11,27 @@ export const loginSchema = z.object({
 });
 export type LoginRequest = z.infer<typeof loginSchema>;
 
-// PATCH /auth/profile — the logged-in user edits their own profile.
+// PATCH /auth/profile — the logged-in user edits their own profile. Email is NOT
+// here: it's the login identity and changes only via the verified email-change
+// flow (request → confirm link on the new address) below.
 export const updateProfileSchema = z.object({
   name: z.string().optional(),
-  email: z.string().email().optional(),
   phone: z.string().optional(),
 });
 export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>;
+
+// POST /auth/email-change/request — start a verified change of the login email.
+// Requires re-auth (current password); a confirmation link is sent to newEmail
+// and the email only switches when that link is confirmed.
+export const requestEmailChangeSchema = z.object({
+  newEmail: z.string().email(),
+  currentPassword: z.string().min(1),
+});
+export type RequestEmailChangeRequest = z.infer<typeof requestEmailChangeSchema>;
+
+// POST /auth/email-change/confirm — apply the change using the emailed token.
+export const confirmEmailChangeSchema = z.object({ token: z.string().min(1) });
+export type ConfirmEmailChangeRequest = z.infer<typeof confirmEmailChangeSchema>;
 
 // Per-user notification toggles.
 export const notificationPrefsSchema = z.object({

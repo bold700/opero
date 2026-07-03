@@ -43,7 +43,9 @@
       "client": "Client"
     },
     "saved": "Profile saved",
-    "saveError": "Save failed"
+    "saveError": "Save failed",
+    "changeEmail": "Change",
+    "emailChangeHint": "Changing your email needs confirmation via a link."
   },
   "company": {
     "companyData": "Company details",
@@ -123,5 +125,15 @@
     "passwordsDontMatch": "Passwords don't match.",
     "passwordTooShort": "Use at least {{min}} characters.",
     "sameAsCurrent": "New password must be different."
+  },
+  "emailChange": {
+    "title": "Change email address",
+    "subtitle": "Enter your new email and current password. We'll send a confirmation link to the new address — your email only changes once you click it.",
+    "newEmail": "New email address",
+    "currentPassword": "Current password",
+    "send": "Send confirmation link",
+    "sent": "We've sent a confirmation link to {{email}}. Your email address changes once you open that link.",
+    "sameEmail": "That's already your email address.",
+    "error": "Something went wrong. Try again."
   }
 }

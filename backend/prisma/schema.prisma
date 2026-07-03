@@ -200,6 +200,7 @@ model User {
   employee       Employee?        @relation(fields: [employeeId], references: [id])
   sessions          AuthSession[]
   passwordResets    PasswordReset[]
+  emailChanges      EmailChange[]
   activity          ProjectActivity[]
   auditLogs         AuditLog[]
   signedWorkOrders  WorkOrder[]      @relation("WorkOrderSignedBy")
@@ -225,6 +226,22 @@ model AuthSession {
 model PasswordReset {
   id        String   @id @default(uuid())
   userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A pending email-change: the login email only switches once the user clicks the
+// confirmation link sent to newEmail. Single-use, short-lived, token hashed.
+model EmailChange {
+  id        String   @id @default(uuid())
+  userId    String
+  newEmail  String
   tokenHash String   @unique
   expiresAt DateTime
   used      Boolean  @default(false)
@@ -608,7 +625,7 @@ model WorkOrder {
   // `prejobCheck` is a small JSON map of checklist item key → boolean (done);
   // `prejobPhotos` holds object keys. dispatchedAt set → the job has been sent out.
   prejobCheck        Json?
-  prejobPhotos       String[]
+  prejobPhotos       String[]      @default([])
   dispatchedAt       DateTime?
   dispatchedById     String?
   createdAt          DateTime      @default(now())

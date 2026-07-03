@@ -11,13 +11,16 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useAuth } from "../../../auth/AuthContext";
 import { useForm } from "../../../lib/useForm";
-import { required, email as emailRule } from "../../../lib/validation";
+import { required } from "../../../lib/validation";
 import { GroupLabel } from "./GroupLabel";
 import { fieldGrid } from "../constants";
 import { updateProfile, uploadAvatar, deleteAvatar } from "../api";
+import { EmailChangeDialog } from "./EmailChangeDialog";
 
-type Form = { name: string; email: string; phone: string };
-const RULES = { name: [required], email: [required, emailRule] };
+// Email is NOT edited here — it's the login identity and changes only via the
+// verified email-change flow (dialog → confirmation link). Name/phone save instantly.
+type Form = { name: string; phone: string };
+const RULES = { name: [required] };
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
@@ -29,18 +32,19 @@ export function ProfileForm() {
   const { t } = useTranslation();
   const { user, setUser } = useAuth();
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
-    { name: "", email: "", phone: "" },
+    { name: "", phone: "" },
     RULES,
   );
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Seed from the current user.
   useEffect(() => {
-    if (user) reset({ name: user.name, email: user.email, phone: user.phone ?? "" });
+    if (user) reset({ name: user.name, phone: user.phone ?? "" });
   }, [user, reset]);
 
   const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,9 +83,7 @@ export function ProfileForm() {
 
   const dirty =
     !!user &&
-    (values.name !== user.name ||
-      values.email !== user.email ||
-      values.phone !== (user.phone ?? ""));
+    (values.name !== user.name || values.phone !== (user.phone ?? ""));
 
   const save = async () => {
     if (!isValid) {
@@ -93,7 +95,6 @@ export function ProfileForm() {
     try {
       const updated = await updateProfile({
         name: values.name.trim(),
-        email: values.email.trim(),
         phone: values.phone.trim(),
       });
       setUser(updated); // top bar / avatar refresh immediately
@@ -165,12 +166,19 @@ export function ProfileForm() {
         <TextField
           label={t("settings.profile.email")}
           type="email"
-          value={values.email}
-          onChange={setField("email")}
-          onBlur={onBlur("email")}
+          value={user?.email ?? ""}
           fullWidth
-          required
-          {...err("email")}
+          disabled
+          helperText={t("settings.profile.emailChangeHint")}
+          slotProps={{
+            input: {
+              endAdornment: (
+                <Button size="small" onClick={() => setEmailDialogOpen(true)}>
+                  {t("settings.profile.changeEmail")}
+                </Button>
+              ),
+            },
+          }}
         />
         <TextField
           label={t("settings.profile.phone")}
@@ -202,6 +210,12 @@ export function ProfileForm() {
         autoHideDuration={4000}
         onClose={() => setToast(null)}
         message={toast ?? ""}
+      />
+
+      <EmailChangeDialog
+        open={emailDialogOpen}
+        currentEmail={user?.email ?? ""}
+        onClose={() => setEmailDialogOpen(false)}
       />
     </Box>
   );
