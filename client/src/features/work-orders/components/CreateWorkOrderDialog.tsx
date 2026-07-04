@@ -8,11 +8,11 @@ import { SelectField } from "../../../components/SelectField";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
+import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useAuth } from "../../../auth/AuthContext";
-import { HAIRLINE, RADIUS } from "../../../theme/tokens";
 import {
   getCustomers,
   getCustomerLocations,
@@ -27,6 +27,23 @@ import {
 
 const NEW_PROJECT = "__new__";
 const NEW_LOCATION = "__new_location__";
+
+// A lightweight in-column section marker: a divider + a small uppercase label.
+// Groups the new-project fields visually WITHOUT a nested card, so the form stays
+// one flat column on mobile (no box-in-box, no resize jump).
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 0.5 }}>
+      <Typography
+        variant="caption"
+        sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.4, flexShrink: 0 }}
+      >
+        {children}
+      </Typography>
+      <Divider sx={{ flex: 1 }} />
+    </Box>
+  );
+}
 
 // "Nieuwe werkbon" flow: pick a customer → pick an existing project OR create a
 // new one (name + job-site location) → create the work order. Work type +
@@ -147,9 +164,12 @@ export function CreateWorkOrderDialog({
   };
 
   return (
-    <ResponsiveDialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" title={t("workOrders.create.title")}>
+    <ResponsiveDialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" title={t("workOrders.create.title")} stableHeight>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrders.create.title")}</DialogTitle>
       <DialogContent>
+        {/* One flat column of fields. Progressive disclosure (new project → new
+            location) extends this same column with a light divider + label — no
+            nested cards, and the sheet holds a stable height so nothing jumps. */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
 
@@ -177,22 +197,10 @@ export function CreateWorkOrderDialog({
             ]}
           />
 
-          {/* New-project sub-form: a distinct grouped block */}
+          {/* New-project fields — flat in the same column (no nested card) */}
           {creatingProject ? (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-                p: 2,
-                borderRadius: `${RADIUS.control}px`,
-                border: `1px solid ${HAIRLINE}`,
-                bgcolor: "#FAFAFB",
-              }}
-            >
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.4 }}>
-                {t("workOrders.create.newProjectSection")}
-              </Typography>
+            <>
+              <SectionLabel>{t("workOrders.create.newProjectSection")}</SectionLabel>
 
               <TextField
                 label={t("workOrders.create.projectNameLabel")}
@@ -220,9 +228,9 @@ export function CreateWorkOrderDialog({
                 ]}
               />
 
-              {/* Inline new-location fields */}
+              {/* New-location fields — also flat in the same column */}
               {creatingLocation ? (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <>
                   <TextField
                     label={t("workOrders.create.locationLabelName")}
                     value={newLocation.label}
@@ -256,9 +264,12 @@ export function CreateWorkOrderDialog({
                       sx={{ flex: 1 }}
                     />
                   </Box>
-                </Box>
+                </>
               ) : null}
-            </Box>
+
+              {/* Close the new-project group before the work-order title. */}
+              <Divider sx={{ mt: 0.5 }} />
+            </>
           ) : null}
 
           {/* Optional work-order title */}

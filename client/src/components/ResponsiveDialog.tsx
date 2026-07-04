@@ -63,6 +63,7 @@ export function ResponsiveDialog({
   children,
   maxWidth = "sm",
   title,
+  stableHeight = false,
 }: {
   open: boolean;
   /** Backdrop click / Escape / swipe-down. Pass `undefined` to lock (e.g. busy) —
@@ -74,6 +75,11 @@ export function ResponsiveDialog({
    *  from the DialogTitle inside `children`; this satisfies vaul/Radix's required
    *  Dialog.Title so there's no a11y warning. */
   title: string;
+  /** For multi-step / progressive-disclosure forms: hold a FIXED sheet height on
+   *  mobile (85dvh) so revealing/hiding sub-fields scrolls WITHIN the sheet instead
+   *  of resizing it — vaul re-animates its position on every content-height change,
+   *  which reads as "jumpy". Leave false for simple forms (they size to content). */
+  stableHeight?: boolean;
 }) {
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -126,11 +132,13 @@ export function ResponsiveDialog({
                 bgcolor: CARD_BG,
                 borderTopLeftRadius: `${RADIUS.card}px`,
                 borderTopRightRadius: `${RADIUS.card}px`,
-                // Fill the (now bounded) Content; grow only up to it. Short forms
-                // stay their natural height; tall forms fill to the cap and their
-                // DialogContent scrolls internally — one scroll, correct.
-                flex: 1,
-                minHeight: 0,
+                // stableHeight: a FIXED 85dvh so disclosing sub-fields scrolls the
+                // content instead of resizing the sheet (no vaul re-animation jump).
+                // Otherwise: fill up to the 92dvh cap but size to content — short
+                // forms stay short, tall ones scroll internally.
+                ...(stableHeight
+                  ? { height: "85dvh" }
+                  : { flex: 1, minHeight: 0 }),
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
