@@ -169,7 +169,17 @@ export function Planning() {
   };
 
   return (
-    <Box sx={{ bgcolor: SURFACE, minHeight: "100dvh" }}>
+    <Box
+      sx={{
+        bgcolor: SURFACE,
+        // Fill the shell scroll region; a column so the calendar area flexes to
+        // fill whatever height is left under the sticky TopBar (no hard-coded
+        // 100dvh math that ignores the mobile bottom nav / dynamic viewport).
+        minHeight: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <TopBar
         title={t("planning.title")}
         actions={
@@ -188,8 +198,21 @@ export function Planning() {
           <Alert severity="error">{error}</Alert>
         </Box>
       ) : (
-        <Box sx={{ display: "flex", alignItems: "stretch", height: "calc(100dvh - 64px)" }}>
-          <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, p: PAGE_PADDING_RESPONSIVE, position: "relative", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ display: "flex", alignItems: "stretch", flex: 1, minHeight: 0 }}>
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              p: PAGE_PADDING_RESPONSIVE,
+              // Clear the mobile bottom nav so the calendar's bottom row + its
+              // horizontal scrollbar aren't hidden behind it.
+              pb: { xs: "calc(72px + env(safe-area-inset-bottom) + 8px)", md: PAGE_PADDING_RESPONSIVE.md },
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             {loading ? (
               <Box sx={{ position: "absolute", top: 12, right: 24, zIndex: 2 }}>
                 <CircularProgress size={20} />

@@ -26,8 +26,10 @@ export type ProjectOption = {
   name?: string;
 };
 
+// Customer picker for the werkbon-create flow. The /customers endpoint is
+// cursor-paginated; drain all pages so the dropdown has the full in-scope set.
 export function getCustomers(): Promise<CustomerOption[]> {
-  return api.get<CustomerOption[]>("/customers");
+  return api.getAll<CustomerOption>("/customers");
 }
 
 // A customer's saved job-site locations.
@@ -45,11 +47,12 @@ export function createCustomerLocation(
   return api.post<LocationOption>(`/customers/${customerId}/locations`, input);
 }
 
-// The backend returns all in-scope projects; filter to the chosen customer.
+// The projects endpoint is cursor-paginated; drain all pages (this is a picker
+// data source that needs the full in-scope set), then filter to the customer.
 export async function getProjectsForCustomer(
   customerId: string,
 ): Promise<ProjectOption[]> {
-  const all = await api.get<ProjectSummary[]>("/projects");
+  const all = await api.getAll<ProjectSummary>("/projects");
   return all
     .filter((p) => p.customerId === customerId)
     .map((p) => ({ id: p.id, projectNumber: p.projectNumber, name: p.name }));

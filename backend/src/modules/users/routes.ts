@@ -1,6 +1,8 @@
 import { Router } from "express";
+import type { Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import { inviteUserSchema } from "@opero/shared";
+import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { env } from "../../env.js";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
@@ -61,19 +63,50 @@ async function sendInviteEmail(email: string, name: string, token: string) {
   });
 }
 
-// GET /users — list the org's login accounts with status.
+const ACCOUNT_STATUSES = ["invited", "active", "disabled"] as const;
+
+// GET /users?cursor=&limit=&search=&filter= — cursor-paginated, server-searched
+// (name/email) list of the org's login accounts. `filter` narrows to a single
+// account status (matching the screen's status chips). No count pills, so no
+// counts are returned.
 usersRouter.get(
   "/",
   asyncHandler(async (req, res) => {
-    const rows = await prisma.user.findMany({
-      where: { orgId: req.user!.orgId },
-      orderBy: [{ status: "asc" }, { name: "asc" }],
-      select: {
-        id: true, email: true, name: true, role: true, status: true,
-        employeeId: true, customerId: true, createdAt: true, activatedAt: true,
-      },
+    const { limit, cursor, search } = parsePageParams(req);
+    const statusFilter =
+      typeof req.query.filter === "string" &&
+      (ACCOUNT_STATUSES as readonly string[]).includes(req.query.filter)
+        ? req.query.filter
+        : undefined;
+
+    // Base org scope + optional search over name/email.
+    const baseWhere: Prisma.UserWhereInput = { orgId: req.user!.orgId };
+    if (search) {
+      const ci = { contains: search, mode: "insensitive" as const };
+      baseWhere.OR = [{ name: ci }, { email: ci }];
+    }
+
+    // The page: apply the status filter on top of the base filter.
+    const pageWhere: Prisma.UserWhereInput = statusFilter
+      ? { AND: [baseWhere, { status: statusFilter as Prisma.UserWhereInput["status"] }] }
+      : baseWhere;
+
+    const page = await paginate({ limit, cursor, search }, (args) =>
+      prisma.user.findMany({
+        where: pageWhere,
+        orderBy: [{ status: "asc" }, { name: "asc" }, { id: "asc" }],
+        select: {
+          id: true, email: true, name: true, role: true, status: true,
+          employeeId: true, customerId: true, createdAt: true, activatedAt: true,
+        },
+        ...args,
+      }),
+    );
+
+    res.json({
+      items: page.items.map(userDto),
+      nextCursor: page.nextCursor,
     });
-    res.json(rows.map(userDto));
   }),
 );
 

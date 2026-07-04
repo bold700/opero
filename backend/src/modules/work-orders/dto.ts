@@ -137,9 +137,12 @@ export const workOrderInclude = {
 // project context: number, customer, location, work type, technician, status,
 // date. Status is derived from urgency + task completion.
 
-export type WorkOrderListStatus = "open" | "on_the_way" | "urgent" | "done";
+import { type WorkOrderListStatus } from "./status.js";
+export type { WorkOrderListStatus };
 
 type WorkOrderListSource = WorkOrder & {
+  // Persisted, denormalized status (see WorkOrder.listStatus + status.ts).
+  listStatus: string;
   tasks: {
     done: boolean;
     startedAt: string | null;
@@ -155,16 +158,6 @@ type WorkOrderListSource = WorkOrder & {
     teamLeader: { name: string } | null;
   };
 };
-
-function deriveListStatus(wb: WorkOrderListSource): WorkOrderListStatus {
-  if (wb.project.urgency === "urgent" || wb.project.urgency === "blocked") {
-    return "urgent";
-  }
-  const tasks = wb.tasks;
-  if (tasks.length > 0 && tasks.every((t) => t.done)) return "done";
-  if (tasks.some((t) => t.done || t.startedAt)) return "on_the_way";
-  return "open";
-}
 
 // Roll up distinct task-level names; "+N" when more than one. Falls back to the
 // project-level value when no task carries one (older / empty work orders).
@@ -215,7 +208,8 @@ export function workOrderListDto(wb: WorkOrderListSource) {
       wb.tasks.map((t) => t.assignee?.name),
       wb.project.teamLeader?.name ?? null,
     ),
-    status: deriveListStatus(wb),
+    // Read the denormalized column (kept in sync by recomputeWorkOrderStatus).
+    status: wb.listStatus as WorkOrderListStatus,
     date: wb.createdAt.toISOString(),
   };
 }

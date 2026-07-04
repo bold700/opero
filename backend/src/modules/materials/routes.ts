@@ -1,10 +1,12 @@
 import { Router } from "express";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { resolveHidePrices } from "../../lib/orgPricing.js";
+import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import { canSeePrices, materialCategories, type UserRole } from "@opero/shared";
 import {
@@ -25,6 +27,7 @@ import {
   workTypeDto,
   materialOrderDto,
 } from "./dto.js";
+import { recomputeMaterialStock } from "./status.js";
 
 export const materialsRouter = Router();
 
@@ -319,18 +322,73 @@ materialsRouter.patch(
 // literal paths above take precedence.
 // ===========================================================================
 
-// GET / — list materials (orgId-scoped, not soft-deleted, include inventory).
+// The stock-status buckets shown as filter chips + count pills on the list.
+const MATERIAL_STOCK_STATUSES = ["ok", "low", "out_of_stock"] as const;
+
+// GET /?cursor=&limit=&search=&filter= — cursor-paginated, server-searched
+// (name/category/supplier) and server-filtered by the denormalized stockStatus.
+// Returns { items, nextCursor, counts } where counts is the per-status totals
+// across the WHOLE (org-scoped + searched) set, so the count pills stay accurate
+// no matter how many pages are loaded.
 materialsRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     assertCanRead(user);
-    const rows = await prisma.material.findMany({
-      where: { orgId: user.orgId, deletedAt: null },
-      include: { inventory: true },
-      orderBy: { name: "asc" },
+    const { limit, cursor, search } = parsePageParams(req);
+    const stockFilter =
+      typeof req.query.filter === "string" &&
+      (MATERIAL_STOCK_STATUSES as readonly string[]).includes(req.query.filter)
+        ? req.query.filter
+        : undefined;
+
+    // Base filter (shared by counts + the page query). Search matches name,
+    // category and the linked inventory's supplier.
+    const baseWhere: Prisma.MaterialWhereInput = {
+      orgId: user.orgId,
+      deletedAt: null,
+    };
+    if (search) {
+      const ci = { contains: search, mode: "insensitive" as const };
+      baseWhere.OR = [
+        { name: ci },
+        { category: ci },
+        { inventory: { is: { supplier: ci } } },
+      ];
+    }
+
+    // Per-status counts across the whole scoped+searched set (not just the page).
+    const grouped = await prisma.material.groupBy({
+      by: ["stockStatus"],
+      where: baseWhere,
+      _count: { _all: true },
     });
-    res.json(rows.map(materialListDto));
+    const counts: Record<string, number> = { total: 0 };
+    for (const s of MATERIAL_STOCK_STATUSES) counts[s] = 0;
+    for (const g of grouped) {
+      counts[g.stockStatus] = g._count._all;
+      counts.total += g._count._all;
+    }
+
+    // The page itself: apply the stock-status filter on top of the base filter.
+    const pageWhere: Prisma.MaterialWhereInput = stockFilter
+      ? { AND: [baseWhere, { stockStatus: stockFilter }] }
+      : baseWhere;
+
+    const page = await paginate({ limit, cursor, search }, (args) =>
+      prisma.material.findMany({
+        where: pageWhere,
+        include: { inventory: true },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        ...args,
+      }),
+    );
+
+    res.json({
+      items: page.items.map(materialListDto),
+      nextCursor: page.nextCursor,
+      counts,
+    });
   }),
 );
 
@@ -387,6 +445,8 @@ materialsRouter.post(
         });
         await audit(tx, user, "inventory.create", "inventory", inventory.id);
       }
+      // Seed the denormalized stockStatus from whatever inventory was created.
+      await recomputeMaterialStock(tx, m.id);
       return { ...m, inventory };
     });
     res.status(201).json(materialDto(created));
@@ -477,6 +537,7 @@ materialsRouter.patch(
           },
         });
         await audit(tx, user, "inventory.create", "inventory", inv.id, input);
+        await recomputeMaterialStock(tx, material.id);
         return inv;
       }
       const inv = await tx.inventory.update({
@@ -496,6 +557,7 @@ materialsRouter.patch(
         },
       });
       await audit(tx, user, "inventory.update", "inventory", inv.id, input);
+      await recomputeMaterialStock(tx, material.id);
       return inv;
     });
     res.json(inventoryDto(updated));

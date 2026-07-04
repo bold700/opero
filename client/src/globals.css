@@ -114,16 +114,44 @@
   box-sizing: border-box;
 }
 
-html {
+/* App frame: html/body/#root fill the (dynamic) viewport exactly and never scroll
+   themselves — the app renders a single inner scroll region (see AppShell). This
+   is what keeps the header + bottom nav pinned and stops the "page starts in the
+   middle / zoomed-in" bug, which was caused by horizontal overflow forcing the
+   browser to shrink-fit a too-wide page. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* never allow horizontal scroll — kills the zoom-to-fit */
   background: var(--background);
-  scrollbar-gutter: stable;
+}
+
+html {
+  height: 100%;
+  /* Reserve the scrollbar gutter only where there IS a persistent scrollbar
+     (desktop). On touch it just adds phantom width → horizontal overflow. */
+  scrollbar-gutter: auto;
+}
+@media (min-width: 900px) {
+  html {
+    scrollbar-gutter: stable;
+  }
 }
 
 body {
-  min-height: 100vh;
-  background: var(--background);
+  min-height: 100dvh;
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+#root {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 button,

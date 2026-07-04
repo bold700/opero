@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Prisma } from "@prisma/client";
 import {
   createCustomerSchema,
   updateCustomerSchema,
@@ -10,6 +11,7 @@ import { asyncHandler } from "../../lib/asyncHandler.js";
 import { Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
+import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import { contactPersonDto, customerDto, customerListDto, locationDto } from "./dto.js";
 
@@ -39,39 +41,90 @@ function assertCanAccessCustomer(
   throw Forbidden("Not allowed for this customer");
 }
 
-// GET /customers — admin: all; client: only their own; technician: none here.
+// The customer types shown as filter chips + count pills on the list.
+const CUSTOMER_TYPES = ["business", "private"] as const;
+
+// GET /customers?cursor=&limit=&search=&filter= — cursor-paginated,
+// server-searched (name/city/contactName/email) and server-filtered by type.
+// admin: all; client: only their own; technician: none here. Returns
+// { items, nextCursor, counts } where counts (total/business/private) are the
+// per-type totals across the WHOLE (visibility-scoped) set, so the count pills
+// stay accurate no matter how many pages are loaded.
 customersRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     if (user.role === "technician") throw Forbidden("Not available");
-    const where =
+    const { limit, cursor, search } = parsePageParams(req);
+    const typeFilter =
+      typeof req.query.filter === "string" &&
+      (CUSTOMER_TYPES as readonly string[]).includes(req.query.filter)
+        ? (req.query.filter as (typeof CUSTOMER_TYPES)[number])
+        : undefined;
+
+    // Base visibility filter (shared by counts + the page query). The role where
+    // uses plain fields + an optional id, no OR of its own, so search's OR-clause
+    // can be attached directly.
+    const baseWhere: Prisma.CustomerWhereInput =
       user.role === "client"
         ? { orgId: user.orgId, deletedAt: null, id: user.customerId ?? "__none__" }
         : { orgId: user.orgId, deletedAt: null };
+    if (search) {
+      const ci = { contains: search, mode: "insensitive" as const };
+      baseWhere.OR = [
+        { name: ci },
+        { city: ci },
+        { contactName: ci },
+        { email: ci },
+      ];
+    }
+
+    // Per-type counts across the whole scoped+searched set (not just the page).
+    const grouped = await prisma.customer.groupBy({
+      by: ["type"],
+      where: baseWhere,
+      _count: { _all: true },
+    });
+    const counts: Record<string, number> = { total: 0, business: 0, private: 0 };
+    for (const g of grouped) {
+      counts[g.type] = g._count._all;
+      counts.total += g._count._all;
+    }
+
+    // The page itself: apply the type filter on top of the base filter.
+    const pageWhere: Prisma.CustomerWhereInput = typeFilter
+      ? { AND: [baseWhere, { type: typeFilter }] }
+      : baseWhere;
 
     // The list view (per the design) needs each customer's work-order count and
     // last-contact date, so include their projects + workOrders + latest activity.
-    const rows = await prisma.customer.findMany({
-      where,
-      orderBy: { name: "asc" },
-      include: {
-        users: { select: { id: true, status: true } },
-        projects: {
-          where: { deletedAt: null },
-          select: {
-            _count: { select: { workOrders: true } },
-            activity: {
-              orderBy: { createdAt: "desc" },
-              take: 1,
-              select: { createdAt: true },
+    const page = await paginate({ limit, cursor, search }, (args) =>
+      prisma.customer.findMany({
+        where: pageWhere,
+        include: {
+          users: { select: { id: true, status: true } },
+          projects: {
+            where: { deletedAt: null },
+            select: {
+              _count: { select: { workOrders: true } },
+              activity: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: { createdAt: true },
+              },
             },
           },
         },
-      },
-    });
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        ...args,
+      }),
+    );
 
-    res.json(rows.map(customerListDto));
+    res.json({
+      items: page.items.map(customerListDto),
+      nextCursor: page.nextCursor,
+      counts,
+    });
   }),
 );
 

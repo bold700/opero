@@ -68,8 +68,10 @@ export type SchedulableProject = {
   plannedDate?: string;
 };
 
+// The projects endpoint is cursor-paginated; drain all pages — planning needs
+// the full in-scope set to lay out the calendar / scheduling board.
 export function getProjectsForScheduling(): Promise<SchedulableProject[]> {
-  return api.get<SchedulableProject[]>("/projects");
+  return api.getAll<SchedulableProject>("/projects");
 }
 
 // Field staff for the team-leader dropdown in the schedule dialog.

@@ -17,6 +17,11 @@
     "loadFailed": "Could not load data",
     "empty": "No results"
   },
+  "list": {
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "endReached": "End of list"
+  },
   "misc": {
     "all": "All"
   },

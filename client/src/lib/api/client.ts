@@ -155,8 +155,62 @@ async function upload<T>(path: string, file: Blob, fields?: Record<string, strin
   return payload as T;
 }
 
+// One page of a cursor-paginated list (mirrors backend Page<T>).
+export type Page<T> = { items: T[]; nextCursor: string | null };
+
+// Build a querystring from defined params only (skips undefined/empty).
+function qs(params: Record<string, string | number | undefined>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === "") continue;
+    sp.set(k, String(v));
+  }
+  const s = sp.toString();
+  return s ? `?${s}` : "";
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  // Fetch one page of a paginated list. `params` is merged into the querystring
+  // alongside cursor/limit/search.
+  getPage: <T>(
+    path: string,
+    opts: {
+      cursor?: string;
+      limit?: number;
+      search?: string;
+      params?: Record<string, string | number | undefined>;
+    } = {},
+  ) =>
+    request<Page<T>>(
+      `${path}${qs({
+        cursor: opts.cursor,
+        limit: opts.limit,
+        search: opts.search,
+        ...opts.params,
+      })}`,
+    ),
+  // Drain ALL pages of a paginated endpoint into one array. Use ONLY for
+  // selector/picker data sources that genuinely need the full set (e.g. the
+  // project dropdown in the werkbon-create flow), NOT for list screens — those
+  // should page lazily via usePagedApi. Bounded by `maxPages` as a safety stop.
+  getAll: async <T>(
+    path: string,
+    opts: { params?: Record<string, string | number | undefined>; maxPages?: number } = {},
+  ): Promise<T[]> => {
+    const out: T[] = [];
+    let cursor: string | undefined;
+    const maxPages = opts.maxPages ?? 50;
+    for (let i = 0; i < maxPages; i++) {
+      const page = await request<Page<T>>(
+        `${path}${qs({ cursor, limit: 100, ...opts.params })}`,
+      );
+      out.push(...page.items);
+      if (!page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    return out;
+  },
   post: <T>(path: string, body?: unknown, opts?: { auth?: boolean }) =>
     request<T>(path, { method: "POST", body, auth: opts?.auth }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),

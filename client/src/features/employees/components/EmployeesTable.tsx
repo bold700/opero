@@ -20,12 +20,18 @@ export function EmployeesTable({
   onEdit,
   onDelete,
   onInvite,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   rows: EmployeeRow[];
   canManage: boolean;
   onEdit: (e: EmployeeRow) => void;
   onDelete: (e: EmployeeRow) => void;
   onInvite: (e: EmployeeRow) => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -74,6 +80,9 @@ export function EmployeesTable({
       items={rows}
       keyOf={(r) => r.id}
       empty={t("employees.empty")}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={onLoadMore}
       columns={[
         { header: t("employees.table.name"), cell: nameCell },
         { header: t("employees.table.function"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{fn(r)}</Box> },

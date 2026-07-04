@@ -30,19 +30,16 @@ export function materialDto(m: Material & { inventory?: Inventory | null }) {
   };
 }
 
-// Stock status derived from quantity vs reorder point (per the design's column).
-export type MaterialStockStatus = "ok" | "low" | "out_of_stock";
-
-function deriveStockStatus(inv: Inventory | null | undefined): MaterialStockStatus {
-  if (!inv) return "out_of_stock";
-  if (inv.quantityInStock <= 0) return "out_of_stock";
-  if (inv.quantityInStock < inv.reorderPoint) return "low";
-  return "ok";
-}
+// Stock status is derived from quantity vs reorder point but PERSISTED on
+// Material.stockStatus (kept in sync by recomputeMaterialStock) so the list can
+// filter/count on a real column. The derivation itself lives in ./status.ts.
+export type { MaterialStockStatus } from "./status.js";
 
 // Flat row for the materials list (per the Figma): name, category, unit, stock,
-// min stock, derived status.
-export function materialListDto(m: Material & { inventory?: Inventory | null }) {
+// min stock, status. `status` reads the denormalized column.
+export function materialListDto(
+  m: Material & { inventory?: Inventory | null; stockStatus?: string },
+) {
   const inv = m.inventory ?? null;
   return {
     id: m.id,
@@ -52,7 +49,10 @@ export function materialListDto(m: Material & { inventory?: Inventory | null }) 
     stock: inv?.quantityInStock ?? 0,
     minStock: inv?.reorderPoint ?? 0,
     supplier: inv?.supplier ?? "—",
-    status: deriveStockStatus(inv),
+    status: (m.stockStatus ?? "out_of_stock") as
+      | "ok"
+      | "low"
+      | "out_of_stock",
   };
 }
 

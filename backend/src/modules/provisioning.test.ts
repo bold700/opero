@@ -135,7 +135,7 @@ describe("user provisioning", () => {
     expect(emp.body.account?.status).toBe("active");
 
     const empList = await request(app).get("/api/employees").set(auth(adminToken));
-    const listed = (empList.body as { id: string; account: unknown }[]).find(
+    const listed = (empList.body.items as { id: string; account: unknown }[]).find(
       (e) => e.id === employeeId,
     );
     expect(listed?.account).toMatchObject({ status: "active" });
@@ -307,7 +307,7 @@ describe("user provisioning", () => {
 
     const list = await request(app).get("/api/users").set(auth(otherToken));
     expect(list.status).toBe(200);
-    const emails = (list.body as { email: string }[]).map((u) => u.email);
+    const emails = (list.body.items as { email: string }[]).map((u) => u.email);
     expect(emails).not.toContain(`${TAG}-tech@opero.test`);
 
     // And it can't disable a user from the first org (404, not 200).

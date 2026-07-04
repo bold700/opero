@@ -13,9 +13,15 @@ import { STATUS, formatDate } from "../constants";
 export function WorkOrdersTable({
   rows,
   onOpen,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   rows: WorkOrderRow[];
   onOpen: (id: string) => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -29,6 +35,9 @@ export function WorkOrdersTable({
       keyOf={(r) => r.id}
       empty={t("workOrders.table.empty")}
       onRowClick={(r) => onOpen(r.id)}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={onLoadMore}
       columns={[
         { header: t("workOrders.table.number"), cell: (r) => <Box sx={{ fontWeight: 700 }}>{r.number}</Box> },
         { header: t("workOrders.table.customer"), cell: (r) => r.customerName },

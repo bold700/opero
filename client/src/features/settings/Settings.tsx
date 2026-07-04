@@ -26,9 +26,26 @@ export function Settings() {
   const [active, setActive] = useState<SectionId>("profile");
 
   return (
-    <Box sx={{ bgcolor: PAGE_BG, minHeight: "100dvh" }}>
-      {/* Page header */}
-      <Box sx={{ px: PAGE_PADDING_RESPONSIVE, py: 3, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
+    <Box
+      sx={{
+        bgcolor: PAGE_BG,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
+      {/* Page header — static, never scrolls (matches PageLayout). */}
+      <Box
+        sx={{
+          flexShrink: 0,
+          px: PAGE_PADDING_RESPONSIVE,
+          py: 3,
+          bgcolor: "background.paper",
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {t("settings.title")}
         </Typography>
@@ -37,7 +54,21 @@ export function Settings() {
         </Typography>
       </Box>
 
-      <Box sx={{ p: PAGE_PADDING_RESPONSIVE, display: "flex", gap: 3, flexDirection: { xs: "column", md: "row" }, alignItems: "flex-start" }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          overscrollBehavior: "contain",
+          p: PAGE_PADDING_RESPONSIVE,
+          pb: { xs: "calc(72px + env(safe-area-inset-bottom) + 16px)", md: PAGE_PADDING_RESPONSIVE.md },
+          display: "flex",
+          gap: 3,
+          flexDirection: { xs: "column", md: "row" },
+          alignItems: "flex-start",
+        }}
+      >
         {/* Section list (master). Vertical list on desktop; a horizontal
             scrollable chip rail on mobile so the panel stays near the top. */}
         <Box

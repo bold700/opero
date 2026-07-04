@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
@@ -16,17 +19,20 @@ import { Card } from "./Card";
 // Mobile renders `renderCard(item)` inside a tapable Card. Provide a stable
 // `keyOf` per row.
 //
+// Pagination: when the list is cursor-paged, pass `hasMore` + `onLoadMore`
+// (+ `loadingMore`). A footer renders an auto-loading sentinel (IntersectionObserver)
+// AND a visible "Load more" button as the fallback — identical on mobile + desktop.
+//
 // Usage:
 //   <ResponsiveList
 //     items={rows}
 //     keyOf={(r) => r.id}
-//     columns={[
-//       { header: t("employees.table.name"), cell: (r) => r.name },
-//       { header: t("employees.table.status"), cell: (r) => <StatusBadge .../> },
-//       { header: t("common.action"), align: "right", cell: (r) => <RowMenu .../> },
-//     ]}
+//     columns={[...]}
 //     renderCard={(r) => <EmployeeCard employee={r} />}
 //     empty={t("employees.empty")}
+//     hasMore={hasMore}
+//     loadingMore={loadingMore}
+//     onLoadMore={loadMore}
 //   />
 
 export type ResponsiveColumn<T> = {
@@ -42,6 +48,9 @@ export function ResponsiveList<T>({
   renderCard,
   empty,
   onRowClick,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: {
   items: T[];
   keyOf: (item: T) => string;
@@ -50,6 +59,12 @@ export function ResponsiveList<T>({
   empty: ReactNode;
   /** Optional row/card tap handler (e.g. navigate to detail). */
   onRowClick?: (item: T) => void;
+  /** Whether another page is available (enables the load-more footer). */
+  hasMore?: boolean;
+  /** Whether the next page is currently loading. */
+  loadingMore?: boolean;
+  /** Fetch the next page. Required for the load-more footer to appear. */
+  onLoadMore?: () => void;
 }) {
   // --- Empty state (shared) ---
   if (items.length === 0) {
@@ -61,6 +76,11 @@ export function ResponsiveList<T>({
       </Card>
     );
   }
+
+  const footer =
+    onLoadMore && hasMore ? (
+      <LoadMoreFooter loadingMore={loadingMore} onLoadMore={onLoadMore} />
+    ) : null;
 
   return (
     <>
@@ -104,6 +124,7 @@ export function ResponsiveList<T>({
             </TableBody>
           </Table>
         </Card>
+        {footer}
       </Box>
 
       {/* Mobile: card stack (hidden on md+) */}
@@ -122,7 +143,66 @@ export function ResponsiveList<T>({
             {renderCard(item)}
           </Card>
         ))}
+        {footer}
       </Box>
     </>
+  );
+}
+
+// Load-more footer: an invisible sentinel that auto-loads the next page when it
+// scrolls into view, plus a tappable "Load more" button (the honest fallback for
+// when auto-load doesn't fire — e.g. the sentinel never enters the viewport, or
+// reduced-motion / no-observer environments). Same on mobile and desktop.
+function LoadMoreFooter({
+  loadingMore,
+  onLoadMore,
+}: {
+  loadingMore: boolean;
+  onLoadMore: () => void;
+}) {
+  const { t } = useTranslation();
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Keep the latest onLoadMore/loadingMore without re-subscribing the observer.
+  const loadRef = useRef(onLoadMore);
+  loadRef.current = onLoadMore;
+  const loadingRef = useRef(loadingMore);
+  loadingRef.current = loadingMore;
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Fire only when visible and not already loading a page.
+        if (entries[0]?.isIntersecting && !loadingRef.current) {
+          loadRef.current();
+        }
+      },
+      { rootMargin: "200px" }, // prefetch slightly before it's on screen
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        py: 2,
+        gap: 1,
+      }}
+    >
+      <Box ref={sentinelRef} sx={{ height: 1, width: 1 }} aria-hidden />
+      {loadingMore ? (
+        <CircularProgress size={22} />
+      ) : (
+        <Button variant="text" onClick={onLoadMore} sx={{ borderRadius: 100 }}>
+          {t("common.list.loadMore")}
+        </Button>
+      )}
+    </Box>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -8,9 +8,15 @@ import Alert from "@mui/material/Alert";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER, RADIUS } from "../../theme/tokens";
-import { useApi } from "../../lib/api/useApi";
+import { usePagedApi } from "../../lib/api/usePagedApi";
+import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
-import { getWorkOrders, type WorkOrderRow } from "./api";
+import {
+  getWorkOrdersPage,
+  type WorkOrderCounts,
+  type WorkOrderRow,
+  type WorkOrderStatus,
+} from "./api";
 import { FILTERS } from "./constants";
 import { WorkOrdersActions } from "./components/WorkOrdersActions";
 import { WorkOrdersTable } from "./components/WorkOrdersTable";
@@ -25,6 +31,14 @@ const COUNT_TONE: Record<string, string> = {
   done: "#1E8E5A",
 };
 
+const EMPTY_COUNTS: WorkOrderCounts = {
+  total: 0,
+  open: 0,
+  on_the_way: 0,
+  urgent: 0,
+  done: 0,
+};
+
 export function WorkOrders() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -36,35 +50,38 @@ export function WorkOrders() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const { data, loading, error } = useApi<WorkOrderRow[]>(getWorkOrders);
+
+  // Server-side search (debounced) + server-side status filter. Both reset the
+  // paged list to page 1 (they're in the deps below).
+  const debouncedSearch = useDebounced(search, 300);
+  const statusFilter =
+    (FILTERS.find((f) => f.key === activeFilter)?.status as WorkOrderStatus | null) ??
+    undefined;
+
+  const { items, meta, loading, loadingMore, error, hasMore, loadMore } =
+    usePagedApi<WorkOrderRow, { counts: WorkOrderCounts }>(
+      (cursor) =>
+        getWorkOrdersPage({
+          cursor,
+          search: debouncedSearch || undefined,
+          status: statusFilter,
+        }),
+      [debouncedSearch, statusFilter],
+    );
 
   // Open the create dialog when arriving via the quick-create menu (?create=1).
   useCreateParam(() => setCreateOpen(true), canCreate);
 
-  const rows = data ?? [];
-
-  const counts = useMemo(
-    () => [
-      { key: "total", value: rows.length },
-      { key: "open", value: rows.filter((r) => r.status === "open").length },
-      { key: "onTheWay", value: rows.filter((r) => r.status === "on_the_way").length },
-      { key: "urgent", value: rows.filter((r) => r.status === "urgent").length },
-      { key: "done", value: rows.filter((r) => r.status === "done").length },
-    ],
-    [rows],
-  );
-
-  const filtered = useMemo(() => {
-    const status = FILTERS.find((f) => f.key === activeFilter)?.status ?? null;
-    const byStatus = status ? rows.filter((r) => r.status === status) : rows;
-    const q = search.trim().toLowerCase();
-    if (!q) return byStatus;
-    return byStatus.filter(
-      (r) =>
-        r.number.toLowerCase().includes(q) ||
-        r.customerName.toLowerCase().includes(q),
-    );
-  }, [rows, activeFilter, search]);
+  // Counts come from the first page response (whole-set totals); fall back to
+  // zeros until the first page lands.
+  const pageCounts = meta?.counts ?? EMPTY_COUNTS;
+  const countCards = [
+    { key: "total", value: pageCounts.total },
+    { key: "open", value: pageCounts.open },
+    { key: "onTheWay", value: pageCounts.on_the_way },
+    { key: "urgent", value: pageCounts.urgent },
+    { key: "done", value: pageCounts.done },
+  ];
 
   return (
     <PageLayout
@@ -80,7 +97,7 @@ export function WorkOrders() {
     >
       {/* Summary counts */}
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-        {counts.map((c) => (
+        {countCards.map((c) => (
           <Box
             key={c.key}
             sx={{
@@ -125,8 +142,11 @@ export function WorkOrders() {
         <Alert severity="error">{error}</Alert>
       ) : (
         <WorkOrdersTable
-          rows={filtered}
+          rows={items}
           onOpen={(id) => navigate(`/work-orders/${id}`)}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
         />
       )}
 

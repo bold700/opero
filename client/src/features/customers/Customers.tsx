@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -9,14 +9,16 @@ import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER, RADIUS } from "../../theme/tokens";
-import { useApi } from "../../lib/api/useApi";
+import { usePagedApi } from "../../lib/api/usePagedApi";
+import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
 import {
-  getCustomers,
+  getCustomersPage,
   createCustomer,
   updateCustomer,
   deleteCustomer,
   type Customer,
+  type CustomerCounts,
   type CustomerInput,
 } from "./api";
 import { FILTERS, type CustomerFilter } from "./constants";
@@ -34,7 +36,23 @@ export function Customers() {
   const [activeFilter, setActiveFilter] = useState<CustomerFilter>("all");
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const { data, loading, error } = useApi<Customer[]>(getCustomers, [reloadKey]);
+
+  // Server-side search (debounced) + server-side type filter. Both reset the
+  // paged list to page 1 (they're in the deps below); reloadKey does too, so
+  // create/edit/invite/delete refresh the list.
+  const debouncedSearch = useDebounced(search, 300);
+  const filter = activeFilter === "all" ? undefined : activeFilter;
+
+  const { items, meta, loading, loadingMore, error, hasMore, loadMore } =
+    usePagedApi<Customer, { counts: CustomerCounts }>(
+      (cursor) =>
+        getCustomersPage({
+          cursor,
+          search: debouncedSearch || undefined,
+          filter,
+        }),
+      [debouncedSearch, filter, reloadKey],
+    );
 
   // Dialog state: editing holds the customer (or null for create); deleting
   // holds the customer to delete.
@@ -50,29 +68,16 @@ export function Customers() {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
-  const customers = data ?? [];
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  const counts = useMemo(
-    () => [
-      { key: "total", value: customers.length },
-      { key: "business", value: customers.filter((c) => c.type === "business").length },
-      { key: "private", value: customers.filter((c) => c.type === "private").length },
-    ],
-    [customers],
-  );
-
-  const filtered = useMemo(() => {
-    let rows = customers;
-    if (activeFilter !== "all") rows = rows.filter((c) => c.type === activeFilter);
-    const q = search.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(
-        (c) => c.name.toLowerCase().includes(q) || c.city.toLowerCase().includes(q),
-      );
-    }
-    return rows;
-  }, [customers, activeFilter, search]);
+  // Counts come from the first page response (whole-set totals); fall back to
+  // zeros until the first page lands.
+  const pageCounts = meta?.counts ?? { total: 0, business: 0, private: 0 };
+  const counts = [
+    { key: "total", value: pageCounts.total },
+    { key: "business", value: pageCounts.business },
+    { key: "private", value: pageCounts.private },
+  ];
 
   const openCreate = () => {
     setEditing(null);
@@ -187,11 +192,14 @@ export function Customers() {
         <Alert severity="error">{error}</Alert>
       ) : (
         <CustomersTable
-          customers={filtered}
+          customers={items}
           canManage={canManage}
           onEdit={openEdit}
           onDelete={setDeleting}
           onInvite={openInvite}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
         />
       )}
 

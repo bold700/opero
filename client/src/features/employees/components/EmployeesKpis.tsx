@@ -1,11 +1,21 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { Card } from "../../../components/Card";
+import type { EmployeeCounts } from "../api";
 
-export type Kpi = { label: string; value: number; tone: string };
+// Row of KPI cards above the employees table. Numbers come from the server's
+// whole-set counts (via meta.counts), not a client-side scan of the rows.
+export function EmployeesKpis({ counts }: { counts: EmployeeCounts }) {
+  const { t } = useTranslation();
 
-// Row of KPI cards above the employees table.
-export function EmployeesKpis({ kpis }: { kpis: Kpi[] }) {
+  const kpis = [
+    { label: t("employees.kpis.total"), value: counts.total, tone: "#1D1B20" },
+    { label: t("employees.kpis.technicians"), value: counts.technicians, tone: "#1D1B20" },
+    { label: t("employees.kpis.office"), value: counts.office, tone: "#1D1B20" },
+    { label: t("employees.kpis.active"), value: counts.active, tone: "#1E8E5A" },
+  ];
+
   return (
     <Box sx={{ display: "flex", gap: 2.5, flexWrap: { xs: "wrap", lg: "nowrap" } }}>
       {kpis.map((k) => (

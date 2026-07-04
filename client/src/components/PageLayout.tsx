@@ -23,6 +23,11 @@ export function TopBar({
   return (
     <Box
       sx={{
+        // The header is a STATIC, non-scrolling row at the top of the page frame
+        // (PageLayout scrolls its content below, not this bar) — so it never
+        // shifts or jitters on iOS momentum scroll. `flexShrink: 0` keeps it from
+        // being squeezed by the scroll area.
+        flexShrink: 0,
         minHeight: 64,
         px: PAGE_PADDING_RESPONSIVE,
         py: 1.5,
@@ -36,8 +41,6 @@ export function TopBar({
         bgcolor: "background.paper",
         borderBottom: "1px solid",
         borderColor: "divider",
-        position: "sticky",
-        top: 0,
         zIndex: 10,
       }}
     >
@@ -72,12 +75,35 @@ export function PageLayout({
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // The page is a fixed-height frame: a static header on top + a single scroll
+  // region below it. Only the content scrolls; the header is a flex sibling
+  // OUTSIDE the scroller, so it physically cannot move on scroll (no sticky, no
+  // jitter). Fills the shell's <main> height via 100%.
   return (
-    <Box sx={{ bgcolor: SURFACE, minHeight: "100dvh" }}>
+    <Box
+      sx={{
+        bgcolor: SURFACE,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
       <TopBar title={title} actions={actions} />
       <Box
         sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overflowX: "hidden",
+          overscrollBehavior: "contain",
           p: PAGE_PADDING_RESPONSIVE,
+          // Clear the mobile bottom nav + iOS home indicator so the last row
+          // isn't hidden behind the fixed nav (main no longer pads for it).
+          pb: {
+            xs: "calc(72px + env(safe-area-inset-bottom) + 16px)",
+            md: PAGE_PADDING_RESPONSIVE.md,
+          },
           display: "flex",
           flexDirection: "column",
           gap: { xs: 2, md: SPACING.sectionGap },

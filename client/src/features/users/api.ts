@@ -1,4 +1,4 @@
-import { api } from "../../lib/api/client";
+import { api, type Page } from "../../lib/api/client";
 import type { UserRole } from "@opero/shared";
 
 // Login-account lifecycle. Mirrors the backend users module
@@ -33,8 +33,19 @@ export type InvitablePerson =
   | { kind: "employee"; id: string; name: string; email: string; roles: string[] }
   | { kind: "customer"; id: string; name: string; email: string; contactName: string };
 
-export function getUsers(): Promise<UserAccount[]> {
-  return api.get<UserAccount[]>("/users");
+// Fetch one page of the access list. `filter` narrows server-side by account
+// status (undefined = all); `search` hits name/email; `cursor` continues the
+// list. NO counts — the Users screen has status chips but no count pills.
+export function getUsersPage(opts: {
+  cursor?: string;
+  search?: string;
+  filter?: "active" | "invited" | "disabled";
+}): Promise<Page<UserAccount>> {
+  return api.getPage<UserAccount>("/users", {
+    cursor: opts.cursor,
+    search: opts.search,
+    params: { filter: opts.filter },
+  });
 }
 
 export function getInvitable(): Promise<InvitablePerson[]> {

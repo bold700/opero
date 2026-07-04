@@ -1,4 +1,4 @@
-import { api } from "../../lib/api/client";
+import { api, type Page } from "../../lib/api/client";
 
 export type StockStatus = "ok" | "low" | "out_of_stock";
 
@@ -24,8 +24,25 @@ export type MaterialInput = {
   supplier?: string;
 };
 
-export function getMaterials(): Promise<MaterialRow[]> {
-  return api.get<MaterialRow[]>("/materials");
+// Per-status totals across the whole (searched) set — powers the KPI cards.
+// Always present even when a status filter is active.
+export type MaterialCounts = { total: number; ok: number; low: number; out_of_stock: number };
+
+// One page of the materials list plus the counts.
+export type MaterialPage = Page<MaterialRow> & { counts: MaterialCounts };
+
+// Fetch one page. `filter` filters server-side (undefined = all); `search`
+// searches name/category/supplier server-side; `cursor` continues the list.
+export function getMaterialsPage(opts: {
+  cursor?: string;
+  search?: string;
+  filter?: "ok" | "low" | "out_of_stock";
+}): Promise<MaterialPage> {
+  return api.getPage<MaterialRow>("/materials", {
+    cursor: opts.cursor,
+    search: opts.search,
+    params: { filter: opts.filter },
+  }) as Promise<MaterialPage>;
 }
 
 // The managed category list (the dropdown source).

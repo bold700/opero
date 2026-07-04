@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -9,9 +9,9 @@ import { PageLayout } from "../../components/PageLayout";
 import { NewButton } from "../../components/NewButton";
 import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER } from "../../theme/tokens";
-import { useApi } from "../../lib/api/useApi";
+import { usePagedApi } from "../../lib/api/usePagedApi";
 import {
-  getUsers,
+  getUsersPage,
   inviteUser,
   resendInvite,
   disableUser,
@@ -32,7 +32,6 @@ export function Users() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const [reloadKey, setReloadKey] = useState(0);
-  const { data, loading, error } = useApi<UserAccount[]>(getUsers, [reloadKey]);
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const [filter, setFilter] = useState<Filter>("all");
@@ -42,12 +41,16 @@ export function Users() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const rows = data ?? [];
+  // Server-side status filter ("all" → undefined) + cursor pagination. The
+  // filter resets the list to page 1 (it's in the deps below); reloadKey forces
+  // a refresh after invite / resend / enable / disable.
+  const statusFilter = filter === "all" ? undefined : filter;
 
-  const filtered = useMemo(
-    () => (filter === "all" ? rows : rows.filter((u) => u.status === filter)),
-    [rows, filter],
-  );
+  const { items, loading, loadingMore, error, hasMore, loadMore } =
+    usePagedApi<UserAccount>(
+      (cursor) => getUsersPage({ cursor, filter: statusFilter }),
+      [statusFilter, reloadKey],
+    );
 
   const handleInvite = async (input: InviteInput) => {
     setInviting(true);
@@ -110,12 +113,15 @@ export function Users() {
         <Alert severity="error">{error}</Alert>
       ) : (
         <UsersTable
-          rows={filtered}
+          rows={items}
           currentUserId={currentUser?.id}
           busyId={busyId}
           onResend={(u) => runAction(u, () => resendInvite(u.id), "users.toast.resent")}
           onDisable={(u) => runAction(u, () => disableUser(u.id), "users.toast.disabled")}
           onEnable={(u) => runAction(u, () => enableUser(u.id), "users.toast.enabled")}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
         />
       )}
 

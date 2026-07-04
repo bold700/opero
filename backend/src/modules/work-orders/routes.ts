@@ -13,6 +13,7 @@ import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { resolveHidePrices } from "../../lib/orgPricing.js";
+import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { storeUpload, deleteStored, storeSignature } from "../../lib/attachUpload.js";
 import { uploadSingle } from "../../lib/upload.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
@@ -25,6 +26,7 @@ import {
   workOrderListInclude,
   type WorkOrderWithRelations,
 } from "./dto.js";
+import { recomputeWorkOrderStatus } from "./status.js";
 import {
   addMaterialSchema,
   createWorkOrderSchema,
@@ -158,6 +160,11 @@ async function requireWritableWorkOrder(user: AuthUser, workOrderId: string) {
 
 // Reload + serialize a workOrder (role-aware DTO with price-stripping).
 async function reloadWorkOrder(user: AuthUser, workOrderId: string) {
+  // Every mutating work-order route funnels through here on its way to the
+  // response, so recomputing the denormalized listStatus here keeps it in sync
+  // after ANY change (task toggle/start/end, completion, material edits) without
+  // dotting the call across ~10 transaction sites. Runs post-commit on `prisma`.
+  await recomputeWorkOrderStatus(prisma, workOrderId);
   const wb = await prisma.workOrder.findUnique({
     where: { id: workOrderId },
     include: workOrderInclude,
@@ -203,14 +210,27 @@ function woLabel(wb: { title: string; ordinal: number }): string {
 // LIST + DETAIL
 // =========================================================================
 
-// GET /work-orders?projectId= — list (visibility-filtered). If projectId is
-// given, only that (visible) project's workOrders.
+// The status buckets shown as filter chips + count pills on the list.
+const WORK_ORDER_STATUSES = ["open", "on_the_way", "urgent", "done"] as const;
+
+// GET /work-orders?projectId=&cursor=&limit=&search=&status= — cursor-paginated,
+// server-searched (number/customer/city) and server-filtered by the denormalized
+// listStatus. Returns { items, nextCursor, counts } where counts is the per-status
+// totals across the WHOLE (visibility-scoped) set, so the count pills stay accurate
+// no matter how many pages are loaded. When projectId is given, scopes to that
+// (visible) project.
 workOrdersRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
+    const { limit, cursor, search } = parsePageParams(req);
     const projectId =
       typeof req.query.projectId === "string" ? req.query.projectId : undefined;
+    const statusFilter =
+      typeof req.query.status === "string" &&
+      (WORK_ORDER_STATUSES as readonly string[]).includes(req.query.status)
+        ? req.query.status
+        : undefined;
 
     // Build a project filter that bakes in org + visibility. For
     // technician/client this restricts to assigned/own projects; admin sees all.
@@ -230,12 +250,51 @@ workOrdersRouter.get(
       ];
     }
 
-    const rows = await prisma.workOrder.findMany({
-      where: { project: projectWhere },
-      include: workOrderListInclude,
-      orderBy: [{ createdAt: "desc" }, { ordinal: "asc" }],
+    // Base visibility filter (shared by counts + the page query). Search matches
+    // the same project fields the global search does (number/customer/city/title).
+    const baseWhere: Prisma.WorkOrderWhereInput = { project: projectWhere };
+    if (search) {
+      const ci = { contains: search, mode: "insensitive" as const };
+      baseWhere.OR = [
+        { title: ci },
+        { project: { is: { projectNumber: ci } } },
+        { project: { is: { customerName: ci } } },
+        { project: { is: { city: ci } } },
+      ];
+    }
+
+    // Per-status counts across the whole scoped+searched set (not just the page).
+    const grouped = await prisma.workOrder.groupBy({
+      by: ["listStatus"],
+      where: baseWhere,
+      _count: { _all: true },
     });
-    res.json(rows.map((wb) => workOrderListDto(wb)));
+    const counts: Record<string, number> = { total: 0 };
+    for (const s of WORK_ORDER_STATUSES) counts[s] = 0;
+    for (const g of grouped) {
+      counts[g.listStatus] = g._count._all;
+      counts.total += g._count._all;
+    }
+
+    // The page itself: apply the status filter on top of the base filter.
+    const pageWhere: Prisma.WorkOrderWhereInput = statusFilter
+      ? { AND: [baseWhere, { listStatus: statusFilter }] }
+      : baseWhere;
+
+    const page = await paginate({ limit, cursor, search }, (args) =>
+      prisma.workOrder.findMany({
+        where: pageWhere,
+        include: workOrderListInclude,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        ...args,
+      }),
+    );
+
+    res.json({
+      items: page.items.map((wb) => workOrderListDto(wb)),
+      nextCursor: page.nextCursor,
+      counts,
+    });
   }),
 );
 
@@ -311,6 +370,8 @@ workOrdersRouter.post(
         },
         include: workOrderInclude,
       });
+      // Seed the denormalized listStatus (e.g. "urgent" if the project already is).
+      await recomputeWorkOrderStatus(tx, wb.id);
       await appendActivity(tx, user, project.id, "workOrder.created", {
         title: woLabel(wb),
       });

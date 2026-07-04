@@ -17,6 +17,11 @@
     "loadFailed": "Kon gegevens niet laden",
     "empty": "Geen resultaten"
   },
+  "list": {
+    "loadMore": "Meer laden",
+    "loadingMore": "Laden…",
+    "endReached": "Einde van de lijst"
+  },
   "misc": {
     "all": "Alle"
   },

@@ -16,11 +16,17 @@ export function MaterialsTable({
   canManage,
   onEdit,
   onDelete,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   rows: MaterialRow[];
   canManage: boolean;
   onEdit: (m: MaterialRow) => void;
   onDelete: (m: MaterialRow) => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -60,6 +66,9 @@ export function MaterialsTable({
       items={rows}
       keyOf={(r) => r.id}
       empty={t("materials.empty")}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={onLoadMore}
       columns={[
         { header: t("materials.columns.name"), cell: nameCell },
         { header: t("materials.columns.category"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{category(r)}</Box> },

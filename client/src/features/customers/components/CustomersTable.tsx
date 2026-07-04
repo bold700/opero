@@ -20,12 +20,18 @@ export function CustomersTable({
   onEdit,
   onDelete,
   onInvite,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   customers: Customer[];
   canManage: boolean;
   onEdit: (c: Customer) => void;
   onDelete: (c: Customer) => void;
   onInvite: (c: Customer) => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -71,6 +77,9 @@ export function CustomersTable({
       items={customers}
       keyOf={(c) => c.id}
       empty={t("customers.table.empty")}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={onLoadMore}
       columns={[
         { header: t("customers.table.name"), cell: nameCell },
         { header: t("customers.table.city"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.city}</Box> },

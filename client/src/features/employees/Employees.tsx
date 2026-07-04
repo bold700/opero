@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -9,23 +9,34 @@ import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER } from "../../theme/tokens";
-import { useApi } from "../../lib/api/useApi";
+import { usePagedApi } from "../../lib/api/usePagedApi";
+import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
 import {
-  getEmployees,
+  getEmployeesPage,
   createEmployee,
   updateEmployee,
   deleteEmployee,
+  type EmployeeCounts,
   type EmployeeRow,
   type EmployeeInput,
 } from "./api";
-import { FILTERS, FILTER_LABEL_KEY, isOffice, type EmployeeFilter } from "./constants";
+import { FILTERS, FILTER_LABEL_KEY, type EmployeeFilter } from "./constants";
 import { EmployeesActions } from "./components/EmployeesActions";
 import { EmployeesKpis } from "./components/EmployeesKpis";
 import { EmployeesTable } from "./components/EmployeesTable";
 import { EmployeeDialog } from "./components/EmployeeDialog";
 import { InviteDialog, type InviteFixedTarget } from "../users/components/InviteDialog";
 import { inviteUser, type InviteInput } from "../users/api";
+
+const EMPTY_COUNTS: EmployeeCounts = {
+  total: 0,
+  active: 0,
+  on_leave: 0,
+  inactive: 0,
+  technicians: 0,
+  office: 0,
+};
 
 export function Employees() {
   const { t } = useTranslation();
@@ -35,7 +46,22 @@ export function Employees() {
   const [activeFilter, setActiveFilter] = useState<EmployeeFilter>("all");
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const { data, loading, error } = useApi<EmployeeRow[]>(getEmployees, [reloadKey]);
+
+  // Server-side search (debounced) + server-side filter. Both reset the paged
+  // list to page 1 (they're in the deps below), as does a refresh (reloadKey).
+  const debouncedSearch = useDebounced(search, 300);
+  const filter = activeFilter === "all" ? undefined : activeFilter;
+
+  const { items, meta, loading, loadingMore, error, hasMore, loadMore } =
+    usePagedApi<EmployeeRow, { counts: EmployeeCounts }>(
+      (cursor) =>
+        getEmployeesPage({
+          cursor,
+          search: debouncedSearch || undefined,
+          filter,
+        }),
+      [debouncedSearch, filter, reloadKey],
+    );
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EmployeeRow | null>(null);
@@ -49,36 +75,10 @@ export function Employees() {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
-  const rows = data ?? [];
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  const kpis = useMemo(
-    () => [
-      { label: t("employees.kpis.total"), value: rows.length, tone: "#1D1B20" },
-      { label: t("employees.kpis.technicians"), value: rows.filter((r) => !isOffice(r.function)).length, tone: "#1D1B20" },
-      { label: t("employees.kpis.office"), value: rows.filter((r) => isOffice(r.function)).length, tone: "#1D1B20" },
-      { label: t("employees.kpis.active"), value: rows.filter((r) => r.status === "active").length, tone: "#1E8E5A" },
-    ],
-    [rows, t],
-  );
-
-  const filtered = useMemo(() => {
-    let out = rows;
-    switch (activeFilter) {
-      case "technicians":
-        out = out.filter((r) => !isOffice(r.function));
-        break;
-      case "office":
-        out = out.filter((r) => isOffice(r.function));
-        break;
-      case "inactive":
-        out = out.filter((r) => r.status === "inactive");
-        break;
-    }
-    const q = search.trim().toLowerCase();
-    if (q) out = out.filter((r) => r.name.toLowerCase().includes(q));
-    return out;
-  }, [rows, activeFilter, search]);
+  // Whole-set counts from the first page (query-wide; unchanged as you load more).
+  const counts = meta?.counts ?? EMPTY_COUNTS;
 
   const openCreate = () => {
     setEditing(null);
@@ -156,7 +156,7 @@ export function Employees() {
         />
       }
     >
-      <EmployeesKpis kpis={kpis} />
+      <EmployeesKpis counts={counts} />
 
       {/* Filter chips */}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
@@ -183,11 +183,14 @@ export function Employees() {
         <Alert severity="error">{error}</Alert>
       ) : (
         <EmployeesTable
-          rows={filtered}
+          rows={items}
           canManage={canManage}
           onEdit={openEdit}
           onDelete={setDeleting}
           onInvite={openInvite}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
         />
       )}
 

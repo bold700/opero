@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -60,9 +60,8 @@ function NavRail({ items }: { items: NavItem[] }) {
       sx={{
         width: RAIL_WIDTH,
         flexShrink: 0,
-        height: "100dvh",
-        position: "sticky",
-        top: 0,
+        // Fills the fixed shell frame; the rail itself never scrolls with content.
+        height: "100%",
         display: { xs: "none", md: "flex" },
         flexDirection: "column",
         alignItems: "center",
@@ -433,20 +432,46 @@ function BottomNav({ items }: { items: NavItem[] }) {
 }
 
 // The authenticated app chrome: nav rail (desktop) / bottom nav (mobile) + page.
+//
+// The shell is a FIXED FRAME the exact height of the (dynamic) viewport: the nav
+// rail / bottom nav are pinned, and `<main>` is the ONE scroll region. Because the
+// document itself never scrolls, the sticky page header and the fixed bottom nav
+// can't jump when iOS shows/hides its URL bar — only the content between them moves.
 export function AppShell() {
   const { user } = useAuth();
   const items = user ? navItemsForRole(user.role) : [];
+  const location = useLocation();
+  const mainRef = useRef<HTMLDivElement | null>(null);
+
+  // The document no longer scrolls (the inner <main> does), so the browser's
+  // automatic scroll-to-top on navigation doesn't apply — reset it ourselves on
+  // each route change so a new page opens at the top, not where the last one was.
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100dvh", bgcolor: "background.default" }}>
+    <Box
+      sx={{
+        display: "flex",
+        height: "100dvh",
+        maxWidth: "100%",
+        overflow: "hidden", // frame doesn't scroll; the inner <main> does
+        bgcolor: "background.default",
+      }}
+    >
       <NavRail items={items} />
       <Box
         component="main"
+        ref={mainRef}
         sx={{
           flex: 1,
           minWidth: 0,
-          // Room for the mobile bottom nav + the iOS home-indicator safe area.
-          pb: { xs: "calc(72px + env(safe-area-inset-bottom))", md: 0 },
+          height: "100%", // exactly fills the 100dvh frame (single dvh source)
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden", // pages own their scroll (PageLayout scrolls content)
         }}
       >
         <OfflineBanner />

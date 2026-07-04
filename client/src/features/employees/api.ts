@@ -1,4 +1,4 @@
-import { api } from "../../lib/api/client";
+import { api, type Page } from "../../lib/api/client";
 import type { LinkedAccount } from "../users/api";
 
 export type EmployeeStatus = "active" | "on_leave" | "inactive";
@@ -44,8 +44,32 @@ export type EmployeeInput = {
   status?: EmployeeStatus;
 };
 
-export function getEmployees(): Promise<EmployeeRow[]> {
-  return api.get<EmployeeRow[]>("/employees");
+// Per-category totals across the whole (searched) set — powers the KPI cards.
+// Always present even when a filter is active.
+export type EmployeeCounts = {
+  total: number;
+  active: number;
+  on_leave: number;
+  inactive: number;
+  technicians: number;
+  office: number;
+};
+
+// One page of the employees list plus the counts.
+export type EmployeePage = Page<EmployeeRow> & { counts: EmployeeCounts };
+
+// Fetch one page. `filter` filters server-side (undefined = all); `search`
+// searches name/email/phone server-side; `cursor` continues the list.
+export function getEmployeesPage(opts: {
+  cursor?: string;
+  search?: string;
+  filter?: "technicians" | "office" | "inactive";
+}): Promise<EmployeePage> {
+  return api.getPage<EmployeeRow>("/employees", {
+    cursor: opts.cursor,
+    search: opts.search,
+    params: { filter: opts.filter },
+  }) as Promise<EmployeePage>;
 }
 
 export function createEmployee(input: EmployeeInput): Promise<EmployeeRow> {

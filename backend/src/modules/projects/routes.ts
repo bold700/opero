@@ -11,11 +11,13 @@ import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { resolveHidePrices } from "../../lib/orgPricing.js";
+import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { storeUpload, deleteStored } from "../../lib/attachUpload.js";
 import { uploadSingle } from "../../lib/upload.js";
 import { buildUrlMap } from "../../lib/photoUrls.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
+import { recomputeWorkOrdersForProject } from "../work-orders/status.js";
 import {
   projectDto,
   projectSummaryDto,
@@ -202,16 +204,40 @@ async function loadProjectForUser(user: AuthUser, id: string) {
 // LIST + DETAIL
 // =========================================================================
 
-// GET / — visibility-filtered, orgId-scoped. Returns summary DTOs.
+// GET / — visibility-filtered, orgId-scoped, cursor-paginated. Returns
+// { items, nextCursor }. Optional ?search filters across the header fields.
 projectsRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const rows = await prisma.project.findMany({
-      where: projectScopeWhere(user),
-      orderBy: { createdAt: "desc" },
-    });
-    res.json(await projectSummaryListFor(user, rows));
+    const params = parsePageParams(req);
+
+    // Combine search with the visibility scope via projectScopeWhere's AND-merge
+    // `extra` arg — never spread its result, which would clobber the OR that
+    // enforces technician visibility.
+    const ci = { contains: params.search, mode: "insensitive" as const };
+    const where = params.search
+      ? projectScopeWhere(user, {
+          OR: [
+            { projectNumber: ci },
+            { name: ci },
+            { customerName: ci },
+            { city: ci },
+            { address: ci },
+          ],
+        })
+      : projectScopeWhere(user);
+
+    const page = await paginate(params, (args) =>
+      prisma.project.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        ...args,
+      }),
+    );
+
+    const items = await projectSummaryListFor(user, page.items);
+    res.json({ items, nextCursor: page.nextCursor });
   }),
 );
 
@@ -645,6 +671,8 @@ projectsRouter.post(
           urgency: available ? existing.urgency : "blocked",
         },
       });
+      // Urgency may have flipped to "blocked" → resync work-order statuses.
+      await recomputeWorkOrdersForProject(tx, existing.id);
       if (fromStatus !== "operations") {
         await appendActivity(tx, user, existing.id, "status_change", "project.materialCheckStarted", {
           statuses: { fromStatus, toStatus: "operations" },
@@ -812,6 +840,8 @@ projectsRouter.post(
           value,
         },
       });
+      // Urgency may have flipped to/from "blocked" → resync work-order statuses.
+      await recomputeWorkOrdersForProject(tx, existing.id);
 
       if (blocker) {
         await appendActivity(tx, user, existing.id, "system", "project.intakeCompletedWithBlocker", {
@@ -1102,6 +1132,8 @@ projectsRouter.post(
           urgency: available ? existing.urgency : "blocked",
         },
       });
+      // Urgency may have flipped to "blocked" → resync work-order statuses.
+      await recomputeWorkOrdersForProject(tx, existing.id);
       if (fromStatus !== "operations") {
         await appendActivity(tx, user, existing.id, "status_change", "quote.accepted", {
           statuses: { fromStatus, toStatus: "operations" },
@@ -1136,6 +1168,8 @@ projectsRouter.post(
         where: { id: existing.id },
         data: { urgency },
       });
+      // Urgency feeds each work order's denormalized listStatus → resync them.
+      await recomputeWorkOrdersForProject(tx, existing.id);
       await appendActivity(tx, user, existing.id, "system", "project.urgencyChanged", {
         params: { urgency },
       });
@@ -1171,6 +1205,8 @@ projectsRouter.post(
           nextStepKey: "sendQuote",
         },
       });
+      // Urgency may have flipped from "blocked" → resync work-order statuses.
+      await recomputeWorkOrdersForProject(tx, existing.id);
       await appendActivity(
         tx,
         user,

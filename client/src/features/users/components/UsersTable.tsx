@@ -19,6 +19,9 @@ export function UsersTable({
   onResend,
   onDisable,
   onEnable,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   rows: UserAccount[];
   currentUserId?: string;
@@ -26,6 +29,9 @@ export function UsersTable({
   onResend: (u: UserAccount) => void;
   onDisable: (u: UserAccount) => void;
   onEnable: (u: UserAccount) => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -66,6 +72,9 @@ export function UsersTable({
       items={rows}
       keyOf={(u) => u.id}
       empty={t("users.empty")}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={onLoadMore}
       columns={[
         { header: t("users.table.name"), cell: nameCell },
         { header: t("users.table.role"), cell: (u) => <Box sx={{ color: "text.secondary" }}>{roleCell(u)}</Box> },

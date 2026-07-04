@@ -155,11 +155,13 @@ describe("werkbon role access", () => {
   it("technician sees ONLY their assigned work orders, not all", async () => {
     // Admin sees both projects' work orders.
     const adminList = await request(app).get("/api/work-orders").set(auth(adminToken));
-    const adminNumbers = new Set((adminList.body as { number: string }[]).map((w) => w.number));
+    const adminNumbers = new Set(
+      (adminList.body.items as { number: string }[]).map((w) => w.number),
+    );
 
     const res = await request(app).get("/api/work-orders").set(auth(techToken));
     expect(res.status).toBe(200);
-    const rows = res.body as { id: string; number: string }[];
+    const rows = res.body.items as { id: string; number: string }[];
     // The technician's own project's work order IS present...
     const own = await prisma.project.findUnique({ where: { id: projectId }, select: { projectNumber: true } });
     const other = await prisma.project.findUnique({ where: { id: otherProjectId }, select: { projectNumber: true } });

@@ -1,4 +1,4 @@
-import { api } from "../../lib/api/client";
+import { api, type Page } from "../../lib/api/client";
 import type { LinkedAccount } from "../users/api";
 
 export type CustomerType = "business" | "private";
@@ -35,8 +35,25 @@ export type CustomerInput = {
   notes?: string;
 };
 
-export function getCustomers(): Promise<Customer[]> {
-  return api.get<Customer[]>("/customers");
+// Per-type totals across the whole (searched) set — powers the count pills.
+// Always present even when a type filter is active.
+export type CustomerCounts = { total: number; business: number; private: number };
+
+// One page of the customers list plus the counts.
+export type CustomerPage = Page<Customer> & { counts: CustomerCounts };
+
+// Fetch one page. `filter` narrows by type server-side (undefined = all);
+// `search` hits name/city/contactName/email server-side; `cursor` continues.
+export function getCustomersPage(opts: {
+  cursor?: string;
+  search?: string;
+  filter?: "business" | "private";
+}): Promise<CustomerPage> {
+  return api.getPage<Customer>("/customers", {
+    cursor: opts.cursor,
+    search: opts.search,
+    params: { filter: opts.filter },
+  }) as Promise<CustomerPage>;
 }
 
 export function createCustomer(input: CustomerInput): Promise<Customer> {

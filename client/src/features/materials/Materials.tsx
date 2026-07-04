@@ -10,14 +10,17 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
+import { usePagedApi } from "../../lib/api/usePagedApi";
+import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
 import {
-  getMaterials,
+  getMaterialsPage,
   getCategories,
   createMaterial,
   updateMaterial,
   updateInventory,
   deleteMaterial,
+  type MaterialCounts,
   type MaterialRow,
   type MaterialInput,
 } from "./api";
@@ -35,7 +38,6 @@ export function Materials() {
   const [activeFilter, setActiveFilter] = useState<MaterialFilter>("all");
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const { data, loading, error } = useApi<MaterialRow[]>(getMaterials, [reloadKey]);
   const { data: categories } = useApi<string[]>(getCategories);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -45,30 +47,37 @@ export function Materials() {
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const rows = data ?? [];
+  // Server-side search (debounced) + server-side status filter. Both reset the
+  // paged list to page 1 (they're in the deps below). reloadKey bumps after
+  // create/edit/delete to refetch the list.
+  const debouncedSearch = useDebounced(search, 300);
+  const statusFilter = activeFilter === "all" ? undefined : activeFilter;
+
+  const { items, meta, loading, loadingMore, error, hasMore, loadMore } =
+    usePagedApi<MaterialRow, { counts: MaterialCounts }>(
+      (cursor) =>
+        getMaterialsPage({
+          cursor,
+          search: debouncedSearch || undefined,
+          filter: statusFilter,
+        }),
+      [debouncedSearch, statusFilter, reloadKey],
+    );
+
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
+  // Counts come from the first page response (whole-set totals); fall back to
+  // zeros until the first page lands.
+  const counts: MaterialCounts = meta?.counts ?? { total: 0, ok: 0, low: 0, out_of_stock: 0 };
   const kpis = useMemo(
     () => [
-      { label: t("materials.kpis.totalItems"), value: rows.length, tone: "#6750A4" },
-      { label: t("materials.kpis.low"), value: rows.filter((r) => r.status === "low").length, tone: "#B3261E" },
-      { label: t("materials.kpis.outOfStock"), value: rows.filter((r) => r.status === "out_of_stock").length, tone: "#B3261E" },
-      { label: t("materials.kpis.stockOk"), value: rows.filter((r) => r.status === "ok").length, tone: "#1E8E5A" },
+      { label: t("materials.kpis.totalItems"), value: counts.total, tone: "#6750A4" },
+      { label: t("materials.kpis.low"), value: counts.low, tone: "#B3261E" },
+      { label: t("materials.kpis.outOfStock"), value: counts.out_of_stock, tone: "#B3261E" },
+      { label: t("materials.kpis.stockOk"), value: counts.ok, tone: "#1E8E5A" },
     ],
-    [rows, t],
+    [counts, t],
   );
-
-  const filtered = useMemo(() => {
-    let out = rows;
-    if (activeFilter !== "all") out = out.filter((r) => r.status === activeFilter);
-    const q = search.trim().toLowerCase();
-    if (q) {
-      out = out.filter(
-        (r) => r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q),
-      );
-    }
-    return out;
-  }, [rows, activeFilter, search]);
 
   const openCreate = () => {
     setEditing(null);
@@ -167,10 +176,13 @@ export function Materials() {
         <Alert severity="error">{error}</Alert>
       ) : (
         <MaterialsTable
-          rows={filtered}
+          rows={items}
           canManage={canManage}
           onEdit={openEdit}
           onDelete={setDeleting}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
         />
       )}
 

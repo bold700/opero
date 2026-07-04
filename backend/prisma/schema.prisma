@@ -373,6 +373,11 @@ model Material {
   name      String
   unit      String
   category  String    @default("other")
+  // Denormalized stock status ("ok" | "low" | "out_of_stock"), derived from the
+  // linked inventory's quantityInStock vs reorderPoint (out_of_stock when there's
+  // no inventory row). Kept in sync by recomputeMaterialStock() so the list can
+  // filter/count/paginate on a real column instead of computing in app code.
+  stockStatus String  @default("out_of_stock")
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -381,6 +386,7 @@ model Material {
   inventory Inventory?
 
   @@index([orgId])
+  @@index([stockStatus])
 }
 
 model Inventory {
@@ -628,6 +634,11 @@ model WorkOrder {
   prejobPhotos       String[]      @default([])
   dispatchedAt       DateTime?
   dispatchedById     String?
+  // Denormalized list status ("open" | "on_the_way" | "urgent" | "done"), derived
+  // from project urgency + task completion. Kept in sync by
+  // recomputeWorkOrderStatus() so the list endpoint can filter/count/paginate on a
+  // real indexed column instead of computing over the whole table in app code.
+  listStatus         String        @default("open")
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -636,6 +647,7 @@ model WorkOrder {
   tasks    WorkOrderTask[]
 
   @@index([projectId])
+  @@index([listStatus])
 }
 
 model WorkOrderTask {
