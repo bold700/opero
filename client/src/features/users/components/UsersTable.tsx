@@ -2,19 +2,16 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
-import Table from "@mui/material/Table";
-import TableHead from "@mui/material/TableHead";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
-import { Card } from "../../../components/Card";
+import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { ACCOUNT_STATUS, initials } from "../constants";
 import { UserRowMenu } from "./UserRowMenu";
 import type { UserAccount } from "../api";
 
-// The access table: one row per login account, its role + status, and the
+// The access list: one row per login account, its role + status, and the
 // lifecycle actions appropriate to that status (resend / disable / enable).
+// A dense table on desktop (md+), a stack of cards on mobile (xs–sm) via
+// ResponsiveList.
 export function UsersTable({
   rows,
   currentUserId,
@@ -31,71 +28,64 @@ export function UsersTable({
   onEnable: (u: UserAccount) => void;
 }) {
   const { t } = useTranslation();
+
+  const nameCell = (u: UserAccount) => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+      <Avatar sx={{ width: 36, height: 36, bgcolor: "#E8DEF8", color: "#6750A4", fontSize: 14, fontWeight: 700 }}>
+        {initials(u.name)}
+      </Avatar>
+      <Box>
+        <Typography sx={{ fontWeight: 600 }}>{u.name}</Typography>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          {u.email}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  const roleCell = (u: UserAccount) => t(`users.roles.${u.role}`);
+
+  const statusCell = (u: UserAccount) => {
+    const status = ACCOUNT_STATUS[u.status];
+    return <StatusBadge label={t(status.labelKey)} tone={status.tone} />;
+  };
+
+  const menuCell = (u: UserAccount) => (
+    <UserRowMenu
+      user={u}
+      isSelf={u.id === currentUserId}
+      busy={busyId === u.id}
+      onResend={onResend}
+      onDisable={onDisable}
+      onEnable={onEnable}
+    />
+  );
+
   return (
-    <Card noPadding>
-      <Table
-        sx={{
-          "& th, & td": { borderColor: "#F0EDF1", px: 3 },
-          "& th": { py: 2 },
-          "& td": { py: 2 },
-        }}
-      >
-        <TableHead>
-          <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
-            <TableCell>{t("users.table.name")}</TableCell>
-            <TableCell>{t("users.table.role")}</TableCell>
-            <TableCell>{t("users.table.status")}</TableCell>
-            <TableCell align="right">{t("users.table.action")}</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
-                {t("users.empty")}
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((u) => {
-              const status = ACCOUNT_STATUS[u.status];
-              const busy = busyId === u.id;
-              return (
-                <TableRow key={u.id} hover sx={{ "&:last-child td": { border: 0 } }}>
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                      <Avatar sx={{ width: 36, height: 36, bgcolor: "#E8DEF8", color: "#6750A4", fontSize: 14, fontWeight: 700 }}>
-                        {initials(u.name)}
-                      </Avatar>
-                      <Box>
-                        <Typography sx={{ fontWeight: 600 }}>{u.name}</Typography>
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          {u.email}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ color: "text.secondary" }}>
-                    {t(`users.roles.${u.role}`)}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge label={t(status.labelKey)} tone={status.tone} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <UserRowMenu
-                      user={u}
-                      isSelf={u.id === currentUserId}
-                      busy={busy}
-                      onResend={onResend}
-                      onDisable={onDisable}
-                      onEnable={onEnable}
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
-    </Card>
+    <ResponsiveList
+      items={rows}
+      keyOf={(u) => u.id}
+      empty={t("users.empty")}
+      columns={[
+        { header: t("users.table.name"), cell: nameCell },
+        { header: t("users.table.role"), cell: (u) => <Box sx={{ color: "text.secondary" }}>{roleCell(u)}</Box> },
+        { header: t("users.table.status"), cell: statusCell },
+        { header: t("users.table.action"), align: "right", cell: menuCell },
+      ]}
+      renderCard={(u) => (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {/* Top line: identity + kebab actions */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+            {nameCell(u)}
+            {menuCell(u)}
+          </Box>
+          {/* Meta line: role + status */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <Box sx={{ color: "text.secondary", fontSize: 13 }}>{roleCell(u)}</Box>
+            {statusCell(u)}
+          </Box>
+        </Box>
+      )}
+    />
   );
 }

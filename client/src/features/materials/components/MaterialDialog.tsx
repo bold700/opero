@@ -1,15 +1,15 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import { SelectField } from "../../../components/SelectField";
 import { useForm } from "../../../lib/useForm";
 import { required, nonNegativeNumber } from "../../../lib/validation";
 import type { MaterialRow, MaterialInput } from "../api";
@@ -101,7 +101,7 @@ export function MaterialDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" title={material ? t("materials.dialog.editTitle") : t("materials.dialog.newTitle")}>
       <DialogTitle sx={{ fontWeight: 700 }}>
         {material ? t("materials.dialog.editTitle") : t("materials.dialog.newTitle")}
       </DialogTitle>
@@ -120,7 +120,7 @@ export function MaterialDialog({
             size="small"
             {...err("name")}
           />
-          <Box sx={{ display: "flex", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
             <TextField
               label={t("materials.dialog.unit")}
               value={values.unit}
@@ -129,24 +129,20 @@ export function MaterialDialog({
               disabled={busy}
               required
               size="small"
-              sx={{ width: 160 }}
+              sx={{ width: { xs: "100%", sm: 160 } }}
               {...err("unit")}
             />
-            <TextField
-              select
+            <SelectField
               label={t("materials.dialog.category")}
               value={values.category || "other"}
-              onChange={setField("category")}
+              onChange={(v) => setField("category")({ target: { value: v } })}
               disabled={busy}
-              size="small"
               sx={{ flex: 1 }}
-            >
-              {categories.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {t(`materials.category.${c}`, { defaultValue: c })}
-                </MenuItem>
-              ))}
-            </TextField>
+              options={categories.map((c) => ({
+                value: c,
+                label: t(`materials.category.${c}`, { defaultValue: c }),
+              }))}
+            />
           </Box>
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField
@@ -194,6 +190,6 @@ export function MaterialDialog({
           {t("common.actions.save")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

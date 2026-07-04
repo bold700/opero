@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import { SelectField } from "../../../components/SelectField";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -147,45 +147,35 @@ export function CreateWorkOrderDialog({
   };
 
   return (
-    <Dialog open={open} onClose={submitting ? undefined : onClose} fullWidth maxWidth="sm">
+    <ResponsiveDialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" title={t("workOrders.create.title")}>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrders.create.title")}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
 
           {/* Customer */}
-          <TextField
-            select
+          <SelectField
             label={t("workOrders.create.customerLabel")}
             value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
+            onChange={setCustomerId}
             disabled={loadingCustomers || submitting}
-          >
-            {customers.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.name}
-              </MenuItem>
-            ))}
-          </TextField>
+            options={customers.map((c) => ({ value: c.id, label: c.name }))}
+          />
 
           {/* Project — existing or new */}
-          <TextField
-            select
+          <SelectField
             label={t("workOrders.create.projectLabel")}
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            onChange={setProjectId}
             disabled={!customerId || loadingProjects || submitting}
-          >
-            {projects.map((p) => (
-              <MenuItem key={p.id} value={p.id}>
-                {p.projectNumber}
-                {p.name ? ` · ${p.name}` : ""}
-              </MenuItem>
-            ))}
-            <MenuItem value={NEW_PROJECT} sx={{ color: "primary.main", fontWeight: 600 }}>
-              {t("workOrders.create.newProject")}
-            </MenuItem>
-          </TextField>
+            options={[
+              ...projects.map((p) => ({
+                value: p.id,
+                label: `${p.projectNumber}${p.name ? ` · ${p.name}` : ""}`,
+              })),
+              { value: NEW_PROJECT, label: t("workOrders.create.newProject"), emphasize: true },
+            ]}
+          />
 
           {/* New-project sub-form: a distinct grouped block */}
           {creatingProject ? (
@@ -213,27 +203,22 @@ export function CreateWorkOrderDialog({
                 autoFocus
               />
 
-              <TextField
-                select
+              <SelectField
                 label={t("workOrders.create.locationLabel")}
                 value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
+                onChange={setLocationId}
                 disabled={submitting}
-                size="small"
-              >
-                <MenuItem value="">{t("workOrders.create.locationCustomerAddress")}</MenuItem>
-                {locations.map((l) => (
-                  <MenuItem key={l.id} value={l.id}>
-                    {l.label ? `${l.label} · ` : ""}
-                    {l.address}, {l.city}
-                  </MenuItem>
-                ))}
-                {isAdmin ? (
-                  <MenuItem value={NEW_LOCATION} sx={{ color: "primary.main", fontWeight: 600 }}>
-                    {t("workOrders.create.locationNew")}
-                  </MenuItem>
-                ) : null}
-              </TextField>
+                options={[
+                  { value: "", label: t("workOrders.create.locationCustomerAddress") },
+                  ...locations.map((l) => ({
+                    value: l.id,
+                    label: `${l.label ? `${l.label} · ` : ""}${l.address}, ${l.city}`,
+                  })),
+                  ...(isAdmin
+                    ? [{ value: NEW_LOCATION, label: t("workOrders.create.locationNew"), emphasize: true }]
+                    : []),
+                ]}
+              />
 
               {/* Inline new-location fields */}
               {creatingLocation ? (
@@ -253,14 +238,14 @@ export function CreateWorkOrderDialog({
                     size="small"
                     required
                   />
-                  <Box sx={{ display: "flex", gap: 1.5 }}>
+                  <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1.5 }}>
                     <TextField
                       label={t("workOrders.create.locationPostalCode")}
                       value={newLocation.postalCode}
                       onChange={(e) => setNewLocation((s) => ({ ...s, postalCode: e.target.value }))}
                       disabled={submitting}
                       size="small"
-                      sx={{ width: 140 }}
+                      sx={{ width: { xs: "100%", sm: 140 } }}
                     />
                     <TextField
                       label={t("workOrders.create.locationCity")}
@@ -298,6 +283,6 @@ export function CreateWorkOrderDialog({
           {t("workOrders.create.submit")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

@@ -41,7 +41,15 @@ export function PeriodPicker({
   };
 
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        flexWrap: { xs: "wrap", sm: "nowrap" },
+        width: { xs: "100%", sm: "auto" },
+      }}
+    >
       <IconButton
         size="small"
         aria-label={t("reports.period.previous")}
@@ -56,6 +64,7 @@ export function PeriodPicker({
           alignItems: "center",
           gap: 1,
           minWidth: 150,
+          flex: { xs: 1, sm: "0 0 auto" },
           justifyContent: "center",
         }}
       >
@@ -79,7 +88,12 @@ export function PeriodPicker({
         color="inherit"
         endIcon={<KeyboardArrowDownIcon />}
         onClick={(e) => setAnchor(e.currentTarget)}
-        sx={{ ml: 0.5, textTransform: "none" }}
+        sx={{
+          ml: { xs: 0, sm: 0.5 },
+          textTransform: "none",
+          width: { xs: "100%", sm: "auto" },
+          order: { xs: 1, sm: 0 },
+        }}
       >
         {active ? t(`reports.period.${active}`) : t("reports.period.presets")}
       </Button>

@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import { SelectField } from "../../../components/SelectField";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -112,7 +112,7 @@ export function CustomerDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" title={customer ? t("customers.dialog.editTitle") : t("customers.dialog.newTitle")}>
       <DialogTitle sx={{ fontWeight: 700 }}>
         {customer ? t("customers.dialog.editTitle") : t("customers.dialog.newTitle")}
       </DialogTitle>
@@ -131,17 +131,16 @@ export function CustomerDialog({
             size="small"
             {...err("name")}
           />
-          <TextField
-            select
+          <SelectField
             label={t("customers.dialog.type")}
             value={values.type}
-            onChange={setField("type")}
+            onChange={(v) => setField("type")({ target: { value: v } })}
             disabled={busy}
-            size="small"
-          >
-            <MenuItem value="business">{t("customers.typeBadge.business")}</MenuItem>
-            <MenuItem value="private">{t("customers.typeBadge.private")}</MenuItem>
-          </TextField>
+            options={[
+              { value: "business", label: t("customers.typeBadge.business") },
+              { value: "private", label: t("customers.typeBadge.private") },
+            ]}
+          />
           <TextField
             label={t("customers.dialog.contactName")}
             value={values.contactName}
@@ -176,14 +175,14 @@ export function CustomerDialog({
             disabled={busy}
             size="small"
           />
-          <Box sx={{ display: "flex", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
             <TextField
               label={t("customers.dialog.postalCode")}
               value={values.postalCode}
               onChange={setField("postalCode")}
               disabled={busy}
               size="small"
-              sx={{ width: 160 }}
+              sx={{ width: { xs: "100%", sm: 160 } }}
             />
             <TextField
               label={t("customers.dialog.city")}
@@ -218,6 +217,6 @@ export function CustomerDialog({
           {t("common.actions.save")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

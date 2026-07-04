@@ -1,9 +1,8 @@
 import { useTranslation } from "react-i18next";
-import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
-import AddIcon from "@mui/icons-material/Add";
+import { NewButton } from "../../../components/NewButton";
 
 // Right-side actions in the work orders top bar: search + new order.
 // Search is controlled by the page (client-side filter); "Nieuwe werkbon"
@@ -27,7 +26,7 @@ export function WorkOrdersActions({
         placeholder={t("workOrders.actions.searchPlaceholder")}
         value={search}
         onChange={(e) => onSearch(e.target.value)}
-        sx={{ width: { xs: 180, sm: 280 } }}
+        sx={{ flex: { xs: 1, sm: "0 0 auto" }, width: { sm: 280 }, minWidth: 0 }}
         slotProps={{
           input: {
             startAdornment: (
@@ -39,9 +38,7 @@ export function WorkOrdersActions({
         }}
       />
       {canCreate ? (
-        <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
-          {t("workOrders.actions.newWorkOrder")}
-        </Button>
+        <NewButton label={t("workOrders.actions.newWorkOrder")} onClick={onCreate} />
       ) : null}
     </>
   );

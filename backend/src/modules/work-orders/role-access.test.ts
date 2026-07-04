@@ -167,8 +167,9 @@ describe("werkbon role access", () => {
     expect(techNumbers.has(own!.projectNumber)).toBe(true);
     // ...but the unassigned project's work order is NOT.
     expect(techNumbers.has(other!.projectNumber)).toBe(false);
-    // And the technician sees strictly fewer than the admin (scoping is real).
-    expect(rows.length).toBeLessThan(adminNumbers.size);
+    // Admin (org-wide) DOES see the unassigned project — proving the technician's
+    // list is a real, strict subset, not just an empty/equal one.
+    expect(adminNumbers.has(other!.projectNumber)).toBe(true);
   });
 
   it("technician planning feed is scoped to their own projects, not all", async () => {

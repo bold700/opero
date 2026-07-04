@@ -7,7 +7,7 @@ import TextField from "@mui/material/TextField";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { PhotoGrid } from "../../../components/PhotoGrid";
-import { HAIRLINE } from "../../../theme/tokens";
+import { HAIRLINE, TAP_TARGET } from "../../../theme/tokens";
 import { extraWorkBadge, euro } from "../constants";
 import type { ExtraWork, NewExtraWork } from "../api";
 
@@ -45,7 +45,7 @@ export function ExtraWorkPanel({
     <Card noPadding>
       <Box
         sx={{
-          px: 3,
+          px: { xs: 2, md: 3 },
           py: 2,
           display: "flex",
           alignItems: "center",
@@ -76,14 +76,14 @@ export function ExtraWorkPanel({
       ) : null}
 
       {items.length === 0 && !reporting ? (
-        <Box sx={{ px: 3, py: 4, color: "text.secondary" }}>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 4, color: "text.secondary" }}>
           {t("workOrderDetail.extraWork.empty")}
         </Box>
       ) : (
         items.map((m) => {
           const badge = extraWorkBadge(m);
           return (
-            <Box key={m.id} sx={{ px: 3, py: 2, borderBottom: `1px solid ${HAIRLINE}` }}>
+            <Box key={m.id} sx={{ px: { xs: 2, md: 3 }, py: 2, borderBottom: `1px solid ${HAIRLINE}` }}>
               <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600 }}>
@@ -108,6 +108,7 @@ export function ExtraWorkPanel({
                       variant={m.approvedByOffice ? "outlined" : "contained"}
                       onClick={() => onApproveOffice(m.id)}
                       disabled={busy}
+                      sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
                     >
                       {m.approvedByOffice
                         ? t("workOrderDetail.extraWork.officeApproved")
@@ -118,6 +119,7 @@ export function ExtraWorkPanel({
                       color="error"
                       onClick={() => onReject(m.id)}
                       disabled={busy}
+                      sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
                     >
                       {t("workOrderDetail.extraWork.reject")}
                     </Button>
@@ -129,6 +131,7 @@ export function ExtraWorkPanel({
                     variant={m.approvedByClient ? "outlined" : "contained"}
                     onClick={() => onApproveClient(m.id)}
                     disabled={busy}
+                    sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
                   >
                     {m.approvedByClient
                       ? t("workOrderDetail.extraWork.clientApproved")
@@ -186,30 +189,43 @@ function ReportForm({
   };
 
   return (
-    <Box sx={{ px: 3, py: 2, borderBottom: `1px solid ${HAIRLINE}`, display: "flex", gap: 1, flexWrap: "wrap" }}>
+    <Box
+      sx={{
+        px: { xs: 2, md: 3 },
+        py: 2,
+        borderBottom: `1px solid ${HAIRLINE}`,
+        display: "flex",
+        gap: 1,
+        flexWrap: "wrap",
+        alignItems: { xs: "stretch", sm: "center" },
+      }}
+    >
       <TextField
         size="small"
         placeholder={t("workOrderDetail.extraWork.descriptionPlaceholder")}
         value={name}
         onChange={(e) => setName(e.target.value)}
         autoFocus
-        sx={{ flex: 1, minWidth: 200 }}
+        sx={{ flex: { sm: 1 }, width: { xs: "100%", sm: "auto" }, minWidth: { sm: 200 } }}
       />
-      <TextField
-        size="small"
-        placeholder={t("workOrderDetail.material.quantity")}
-        type="number"
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-        sx={{ width: 90 }}
-      />
-      <TextField
-        size="small"
-        placeholder={t("workOrderDetail.material.unit")}
-        value={unit}
-        onChange={(e) => setUnit(e.target.value)}
-        sx={{ width: 100 }}
-      />
+      {/* qty + unit share a row on xs, inline on sm+ */}
+      <Box sx={{ display: "flex", gap: 1, width: { xs: "100%", sm: "auto" } }}>
+        <TextField
+          size="small"
+          placeholder={t("workOrderDetail.material.quantity")}
+          type="number"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          sx={{ width: { xs: "50%", sm: 90 } }}
+        />
+        <TextField
+          size="small"
+          placeholder={t("workOrderDetail.material.unit")}
+          value={unit}
+          onChange={(e) => setUnit(e.target.value)}
+          sx={{ width: { xs: "50%", sm: 100 } }}
+        />
+      </Box>
       {showPrices ? (
         <TextField
           size="small"
@@ -217,15 +233,28 @@ function ReportForm({
           type="number"
           value={unitPrice}
           onChange={(e) => setUnitPrice(e.target.value)}
-          sx={{ width: 100 }}
+          sx={{ width: { xs: "100%", sm: 100 } }}
         />
       ) : null}
-      <Button size="small" variant="contained" onClick={submit} disabled={busy || !name.trim()}>
-        {t("workOrderDetail.extraWork.submit")}
-      </Button>
-      <Button size="small" onClick={onCancel} disabled={busy}>
-        {t("common.actions.cancel")}
-      </Button>
+      <Box sx={{ display: "flex", gap: 1, width: { xs: "100%", sm: "auto" } }}>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={submit}
+          disabled={busy || !name.trim()}
+          sx={{ flex: { xs: 1, sm: "none" }, minHeight: { xs: TAP_TARGET, sm: "auto" } }}
+        >
+          {t("workOrderDetail.extraWork.submit")}
+        </Button>
+        <Button
+          size="small"
+          onClick={onCancel}
+          disabled={busy}
+          sx={{ flex: { xs: 1, sm: "none" }, minHeight: { xs: TAP_TARGET, sm: "auto" } }}
+        >
+          {t("common.actions.cancel")}
+        </Button>
+      </Box>
     </Box>
   );
 }

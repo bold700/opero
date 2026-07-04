@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
@@ -62,7 +62,7 @@ export function TwoFactorSetupDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="xs">
+    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" title={t("settings.security.setupTitle")}>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("settings.security.setupTitle")}</DialogTitle>
       <DialogContent>
         {loading ? (
@@ -137,6 +137,6 @@ export function TwoFactorSetupDialog({
           {t("settings.security.enable")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

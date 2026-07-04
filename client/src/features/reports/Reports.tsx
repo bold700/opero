@@ -27,7 +27,15 @@ export function Reports() {
   const { data, loading, error } = useApi<ReportsData>(fetcher, [period.from, period.to]);
 
   const controls = (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        flexWrap: "wrap",
+        width: { xs: "100%", md: "auto" },
+      }}
+    >
       <PeriodPicker period={period} onChange={setPeriod} />
       <ReportsActions data={data} period={period} />
     </Box>

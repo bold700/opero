@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import { SelectField } from "../../../components/SelectField";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -100,7 +100,7 @@ export function ScheduleDialog({
     });
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" title={lockedProject ? t("planning.schedule.editTitle") : t("planning.schedule.newTitle")}>
       <DialogTitle sx={{ fontWeight: 700 }}>
         {lockedProject ? t("planning.schedule.editTitle") : t("planning.schedule.newTitle")}
       </DialogTitle>
@@ -116,21 +116,17 @@ export function ScheduleDialog({
               size="small"
             />
           ) : (
-            <TextField
-              select
+            <SelectField
               label={t("planning.schedule.project")}
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={setProjectId}
               disabled={busy}
-              size="small"
               autoFocus
-            >
-              {projects.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.projectNumber} · {p.customerName}
-                </MenuItem>
-              ))}
-            </TextField>
+              options={projects.map((p) => ({
+                value: p.id,
+                label: `${p.projectNumber} · ${p.customerName}`,
+              }))}
+            />
           )}
 
           <TextField
@@ -148,56 +144,41 @@ export function ScheduleDialog({
             }}
           />
 
-          <TextField
-            select
+          <SelectField
             label={t("planning.schedule.teamLeader")}
             value={teamLeaderId}
-            onChange={(e) => setTeamLeaderId(e.target.value)}
+            onChange={setTeamLeaderId}
             disabled={busy}
-            size="small"
-          >
-            <MenuItem value="">{t("planning.schedule.unassigned")}</MenuItem>
-            {employees.map((e) => (
-              <MenuItem key={e.id} value={e.id}>
-                {e.name}
-              </MenuItem>
-            ))}
-          </TextField>
+            options={[
+              { value: "", label: t("planning.schedule.unassigned") },
+              ...employees.map((e) => ({ value: e.id, label: e.name })),
+            ]}
+          />
 
           <Box sx={{ display: "flex", gap: 2 }}>
-            <TextField
-              select
+            <SelectField
               label={t("planning.schedule.startTime")}
               value={startTime}
-              onChange={(e) => onStartChange(e.target.value)}
+              onChange={onStartChange}
               disabled={busy}
-              size="small"
               sx={{ flex: 1 }}
-            >
-              <MenuItem value="">{t("planning.schedule.noTime")}</MenuItem>
-              {TIME_SLOTS.map((s) => (
-                <MenuItem key={s} value={s}>
-                  {s}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
+              options={[
+                { value: "", label: t("planning.schedule.noTime") },
+                ...TIME_SLOTS.map((s) => ({ value: s, label: s })),
+              ]}
+            />
+            <SelectField
               label={t("planning.schedule.endTime")}
               value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
+              onChange={setEndTime}
               disabled={busy || !startTime}
-              size="small"
               sx={{ flex: 1 }}
               helperText={!startTime ? t("planning.schedule.pickStartFirst") : undefined}
-            >
-              <MenuItem value="">{t("planning.schedule.noTime")}</MenuItem>
-              {endOptions.map((s) => (
-                <MenuItem key={s} value={s}>
-                  {s}
-                </MenuItem>
-              ))}
-            </TextField>
+              options={[
+                { value: "", label: t("planning.schedule.noTime") },
+                ...endOptions.map((s) => ({ value: s, label: s })),
+              ]}
+            />
           </Box>
         </Box>
       </DialogContent>
@@ -214,6 +195,6 @@ export function ScheduleDialog({
           {t("common.actions.save")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

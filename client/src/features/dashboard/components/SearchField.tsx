@@ -83,8 +83,19 @@ export function SearchField() {
 
   return (
     <ClickAwayListener onClickAway={() => setFocused(false)}>
-      <Box sx={{ position: "relative", width: { xs: 200, sm: 280 } }}>
-        {/* The field */}
+      <Box
+        sx={{
+          position: "relative",
+          // Match the list screens: grow to fill the header row on mobile, fixed
+          // 280px on desktop.
+          flex: { xs: 1, sm: "0 0 auto" },
+          width: { sm: 280 },
+          minWidth: 0,
+        }}
+      >
+        {/* The field — styled to match the outlined TextField the list screens use
+            (rectangular, standard radius, search-icon start adornment) so search
+            looks identical across every tab. */}
         <Box
           onClick={() => inputRef.current?.focus()}
           sx={{
@@ -93,10 +104,10 @@ export function SearchField() {
             gap: 1,
             height: 40,
             px: 1.5,
-            borderRadius: `${RADIUS.pill}px`,
-            bgcolor: "action.hover",
+            borderRadius: `${RADIUS.control}px`,
+            bgcolor: "background.paper",
             border: "1px solid",
-            borderColor: focused ? "primary.main" : "transparent",
+            borderColor: focused ? "primary.main" : "divider",
             transition: "border-color .15s",
             cursor: "text",
           }}

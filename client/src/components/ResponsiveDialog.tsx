@@ -1,0 +1,163 @@
+import { createContext, useContext, useState, type ReactNode } from "react";
+import Dialog from "@mui/material/Dialog";
+import Box from "@mui/material/Box";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
+import { Drawer as Vaul } from "vaul";
+import { CARD_BG, RADIUS } from "../theme/tokens";
+
+// The DOM node MUI popovers (Select/Autocomplete/Menu) should portal INTO when
+// they're inside a mobile sheet. vaul (Radix Dialog) blocks pointer events on
+// anything portaled to document.body OUTSIDE its content, so a Select menu would
+// be unclickable. Rendering the menu inside the sheet's own subtree fixes it.
+// `null` on desktop → MUI's default (document.body), which is correct there.
+const SheetContainerContext = createContext<HTMLElement | null>(null);
+
+// Use inside any dialog for MUI Select/TextField-select/Menu popovers so they
+// stay clickable in the mobile sheet. Spread onto <Select MenuProps={...}> or
+// pass `.container` to slotProps. On desktop it's a no-op (undefined container).
+export function useSheetMenuProps() {
+  const container = useContext(SheetContainerContext);
+  return {
+    /** For <Select> / <TextField select>: `MenuProps={useSheetMenuProps().menu}` */
+    menu: { container: container ?? undefined },
+    /** For <Autocomplete>: `slotProps={{ popper: useSheetMenuProps().popper }}` */
+    popper: { container: container ?? undefined },
+    /** Raw container node (or undefined) if you need it directly. */
+    container: container ?? undefined,
+  };
+}
+
+const HANDLE_COLOR = "#D5D0DD";
+
+// A dialog that adapts to screen size:
+//  - Desktop (sm+): a centered MUI Dialog (the classic modal card).
+//  - Mobile (xs):   a DRAGGABLE bottom sheet (vaul) — slides up from the bottom,
+//                   rounded top, a real grab handle you can swipe DOWN to dismiss
+//                   (velocity-based), only as tall as its content (long forms fill
+//                   most of the screen and scroll internally), page dimmed behind.
+//
+// Drop-in for `<Dialog>`: put the usual DialogTitle / DialogContent /
+// DialogActions inside as children — they render correctly in both. Pass
+// `maxWidth` for the desktop width (default "sm").
+//
+// vaul only starts a drag from the handle/header or when the inner scroll area is
+// at the top, so long forms scroll normally and drawing on the SignaturePad (which
+// lives inside the scrollable DialogContent) never drags the sheet.
+// Visually-hidden but screen-reader-available (matches Radix/MUI's a11y pattern).
+const srOnly = {
+  position: "absolute" as const,
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap" as const,
+  border: 0,
+};
+
+export function ResponsiveDialog({
+  open,
+  onClose,
+  children,
+  maxWidth = "sm",
+  title,
+}: {
+  open: boolean;
+  /** Backdrop click / Escape / swipe-down. Pass `undefined` to lock (e.g. busy) —
+   *  when undefined the sheet is NOT dismissible, so a swipe can't cancel a save. */
+  onClose?: () => void;
+  children: ReactNode;
+  maxWidth?: "xs" | "sm" | "md";
+  /** Accessible name for the sheet (screen readers). The visible title still comes
+   *  from the DialogTitle inside `children`; this satisfies vaul/Radix's required
+   *  Dialog.Title so there's no a11y warning. */
+  title: string;
+}) {
+  const theme = useTheme();
+  const mobile = useMediaQuery(theme.breakpoints.down("sm"));
+  // The sheet content node — MUI menus inside portal here so they stay clickable.
+  const [sheetEl, setSheetEl] = useState<HTMLElement | null>(null);
+
+  if (mobile) {
+    return (
+      <Vaul.Root
+        open={open}
+        // vaul calls this with `false` on swipe-dismiss / overlay tap / Escape.
+        onOpenChange={(next) => {
+          if (!next) onClose?.();
+        }}
+        // Locked while busy (onClose undefined): swipe/tap-away can't cancel a save.
+        dismissible={Boolean(onClose)}
+        repositionInputs
+      >
+        <Vaul.Portal>
+          <Vaul.Overlay
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.5)",
+              zIndex: 1300,
+            }}
+          />
+          <Vaul.Content
+            aria-describedby={undefined}
+            style={{
+              position: "fixed",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 1300,
+              display: "flex",
+              flexDirection: "column",
+              outline: "none",
+            }}
+          >
+            <Box
+              ref={setSheetEl}
+              sx={{
+                bgcolor: CARD_BG,
+                borderTopLeftRadius: `${RADIUS.card}px`,
+                borderTopRightRadius: `${RADIUS.card}px`,
+                maxHeight: "92dvh",
+                display: "flex",
+                flexDirection: "column",
+                pb: "env(safe-area-inset-bottom)",
+                // DialogContent scrolls; DialogActions stay pinned at the bottom.
+                "& .MuiDialogContent-root": { flex: 1, overflowY: "auto" },
+                "& .MuiDialogActions-root": { flexShrink: 0 },
+              }}
+            >
+              {/* Accessible name for the dialog (required by vaul/Radix). The
+                  visible title is the DialogTitle inside `children`. */}
+              <Vaul.Title style={srOnly}>{title}</Vaul.Title>
+              {/* Real drag handle — swipe down to dismiss. */}
+              <Vaul.Handle
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  margin: "10px auto 4px",
+                  background: HANDLE_COLOR,
+                  flexShrink: 0,
+                }}
+              />
+              {/* Menus inside the sheet portal into `sheetEl` (this Box), keeping
+                  them within vaul's content tree so they stay clickable. */}
+              <SheetContainerContext.Provider value={sheetEl}>
+                {children}
+              </SheetContainerContext.Provider>
+            </Box>
+          </Vaul.Content>
+        </Vaul.Portal>
+      </Vaul.Root>
+    );
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth={maxWidth}>
+      {children}
+    </Dialog>
+  );
+}

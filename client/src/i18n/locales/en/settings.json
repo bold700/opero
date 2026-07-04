@@ -44,8 +44,7 @@
     },
     "saved": "Profile saved",
     "saveError": "Save failed",
-    "changeEmail": "Change",
-    "emailChangeHint": "Changing your email needs confirmation via a link."
+    "changeEmail": "Change"
   },
   "company": {
     "companyData": "Company details",

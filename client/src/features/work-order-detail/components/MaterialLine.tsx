@@ -33,7 +33,7 @@ export function MaterialLine({
         onChange={onToggle}
         disabled={!canWrite || busy}
         size="small"
-        sx={{ p: 0.5 }}
+        sx={{ p: { xs: 1.25, md: 0.5 } }}
       />
       <Typography
         variant="body2"
@@ -58,6 +58,7 @@ export function MaterialLine({
           aria-label={t("workOrderDetail.material.delete")}
           onClick={onDelete}
           disabled={busy}
+          sx={{ p: { xs: 1.25, md: 0.5 } }}
         >
           <DeleteOutlineIcon fontSize="small" />
         </IconButton>

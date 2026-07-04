@@ -72,13 +72,24 @@ export function CalendarView({
   return (
     <Card
       sx={{
-        p: 2.5,
+        p: { xs: 1.5, md: 2.5 },
         // Fill the available height and let the calendar scroll inside itself
         // instead of growing the page.
         height: "100%",
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
+        // ── Mobile: let the toolbar (prev/next/today + title) wrap instead of
+        // overflowing the narrow card, and tighten spacing so week/day grids and
+        // the time-axis stay usable at ~360px. ──
+        "& .fc .fc-toolbar.fc-header-toolbar": { flexWrap: "wrap", rowGap: "8px" },
+        "@media (max-width:600px)": {
+          "& .fc .fc-toolbar-title": { fontSize: "0.9rem" },
+          "& .fc .fc-button": { padding: "4px 10px", fontSize: 12 },
+          // Narrow the time-axis gutter so day/week columns get more width.
+          "& .fc .fc-timegrid-axis-cushion, & .fc .fc-timegrid-slot-label-cushion": { fontSize: 10, px: 0.5 },
+          "& .fc .fc-col-header-cell-cushion": { fontSize: 11 },
+        },
         // ── Theme FullCalendar to the app design system (M3 / lavender) ──
         "& .fc": {
           flex: 1,
@@ -253,6 +264,9 @@ export function CalendarView({
         firstDay={1}
         height="100%"
         nowIndicator
+        // Month cells are small (especially on a phone) — cap events per day and
+        // show a themed "+N" link instead of overflowing the cell.
+        dayMaxEvents={3}
         // Full 24-hour day, European 24-hour clock everywhere. No all-day row —
         // every job has a time (date-only jobs get a default slot in toEvent).
         allDaySlot={false}

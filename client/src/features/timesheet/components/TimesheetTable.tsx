@@ -2,17 +2,14 @@ import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Table from "@mui/material/Table";
-import TableHead from "@mui/material/TableHead";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
 import { Card } from "../../../components/Card";
+import { ResponsiveList } from "../../../components/ResponsiveList";
 import { formatDate, formatHours } from "../../reports/constants";
 import type { TimesheetEntry } from "../api";
 
 // The technician's logged hours for the selected period, grouped by day (newest
-// first), with a total row. Read-only — this is their own timesheet.
+// first), with a total row. Read-only — this is their own timesheet. Renders as a
+// dense table on desktop (md+) and a stack of cards on mobile (xs–sm).
 export function TimesheetTable({
   entries,
   totalHours,
@@ -36,60 +33,64 @@ export function TimesheetTable({
   );
 
   return (
-    <Card noPadding>
-      <Table
-        sx={{
-          "& th, & td": { borderColor: "#F0EDF1", px: 3 },
-          "& th": { py: 2 },
-          "& td": { py: 2 },
-        }}
-      >
-        <TableHead>
-          <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
-            <TableCell>{t("timesheet.table.day")}</TableCell>
-            <TableCell>{t("timesheet.table.project")}</TableCell>
-            <TableCell align="right">{t("timesheet.table.hours")}</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {sorted.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={3} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
-                {t("timesheet.empty")}
-              </TableCell>
-            </TableRow>
-          ) : (
-            sorted.map((e, i) => (
-              <TableRow key={`${e.projectId}-${e.day ?? "na"}-${i}`} hover>
-                <TableCell sx={{ color: "text.secondary" }}>
-                  {e.day ? formatDate(e.day) : "—"}
-                </TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{e.projectNumber}</TableCell>
-                <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
-                  {formatHours(e.hours, lang)}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+      <ResponsiveList
+        items={sorted}
+        keyOf={(e) => `${e.projectId}-${e.day ?? "na"}-${sorted.indexOf(e)}`}
+        empty={t("timesheet.empty")}
+        columns={[
+          {
+            header: t("timesheet.table.day"),
+            cell: (e) => (
+              <Box sx={{ color: "text.secondary" }}>{e.day ? formatDate(e.day) : "—"}</Box>
+            ),
+          },
+          {
+            header: t("timesheet.table.project"),
+            cell: (e) => <Box sx={{ fontWeight: 600 }}>{e.projectNumber}</Box>,
+          },
+          {
+            header: t("timesheet.table.hours"),
+            align: "right",
+            cell: (e) => (
+              <Box sx={{ fontVariantNumeric: "tabular-nums" }}>{formatHours(e.hours, lang)}</Box>
+            ),
+          },
+        ]}
+        renderCard={(e) => (
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+            {/* Left: work order (primary) + day (secondary) */}
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 600 }}>{e.projectNumber}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {e.day ? formatDate(e.day) : "—"}
+              </Typography>
+            </Box>
+            {/* Right: hours */}
+            <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+              {formatHours(e.hours, lang)}
+            </Typography>
+          </Box>
+        )}
+      />
+
+      {/* Total — a footer card so it shows in both the table and card layouts. */}
       {sorted.length > 0 ? (
-        <Box
+        <Card
           sx={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             px: 3,
             py: 2,
-            borderTop: "1px solid #F0EDF1",
           }}
         >
           <Typography sx={{ fontWeight: 600 }}>{t("timesheet.total")}</Typography>
           <Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
             {formatHours(totalHours, lang)}
           </Typography>
-        </Box>
+        </Card>
       ) : null}
-    </Card>
+    </Box>
   );
 }

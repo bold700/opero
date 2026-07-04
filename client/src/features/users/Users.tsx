@@ -1,13 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
-import AddIcon from "@mui/icons-material/Add";
 import { PageLayout } from "../../components/PageLayout";
+import { NewButton } from "../../components/NewButton";
 import { useAuth } from "../../auth/AuthContext";
 import { LAVENDER } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
@@ -86,11 +85,7 @@ export function Users() {
   return (
     <PageLayout
       title={t("users.title")}
-      actions={
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setInviteOpen(true)}>
-          {t("users.invite.new")}
-        </Button>
-      }
+      actions={<NewButton label={t("users.invite.new")} onClick={() => setInviteOpen(true)} />}
     >
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
         {FILTERS.map((f) => {

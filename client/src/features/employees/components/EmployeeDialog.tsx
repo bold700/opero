@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
@@ -16,6 +15,8 @@ import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import { ResponsiveDialog, useSheetMenuProps } from "../../../components/ResponsiveDialog";
+import { SelectField } from "../../../components/SelectField";
 import { useForm } from "../../../lib/useForm";
 import { required, email } from "../../../lib/validation";
 import {
@@ -57,6 +58,7 @@ export function EmployeeDialog({
   onSubmit: (input: EmployeeInput) => void;
 }) {
   const { t } = useTranslation();
+  const sheetMenu = useSheetMenuProps();
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
     EMPTY,
     RULES,
@@ -99,7 +101,12 @@ export function EmployeeDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+    <ResponsiveDialog
+      open={open}
+      onClose={busy ? undefined : onClose}
+      maxWidth="sm"
+      title={employee ? t("employees.dialog.editTitle") : t("employees.dialog.newTitle")}
+    >
       <DialogTitle sx={{ fontWeight: 700 }}>
         {employee ? t("employees.dialog.editTitle") : t("employees.dialog.newTitle")}
       </DialogTitle>
@@ -118,7 +125,7 @@ export function EmployeeDialog({
             size="small"
             {...err("name")}
           />
-          <Box sx={{ display: "flex", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
             <TextField
               label={t("employees.dialog.phone")}
               value={values.phone}
@@ -149,6 +156,7 @@ export function EmployeeDialog({
               value={roles}
               onChange={(e) => setRoles(e.target.value as TeamRole[])}
               label={t("employees.dialog.roles")}
+              MenuProps={{ container: sheetMenu.container }}
               renderValue={(selected) => (
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                   {(selected as TeamRole[]).map((r) => (
@@ -167,20 +175,16 @@ export function EmployeeDialog({
           </FormControl>
 
           {/* Status */}
-          <TextField
-            select
+          <SelectField
             label={t("employees.dialog.status")}
             value={values.status}
-            onChange={setField("status")}
+            onChange={(v) => setField("status")({ target: { value: v } })}
             disabled={busy}
-            size="small"
-          >
-            {EMPLOYEE_STATUSES.map((s) => (
-              <MenuItem key={s} value={s}>
-                {t(`employees.status.${s}`)}
-              </MenuItem>
-            ))}
-          </TextField>
+            options={EMPLOYEE_STATUSES.map((s) => ({
+              value: s,
+              label: t(`employees.status.${s}`),
+            }))}
+          />
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -196,6 +200,6 @@ export function EmployeeDialog({
           {t("common.actions.save")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

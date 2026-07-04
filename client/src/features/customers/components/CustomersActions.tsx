@@ -1,9 +1,8 @@
-import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
-import AddIcon from "@mui/icons-material/Add";
 import { useTranslation } from "react-i18next";
+import { NewButton } from "../../../components/NewButton";
 
 // Right-side actions in the customers top bar: search + new customer.
 // Search is controlled by the page (client-side filter); create is admin-only.
@@ -26,7 +25,7 @@ export function CustomersActions({
         placeholder={t("customers.actions.searchPlaceholder")}
         value={search}
         onChange={(e) => onSearch(e.target.value)}
-        sx={{ width: { xs: 180, sm: 280 } }}
+        sx={{ flex: { xs: 1, sm: "0 0 auto" }, width: { sm: 280 }, minWidth: 0 }}
         slotProps={{
           input: {
             startAdornment: (
@@ -38,9 +37,7 @@ export function CustomersActions({
         }}
       />
       {canCreate ? (
-        <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
-          {t("customers.actions.newCustomer")}
-        </Button>
+        <NewButton label={t("customers.actions.newCustomer")} onClick={onCreate} />
       ) : null}
     </>
   );

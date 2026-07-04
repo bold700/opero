@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
@@ -71,7 +71,7 @@ export function EmailChangeDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="xs">
+    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" title={t("settings.emailChange.title")}>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("settings.emailChange.title")}</DialogTitle>
       <DialogContent>
         {sentTo ? (
@@ -125,6 +125,6 @@ export function EmailChangeDialog({
           </Button>
         )}
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

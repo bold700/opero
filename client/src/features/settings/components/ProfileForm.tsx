@@ -169,7 +169,6 @@ export function ProfileForm() {
           value={user?.email ?? ""}
           fullWidth
           disabled
-          helperText={t("settings.profile.emailChangeHint")}
           slotProps={{
             input: {
               endAdornment: (

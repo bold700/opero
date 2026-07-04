@@ -33,7 +33,17 @@ export function WeeklyChart({ chart }: { chart: { week: string; value: number }[
         {t("reports.weeklyChart.title")}
       </Typography>
 
-      <Box sx={{ display: "flex", gap: 1 }}>
+      {/* On phones a many-week chart can't shrink below a legible bar width, so
+          the plot scrolls horizontally inside this wrapper instead of squeezing
+          the bars (or overflowing the page). Desktop is unaffected. */}
+      <Box sx={{ overflowX: "auto", overflowY: "hidden" }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            minWidth: { xs: Math.max(280, chart.length * 44), md: 0 },
+          }}
+        >
         {/* Y-axis tick labels */}
         <Box
           sx={{
@@ -149,6 +159,7 @@ export function WeeklyChart({ chart }: { chart: { week: string; value: number }[
               </Typography>
             ))}
           </Box>
+        </Box>
         </Box>
       </Box>
     </Card>

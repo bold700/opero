@@ -44,8 +44,7 @@
     },
     "saved": "Profiel opgeslagen",
     "saveError": "Opslaan mislukt",
-    "changeEmail": "Wijzigen",
-    "emailChangeHint": "Je e-mailadres wijzigen vereist bevestiging via een link."
+    "changeEmail": "Wijzigen"
   },
   "company": {
     "companyData": "Bedrijfsgegevens",
