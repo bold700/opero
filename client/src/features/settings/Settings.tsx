@@ -125,8 +125,10 @@ export function Settings() {
           })}
         </Box>
 
-        {/* Form panel (detail) */}
-        <Paper elevation={0} sx={{ ...cardSx, flex: 1, minWidth: 0, width: "100%", overflow: "hidden" }}>
+        {/* Form panel (detail). No height cap / inner scroll — it grows and the
+            page's single scroll region (above) handles it. overflow:visible so
+            nothing at the bottom (Role field, Save) can be clipped. */}
+        <Paper elevation={0} sx={{ ...cardSx, flex: 1, minWidth: 0, width: "100%" }}>
           {/* Panel header */}
           <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5, borderBottom: "1px solid", borderColor: "#F0EDF1" }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>

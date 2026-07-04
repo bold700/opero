@@ -108,6 +108,12 @@ export function ResponsiveDialog({
               left: 0,
               right: 0,
               bottom: 0,
+              // Bound the sheet's own height to the viewport so the inner
+              // DialogContent's `flex:1` actually resolves to a real height and
+              // scrolls. Without this cap the content grows unbounded and the last
+              // fields / actions fall below the fold, un-scrollable (the "doesn't
+              // fully open / can't reach the bottom" bug).
+              maxHeight: "92dvh",
               zIndex: 1300,
               display: "flex",
               flexDirection: "column",
@@ -120,12 +126,17 @@ export function ResponsiveDialog({
                 bgcolor: CARD_BG,
                 borderTopLeftRadius: `${RADIUS.card}px`,
                 borderTopRightRadius: `${RADIUS.card}px`,
-                maxHeight: "92dvh",
+                // Fill the (now bounded) Content; grow only up to it. Short forms
+                // stay their natural height; tall forms fill to the cap and their
+                // DialogContent scrolls internally — one scroll, correct.
+                flex: 1,
+                minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
+                overflow: "hidden",
                 pb: "env(safe-area-inset-bottom)",
                 // DialogContent scrolls; DialogActions stay pinned at the bottom.
-                "& .MuiDialogContent-root": { flex: 1, overflowY: "auto" },
+                "& .MuiDialogContent-root": { flex: 1, minHeight: 0, overflowY: "auto" },
                 "& .MuiDialogActions-root": { flexShrink: 0 },
               }}
             >

@@ -136,15 +136,19 @@ export function SearchField() {
           ) : null}
         </Box>
 
-        {/* Results dropdown — anchored to the field, full field width. */}
+        {/* Results dropdown. On mobile it spans the FULL width of the field (which
+            itself fills the header row) so it never overflows the screen; on
+            desktop it's a fixed 360px popover anchored to the field's right edge. */}
         {open ? (
           <Box
             sx={{
               position: "absolute",
               top: "calc(100% + 6px)",
+              // Mobile: pin both edges to the field → full-width, no overflow.
+              // Desktop: right-anchored fixed width.
+              left: { xs: 0, sm: "auto" },
               right: 0,
-              width: 360,
-              maxWidth: "calc(100vw - 32px)",
+              width: { xs: "auto", sm: 360 },
               bgcolor: "background.paper",
               border: `1px solid`,
               borderColor: "divider",
@@ -154,7 +158,10 @@ export function SearchField() {
               zIndex: 20,
             }}
           >
-            <Box sx={{ maxHeight: 380, overflowY: "auto", py: 0.5 }}>
+            {/* Cap to the viewport (minus header + bottom-nav room) so a long list
+                scrolls within the dropdown instead of running off-screen. This is
+                an overlay, so its single internal scroll is fine. */}
+            <Box sx={{ maxHeight: "min(380px, 60dvh)", overflowY: "auto", py: 0.5 }}>
               {!loading && count === 0 ? (
                 <Box sx={{ px: 2, py: 2.5, textAlign: "center" }}>
                   <Typography variant="body2" color="text.secondary">

@@ -22,13 +22,14 @@ export function ActivityPanel({ activity }: { activity: Activity[] }) {
         </Typography>
       </Box>
 
-      {/* Scrollable list — caps the card height so it doesn't grow unbounded. */}
+      {/* On mobile the card GROWS and the page scrolls it (no scroll-within-scroll);
+          on desktop it's a bounded panel that scrolls internally beside the rest. */}
       {rows.length === 0 ? (
         <Box sx={{ px: { xs: 2, md: 3 }, py: 4, color: "text.secondary" }}>
           {t("workOrderDetail.activity.empty")}
         </Box>
       ) : (
-        <Box sx={{ maxHeight: { xs: 280, md: 420 }, overflowY: "auto" }}>
+        <Box sx={{ maxHeight: { xs: "none", md: 420 }, overflowY: { xs: "visible", md: "auto" } }}>
           {rows.map((a) => (
             <Box
               key={a.id}
