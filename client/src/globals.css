@@ -134,6 +134,13 @@ html {
   /* Reserve the scrollbar gutter only where there IS a persistent scrollbar
      (desktop). On touch it just adds phantom width → horizontal overflow. */
   scrollbar-gutter: auto;
+  /* Stop mobile browsers from auto-inflating text. Android Chrome/WebView has an
+     independent "text autosizing" heuristic that scales fonts up on pages it
+     deems non-optimized — this looks like a random zoom on Android specifically.
+     Pinning to 100% keeps our type scale exactly as authored on every device. */
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 @media (min-width: 900px) {
   html {
@@ -157,6 +164,22 @@ body {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile browsers zoom the whole page when you focus a form control whose font
+   is under 16px (most noticeable on iOS Safari, where the zoom also sticks after
+   a modal/sheet closes). Our inputs are 14px, so force ANY focusable field to
+   ≥16px on phones. Cross-platform: it's a plain CSS rule every mobile browser
+   applies. This changes only the text size inside the field (imperceptible), not
+   the field's box, and kills the zoom-on-focus + zoom-stuck-after-close bug for
+   every form on both iOS and Android. */
+@media (max-width: 899px) {
+  input,
+  select,
+  textarea,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
 }
 
 /* iOS: laat date/time-inputs de vaste veldhoogte respecteren in plaats van
