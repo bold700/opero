@@ -28,6 +28,15 @@ export const SPACING = {
   itemGap: 1.5, // 12px — gap between small items (chips, count pills)
 } as const;
 
+// Responsive page padding: tighter on phones (16px), full on desktop (32px).
+// PageLayout/TopBar use this so every screen's chrome breathes correctly on
+// mobile from one place. Pass directly into an `sx` prop (p / px / py).
+export const PAGE_PADDING_RESPONSIVE = { xs: 2, md: SPACING.pagePadding } as const;
+
+// Minimum comfortable touch target on mobile (px). Use for interactive rows,
+// icon buttons, and list items on small screens.
+export const TAP_TARGET = 44;
+
 // M3 lavender accents (selected/active states).
 export const LAVENDER = "#E8DEF8";
 export const LAVENDER_HOVER = "#E0D4F2";

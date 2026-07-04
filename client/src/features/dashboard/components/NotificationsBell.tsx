@@ -7,6 +7,9 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
+import Drawer from "@mui/material/Drawer";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
@@ -29,12 +32,78 @@ const CATEGORY_ICON: Record<NotificationCategory, typeof AssignmentOutlinedIcon>
   newWorkOrder: AssignmentOutlinedIcon,
 };
 
+// The scrollable list of notification items — shared by the desktop dropdown and
+// the mobile bottom sheet so both stay identical.
+function NotificationsList({
+  data,
+  loading,
+  onGo,
+}: {
+  data: NotificationsResponse;
+  loading: boolean;
+  onGo: (item: NotificationItem) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Box sx={{ flex: 1, overflowY: "auto", py: 0.5, minHeight: 0 }}>
+      {loading && data.items.length === 0 ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress size={22} />
+        </Box>
+      ) : data.items.length === 0 ? (
+        <Box sx={{ px: 2, py: 4, textAlign: "center" }}>
+          <Typography variant="body2" color="text.secondary">
+            {t("notifications.empty")}
+          </Typography>
+        </Box>
+      ) : (
+        data.items.map((item) => {
+          const Icon = CATEGORY_ICON[item.category];
+          return (
+            <Box
+              key={item.id}
+              role="button"
+              onClick={() => onGo(item)}
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 1.5,
+                mx: 1,
+                px: 1.5,
+                py: 1.25,
+                borderRadius: `${RADIUS.control}px`,
+                cursor: "pointer",
+                "&:hover": { bgcolor: LAVENDER },
+              }}
+            >
+              <Icon
+                fontSize="small"
+                sx={{
+                  mt: 0.25,
+                  flexShrink: 0,
+                  color: item.category === "urgentOnSite" ? "warning.main" : "primary.main",
+                }}
+              />
+              <Typography sx={{ fontSize: 14, lineHeight: 1.4 }}>
+                {t(item.messageKey, item.params as Record<string, unknown>)}
+              </Typography>
+            </Box>
+          );
+        })
+      )}
+    </Box>
+  );
+}
+
 // Bell in the dashboard top bar. Shows an unread badge (things newer than the
-// user's last look) and a dropdown of derived action items. Opening it marks
-// everything seen (clears the badge). Role/pref filtering happens server-side.
+// user's last look). On desktop it opens an anchored dropdown; on mobile a
+// full-width bottom sheet (so it never gets clipped by the narrow header).
+// Opening it marks everything seen (clears the badge).
 export function NotificationsBell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [data, setData] = useState<NotificationsResponse>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -78,19 +147,54 @@ export function NotificationsBell() {
     navigate(item.route);
   };
 
+  const bell = (
+    <IconButton ref={anchorRef} onClick={toggle} aria-label={t("notifications.title")}>
+      <Badge badgeContent={data.unreadCount} color="error" max={9}>
+        <NotificationsNoneIcon />
+      </Badge>
+    </IconButton>
+  );
+
+  const header = (
+    <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${HAIRLINE}`, flexShrink: 0 }}>
+      <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{t("notifications.title")}</Typography>
+    </Box>
+  );
+
+  // Mobile: a bottom sheet, full width, so it can never be clipped by the header.
+  if (isMobile) {
+    return (
+      <>
+        {bell}
+        <Drawer
+          anchor="bottom"
+          open={open}
+          onClose={() => setOpen(false)}
+          slotProps={{
+            paper: {
+              sx: {
+                borderTopLeftRadius: `${RADIUS.card}px`,
+                borderTopRightRadius: `${RADIUS.card}px`,
+                maxHeight: "80dvh",
+                display: "flex",
+                flexDirection: "column",
+                pb: "env(safe-area-inset-bottom)",
+              },
+            },
+          }}
+        >
+          {header}
+          <NotificationsList data={data} loading={loading} onGo={go} />
+        </Drawer>
+      </>
+    );
+  }
+
+  // Desktop: an anchored dropdown below the bell.
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
       <Box sx={{ position: "relative" }}>
-        <IconButton
-          ref={anchorRef}
-          onClick={toggle}
-          aria-label={t("notifications.title")}
-        >
-          <Badge badgeContent={data.unreadCount} color="error" max={9}>
-            <NotificationsNoneIcon />
-          </Badge>
-        </IconButton>
-
+        {bell}
         {open ? (
           <Box
             sx={{
@@ -99,6 +203,9 @@ export function NotificationsBell() {
               right: 0,
               width: 380,
               maxWidth: "calc(100vw - 32px)",
+              maxHeight: "70dvh",
+              display: "flex",
+              flexDirection: "column",
               bgcolor: "background.paper",
               border: "1px solid",
               borderColor: "divider",
@@ -108,59 +215,8 @@ export function NotificationsBell() {
               zIndex: 20,
             }}
           >
-            <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${HAIRLINE}` }}>
-              <Typography sx={{ fontWeight: 700, fontSize: 14 }}>
-                {t("notifications.title")}
-              </Typography>
-            </Box>
-
-            <Box sx={{ maxHeight: 400, overflowY: "auto", py: 0.5 }}>
-              {loading && data.items.length === 0 ? (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                  <CircularProgress size={22} />
-                </Box>
-              ) : data.items.length === 0 ? (
-                <Box sx={{ px: 2, py: 4, textAlign: "center" }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {t("notifications.empty")}
-                  </Typography>
-                </Box>
-              ) : (
-                data.items.map((item) => {
-                  const Icon = CATEGORY_ICON[item.category];
-                  return (
-                    <Box
-                      key={item.id}
-                      role="button"
-                      onClick={() => go(item)}
-                      sx={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 1.5,
-                        mx: 1,
-                        px: 1.5,
-                        py: 1.25,
-                        borderRadius: `${RADIUS.control}px`,
-                        cursor: "pointer",
-                        "&:hover": { bgcolor: LAVENDER },
-                      }}
-                    >
-                      <Icon
-                        fontSize="small"
-                        sx={{
-                          mt: 0.25,
-                          flexShrink: 0,
-                          color: item.category === "urgentOnSite" ? "warning.main" : "primary.main",
-                        }}
-                      />
-                      <Typography sx={{ fontSize: 14, lineHeight: 1.4 }}>
-                        {t(item.messageKey, item.params as Record<string, unknown>)}
-                      </Typography>
-                    </Box>
-                  );
-                })
-              )}
-            </Box>
+            {header}
+            <NotificationsList data={data} loading={loading} onGo={go} />
           </Box>
         ) : null}
       </Box>

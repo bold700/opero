@@ -95,6 +95,9 @@ export const SignaturePad = forwardRef<
 
   return (
     <Box
+      // Never let a vaul bottom sheet start a drag from the signature canvas —
+      // the pointer gesture belongs to drawing, not dismissing the sheet.
+      data-vaul-no-drag
       sx={{
         border: "1.5px solid",
         borderColor: "divider",

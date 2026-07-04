@@ -35,7 +35,7 @@ export function ReportsKpis({ kpis, filter = "all" }: { kpis: ReportsData["kpis"
             key={k.key}
             sx={{
               flex: { xs: "1 1 45%", lg: "1 1 0" },
-              minWidth: 180,
+              minWidth: { xs: 0, lg: 180 },
               p: 2.5,
               display: "flex",
               gap: 2,

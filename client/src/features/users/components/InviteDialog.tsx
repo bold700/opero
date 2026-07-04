@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { ResponsiveDialog, useSheetMenuProps } from "../../../components/ResponsiveDialog";
+import { SelectField } from "../../../components/SelectField";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
-import MenuItem from "@mui/material/MenuItem";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -46,6 +46,7 @@ export function InviteDialog({
   onSubmit: (input: InviteInput) => void;
 }) {
   const { t } = useTranslation();
+  const sheetMenu = useSheetMenuProps();
 
   // Only the standalone (Access-tab) flow needs the invitable list. Fetch only
   // when the picker is actually shown (open + not a fixed target); don't key on
@@ -93,7 +94,7 @@ export function InviteDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" title={t("users.invite.title")}>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("users.invite.title")}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
@@ -139,25 +140,19 @@ export function InviteDialog({
               renderInput={(params) => (
                 <TextField {...params} label={t("users.invite.pickPerson")} size="small" autoFocus />
               )}
+              slotProps={{ popper: { container: sheetMenu.container } }}
             />
           )}
 
           {/* Role only applies to employees (customers are always client). */}
           {isEmployee ? (
-            <TextField
-              select
+            <SelectField
               label={t("users.invite.role")}
               value={role}
-              onChange={(e) => setRole(e.target.value as EmployeeRole)}
+              onChange={(v) => setRole(v as EmployeeRole)}
               disabled={busy}
-              size="small"
-            >
-              {EMPLOYEE_ROLES.map((r) => (
-                <MenuItem key={r} value={r}>
-                  {t(`users.roles.${r}`)}
-                </MenuItem>
-              ))}
-            </TextField>
+              options={EMPLOYEE_ROLES.map((r) => ({ value: r, label: t(`users.roles.${r}`) }))}
+            />
           ) : kind === "customer" ? (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {t("users.invite.clientRoleNote", { name: displayName })}
@@ -178,6 +173,6 @@ export function InviteDialog({
           {t("users.invite.send")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

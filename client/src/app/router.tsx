@@ -4,6 +4,7 @@ import { AppShell } from "./AppShell";
 import { Login } from "../features/auth/Login";
 import { ForgotPassword } from "../features/auth/ForgotPassword";
 import { ResetPassword } from "../features/auth/ResetPassword";
+import { VerifyEmail } from "../features/auth/VerifyEmail";
 import { Dashboard } from "../features/dashboard/Dashboard";
 import { WorkOrders } from "../features/work-orders/WorkOrders";
 import { WorkOrderDetail } from "../features/work-order-detail/WorkOrderDetail";
@@ -31,6 +32,10 @@ export const router = createBrowserRouter([
   {
     path: "/reset-password",
     element: <ResetPassword />,
+  },
+  {
+    path: "/verify-email",
+    element: <VerifyEmail />,
   },
   {
     element: <RequireAuth />,

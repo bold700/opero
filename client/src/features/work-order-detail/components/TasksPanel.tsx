@@ -68,7 +68,7 @@ export function TasksPanel({
     <Card noPadding>
       <Box
         sx={{
-          px: 3,
+          px: { xs: 2, md: 3 },
           py: 2,
           display: "flex",
           alignItems: "center",
@@ -92,7 +92,7 @@ export function TasksPanel({
       </Box>
 
       {tasks.length === 0 ? (
-        <Box sx={{ px: 3, py: 4, color: "text.secondary" }}>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 4, color: "text.secondary" }}>
           {t("workOrderDetail.tasks.emptyHint", {
             hint: canWrite ? t("workOrderDetail.tasks.emptyHintAction") : "",
           })}
@@ -181,17 +181,19 @@ function TaskRow({
     if (next !== task.description) onRename(next);
   };
 
-  const INDENT = 4.5; // aligns sub-rows under the task title (past the checkbox)
+  // Aligns sub-rows under the task title (past the checkbox). Tightened on xs so
+  // full-width material inputs have room next to the card padding.
+  const INDENT = { xs: 1.5, md: 4.5 };
 
   return (
-    <Box sx={{ px: 3, py: 2.5, borderBottom: `1px solid ${HAIRLINE}` }}>
+    <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5, borderBottom: `1px solid ${HAIRLINE}` }}>
       {/* Title row: checkbox · name · (right) total + delete */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <Checkbox
           checked={task.done}
           onChange={onToggleTask}
           disabled={!canWrite || busy}
-          sx={{ p: 0.5 }}
+          sx={{ p: { xs: 1.25, md: 0.5 } }}
         />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {editing ? (
@@ -243,6 +245,7 @@ function TaskRow({
             aria-label={t("workOrderDetail.task.delete")}
             onClick={onDeleteTask}
             disabled={busy}
+            sx={{ p: { xs: 1.25, md: 0.5 } }}
           >
             <DeleteOutlineIcon fontSize="small" />
           </IconButton>
@@ -259,7 +262,7 @@ function TaskRow({
             value={task.workTypeId ?? ""}
             onChange={(e) => onSetType(e.target.value || null)}
             disabled={busy}
-            sx={{ minWidth: 200, flex: 1 }}
+            sx={{ minWidth: { sm: 200 }, width: { xs: "100%", sm: "auto" }, flex: { sm: 1 } }}
           >
             <MenuItem value="">{t("workOrderDetail.tasks.workTypeNone")}</MenuItem>
             {workTypes.map((w) => (
@@ -275,7 +278,7 @@ function TaskRow({
             value={task.assigneeId ?? ""}
             onChange={(e) => onAssign(e.target.value || null)}
             disabled={busy}
-            sx={{ minWidth: 200, flex: 1 }}
+            sx={{ minWidth: { sm: 200 }, width: { xs: "100%", sm: "auto" }, flex: { sm: 1 } }}
           >
             <MenuItem value="">{t("workOrderDetail.tasks.assigneeNone")}</MenuItem>
             {assignees.map((a) => (

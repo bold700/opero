@@ -43,7 +43,8 @@
       "client": "Klant"
     },
     "saved": "Profiel opgeslagen",
-    "saveError": "Opslaan mislukt"
+    "saveError": "Opslaan mislukt",
+    "changeEmail": "Wijzigen"
   },
   "company": {
     "companyData": "Bedrijfsgegevens",
@@ -123,5 +124,15 @@
     "passwordsDontMatch": "Wachtwoorden komen niet overeen.",
     "passwordTooShort": "Gebruik minstens {{min}} tekens.",
     "sameAsCurrent": "Nieuw wachtwoord moet anders zijn."
+  },
+  "emailChange": {
+    "title": "E-mailadres wijzigen",
+    "subtitle": "Voer je nieuwe e-mailadres en huidige wachtwoord in. We sturen een bevestigingslink naar het nieuwe adres — je e-mailadres verandert pas als je die opent.",
+    "newEmail": "Nieuw e-mailadres",
+    "currentPassword": "Huidig wachtwoord",
+    "send": "Bevestigingslink versturen",
+    "sent": "We hebben een bevestigingslink naar {{email}} gestuurd. Je e-mailadres verandert zodra je die link opent.",
+    "sameEmail": "Dat is al je e-mailadres.",
+    "error": "Er ging iets mis. Probeer het opnieuw."
   }
 }

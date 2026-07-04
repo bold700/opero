@@ -6,11 +6,13 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 import Snackbar from "@mui/material/Snackbar";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import { TopBar } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
 import { useCreateParam } from "../../lib/useCreateParam";
-import { SURFACE, SPACING } from "../../theme/tokens";
+import { SURFACE, SPACING, PAGE_PADDING_RESPONSIVE } from "../../theme/tokens";
 import {
   getPlanning,
   scheduleProject,
@@ -33,7 +35,15 @@ export function Planning() {
   const { user } = useAuth();
   const canManage = user?.role === "admin";
 
-  const [view, setView] = useState<CalendarViewName>("timeGridWeek");
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  // The view is user-selectable on EVERY screen size. On phones we default to the
+  // day view (the most usable on a narrow screen) and offer the switcher as a
+  // compact dropdown; desktop defaults to week with the full button toggle.
+  const [view, setView] = useState<CalendarViewName>(
+    isMobile ? "timeGridDay" : "timeGridWeek",
+  );
   const [dateWindow, setDateWindow] = useState<{ from: string; to: string } | null>(null);
   const [entries, setEntries] = useState<PlanningEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,17 +178,18 @@ export function Planning() {
             onView={setView}
             onCreate={() => openCreate()}
             canCreate={canManage}
+            compact={isMobile}
           />
         }
       />
 
       {error ? (
-        <Box sx={{ p: SPACING.pagePadding }}>
+        <Box sx={{ p: PAGE_PADDING_RESPONSIVE }}>
           <Alert severity="error">{error}</Alert>
         </Box>
       ) : (
         <Box sx={{ display: "flex", alignItems: "stretch", height: "calc(100dvh - 64px)" }}>
-          <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, p: SPACING.pagePadding, position: "relative", display: "flex", flexDirection: "column" }}>
+          <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, p: PAGE_PADDING_RESPONSIVE, position: "relative", display: "flex", flexDirection: "column" }}>
             {loading ? (
               <Box sx={{ position: "absolute", top: 12, right: 24, zIndex: 2 }}>
                 <CircularProgress size={20} />
@@ -205,6 +216,9 @@ export function Planning() {
             />
           </Box>
 
+          {/* On md+ the details live in a fixed side panel (or an empty-state
+              placeholder); on xs/sm DetailsPanel renders itself as a bottom
+              drawer, so we only mount the placeholder column on desktop. */}
           {selected ? (
             <DetailsPanel
               entry={selected}
@@ -216,7 +230,7 @@ export function Planning() {
               onRemove={() => setRemoving(selected)}
             />
           ) : (
-            <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider" }}>
+            <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider", display: { xs: "none", md: "block" } }}>
               <Typography color="text.secondary">{t("planning.emptyWeek")}</Typography>
             </Box>
           )}

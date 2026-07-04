@@ -16,7 +16,7 @@ export function ActivityPanel({ activity }: { activity: Activity[] }) {
   return (
     <Card noPadding>
       {/* Fixed header */}
-      <Box sx={{ px: 3, py: 2, borderBottom: `1px solid ${HAIRLINE}` }}>
+      <Box sx={{ px: { xs: 2, md: 3 }, py: 2, borderBottom: `1px solid ${HAIRLINE}` }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
           {t("workOrderDetail.activity.title")}
         </Typography>
@@ -24,15 +24,15 @@ export function ActivityPanel({ activity }: { activity: Activity[] }) {
 
       {/* Scrollable list — caps the card height so it doesn't grow unbounded. */}
       {rows.length === 0 ? (
-        <Box sx={{ px: 3, py: 4, color: "text.secondary" }}>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 4, color: "text.secondary" }}>
           {t("workOrderDetail.activity.empty")}
         </Box>
       ) : (
-        <Box sx={{ maxHeight: 420, overflowY: "auto" }}>
+        <Box sx={{ maxHeight: { xs: 280, md: 420 }, overflowY: "auto" }}>
           {rows.map((a) => (
             <Box
               key={a.id}
-              sx={{ px: 3, py: 1.5, borderBottom: `1px solid ${HAIRLINE}`, "&:last-child": { borderBottom: 0 } }}
+              sx={{ px: { xs: 2, md: 3 }, py: 1.5, borderBottom: `1px solid ${HAIRLINE}`, "&:last-child": { borderBottom: 0 } }}
             >
               <Typography variant="body2">{activityText(t, a)}</Typography>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>

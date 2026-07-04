@@ -27,13 +27,13 @@ export function PhotosPanel({
 
   return (
     <Card noPadding>
-      <Box sx={{ px: 3, py: 2, borderBottom: `1px solid ${HAIRLINE}` }}>
+      <Box sx={{ px: { xs: 2, md: 3 }, py: 2, borderBottom: `1px solid ${HAIRLINE}` }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
           {t("workOrderDetail.photos.title")}
         </Typography>
       </Box>
 
-      <Box sx={{ px: 3, py: 2.5, display: "flex", flexDirection: "column", gap: 3 }}>
+      <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5, display: "flex", flexDirection: "column", gap: 3 }}>
         {tasks.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             {t("workOrderDetail.photos.noTasks")}

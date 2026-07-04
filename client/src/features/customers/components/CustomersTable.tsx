@@ -3,22 +3,17 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
-import Table from "@mui/material/Table";
-import TableHead from "@mui/material/TableHead";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { useTranslation } from "react-i18next";
-import { Card } from "../../../components/Card";
+import { ResponsiveList } from "../../../components/ResponsiveList";
 import { AccountStatusChip } from "../../users/components/AccountStatusChip";
 import type { Customer } from "../api";
 import { avatarColor, initials, formatDate } from "../constants";
 import { TypeBadge } from "./TypeBadge";
 
-// The customers table card: columns + real rows, with edit/delete row actions
-// (admin only).
+// The customers list: a table on desktop (md+), a stack of cards on mobile (xs–sm)
+// via ResponsiveList. Edit/delete/invite row actions are admin only.
 export function CustomersTable({
   customers,
   canManage,
@@ -33,83 +28,80 @@ export function CustomersTable({
   onInvite: (c: Customer) => void;
 }) {
   const { t } = useTranslation();
-  return (
-    <Card noPadding>
-      <Table
-        sx={{
-          "& th, & td": { borderColor: "#F0EDF1", px: 3 },
-          "& th": { py: 2 },
-          "& td": { py: 2 },
-        }}
+
+  const nameCell = (c: Customer) => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+      <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(c.name), fontSize: 13, fontWeight: 700 }}>
+        {initials(c.name)}
+      </Avatar>
+      <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
+    </Box>
+  );
+
+  const loginCell = (c: Customer) =>
+    c.account ? (
+      <AccountStatusChip account={c.account} />
+    ) : canManage ? (
+      <Button
+        size="small"
+        onClick={() => onInvite(c)}
+        disabled={!c.email}
+        title={!c.email ? t("customers.table.loginNeedsEmail") : undefined}
       >
-        <TableHead>
-          <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
-            <TableCell>{t("customers.table.name")}</TableCell>
-            <TableCell>{t("customers.table.city")}</TableCell>
-            <TableCell>{t("customers.table.type")}</TableCell>
-            <TableCell>{t("customers.table.workOrders")}</TableCell>
-            <TableCell>{t("customers.table.lastContact")}</TableCell>
-            <TableCell>{t("customers.table.login")}</TableCell>
-            <TableCell align="right">{t("customers.table.action")}</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {customers.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={7} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
-                {t("customers.table.empty")}
-              </TableCell>
-            </TableRow>
-          ) : (
-            customers.map((c) => (
-              <TableRow key={c.id} hover sx={{ "&:last-child td": { border: 0 } }}>
-                <TableCell>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(c.name), fontSize: 13, fontWeight: 700 }}>
-                      {initials(c.name)}
-                    </Avatar>
-                    <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>{c.city}</TableCell>
-                <TableCell>
-                  <TypeBadge type={c.type} />
-                </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>{c.workOrderCount}</TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</TableCell>
-                <TableCell>
-                  {c.account ? (
-                    <AccountStatusChip account={c.account} />
-                  ) : canManage ? (
-                    <Button
-                      size="small"
-                      onClick={() => onInvite(c)}
-                      disabled={!c.email}
-                      title={!c.email ? t("customers.table.loginNeedsEmail") : undefined}
-                    >
-                      {t("customers.table.invite")}
-                    </Button>
-                  ) : (
-                    <AccountStatusChip account={null} />
-                  )}
-                </TableCell>
-                <TableCell align="right">
-                  {canManage ? (
-                    <Box sx={{ display: "inline-flex", gap: 0.5 }}>
-                      <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(c)}>
-                        <EditOutlinedIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(c)}>
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </Card>
+        {t("customers.table.invite")}
+      </Button>
+    ) : (
+      <AccountStatusChip account={null} />
+    );
+
+  const actionsCell = (c: Customer) =>
+    canManage ? (
+      <Box sx={{ display: "inline-flex", gap: 0.5 }}>
+        <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(c)}>
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+        <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(c)}>
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
+      </Box>
+    ) : null;
+
+  return (
+    <ResponsiveList
+      items={customers}
+      keyOf={(c) => c.id}
+      empty={t("customers.table.empty")}
+      columns={[
+        { header: t("customers.table.name"), cell: nameCell },
+        { header: t("customers.table.city"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.city}</Box> },
+        { header: t("customers.table.type"), cell: (c) => <TypeBadge type={c.type} /> },
+        { header: t("customers.table.workOrders"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.workOrderCount}</Box> },
+        { header: t("customers.table.lastContact"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</Box> },
+        { header: t("customers.table.login"), cell: loginCell },
+        { header: t("customers.table.action"), align: "right", cell: actionsCell },
+      ]}
+      renderCard={(c) => (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {/* Top line: identity + actions */}
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+            {nameCell(c)}
+            {actionsCell(c)}
+          </Box>
+          {/* Meta line: city + type + work-order count */}
+          <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, color: "text.secondary", fontSize: 13 }}>
+            {c.city ? <span>{c.city}</span> : null}
+            {c.city ? <span>·</span> : null}
+            <TypeBadge type={c.type} />
+            <span>·</span>
+            <span>{t("customers.table.workOrders")}: {c.workOrderCount}</span>
+          </Box>
+          {/* Last contact + login row */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", color: "text.secondary", fontSize: 13 }}>
+            <span>{t("customers.table.lastContact")}: {formatDate(c.lastContact)}</span>
+            {loginCell(c)}
+          </Box>
+        </Box>
+      )}
+    />
   );
 }

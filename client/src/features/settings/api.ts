@@ -1,10 +1,10 @@
 import { api } from "../../lib/api/client";
 import type { AuthUser, NotificationPrefs } from "../../lib/api/auth";
 
-// The logged-in user's own profile fields.
+// The logged-in user's own profile fields. Email is NOT here — it's the login
+// identity and changes only via the verified email-change flow.
 export type ProfileInput = {
   name?: string;
-  email?: string;
   phone?: string;
 };
 
@@ -12,6 +12,13 @@ export type ProfileInput = {
 export async function updateProfile(input: ProfileInput): Promise<AuthUser> {
   const res = await api.patch<{ user: AuthUser }>("/auth/profile", input);
   return res.user;
+}
+
+// POST /auth/email-change/request — re-auth with the current password, then a
+// confirmation link is emailed to newEmail. Returns 204; the email only switches
+// once the link is confirmed. Always resolves (no enumeration).
+export function requestEmailChange(newEmail: string, currentPassword: string): Promise<void> {
+  return api.post<void>("/auth/email-change/request", { newEmail, currentPassword });
 }
 
 // POST /auth/avatar (multipart) → returns the updated user with avatarUrl.

@@ -7,16 +7,17 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import Drawer from "@mui/material/Drawer";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import type { UserRole } from "@opero/shared";
-import { quickCreateActionsForRole } from "./quickCreate";
-import { CARD_SHADOW, LAVENDER, RADIUS } from "../theme/tokens";
+import { quickCreateActionsForRole, type QuickCreateAction } from "./quickCreate";
+import { CARD_SHADOW, LAVENDER, RADIUS, TAP_TARGET } from "../theme/tokens";
 
 // The quick-create menu opened by the "+" FAB. Controlled by the parent
-// (anchorEl + onClose) so the desktop rail FAB and the mobile add button drive
-// the same menu. Each item navigates to its feature with ?create=1, which makes
-// that page open its create dialog. Styled to match the app's M3 card language
-// (soft shadow, lavender hover, purple icons) and anchored to the right of the
-// FAB so it reads as one connected unit.
+// (anchorEl + onClose). Desktop rail FAB → an anchored popover next to it;
+// mobile floating FAB → a bottom sheet (full-width, big tap targets), so it
+// never opens cramped/off-screen against the bottom-right corner.
 export function QuickCreateMenu({
   anchorEl,
   role,
@@ -28,13 +29,20 @@ export function QuickCreateMenu({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const actions = quickCreateActionsForRole(role);
+  const open = Boolean(anchorEl);
 
-  // With the backdrop disabled (so the FAB stays interactive), close on an
-  // outside click ourselves — but ignore clicks on the FAB (it toggles itself)
-  // and on the menu Paper (handled by item selection).
+  const pick = (action: QuickCreateAction) => {
+    onClose();
+    navigate(action.route);
+  };
+
+  // Desktop: close on an outside click ourselves (backdrop is disabled so the
+  // rail FAB stays interactive). Skipped on mobile (the Drawer owns its backdrop).
   useEffect(() => {
-    if (!anchorEl) return;
+    if (isMobile || !anchorEl) return;
     const onDocPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
       if (anchorEl.contains(target)) return; // the FAB toggles itself
@@ -44,20 +52,85 @@ export function QuickCreateMenu({
     };
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [anchorEl, onClose]);
+  }, [isMobile, anchorEl, onClose]);
 
+  const heading = (
+    <Typography
+      sx={{
+        fontWeight: 700,
+        fontSize: 11,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        color: "text.secondary",
+      }}
+    >
+      {t("quickCreate.heading")}
+    </Typography>
+  );
+
+  // ── Mobile: bottom sheet ──
+  if (isMobile) {
+    return (
+      <Drawer
+        anchor="bottom"
+        open={open}
+        onClose={onClose}
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: `${RADIUS.card}px`,
+              borderTopRightRadius: `${RADIUS.card}px`,
+              pb: "env(safe-area-inset-bottom)",
+            },
+          },
+        }}
+      >
+        {/* grab handle */}
+        <Box sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
+          <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: "divider" }} />
+        </Box>
+        <Box sx={{ px: 2.5, pt: 1.5, pb: 0.5 }}>{heading}</Box>
+        <Box sx={{ px: 1.5, pb: 2 }}>
+          {actions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Box
+                key={action.key}
+                role="button"
+                onClick={() => pick(action)}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  minHeight: TAP_TARGET + 8,
+                  px: 2,
+                  borderRadius: `${RADIUS.control}px`,
+                  cursor: "pointer",
+                  "&:active": { bgcolor: LAVENDER },
+                }}
+              >
+                <Box sx={{ color: "primary.main", display: "flex" }}>
+                  <Icon />
+                </Box>
+                <Typography sx={{ fontSize: 16, fontWeight: 500 }}>
+                  {t(`quickCreate.${action.key}`)}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      </Drawer>
+    );
+  }
+
+  // ── Desktop: anchored popover next to the rail FAB ──
   return (
     <Menu
       anchorEl={anchorEl}
-      open={Boolean(anchorEl)}
+      open={open}
       onClose={onClose}
       anchorOrigin={{ vertical: "top", horizontal: "right" }}
       transformOrigin={{ vertical: "top", horizontal: "left" }}
-      // Don't trap pointer events behind a full-screen backdrop — that would
-      // make the FAB underneath un-hoverable while the menu is open. Disable the
-      // backdrop and let events pass through the root; the menu Paper re-enables
-      // them for its own items. Closing still works via: the FAB re-click toggle,
-      // Escape, selecting an item, and the outside-click handler below.
       hideBackdrop
       disableScrollLock
       slotProps={{
@@ -73,8 +146,6 @@ export function QuickCreateMenu({
             borderColor: "divider",
             boxShadow: CARD_SHADOW,
             overflow: "hidden",
-            // Little arrow pointing back at the FAB. The menu top is aligned with
-            // the FAB top, so the FAB's centre sits ~24px down — point there.
             "&::before": {
               content: '""',
               position: "absolute",
@@ -93,28 +164,13 @@ export function QuickCreateMenu({
         list: { sx: { py: 0.5 } },
       }}
     >
-      <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
-        <Typography
-          sx={{
-            fontWeight: 700,
-            fontSize: 11,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            color: "text.secondary",
-          }}
-        >
-          {t("quickCreate.heading")}
-        </Typography>
-      </Box>
+      <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>{heading}</Box>
       {actions.map((action) => {
         const Icon = action.icon;
         return (
           <MenuItem
             key={action.key}
-            onClick={() => {
-              onClose();
-              navigate(action.route);
-            }}
+            onClick={() => pick(action)}
             sx={{
               mx: 1,
               my: 0.25,
@@ -126,9 +182,7 @@ export function QuickCreateMenu({
             <ListItemIcon sx={{ minWidth: 36, color: "primary.main" }}>
               <Icon fontSize="small" />
             </ListItemIcon>
-            <ListItemText
-              slotProps={{ primary: { sx: { fontSize: 14, fontWeight: 500 } } }}
-            >
+            <ListItemText slotProps={{ primary: { sx: { fontSize: 14, fontWeight: 500 } } }}>
               {t(`quickCreate.${action.key}`)}
             </ListItemText>
           </MenuItem>

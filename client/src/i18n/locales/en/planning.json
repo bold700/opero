@@ -38,5 +38,6 @@
     "removed": "Removed from planning",
     "scheduleError": "Scheduling failed",
     "removeError": "Remove failed"
-  }
+  },
+  "view": "View"
 }

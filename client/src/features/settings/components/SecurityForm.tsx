@@ -6,10 +6,10 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
 import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
@@ -116,7 +116,7 @@ export function SecurityForm() {
       />
 
       {/* Disable flow — requires the account password */}
-      <Dialog open={disableOpen} onClose={busy ? undefined : () => setDisableOpen(false)} fullWidth maxWidth="xs">
+      <ResponsiveDialog open={disableOpen} onClose={busy ? undefined : () => setDisableOpen(false)} maxWidth="xs" title={t("settings.security.disableTitle")}>
         <DialogTitle sx={{ fontWeight: 700 }}>{t("settings.security.disableTitle")}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -146,7 +146,7 @@ export function SecurityForm() {
             {t("settings.security.disable")}
           </Button>
         </DialogActions>
-      </Dialog>
+      </ResponsiveDialog>
 
       <Snackbar
         open={toast !== null}

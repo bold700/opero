@@ -60,6 +60,7 @@
     "workOrderTitleLabel": "Titel werkbon (optioneel)",
     "cancel": "Annuleren",
     "submit": "Aanmaken",
-    "submitError": "Aanmaken mislukt"
+    "submitError": "Aanmaken mislukt",
+    "workOrderTitlePlaceholder": "Bijv. Werkbon 1"
   }
 }

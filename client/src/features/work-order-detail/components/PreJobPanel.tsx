@@ -42,7 +42,7 @@ export function PreJobPanel({
     <Card noPadding>
       <Box
         sx={{
-          px: 3,
+          px: { xs: 2, md: 3 },
           py: 2,
           display: "flex",
           alignItems: "center",
@@ -63,7 +63,7 @@ export function PreJobPanel({
         ) : null}
       </Box>
 
-      <Box sx={{ px: 3, py: 2.5, display: "flex", flexDirection: "column", gap: 2.5 }}>
+      <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5, display: "flex", flexDirection: "column", gap: 2.5 }}>
         <Typography variant="body2" color="text.secondary">
           {t("workOrderDetail.prejob.description")}
         </Typography>
@@ -78,6 +78,7 @@ export function PreJobPanel({
                   checked={workOrder.prejobCheck[key] === true}
                   disabled={!editable || busy}
                   onChange={(e) => onToggleCheck(key, e.target.checked)}
+                  sx={{ p: { xs: 1.25, md: 1 } }}
                 />
               }
               label={t(`workOrderDetail.prejob.items.${key}`)}
@@ -102,12 +103,13 @@ export function PreJobPanel({
 
         {/* Dispatch action (admin) */}
         {isAdmin && !dispatched ? (
-          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Box sx={{ display: "flex", justifyContent: { xs: "stretch", sm: "flex-end" } }}>
             <Button
               variant="contained"
               startIcon={<LocalShippingOutlinedIcon />}
               disabled={busy || !workOrder.canDispatch}
               onClick={onDispatch}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
             >
               {t("workOrderDetail.prejob.dispatch")}
             </Button>

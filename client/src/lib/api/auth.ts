@@ -99,6 +99,12 @@ export function resetPassword(token: string, newPassword: string): Promise<void>
   return api.post<void>("/auth/reset-password", { token, newPassword }, { auth: false });
 }
 
+// Confirm a pending email change using the token from the emailed link. On
+// success the login email is switched and all sessions are revoked (re-login).
+export function confirmEmailChange(token: string): Promise<void> {
+  return api.post<void>("/auth/email-change/confirm", { token }, { auth: false });
+}
+
 // Who am I — used on app load to restore the session.
 export async function me(): Promise<AuthUser> {
   const res = await api.get<{ user: AuthUser }>("/auth/me");

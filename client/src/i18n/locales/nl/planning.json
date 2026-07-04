@@ -38,5 +38,6 @@
     "removed": "Uit planning verwijderd",
     "scheduleError": "Inplannen mislukt",
     "removeError": "Verwijderen mislukt"
-  }
+  },
+  "view": "Weergave"
 }

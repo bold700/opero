@@ -52,6 +52,7 @@ export function ReportsActions({
       startIcon={<FileDownloadOutlinedIcon />}
       onClick={exportCsv}
       disabled={!data}
+      sx={{ width: { xs: "100%", sm: "auto" } }}
     >
       {t("reports.actions.export")}
     </Button>

@@ -36,11 +36,18 @@ export function DetailHeader({
 
   return (
     <Card>
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 1.5,
+          flexWrap: { xs: "wrap", md: "nowrap" },
+        }}
+      >
         <IconButton aria-label={t("workOrderDetail.header.back")} onClick={onBack} sx={{ mt: -0.5, ml: -1 }}>
           <ArrowBackIcon />
         </IconButton>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: { xs: "60%", md: 0 } }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {workOrder.title ||
@@ -72,17 +79,32 @@ export function DetailHeader({
           </Box>
         </Box>
 
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexShrink: 0 }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            alignItems: "center",
+            flexShrink: 0,
+            flexDirection: { xs: "column", sm: "row" },
+            width: { xs: "100%", md: "auto" },
+          }}
+        >
           {/* Export PDF (spec) — wired in a later phase; disabled placeholder. */}
           <Button
             variant="outlined"
             startIcon={<PictureAsPdfOutlinedIcon />}
             disabled
+            sx={{ width: { xs: "100%", sm: "auto" } }}
           >
             {t("workOrderDetail.header.exportPdf")}
           </Button>
           {canFinish && !finished ? (
-            <Button variant="contained" onClick={onFinish} disabled={busy}>
+            <Button
+              variant="contained"
+              onClick={onFinish}
+              disabled={busy}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            >
               {t("workOrderDetail.header.finish")}
             </Button>
           ) : null}

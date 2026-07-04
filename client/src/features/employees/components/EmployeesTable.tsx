@@ -4,21 +4,16 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
-import Table from "@mui/material/Table";
-import TableHead from "@mui/material/TableHead";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import { Card } from "../../../components/Card";
+import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { AccountStatusChip } from "../../users/components/AccountStatusChip";
 import type { EmployeeRow } from "../api";
 import { STATUS, ROLE_LABEL_KEY, initials } from "../constants";
 
-// The employees table card: columns + real rows, with edit/delete row actions
-// (admin only).
+// The employees list: a table on desktop, a stack of cards on mobile (via
+// ResponsiveList). Edit/delete/invite row actions are admin only.
 export function EmployeesTable({
   rows,
   canManage,
@@ -33,83 +28,80 @@ export function EmployeesTable({
   onInvite: (e: EmployeeRow) => void;
 }) {
   const { t } = useTranslation();
-  return (
-    <Card noPadding>
-      <Table
-        sx={{
-          "& th, & td": { borderColor: "#F0EDF1", px: 3 },
-          "& th": { py: 2 },
-          "& td": { py: 2 },
-        }}
+
+  const fn = (r: EmployeeRow) =>
+    r.function ? (ROLE_LABEL_KEY[r.function] ? t(ROLE_LABEL_KEY[r.function]) : r.function) : "—";
+
+  const nameCell = (r: EmployeeRow) => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+      <Avatar sx={{ width: 36, height: 36, bgcolor: "#FBD9A8", color: "#B45309", fontSize: 14, fontWeight: 700 }}>
+        {initials(r.name)}
+      </Avatar>
+      <Typography sx={{ fontWeight: 600 }}>{r.name}</Typography>
+    </Box>
+  );
+
+  const loginCell = (r: EmployeeRow) =>
+    r.account ? (
+      <AccountStatusChip account={r.account} />
+    ) : canManage ? (
+      <Button
+        size="small"
+        onClick={() => onInvite(r)}
+        disabled={!r.email}
+        title={!r.email ? t("employees.table.loginNeedsEmail") : undefined}
       >
-        <TableHead>
-          <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
-            <TableCell>{t("employees.table.name")}</TableCell>
-            <TableCell>{t("employees.table.function")}</TableCell>
-            <TableCell>{t("employees.table.workOrders")}</TableCell>
-            <TableCell>{t("employees.table.status")}</TableCell>
-            <TableCell>{t("employees.table.login")}</TableCell>
-            <TableCell align="right">{t("employees.table.action")}</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} sx={{ color: "text.secondary", textAlign: "center", py: 4 }}>
-                {t("employees.empty")}
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((r) => (
-              <TableRow key={r.id} hover sx={{ "&:last-child td": { border: 0 } }}>
-                <TableCell>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Avatar sx={{ width: 36, height: 36, bgcolor: "#FBD9A8", color: "#B45309", fontSize: 14, fontWeight: 700 }}>
-                      {initials(r.name)}
-                    </Avatar>
-                    <Typography sx={{ fontWeight: 600 }}>{r.name}</Typography>
-                  </Box>
-                </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>
-                  {r.function ? (ROLE_LABEL_KEY[r.function] ? t(ROLE_LABEL_KEY[r.function]) : r.function) : "—"}
-                </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>{r.workOrderCount}</TableCell>
-                <TableCell>
-                  <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
-                </TableCell>
-                <TableCell>
-                  {r.account ? (
-                    <AccountStatusChip account={r.account} />
-                  ) : canManage ? (
-                    <Button
-                      size="small"
-                      onClick={() => onInvite(r)}
-                      disabled={!r.email}
-                      title={!r.email ? t("employees.table.loginNeedsEmail") : undefined}
-                    >
-                      {t("employees.table.invite")}
-                    </Button>
-                  ) : (
-                    <AccountStatusChip account={null} />
-                  )}
-                </TableCell>
-                <TableCell align="right">
-                  {canManage ? (
-                    <Box sx={{ display: "inline-flex", gap: 0.5 }}>
-                      <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(r)}>
-                        <EditOutlinedIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(r)}>
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </Card>
+        {t("employees.table.invite")}
+      </Button>
+    ) : (
+      <AccountStatusChip account={null} />
+    );
+
+  const actionsCell = (r: EmployeeRow) =>
+    canManage ? (
+      <Box sx={{ display: "inline-flex", gap: 0.5 }}>
+        <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(r)}>
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+        <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(r)}>
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
+      </Box>
+    ) : null;
+
+  return (
+    <ResponsiveList
+      items={rows}
+      keyOf={(r) => r.id}
+      empty={t("employees.empty")}
+      columns={[
+        { header: t("employees.table.name"), cell: nameCell },
+        { header: t("employees.table.function"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{fn(r)}</Box> },
+        { header: t("employees.table.workOrders"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workOrderCount}</Box> },
+        { header: t("employees.table.status"), cell: (r) => <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} /> },
+        { header: t("employees.table.login"), cell: loginCell },
+        { header: t("employees.table.action"), align: "right", cell: actionsCell },
+      ]}
+      renderCard={(r) => (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {/* Top line: identity + actions */}
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+            {nameCell(r)}
+            {actionsCell(r)}
+          </Box>
+          {/* Meta line: function + work-order count */}
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, color: "text.secondary", fontSize: 13 }}>
+            <span>{fn(r)}</span>
+            <span>·</span>
+            <span>{t("employees.table.workOrders")}: {r.workOrderCount}</span>
+          </Box>
+          {/* Status + login row */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+            <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
+            {loginCell(r)}
+          </Box>
+        </Box>
+      )}
+    />
   );
 }

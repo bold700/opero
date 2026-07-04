@@ -25,5 +25,6 @@
     "email": "Ongeldig e-mailadres",
     "number": "Ongeldig getal",
     "nonNegative": "Mag niet negatief zijn"
-  }
+  },
+  "offline": "Je bent offline. Sommige acties werken pas als je weer verbinding hebt."
 }

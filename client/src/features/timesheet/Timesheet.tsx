@@ -61,7 +61,21 @@ export function Timesheet() {
   return (
     <PageLayout
       title={t("timesheet.title")}
-      actions={noEmployee ? undefined : <PeriodPicker period={period} onChange={setPeriod} />}
+      actions={
+        noEmployee ? undefined : (
+          // Full-width on mobile so the period navigator spreads across the row
+          // instead of being squeezed; unchanged inline width on desktop.
+          <Box
+            sx={{
+              width: { xs: "100%", sm: "auto" },
+              display: "flex",
+              justifyContent: { xs: "space-between", sm: "flex-start" },
+            }}
+          >
+            <PeriodPicker period={period} onChange={setPeriod} />
+          </Box>
+        )
+      }
     >
       {body}
     </PageLayout>

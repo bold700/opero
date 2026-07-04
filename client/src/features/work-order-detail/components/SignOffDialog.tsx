@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
@@ -8,6 +7,7 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { SignaturePad, type SignaturePadHandle } from "../../../components/SignaturePad";
 
 // Sign-off: the signer types their name AND draws a signature. On confirm we
@@ -50,7 +50,7 @@ export function SignOffDialog({
   const canConfirm = !busy && hasInk && name.trim().length > 0;
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
+    <ResponsiveDialog open={open} onClose={handleClose} maxWidth="sm" title={t("workOrderDetail.signOff.title")}>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrderDetail.signOff.title")}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
@@ -91,6 +91,6 @@ export function SignOffDialog({
           {t("workOrderDetail.signOff.confirm")}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

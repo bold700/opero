@@ -6,6 +6,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useAuth } from "../../auth/AuthContext";
 import { PAGE_BG, cardSx, SECTIONS, type SectionId } from "./constants";
+import { PAGE_PADDING_RESPONSIVE, TAP_TARGET } from "../../theme/tokens";
 import { ProfileForm } from "./components/ProfileForm";
 import { CompanyForm } from "./components/CompanyForm";
 import { NotificationsForm } from "./components/NotificationsForm";
@@ -27,7 +28,7 @@ export function Settings() {
   return (
     <Box sx={{ bgcolor: PAGE_BG, minHeight: "100dvh" }}>
       {/* Page header */}
-      <Box sx={{ px: 4, py: 3, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
+      <Box sx={{ px: PAGE_PADDING_RESPONSIVE, py: 3, bgcolor: "background.paper", borderBottom: "1px solid", borderColor: "divider" }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           {t("settings.title")}
         </Typography>
@@ -36,9 +37,23 @@ export function Settings() {
         </Typography>
       </Box>
 
-      <Box sx={{ p: 4, display: "flex", gap: 3, flexDirection: { xs: "column", md: "row" }, alignItems: "flex-start" }}>
-        {/* Section list (master) */}
-        <Box sx={{ width: { xs: "100%", md: 260 }, flexShrink: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
+      <Box sx={{ p: PAGE_PADDING_RESPONSIVE, display: "flex", gap: 3, flexDirection: { xs: "column", md: "row" }, alignItems: "flex-start" }}>
+        {/* Section list (master). Vertical list on desktop; a horizontal
+            scrollable chip rail on mobile so the panel stays near the top. */}
+        <Box
+          sx={{
+            width: { xs: "100%", md: 260 },
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: { xs: "row", md: "column" },
+            gap: { xs: 1, md: 0.5 },
+            overflowX: { xs: "auto", md: "visible" },
+            pb: { xs: 1, md: 0 },
+            // Hide the scrollbar on the mobile rail but keep it scrollable.
+            "&::-webkit-scrollbar": { display: "none" },
+            scrollbarWidth: "none",
+          }}
+        >
           {sections.map((s) => {
             const selected = s.id === active;
             const Icon = s.icon;
@@ -49,20 +64,28 @@ export function Settings() {
                 role="button"
                 sx={{
                   display: "flex",
+                  alignItems: "center",
                   gap: 1.5,
                   p: 1.5,
+                  minHeight: { xs: TAP_TARGET, md: "auto" },
                   borderRadius: 2,
                   cursor: "pointer",
+                  flexShrink: 0,
+                  // On mobile a chip is a single line; on desktop it stacks title + subtitle.
+                  whiteSpace: { xs: "nowrap", md: "normal" },
                   bgcolor: selected ? "#E8DEF8" : "transparent",
+                  border: { xs: "1px solid", md: "none" },
+                  borderColor: { xs: selected ? "primary.main" : "divider", md: "transparent" },
                   "&:hover": { bgcolor: selected ? "#E8DEF8" : "#EFECF2" },
                 }}
               >
-                <Icon fontSize="small" sx={{ mt: 0.25, color: selected ? "primary.main" : "text.secondary" }} />
+                <Icon fontSize="small" sx={{ mt: { xs: 0, md: 0.25 }, color: selected ? "primary.main" : "text.secondary" }} />
                 <Box sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 600, fontSize: 14, color: selected ? "primary.main" : "text.primary" }}>
                     {t(`settings.sections.${s.id}.title`)}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  {/* Subtitle is noise in the mobile chip rail — desktop only. */}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
                     {t(`settings.sections.${s.id}.subtitle`)}
                   </Typography>
                 </Box>
@@ -74,7 +97,7 @@ export function Settings() {
         {/* Form panel (detail) */}
         <Paper elevation={0} sx={{ ...cardSx, flex: 1, minWidth: 0, width: "100%", overflow: "hidden" }}>
           {/* Panel header */}
-          <Box sx={{ px: 3, py: 2.5, borderBottom: "1px solid", borderColor: "#F0EDF1" }}>
+          <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5, borderBottom: "1px solid", borderColor: "#F0EDF1" }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t(`settings.sections.${active}.title`)}
             </Typography>
@@ -84,7 +107,7 @@ export function Settings() {
           </Box>
 
           {/* Panel body — each tab owns its own save action. */}
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: { xs: 2, md: 3 } }}>
             {active === "profile" && <ProfileForm />}
             {active === "company" && <CompanyForm />}
             {active === "notifications" && <NotificationsForm />}

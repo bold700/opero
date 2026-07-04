@@ -11,6 +11,8 @@ import {
   updateProfileSchema,
   updatePreferencesSchema,
   changePasswordSchema,
+  requestEmailChangeSchema,
+  confirmEmailChangeSchema,
 } from "@opero/shared";
 import { env } from "../env.js";
 import { prisma } from "../db/client.js";
@@ -20,11 +22,14 @@ import { BadRequest, Unauthorized } from "../lib/httpError.js";
 import { authRateLimit } from "../lib/rateLimit.js";
 import { sendEmail } from "../lib/email.js";
 import { hashPassword, toAuthUser, verifyPassword, mergePreferences } from "./service.js";
+import type { AuthUser } from "./types.js";
 import { storeUpload, deleteStored } from "../lib/attachUpload.js";
 import { uploadSingle } from "../lib/upload.js";
 import {
+  consumeEmailChange,
   consumePasswordReset,
   consumeRefreshToken,
+  issueEmailChange,
   issuePasswordReset,
   issueRefreshToken,
   revokeRefreshToken,
@@ -140,7 +145,8 @@ authRouter.get(
   }),
 );
 
-// --- PATCH /profile — the logged-in user edits their own name/email/phone ---
+// --- PATCH /profile — the logged-in user edits their own name/phone. Email is
+// NOT changed here (it's the login identity) — see the email-change flow below. ---
 authRouter.patch(
   "/profile",
   requireAuth,
@@ -148,20 +154,11 @@ authRouter.patch(
     const input = updateProfileSchema.parse(req.body);
     const userId = req.user!.id;
 
-    const data: { name?: string; email?: string; phone?: string | null } = {};
+    const data: { name?: string; phone?: string | null } = {};
     if (input.name !== undefined) {
       const name = input.name.trim();
       if (!name) throw BadRequest("Name is required");
       data.name = name;
-    }
-    if (input.email !== undefined) {
-      const email = input.email.trim().toLowerCase();
-      // Email is the unique login id — reject if another user already has it.
-      const taken = await prisma.user.findFirst({
-        where: { email, NOT: { id: userId } },
-      });
-      if (taken) throw BadRequest("Email already in use");
-      data.email = email;
     }
     if (input.phone !== undefined) {
       data.phone = input.phone.trim() || null;
@@ -281,6 +278,88 @@ authRouter.post(
     // Re-issue the current session so the user isn't logged out of this device.
     const tokens = await issueSession(user.id, user.role, user.orgId);
     res.json(tokens);
+  }),
+);
+
+// --- POST /email-change/request — start a VERIFIED change of the login email --
+// Re-authenticates with the current password, then emails a confirmation link to
+// the NEW address. The login email does NOT change until that link is confirmed.
+// Always 204 (don't leak whether the target address already belongs to someone).
+authRouter.post(
+  "/email-change/request",
+  requireAuth,
+  authRateLimit,
+  asyncHandler(async (req, res) => {
+    const { newEmail, currentPassword } = requestEmailChangeSchema.parse(req.body);
+    const userId = req.user!.id;
+    const email = newEmail.trim().toLowerCase();
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+      throw Unauthorized("Current password is incorrect");
+    }
+    if (email === user.email) {
+      throw BadRequest("This is already your email address");
+    }
+
+    // Only send if the address is free. If it's taken we still return 204 (no
+    // enumeration) — just skip issuing a token.
+    const taken = await prisma.user.findFirst({
+      where: { email, NOT: { id: userId } },
+    });
+    if (!taken) {
+      const token = await issueEmailChange(userId, email);
+      const url = `${env.APP_URL.replace(/\/$/, "")}/verify-email?token=${token}`;
+      await sendEmail({
+        to: email,
+        subject: "Opero — bevestig je nieuwe e-mailadres / confirm your new email",
+        text:
+          `Bevestig je nieuwe e-mailadres via deze link (verloopt over 1 uur):\n${url}\n\n` +
+          `Confirm your new email address using this link (expires in 1 hour):\n${url}`,
+      });
+    }
+    res.status(204).end();
+  }),
+);
+
+// --- POST /email-change/confirm — apply the change with the emailed token ------
+// No auth: the link IS the proof of control of the new address.
+authRouter.post(
+  "/email-change/confirm",
+  asyncHandler(async (req, res) => {
+    const { token } = confirmEmailChangeSchema.parse(req.body);
+    const consumed = await consumeEmailChange(token);
+    if (!consumed) throw BadRequest("Invalid or expired confirmation link");
+
+    // Re-check the address is still free — someone could have claimed it since the
+    // request was issued.
+    const taken = await prisma.user.findFirst({
+      where: { email: consumed.newEmail, NOT: { id: consumed.userId } },
+    });
+    if (taken) throw BadRequest("That email address is no longer available");
+
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: consumed.userId },
+        data: { email: consumed.newEmail },
+      });
+      // The login identity changed — force a fresh sign-in everywhere.
+      await tx.authSession.updateMany({
+        where: { userId: consumed.userId, revoked: false },
+        data: { revoked: true },
+      });
+      // The actor is the user themselves (self-service), reconstructed from the
+      // updated row since this endpoint has no auth context.
+      await audit(
+        tx,
+        { id: updated.id, orgId: updated.orgId, role: updated.role } as AuthUser,
+        "user.email.change",
+        "user",
+        updated.id,
+        { newEmail: consumed.newEmail },
+      );
+    });
+    res.status(204).end();
   }),
 );
 

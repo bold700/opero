@@ -12,15 +12,18 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Divider from "@mui/material/Divider";
+import Drawer from "@mui/material/Drawer";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import AddIcon from "@mui/icons-material/Add";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { useAuth } from "../auth/AuthContext";
 import { navItemsForRole, type NavItem } from "./navigation";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { quickCreateActionsForRole } from "./quickCreate";
+import { OfflineBanner } from "../components/OfflineBanner";
 
 const RAIL_WIDTH = 96;
 
@@ -268,18 +271,30 @@ function ProfileMenu({
 
 // M3 bottom navigation (mobile). Shows the top destinations for the role, plus a
 // floating quick-create button above the bar.
+const MORE = "__more__";
+
 function BottomNav({ items }: { items: NavItem[] }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
   const { user } = useAuth();
   const [createAnchor, setCreateAnchor] = useState<HTMLElement | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const role = user?.role ?? "client";
   const canCreate = quickCreateActionsForRole(role).length > 0;
-  const shown = items.filter((i) => i.path !== "/settings").slice(0, 5);
-  const current = shown.find((i) =>
-    i.path === "/" ? location.pathname === "/" : location.pathname.startsWith(i.path),
-  );
+
+  // Long Dutch labels ("Werkbonnen", "Instellingen") + 5 tabs overflow a narrow
+  // phone. Show at most 4 direct tabs; if there are more destinations, the 4th
+  // slot becomes a "More" menu holding the rest — so nothing is unreachable.
+  const primary = items.length <= 5 ? items.slice(0, 5) : items.slice(0, 4);
+  const overflow = items.length <= 5 ? [] : items.slice(4);
+
+  const activePath = (i: NavItem) =>
+    i.path === "/" ? location.pathname === "/" : location.pathname.startsWith(i.path);
+  const inOverflow = overflow.some(activePath);
+  const currentPrimary = primary.find(activePath);
+  // Highlight "More" when the active route lives inside the overflow menu.
+  const value = inOverflow ? MORE : (currentPrimary?.path ?? false);
 
   return (
     <Box sx={{ display: { xs: "block", md: "none" } }}>
@@ -291,7 +306,7 @@ function BottomNav({ items }: { items: NavItem[] }) {
             onClick={(e) => setCreateAnchor((a) => (a ? null : e.currentTarget))}
             sx={{
               position: "fixed",
-              bottom: 72,
+              bottom: "calc(80px + env(safe-area-inset-bottom))",
               right: 16,
               zIndex: 1101,
               transition: "transform .2s ease",
@@ -316,14 +331,26 @@ function BottomNav({ items }: { items: NavItem[] }) {
           left: 0,
           right: 0,
           zIndex: 1100,
+          pb: "env(safe-area-inset-bottom)", // iOS home indicator
         }}
       >
         <BottomNavigation
-          value={current?.path ?? "/"}
-          onChange={(_e, value) => navigate(value)}
+          value={value}
           showLabels
+          sx={{
+            // Tighten so up-to-5 slots + long Dutch labels fit ~360px without
+            // clipping: no forced min-width, smaller ellipsised label.
+            "& .MuiBottomNavigationAction-root": { minWidth: 0, px: 0.5 },
+            "& .MuiBottomNavigationAction-label": {
+              fontSize: 11,
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            },
+          }}
         >
-          {shown.map((item) => {
+          {primary.map((item) => {
             const Icon = item.icon;
             return (
               <BottomNavigationAction
@@ -331,11 +358,76 @@ function BottomNav({ items }: { items: NavItem[] }) {
                 label={t(item.labelKey)}
                 value={item.path}
                 icon={<Icon />}
+                onClick={() => navigate(item.path)}
               />
             );
           })}
+          {overflow.length > 0 ? (
+            <BottomNavigationAction
+              key={MORE}
+              value={MORE}
+              label={t("nav.more")}
+              icon={<MoreHorizIcon />}
+              onClick={() => setMoreOpen(true)}
+            />
+          ) : null}
         </BottomNavigation>
       </Paper>
+
+      {/* Overflow destinations — a bottom sheet, consistent with the app's other
+          mobile overlays (quick-create, notifications). */}
+      <Drawer
+        anchor="bottom"
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              pb: "env(safe-area-inset-bottom)",
+            },
+          },
+        }}
+      >
+        {/* grab handle */}
+        <Box sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
+          <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: "divider" }} />
+        </Box>
+        <Box sx={{ px: 1.5, pt: 1.5, pb: 2 }}>
+          {overflow.map((item) => {
+            const Icon = item.icon;
+            const active = activePath(item);
+            return (
+              <Box
+                key={item.path}
+                role="button"
+                onClick={() => {
+                  setMoreOpen(false);
+                  navigate(item.path);
+                }}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  minHeight: 52,
+                  px: 2,
+                  borderRadius: 2,
+                  cursor: "pointer",
+                  color: active ? "primary.main" : "text.primary",
+                  bgcolor: active ? "#E8DEF8" : "transparent",
+                  "&:active": { bgcolor: active ? "#E8DEF8" : "#EFECF2" },
+                }}
+              >
+                <Icon fontSize="small" sx={{ color: active ? "primary.main" : "text.secondary" }} />
+                <Typography sx={{ fontSize: 16, fontWeight: active ? 600 : 500 }}>
+                  {t(item.labelKey)}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      </Drawer>
     </Box>
   );
 }
@@ -353,9 +445,11 @@ export function AppShell() {
         sx={{
           flex: 1,
           minWidth: 0,
-          pb: { xs: 9, md: 0 }, // room for mobile bottom nav
+          // Room for the mobile bottom nav + the iOS home-indicator safe area.
+          pb: { xs: "calc(72px + env(safe-area-inset-bottom))", md: 0 },
         }}
       >
+        <OfflineBanner />
         <Outlet />
       </Box>
       <BottomNav items={items} />
