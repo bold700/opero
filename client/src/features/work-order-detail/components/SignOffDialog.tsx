@@ -50,7 +50,7 @@ export function SignOffDialog({
   const canConfirm = !busy && hasInk && name.trim().length > 0;
 
   return (
-    <ResponsiveDialog open={open} onClose={handleClose} maxWidth="sm" title={t("workOrderDetail.signOff.title")}>
+    <ResponsiveDialog open={open} onClose={handleClose} maxWidth="sm" title={t("workOrderDetail.signOff.title")} stableHeight>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrderDetail.signOff.title")}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>

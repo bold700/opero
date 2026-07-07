@@ -20,13 +20,24 @@ export const SignaturePad = forwardRef<
   const last = useRef<{ x: number; y: number } | null>(null);
 
   // Size the canvas to its container with a device-pixel-ratio backing store so
-  // strokes are crisp. Re-run on mount and resize.
+  // strokes are crisp. A ResizeObserver (not a one-shot mount measurement) is
+  // essential: inside a vaul bottom sheet the canvas has ZERO width while the
+  // sheet animates in, so measuring on mount gives a 0×0 backing store and the
+  // pad renders blank / collapsed. The observer fires once the sheet has actually
+  // laid the canvas out (and again on rotation), so it always sizes correctly.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let lastW = 0;
+    let lastH = 0;
     const resize = () => {
-      const ratio = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return; // not laid out yet
+      // Skip no-op resizes so an in-progress drawing isn't wiped by the observer.
+      if (rect.width === lastW && rect.height === lastH) return;
+      lastW = rect.width;
+      lastH = rect.height;
+      const ratio = window.devicePixelRatio || 1;
       canvas.width = rect.width * ratio;
       canvas.height = rect.height * ratio;
       const ctx = canvas.getContext("2d");
@@ -39,8 +50,9 @@ export const SignaturePad = forwardRef<
       }
     };
     resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    const observer = new ResizeObserver(resize);
+    observer.observe(canvas);
+    return () => observer.disconnect();
   }, []);
 
   const pos = (e: React.PointerEvent) => {
