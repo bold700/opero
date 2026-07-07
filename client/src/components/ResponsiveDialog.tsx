@@ -109,6 +109,11 @@ export function ResponsiveDialog({
           />
           <Vaul.Content
             aria-describedby={undefined}
+            // NEVER move focus into the sheet on open (Radix does by default).
+            // On mobile, focusing an input summons the keyboard mid-animation,
+            // which collides with repositionInputs and leaves the sheet stuck
+            // half-open at the bottom. The user taps a field when they're ready.
+            onOpenAutoFocus={(e) => e.preventDefault()}
             style={{
               position: "fixed",
               left: 0,

@@ -14,6 +14,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useApi } from "../../../lib/api/useApi";
 import { getInvitable, type InviteInput, type InvitablePerson } from "../api";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 // The invite dialog picks an EXISTING person (Employee or Customer) and
 // provisions a login for them. Email/name/role come from that record — there is
@@ -46,6 +47,7 @@ export function InviteDialog({
   onSubmit: (input: InviteInput) => void;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const sheetMenu = useSheetMenuProps();
 
   // Only the standalone (Access-tab) flow needs the invitable list. Fetch only
@@ -138,7 +140,7 @@ export function InviteDialog({
                 </Box>
               )}
               renderInput={(params) => (
-                <TextField {...params} label={t("users.invite.pickPerson")} size="small" autoFocus />
+                <TextField {...params} label={t("users.invite.pickPerson")} size="small" autoFocus={!isMobile} />
               )}
               slotProps={{ popper: { container: sheetMenu.container } }}
             />

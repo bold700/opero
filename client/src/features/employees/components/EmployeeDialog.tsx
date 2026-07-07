@@ -28,6 +28,7 @@ import {
   type EmployeeStatus,
 } from "../api";
 import { ROLE_LABEL_KEY } from "../constants";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 type Form = {
   name: string;
@@ -58,6 +59,7 @@ export function EmployeeDialog({
   onSubmit: (input: EmployeeInput) => void;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const sheetMenu = useSheetMenuProps();
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
     EMPTY,
@@ -121,7 +123,7 @@ export function EmployeeDialog({
             onBlur={onBlur("name")}
             disabled={busy}
             required
-            autoFocus
+            autoFocus={!isMobile}
             size="small"
             {...err("name")}
           />

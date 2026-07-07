@@ -12,6 +12,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { setup2fa, enable2fa, type TwoFactorSetup } from "../../../lib/api/auth";
 import { HAIRLINE, RADIUS } from "../../../theme/tokens";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 // Enable-2FA flow: on open, call setup (get QR + secret), user scans it in their
 // authenticator app, enters the 6-digit code to confirm. onDone fires after a
@@ -26,6 +27,7 @@ export function TwoFactorSetupDialog({
   onDone: () => void;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [setupData, setSetupData] = useState<TwoFactorSetup | null>(null);
   const [loading, setLoading] = useState(false);
   const [code, setCode] = useState("");
@@ -115,7 +117,7 @@ export function TwoFactorSetupDialog({
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               fullWidth
-              autoFocus
+              autoFocus={!isMobile}
               inputMode="numeric"
               slotProps={{ htmlInput: { maxLength: 6, autoComplete: "one-time-code" } }}
             />

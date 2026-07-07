@@ -16,6 +16,7 @@ import { SelectField } from "../../../components/SelectField";
 import { useForm } from "../../../lib/useForm";
 import { required, nonNegativeNumber } from "../../../lib/validation";
 import type { MaterialRow, MaterialInput, Category } from "../api";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 // Sentinel option: picking it switches the category field to an inline "new
 // category" text input (creatable-select pattern), no nested dialog.
@@ -75,6 +76,7 @@ export function MaterialDialog({
   onCreateCategory: (name: string) => Promise<string>;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
     EMPTY,
     RULES,
@@ -167,7 +169,7 @@ export function MaterialDialog({
             onBlur={onBlur("name")}
             disabled={busy}
             required
-            autoFocus
+            autoFocus={!isMobile}
             size="small"
             {...err("name")}
           />

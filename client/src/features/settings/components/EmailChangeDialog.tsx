@@ -13,6 +13,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useForm } from "../../../lib/useForm";
 import { required, email as emailRule } from "../../../lib/validation";
 import { requestEmailChange } from "../api";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 type Form = { newEmail: string; currentPassword: string };
 const RULES = { newEmail: [required, emailRule], currentPassword: [required] };
@@ -30,6 +31,7 @@ export function EmailChangeDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } =
     useForm<Form>({ newEmail: "", currentPassword: "" }, RULES);
   const [busy, setBusy] = useState(false);
@@ -93,7 +95,7 @@ export function EmailChangeDialog({
               onBlur={onBlur("newEmail")}
               disabled={busy}
               size="small"
-              autoFocus
+              autoFocus={!isMobile}
               {...err("newEmail")}
             />
             <TextField

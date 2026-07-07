@@ -19,12 +19,14 @@ import { me as fetchMe, disable2fa } from "../../../lib/api/auth";
 import { GroupLabel } from "./GroupLabel";
 import { TwoFactorSetupDialog } from "./TwoFactorSetupDialog";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 // Security tab — two-factor authentication (TOTP). Reflects user.totpEnabled;
 // enabling opens the QR/code dialog, disabling requires the account password.
 // After either, refetch /me so totpEnabled updates app-wide.
 export function SecurityForm() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { user, setUser } = useAuth();
   const enabled = user?.totpEnabled ?? false;
 
@@ -129,7 +131,7 @@ export function SecurityForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
-            autoFocus
+            autoFocus={!isMobile}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

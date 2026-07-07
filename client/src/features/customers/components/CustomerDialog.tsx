@@ -13,6 +13,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useForm } from "../../../lib/useForm";
 import { required, email } from "../../../lib/validation";
 import type { Customer, CustomerInput, CustomerType } from "../api";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 // All-string form shape (what the inputs hold).
 type Form = {
@@ -62,6 +63,7 @@ export function CustomerDialog({
   onSubmit: (input: CustomerInput) => void;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
     EMPTY,
     RULES,
@@ -127,7 +129,7 @@ export function CustomerDialog({
             onBlur={onBlur("name")}
             disabled={busy}
             required
-            autoFocus
+            autoFocus={!isMobile}
             size="small"
             {...err("name")}
           />

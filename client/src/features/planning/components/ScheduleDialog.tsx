@@ -15,6 +15,7 @@ import type {
   AssignableEmployee,
   ScheduleInput,
 } from "../api";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 // 24-hour time slots in 15-minute steps (00:00 … 23:45) — European clock, no
 // AM/PM, no arbitrary minutes.
@@ -49,6 +50,7 @@ export function ScheduleDialog({
   onSubmit: (projectId: string, input: ScheduleInput) => void;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [projectId, setProjectId] = useState("");
   const [date, setDate] = useState("");
   const [teamLeaderId, setTeamLeaderId] = useState("");
@@ -121,7 +123,7 @@ export function ScheduleDialog({
               value={projectId}
               onChange={setProjectId}
               disabled={busy}
-              autoFocus
+              autoFocus={!isMobile}
               options={projects.map((p) => ({
                 value: p.id,
                 label: `${p.projectNumber} · ${p.customerName}`,

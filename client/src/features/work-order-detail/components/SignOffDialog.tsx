@@ -9,6 +9,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { SignaturePad, type SignaturePadHandle } from "../../../components/SignaturePad";
+import { useIsMobile } from "../../../lib/useIsMobile";
 
 // Sign-off: the signer types their name AND draws a signature. On confirm we
 // POST /finish (multipart) with the signature PNG + the typed name. This locks
@@ -25,6 +26,7 @@ export function SignOffDialog({
   onConfirm: (signatureImage: Blob, signedByName: string) => void;
 }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const [name, setName] = useState("");
   const [hasInk, setHasInk] = useState(false);
   const padRef = useRef<SignaturePadHandle>(null);
@@ -62,7 +64,7 @@ export function SignOffDialog({
           label={t("workOrderDetail.signOff.signerLabel")}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          autoFocus
+          autoFocus={!isMobile}
           sx={{ mb: 2 }}
         />
 
