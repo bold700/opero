@@ -1,10 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -12,12 +15,17 @@ import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { SelectField } from "../../../components/SelectField";
 import { useForm } from "../../../lib/useForm";
 import { required, nonNegativeNumber } from "../../../lib/validation";
-import type { MaterialRow, MaterialInput } from "../api";
+import type { MaterialRow, MaterialInput, Category } from "../api";
+
+// Sentinel option: picking it switches the category field to an inline "new
+// category" text input (creatable-select pattern), no nested dialog.
+const NEW_CATEGORY = "__new_category__";
 
 type Form = {
   name: string;
   unit: string;
   category: string;
+  price: string;
   stock: string;
   minStock: string;
   supplier: string;
@@ -27,6 +35,7 @@ const EMPTY: Form = {
   name: "",
   unit: "",
   category: "",
+  price: "",
   stock: "",
   minStock: "",
   supplier: "",
@@ -35,6 +44,7 @@ const EMPTY: Form = {
 const RULES = {
   name: [required],
   unit: [required],
+  price: [nonNegativeNumber],
   stock: [nonNegativeNumber],
   minStock: [nonNegativeNumber],
 };
@@ -45,18 +55,24 @@ export function MaterialDialog({
   open,
   material,
   categories,
+  canManage,
   busy,
   error,
   onClose,
   onSubmit,
+  onCreateCategory,
 }: {
   open: boolean;
   material?: MaterialRow | null;
-  categories: string[];
+  categories: Category[];
+  /** Admins may create a new category inline. */
+  canManage: boolean;
   busy: boolean;
   error: string | null;
   onClose: () => void;
   onSubmit: (input: MaterialInput) => void;
+  /** Create a category, returning its name (which becomes the selected value). */
+  onCreateCategory: (name: string) => Promise<string>;
 }) {
   const { t } = useTranslation();
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
@@ -64,14 +80,48 @@ export function MaterialDialog({
     RULES,
   );
 
+  // Inline "new category" state (the creatable-select branch).
+  const [newCatMode, setNewCatMode] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [creatingCat, setCreatingCat] = useState(false);
+  const [newCatError, setNewCatError] = useState<string | null>(null);
+
+  const confirmNewCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    setCreatingCat(true);
+    setNewCatError(null);
+    try {
+      const created = await onCreateCategory(name);
+      setField("category")({ target: { value: created } });
+      setNewCatMode(false);
+      setNewCatName("");
+    } catch (e) {
+      setNewCatError(e instanceof Error ? e.message : t("materials.categoryManager.createError"));
+    } finally {
+      setCreatingCat(false);
+    }
+  };
+
+  const cancelNewCategory = () => {
+    setNewCatMode(false);
+    setNewCatName("");
+    setNewCatError(null);
+  };
+
   useEffect(() => {
     if (!open) return;
+    // Reset the inline-category branch whenever the dialog (re)opens.
+    setNewCatMode(false);
+    setNewCatName("");
+    setNewCatError(null);
     reset(
       material
         ? {
             name: material.name,
             unit: material.unit,
             category: material.category,
+            price: material.unitPrice != null ? String(material.unitPrice) : "",
             stock: String(material.stock),
             minStock: String(material.minStock),
             supplier: material.supplier === "—" ? "" : material.supplier,
@@ -94,6 +144,7 @@ export function MaterialDialog({
       name: values.name.trim(),
       unit: values.unit.trim(),
       category: values.category.trim() || undefined,
+      unitPrice: values.price === "" ? undefined : Number(values.price),
       stock: values.stock === "" ? undefined : Number(values.stock),
       minStock: values.minStock === "" ? undefined : Number(values.minStock),
       supplier: values.supplier.trim() || undefined,
@@ -132,18 +183,92 @@ export function MaterialDialog({
               sx={{ width: { xs: "100%", sm: 160 } }}
               {...err("unit")}
             />
-            <SelectField
-              label={t("materials.dialog.category")}
-              value={values.category || "other"}
-              onChange={(v) => setField("category")({ target: { value: v } })}
-              disabled={busy}
-              sx={{ flex: 1 }}
-              options={categories.map((c) => ({
-                value: c,
-                label: t(`materials.category.${c}`, { defaultValue: c }),
-              }))}
-            />
+            {newCatMode ? (
+              // Inline "new category" input (creatable-select branch): a text
+              // field + confirm/cancel, right here — no nested dialog.
+              <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 0.5 }}>
+                <Box sx={{ display: "flex", gap: 0.5, alignItems: "flex-start" }}>
+                  <TextField
+                    label={t("materials.categoryManager.newName")}
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void confirmNewCategory();
+                      } else if (e.key === "Escape") {
+                        cancelNewCategory();
+                      }
+                    }}
+                    disabled={busy || creatingCat}
+                    size="small"
+                    autoFocus
+                    fullWidth
+                    error={!!newCatError}
+                    helperText={newCatError ?? undefined}
+                  />
+                  <IconButton
+                    size="small"
+                    aria-label={t("common.actions.confirm")}
+                    onClick={() => void confirmNewCategory()}
+                    disabled={busy || creatingCat || !newCatName.trim()}
+                    color="primary"
+                  >
+                    {creatingCat ? <CircularProgress size={18} /> : <CheckIcon fontSize="small" />}
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    aria-label={t("common.actions.cancel")}
+                    onClick={cancelNewCategory}
+                    disabled={busy || creatingCat}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+            ) : (
+              <SelectField
+                label={t("materials.dialog.category")}
+                value={values.category || "other"}
+                onChange={(v) => {
+                  if (v === NEW_CATEGORY) {
+                    setNewCatMode(true);
+                    setNewCatName("");
+                    setNewCatError(null);
+                    return;
+                  }
+                  setField("category")({ target: { value: v } });
+                }}
+                disabled={busy}
+                sx={{ flex: 1 }}
+                options={[
+                  ...categories.map((c) => ({
+                    value: c.name,
+                    label: t(`materials.category.${c.name}`, { defaultValue: c.name }),
+                  })),
+                  ...(canManage
+                    ? [{ value: NEW_CATEGORY, label: t("materials.categoryManager.addNew"), emphasize: true }]
+                    : []),
+                ]}
+              />
+            )}
           </Box>
+          <TextField
+            label={t("materials.dialog.unitPrice")}
+            value={values.price}
+            onChange={setField("price")}
+            onBlur={onBlur("price")}
+            disabled={busy}
+            type="number"
+            size="small"
+            sx={{ width: { xs: "100%", sm: 200 } }}
+            slotProps={{
+              input: {
+                startAdornment: <Box sx={{ mr: 0.5, color: "text.secondary" }}>€</Box>,
+              },
+            }}
+            {...err("price")}
+          />
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField
               label={t("materials.dialog.stock")}

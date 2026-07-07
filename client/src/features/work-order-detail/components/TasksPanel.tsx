@@ -17,6 +17,7 @@ import type {
   WorkOrderTask,
   WorkTypeOption,
   AssigneeOption,
+  MaterialPickOption,
 } from "../api";
 import { MaterialLine } from "./MaterialLine";
 import { AddMaterialRow } from "./AddMaterialRow";
@@ -32,6 +33,7 @@ export function TasksPanel({
   busy,
   workTypes,
   assignees,
+  materials,
   onAddTask,
   onRenameTask,
   onSetTaskType,
@@ -48,6 +50,7 @@ export function TasksPanel({
   busy: boolean;
   workTypes: WorkTypeOption[];
   assignees: AssigneeOption[];
+  materials: MaterialPickOption[];
   onAddTask: () => void;
   onRenameTask: (taskId: string, description: string) => void;
   onSetTaskType: (taskId: string, workTypeId: string | null) => void;
@@ -107,6 +110,7 @@ export function TasksPanel({
             busy={busy}
             workTypes={workTypes}
             assignees={assignees}
+            materials={materials}
             onRename={(desc) => onRenameTask(task.id, desc)}
             onSetType={(workTypeId) => onSetTaskType(task.id, workTypeId)}
             onAssign={(assigneeId) => onAssignTask(task.id, assigneeId)}
@@ -129,6 +133,7 @@ function TaskRow({
   busy,
   workTypes,
   assignees,
+  materials,
   onRename,
   onSetType,
   onAssign,
@@ -144,6 +149,7 @@ function TaskRow({
   busy: boolean;
   workTypes: WorkTypeOption[];
   assignees: AssigneeOption[];
+  materials: MaterialPickOption[];
   onRename: (description: string) => void;
   onSetType: (workTypeId: string | null) => void;
   onAssign: (assigneeId: string | null) => void;
@@ -320,6 +326,7 @@ function TaskRow({
           adding ? (
             <AddMaterialRow
               showPrices={showPrices}
+              materials={materials}
               busy={busy}
               onAdd={(m) => {
                 onAddMaterial(m);

@@ -15,6 +15,7 @@ import {
   getProject,
   getWorkTypes,
   getAssignableEmployees,
+  getMaterialsForPicker,
   addTask,
   updateTask,
   deleteTask,
@@ -40,6 +41,7 @@ import {
   type NewExtraWork,
   type WorkTypeOption,
   type AssigneeOption,
+  type MaterialPickOption,
 } from "./api";
 import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
@@ -64,6 +66,7 @@ export function WorkOrderDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [workTypes, setWorkTypes] = useState<WorkTypeOption[]>([]);
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
+  const [materials, setMaterials] = useState<MaterialPickOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -78,6 +81,7 @@ export function WorkOrderDetail() {
       setProject(p);
       getWorkTypes().then(setWorkTypes).catch(() => setWorkTypes([]));
       getAssignableEmployees().then(setAssignees).catch(() => setAssignees([]));
+      getMaterialsForPicker().then(setMaterials).catch(() => setMaterials([]));
       return w;
     }, [id]),
     [id],
@@ -156,6 +160,7 @@ export function WorkOrderDetail() {
               busy={busy}
               workTypes={workTypes}
               assignees={assignees}
+              materials={materials}
               onAddTask={() => run(async () => { await addTask(wo.id); await refreshWorkOrder(); })}
               onRenameTask={(taskId, description) => run(async () => { await updateTask(wo.id, taskId, { description }); await refreshWorkOrder(); })}
               onSetTaskType={(taskId, workTypeId) => run(async () => { await updateTask(wo.id, taskId, { workTypeId }); await refreshWorkOrder(); })}

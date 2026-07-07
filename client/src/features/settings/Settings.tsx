@@ -2,9 +2,12 @@ import { useState } from "react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from "../../auth/AuthContext";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { PAGE_BG, cardSx, SECTIONS, type SectionId } from "./constants";
 import { PAGE_PADDING_RESPONSIVE, TAP_TARGET } from "../../theme/tokens";
 import { ProfileForm } from "./components/ProfileForm";
@@ -17,13 +20,15 @@ import { SecurityForm } from "./components/SecurityForm";
 // a structured form panel. Demo data; wires to /api/settings + /api/auth/me.
 export function Settings() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
   const sections = useMemo(
     () => SECTIONS.filter((s) => !s.adminOnly || isAdmin),
     [isAdmin],
   );
   const [active, setActive] = useState<SectionId>("profile");
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   return (
     <Box
@@ -123,6 +128,26 @@ export function Settings() {
               </Box>
             );
           })}
+
+          {/* Sign out — the account action lives here, under the section list, so
+              it's in one predictable place on both mobile and desktop (not hidden
+              in a nav-rail avatar menu). Full-width on desktop; on the mobile chip
+              rail it sits inline at the end but keeps a comfortable tap target. */}
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<LogoutIcon />}
+            onClick={() => setLogoutOpen(true)}
+            sx={{
+              flexShrink: 0,
+              whiteSpace: "nowrap",
+              justifyContent: { md: "flex-start" },
+              minHeight: { xs: TAP_TARGET, md: "auto" },
+              mt: { xs: 0, md: 1 },
+            }}
+          >
+            {t("common.actions.logout")}
+          </Button>
         </Box>
 
         {/* Form panel (detail). No height cap / inner scroll — it grows and the
@@ -149,6 +174,21 @@ export function Settings() {
           </Box>
         </Paper>
       </Box>
+
+      <ConfirmDialog
+        open={logoutOpen}
+        title={t("settings.logout.title")}
+        body={t("settings.logout.body")}
+        confirmLabel={t("common.actions.logout")}
+        busy={loggingOut}
+        destructive
+        onClose={() => setLogoutOpen(false)}
+        onConfirm={async () => {
+          setLoggingOut(true);
+          await logout();
+          // logout() clears tokens + triggers the auth-expired redirect to /login.
+        }}
+      />
     </Box>
   );
 }

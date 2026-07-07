@@ -4,20 +4,11 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import IconButton from "@mui/material/IconButton";
-import Avatar from "@mui/material/Avatar";
 import Fab from "@mui/material/Fab";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import AddIcon from "@mui/icons-material/Add";
-import LogoutIcon from "@mui/icons-material/Logout";
-import SettingsIcon from "@mui/icons-material/Settings";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { useAuth } from "../auth/AuthContext";
 import { navItemsForRole, type NavItem } from "./navigation";
@@ -27,21 +18,12 @@ import { OfflineBanner } from "../components/OfflineBanner";
 
 const RAIL_WIDTH = 96;
 
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
-
 // M3 navigation rail (desktop) — matches the purple Figma: hamburger, FAB,
 // icon+label destinations, settings/profile pinned to the bottom.
 function NavRail({ items }: { items: NavItem[] }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [createAnchor, setCreateAnchor] = useState<HTMLElement | null>(null);
 
@@ -194,77 +176,7 @@ function NavRail({ items }: { items: NavItem[] }) {
           <Typography variant="caption">{t(settingsItem.labelKey)}</Typography>
         </Box>
       ) : null}
-
-      {user ? (
-        <ProfileMenu
-          name={user.name}
-          avatarUrl={user.avatarUrl}
-          onLogout={logout}
-          onSettings={() => navigate("/settings")}
-        />
-      ) : null}
     </Paper>
-  );
-}
-
-// Avatar at the rail bottom; clicking it opens a small M3 menu (profile/settings/
-// logout). Keeps the rail clean — no standalone logout button.
-function ProfileMenu({
-  name,
-  avatarUrl,
-  onLogout,
-  onSettings,
-}: {
-  name: string;
-  avatarUrl?: string;
-  onLogout: () => void;
-  onSettings: () => void;
-}) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const { t } = useTranslation();
-  return (
-    <>
-      <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ p: 0 }} aria-label={name}>
-        <Avatar src={avatarUrl} sx={{ width: 40, height: 40, bgcolor: "primary.main", fontSize: 14, fontWeight: 600 }}>
-          {initials(name)}
-        </Avatar>
-      </IconButton>
-      <Menu
-        anchorEl={anchor}
-        open={Boolean(anchor)}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-        transformOrigin={{ vertical: "bottom", horizontal: "left" }}
-        slotProps={{ paper: { sx: { minWidth: 200, borderRadius: 2, mt: -1 } } }}
-      >
-        <Box sx={{ px: 2, py: 1 }}>
-          <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{name}</Typography>
-        </Box>
-        <Divider />
-        <MenuItem
-          onClick={() => {
-            setAnchor(null);
-            onSettings();
-          }}
-        >
-          <ListItemIcon>
-            <SettingsIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{t("nav.settings")}</ListItemText>
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setAnchor(null);
-            onLogout();
-          }}
-        >
-          <ListItemIcon>
-            <LogoutIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{t("common.actions.logout")}</ListItemText>
-        </MenuItem>
-      </Menu>
-    </>
   );
 }
 

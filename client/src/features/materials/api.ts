@@ -12,6 +12,8 @@ export type MaterialRow = {
   minStock: number;
   supplier: string;
   status: StockStatus;
+  // Unit price — present only for admins (stripped server-side for technicians).
+  unitPrice?: number;
 };
 
 // One combined input from the dialog (material + inventory fields).
@@ -19,6 +21,7 @@ export type MaterialInput = {
   name: string;
   unit: string;
   category?: string;
+  unitPrice?: number;
   stock?: number;
   minStock?: number;
   supplier?: string;
@@ -45,9 +48,27 @@ export function getMaterialsPage(opts: {
   }) as Promise<MaterialPage>;
 }
 
+// A managed material category (the org's own list). `count` = materials using it.
+export type Category = { id: string; name: string; count: number };
+
 // The managed category list (the dropdown source).
-export function getCategories(): Promise<string[]> {
-  return api.get<string[]>("/materials/categories");
+export function getCategories(): Promise<Category[]> {
+  return api.get<Category[]>("/materials/categories");
+}
+
+// Create a new category (admin). Returns it; 409 if the name already exists.
+export function createCategory(name: string): Promise<Category> {
+  return api.post<Category>("/materials/categories", { name });
+}
+
+// Rename a category (admin). Cascades to materials using the old name.
+export function renameCategory(id: string, name: string): Promise<Category> {
+  return api.patch<Category>(`/materials/categories/${id}`, { name });
+}
+
+// Delete a category (admin). 409 if any material still uses it.
+export function deleteCategory(id: string): Promise<void> {
+  return api.delete<void>(`/materials/categories/${id}`);
 }
 
 // Create takes everything in one call (seeds the inventory row).
@@ -56,6 +77,7 @@ export function createMaterial(input: MaterialInput): Promise<MaterialRow> {
     name: input.name,
     unit: input.unit,
     category: input.category,
+    unitPrice: input.unitPrice,
     quantityInStock: input.stock,
     reorderPoint: input.minStock,
     supplier: input.supplier,
@@ -65,7 +87,7 @@ export function createMaterial(input: MaterialInput): Promise<MaterialRow> {
 // Material fields only.
 export function updateMaterial(
   id: string,
-  fields: { name?: string; unit?: string; category?: string },
+  fields: { name?: string; unit?: string; category?: string; unitPrice?: number },
 ): Promise<MaterialRow> {
   return api.patch<MaterialRow>(`/materials/${id}`, fields);
 }

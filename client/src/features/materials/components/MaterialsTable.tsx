@@ -38,6 +38,12 @@ export function MaterialsTable({
 
   const category = (r: MaterialRow) => t(`materials.category.${r.category}`, { defaultValue: r.category });
 
+  // "€ 18,00" when a price is present (admin only — stripped for technicians).
+  const price = (r: MaterialRow) =>
+    r.unitPrice != null
+      ? `€ ${r.unitPrice.toLocaleString("nl-NL", { minimumFractionDigits: 2 })}`
+      : "—";
+
   const nameCell = (r: MaterialRow) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
       {swatch(r, 36)}
@@ -73,6 +79,7 @@ export function MaterialsTable({
         { header: t("materials.columns.name"), cell: nameCell },
         { header: t("materials.columns.category"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{category(r)}</Box> },
         { header: t("materials.columns.unit"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.unit}</Box> },
+        { header: t("materials.columns.unitPrice"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{price(r)}</Box> },
         { header: t("materials.columns.stock"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.stock}</Box> },
         { header: t("materials.columns.minStock"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.minStock}</Box> },
         { header: t("materials.columns.status"), cell: statusBadge },
@@ -92,6 +99,12 @@ export function MaterialsTable({
               </span>
               <span>·</span>
               <span>{category(r)}</span>
+              {r.unitPrice != null ? (
+                <>
+                  <span>·</span>
+                  <span>{price(r)}</span>
+                </>
+              ) : null}
             </Box>
           </Box>
           {/* Status + actions */}

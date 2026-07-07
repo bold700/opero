@@ -15,6 +15,7 @@ export function ConfirmDialog({
   body,
   busy = false,
   destructive = false,
+  confirmLabel,
   onClose,
   onConfirm,
 }: {
@@ -23,6 +24,9 @@ export function ConfirmDialog({
   body?: string;
   busy?: boolean;
   destructive?: boolean;
+  /** Override the confirm button text (already translated). Defaults to
+   *  Delete when destructive, otherwise Confirm. */
+  confirmLabel?: string;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -48,7 +52,7 @@ export function ConfirmDialog({
           disabled={busy}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
-          {destructive ? t("common.actions.delete") : t("common.actions.confirm")}
+          {confirmLabel ?? (destructive ? t("common.actions.delete") : t("common.actions.confirm"))}
         </Button>
       </DialogActions>
     </Dialog>

@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
-import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
+import { BadRequest, Conflict, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { resolveHidePrices } from "../../lib/orgPricing.js";
@@ -42,12 +42,15 @@ function assertCanRead(user: { role: string }) {
   throw Forbidden("Not available");
 }
 
-// Category must be one of the managed list (or omitted → DB default "Overig").
-function assertValidCategory(category: string | undefined) {
-  if (category === undefined) return;
-  if (!(materialCategories as readonly string[]).includes(category)) {
-    throw BadRequest("Invalid material category");
-  }
+// Category must be one of the ORG's managed categories (or omitted → DB default).
+// Case-insensitive match against the org's MaterialCategory list.
+async function assertValidCategory(orgId: string, category: string | undefined) {
+  if (category === undefined || category === "") return;
+  const exists = await prisma.materialCategory.findFirst({
+    where: { orgId, name: { equals: category, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (!exists) throw BadRequest("Invalid material category");
 }
 
 // ===========================================================================
@@ -58,12 +61,128 @@ function assertValidCategory(category: string | undefined) {
 // come first below.
 // ===========================================================================
 
-// GET /categories — the managed material-category list (admin + technician).
+// GET /categories — the org's managed material categories (admin + technician).
+// Returns { id, name, count } (count = materials using it), sorted by sortOrder
+// then name. `count` powers the manager's in-use guard.
 materialsRouter.get(
   "/categories",
   asyncHandler(async (req, res) => {
-    assertCanRead(req.user!);
-    res.json(materialCategories);
+    const user = req.user!;
+    assertCanRead(user);
+    const [rows, usage] = await Promise.all([
+      prisma.materialCategory.findMany({
+        where: { orgId: user.orgId },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: { id: true, name: true },
+      }),
+      prisma.material.groupBy({
+        by: ["category"],
+        where: { orgId: user.orgId, deletedAt: null },
+        _count: { _all: true },
+      }),
+    ]);
+    const countByName = new Map(usage.map((u) => [u.category, u._count._all]));
+    res.json(rows.map((r) => ({ ...r, count: countByName.get(r.name) ?? 0 })));
+  }),
+);
+
+// POST /categories — admin. Create a category. Case-insensitive dedupe → 409.
+materialsRouter.post(
+  "/categories",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const name = clampText(String(req.body?.name ?? "")).trim();
+    if (!name) throw BadRequest("Category name is required");
+    const existing = await prisma.materialCategory.findFirst({
+      where: { orgId: user.orgId, name: { equals: name, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existing) throw Conflict("A category with this name already exists");
+    const created = await prisma.$transaction(async (tx) => {
+      const max = await tx.materialCategory.aggregate({
+        where: { orgId: user.orgId },
+        _max: { sortOrder: true },
+      });
+      const cat = await tx.materialCategory.create({
+        data: { orgId: user.orgId, name, sortOrder: (max._max.sortOrder ?? -1) + 1 },
+      });
+      await audit(tx, user, "materialCategory.create", "materialCategory", cat.id, { name });
+      return cat;
+    });
+    res.status(201).json({ id: created.id, name: created.name });
+  }),
+);
+
+// PATCH /categories/:id — admin. Rename. Materials store the category NAME, so a
+// rename bulk-updates every material using the old name (same transaction).
+materialsRouter.patch(
+  "/categories/:id",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const name = clampText(String(req.body?.name ?? "")).trim();
+    if (!name) throw BadRequest("Category name is required");
+    const cat = await prisma.materialCategory.findFirst({
+      where: { id: req.params.id, orgId: user.orgId },
+    });
+    if (!cat) throw NotFound("Category not found");
+    // Dedupe against OTHER categories (allow renaming to the same casing).
+    const clash = await prisma.materialCategory.findFirst({
+      where: {
+        orgId: user.orgId,
+        name: { equals: name, mode: "insensitive" },
+        NOT: { id: cat.id },
+      },
+      select: { id: true },
+    });
+    if (clash) throw Conflict("A category with this name already exists");
+    const updated = await prisma.$transaction(async (tx) => {
+      const c = await tx.materialCategory.update({
+        where: { id: cat.id },
+        data: { name },
+      });
+      // Cascade the rename to materials that reference the old name.
+      if (cat.name !== name) {
+        await tx.material.updateMany({
+          where: { orgId: user.orgId, category: cat.name },
+          data: { category: name },
+        });
+      }
+      await audit(tx, user, "materialCategory.rename", "materialCategory", c.id, {
+        from: cat.name,
+        to: name,
+      });
+      return c;
+    });
+    res.json({ id: updated.id, name: updated.name });
+  }),
+);
+
+// DELETE /categories/:id — admin. Blocked (409) if any material uses it; the
+// response carries the in-use count so the UI can explain / prompt reassignment.
+materialsRouter.delete(
+  "/categories/:id",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const cat = await prisma.materialCategory.findFirst({
+      where: { id: req.params.id, orgId: user.orgId },
+    });
+    if (!cat) throw NotFound("Category not found");
+    const inUse = await prisma.material.count({
+      where: { orgId: user.orgId, category: cat.name, deletedAt: null },
+    });
+    if (inUse > 0) {
+      throw Conflict(`Category is used by ${inUse} material(s)`);
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.materialCategory.delete({ where: { id: cat.id } });
+      await audit(tx, user, "materialCategory.delete", "materialCategory", cat.id, {
+        name: cat.name,
+      });
+    });
+    res.status(204).end();
   }),
 );
 
@@ -384,8 +503,12 @@ materialsRouter.get(
       }),
     );
 
+    // Prices are admin-only (stripped for technicians, per the org's hide-prices).
+    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
+    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+
     res.json({
-      items: page.items.map(materialListDto),
+      items: page.items.map((m) => materialListDto(m, showPrices)),
       nextCursor: page.nextCursor,
       counts,
     });
@@ -414,7 +537,7 @@ materialsRouter.post(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createMaterialSchema.parse(req.body);
-    assertValidCategory(input.category);
+    await assertValidCategory(user.orgId, input.category);
     const created = await prisma.$transaction(async (tx) => {
       const m = await tx.material.create({
         data: {
@@ -422,6 +545,7 @@ materialsRouter.post(
           name: clampText(input.name),
           unit: clampText(input.unit),
           ...(input.category ? { category: clampText(input.category) } : {}),
+          ...(input.unitPrice !== undefined ? { unitPrice: clampNumber(input.unitPrice) } : {}),
         },
       });
       await audit(tx, user, "material.create", "material", m.id, { name: m.name });
@@ -460,7 +584,7 @@ materialsRouter.patch(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateMaterialSchema.parse(req.body);
-    assertValidCategory(input.category);
+    await assertValidCategory(user.orgId, input.category);
     const existing = await prisma.material.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
     });
@@ -473,6 +597,8 @@ materialsRouter.patch(
           unit: input.unit !== undefined ? clampText(input.unit) : undefined,
           category:
             input.category !== undefined ? clampText(input.category) : undefined,
+          unitPrice:
+            input.unitPrice !== undefined ? clampNumber(input.unitPrice) : undefined,
         },
         include: { inventory: true },
       });

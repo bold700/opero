@@ -161,6 +161,21 @@ async function main() {
   // -----------------------------------------------------------------------
   // 5. Materials + Inventory (keep ids)
   // -----------------------------------------------------------------------
+  // Seed the org's managed material categories (the list behind the dropdown).
+  const defaultCategories = [
+    "insulation",
+    "fastening",
+    "foil",
+    "sealing",
+    "tools",
+    "floor_insulation",
+    "other",
+  ];
+  for (let i = 0; i < defaultCategories.length; i++) {
+    await prisma.materialCategory.create({
+      data: { orgId, name: defaultCategories[i], sortOrder: i },
+    });
+  }
   for (const m of mockMaterials) {
     // Derive a category KEY from the material name (i18n-translated in the UI).
     const n = m.name.toLowerCase();

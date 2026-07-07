@@ -20,6 +20,7 @@
     "name": "Name",
     "category": "Category",
     "unit": "Unit",
+    "unitPrice": "Price",
     "stock": "Stock",
     "minStock": "Min. stock",
     "status": "Status",
@@ -45,6 +46,7 @@
     "name": "Name",
     "unit": "Unit",
     "category": "Category",
+    "unitPrice": "Unit price",
     "stock": "Stock",
     "minStock": "Min. stock",
     "supplier": "Supplier"
@@ -59,5 +61,20 @@
     "deleted": "Material deleted",
     "saveError": "Save failed",
     "deleteError": "Delete failed"
+  },
+  "categoryManager": {
+    "open": "Categories",
+    "title": "Material categories",
+    "subtitle": "Organize your materials. Renaming updates every material in that category.",
+    "addNew": "+ New category…",
+    "newName": "Category name",
+    "add": "Add category",
+    "usedCount": "{{count}} material",
+    "usedCount_other": "{{count}} materials",
+    "inUseTooltip": "In use — reassign these materials before deleting",
+    "empty": "No categories yet. Add your first one above.",
+    "createError": "Could not create category",
+    "renameError": "Could not rename category",
+    "deleteError": "Could not delete category"
   }
 }

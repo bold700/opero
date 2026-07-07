@@ -16,16 +16,19 @@ import { useCreateParam } from "../../lib/useCreateParam";
 import {
   getMaterialsPage,
   getCategories,
+  createCategory,
   createMaterial,
   updateMaterial,
   updateInventory,
   deleteMaterial,
+  type Category,
   type MaterialCounts,
   type MaterialRow,
   type MaterialInput,
 } from "./api";
 import { FILTERS, FILTER_LABEL_KEYS, type MaterialFilter } from "./constants";
 import { MaterialsActions } from "./components/MaterialsActions";
+import { CategoryManagerDialog } from "./components/CategoryManagerDialog";
 import { MaterialsKpis } from "./components/MaterialsKpis";
 import { MaterialsTable } from "./components/MaterialsTable";
 import { MaterialDialog } from "./components/MaterialDialog";
@@ -38,9 +41,12 @@ export function Materials() {
   const [activeFilter, setActiveFilter] = useState<MaterialFilter>("all");
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const { data: categories } = useApi<string[]>(getCategories);
+  const [categoryReloadKey, setCategoryReloadKey] = useState(0);
+  const { data: categories } = useApi<Category[]>(getCategories, [categoryReloadKey]);
+  const refreshCategories = () => setCategoryReloadKey((k) => k + 1);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialRow | null>(null);
   const [deleting, setDeleting] = useState<MaterialRow | null>(null);
   const [busy, setBusy] = useState(false);
@@ -145,6 +151,7 @@ export function Materials() {
           search={search}
           onSearch={setSearch}
           onCreate={openCreate}
+          onManageCategories={() => setCategoryManagerOpen(true)}
           canCreate={canManage}
         />
       }
@@ -190,10 +197,28 @@ export function Materials() {
         open={dialogOpen}
         material={editing}
         categories={categories ?? []}
+        canManage={canManage}
         busy={busy}
         error={formError}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
+        onCreateCategory={async (name) => {
+          const cat = await createCategory(name);
+          refreshCategories();
+          return cat.name;
+        }}
+      />
+
+      <CategoryManagerDialog
+        open={categoryManagerOpen}
+        categories={categories ?? []}
+        onClose={() => setCategoryManagerOpen(false)}
+        onChanged={() => {
+          // A rename cascades to materials, so refresh both the category list
+          // (names/counts) and the materials list (their category labels).
+          refreshCategories();
+          refresh();
+        }}
       />
 
       <ConfirmDialog

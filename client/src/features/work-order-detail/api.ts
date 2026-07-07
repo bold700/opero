@@ -48,12 +48,32 @@ export type WorkOrderTask = {
 export type WorkTypeOption = { id: string; name: string };
 export type AssigneeOption = { id: string; name: string };
 
+// A material from the org's Materials catalog — the source you pick from when
+// adding a material line to a task. name/unit/price come from the catalog, never
+// typed. `unitPrice` is undefined for technicians (backend strips it).
+export type MaterialPickOption = {
+  id: string;
+  name: string;
+  unit: string;
+  unitPrice?: number;
+};
+
+// Backend materialListDto row shape (the fields we need for the picker).
+type MaterialListRow = { id: string; name: string; unit: string; unitPrice?: number };
+
 export function getWorkTypes(): Promise<WorkTypeOption[]> {
   return api.get<WorkTypeOption[]>("/materials/work-types");
 }
 
 export function getAssignableEmployees(): Promise<AssigneeOption[]> {
   return api.get<AssigneeOption[]>("/work-orders/assignable");
+}
+
+// The Materials catalog for the pick-a-material flow. /materials is paginated, so
+// drain all pages (a picker needs the full list). Maps to the picker shape.
+export async function getMaterialsForPicker(): Promise<MaterialPickOption[]> {
+  const rows = await api.getAll<MaterialListRow>("/materials");
+  return rows.map((m) => ({ id: m.id, name: m.name, unit: m.unit, unitPrice: m.unitPrice }));
 }
 
 export type WorkOrder = {

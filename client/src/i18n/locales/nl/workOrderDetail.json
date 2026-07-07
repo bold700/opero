@@ -74,7 +74,9 @@
     "placeholder": "Materiaal",
     "quantity": "Aantal",
     "unit": "Eenheid",
-    "price": "Prijs"
+    "price": "Prijs",
+    "pickMaterial": "Materiaal",
+    "emptyCatalog": "Nog geen materialen in de catalogus. Voeg ze eerst toe onder Materialen."
   },
   "extraWork": {
     "title": "Meerwerk",

@@ -160,8 +160,26 @@ model Organization {
   projects     Project[]
   articles     Article[]
   workTypes    WorkType[]
+  materialCategories MaterialCategory[]
   materialOrders MaterialOrder[]
   auditLogs    AuditLog[]
+}
+
+// A per-org, user-managed material category (the list behind the Materials
+// category dropdown). Replaces the old hardcoded global enum: each org defines
+// its own. Materials store the category NAME (string), so rename does a bulk
+// update of matching materials — see the materials routes.
+model MaterialCategory {
+  id        String   @id @default(uuid())
+  orgId     String
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId, name])
+  @@index([orgId])
 }
 
 model User {
@@ -373,6 +391,9 @@ model Material {
   name      String
   unit      String
   category  String    @default("other")
+  // Unit price for this material — prefilled onto a werkbon material line when
+  // picked. Admin-only: stripped from DTOs for technicians (canSeePrices).
+  unitPrice Float     @default(0)
   // Denormalized stock status ("ok" | "low" | "out_of_stock"), derived from the
   // linked inventory's quantityInStock vs reorderPoint (out_of_stock when there's
   // no inventory row). Kept in sync by recomputeMaterialStock() so the list can

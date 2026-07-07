@@ -10,6 +10,7 @@ export const createMaterialSchema = z.object({
   name: z.string().min(1),
   unit: z.string().min(1),
   category: z.string().optional(),
+  unitPrice: z.number().optional(),
   quantityInStock: z.number().optional(),
   supplier: z.string().optional(),
   reorderPoint: z.number().optional(),
@@ -21,6 +22,7 @@ export const updateMaterialSchema = z
     name: z.string().min(1),
     unit: z.string().min(1),
     category: z.string(),
+    unitPrice: z.number(),
   })
   .partial();
 export type UpdateMaterialRequest = z.infer<typeof updateMaterialSchema>;

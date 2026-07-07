@@ -74,7 +74,9 @@
     "placeholder": "Material",
     "quantity": "Quantity",
     "unit": "Unit",
-    "price": "Price"
+    "price": "Price",
+    "pickMaterial": "Material",
+    "emptyCatalog": "No materials in the catalog yet. Add them under Materials first."
   },
   "extraWork": {
     "title": "Extra work",

@@ -1,6 +1,10 @@
 {
   "title": "Instellingen",
   "subtitle": "Beheer je account, je bedrijf en je voorkeuren.",
+  "logout": {
+    "title": "Uitloggen?",
+    "body": "Je wordt op dit apparaat uitgelogd en teruggebracht naar het inlogscherm."
+  },
   "sections": {
     "profile": {
       "title": "Profiel",

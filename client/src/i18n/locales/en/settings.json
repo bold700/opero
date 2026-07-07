@@ -1,6 +1,10 @@
 {
   "title": "Settings",
   "subtitle": "Manage your account, your company and your preferences.",
+  "logout": {
+    "title": "Sign out?",
+    "body": "You'll be signed out on this device and returned to the login screen."
+  },
   "sections": {
     "profile": {
       "title": "Profile",

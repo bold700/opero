@@ -20,12 +20,13 @@ export function inventoryDto(i: Inventory) {
   };
 }
 
-export function materialDto(m: Material & { inventory?: Inventory | null }) {
+export function materialDto(m: Material & { inventory?: Inventory | null; unitPrice?: number }) {
   return {
     id: m.id,
     name: m.name,
     unit: m.unit,
     category: m.category,
+    unitPrice: m.unitPrice ?? 0,
     inventory: m.inventory ? inventoryDto(m.inventory) : undefined,
   };
 }
@@ -36,9 +37,11 @@ export function materialDto(m: Material & { inventory?: Inventory | null }) {
 export type { MaterialStockStatus } from "./status.js";
 
 // Flat row for the materials list (per the Figma): name, category, unit, stock,
-// min stock, status. `status` reads the denormalized column.
+// min stock, status. `status` reads the denormalized column. `unitPrice` is
+// stripped for technicians (showPrices=false), mirroring articleDto.
 export function materialListDto(
-  m: Material & { inventory?: Inventory | null; stockStatus?: string },
+  m: Material & { inventory?: Inventory | null; stockStatus?: string; unitPrice?: number },
+  showPrices = true,
 ) {
   const inv = m.inventory ?? null;
   return {
@@ -53,6 +56,7 @@ export function materialListDto(
       | "ok"
       | "low"
       | "out_of_stock",
+    ...(showPrices ? { unitPrice: m.unitPrice ?? 0 } : {}),
   };
 }
 
