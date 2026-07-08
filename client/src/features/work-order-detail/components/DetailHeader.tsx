@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import CircularProgress from "@mui/material/CircularProgress";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import { Card } from "../../../components/Card";
@@ -20,16 +21,20 @@ export function DetailHeader({
   canFinish,
   finished,
   busy,
+  exporting,
   onBack,
   onFinish,
+  onExportPdf,
 }: {
   workOrder: WorkOrder;
   project: Project;
   canFinish: boolean;
   finished: boolean;
   busy: boolean;
+  exporting: boolean;
   onBack: () => void;
   onFinish: () => void;
+  onExportPdf: () => void;
 }) {
   const { t } = useTranslation();
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
@@ -89,11 +94,14 @@ export function DetailHeader({
             width: { xs: "100%", md: "auto" },
           }}
         >
-          {/* Export PDF (spec) — wired in a later phase; disabled placeholder. */}
+          {/* Export the werkbon as a PDF (streamed from the server). */}
           <Button
             variant="outlined"
-            startIcon={<PictureAsPdfOutlinedIcon />}
-            disabled
+            startIcon={
+              exporting ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfOutlinedIcon />
+            }
+            onClick={onExportPdf}
+            disabled={exporting}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
             {t("workOrderDetail.header.exportPdf")}

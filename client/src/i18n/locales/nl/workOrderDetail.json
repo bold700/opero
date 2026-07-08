@@ -2,6 +2,7 @@
   "title": "Werkbon",
   "notFound": "Werkbon niet gevonden",
   "actionFailed": "Actie mislukt",
+  "exportFailed": "Kon de PDF niet exporteren",
   "finishedToast": "Werkbon afgerond",
   "stage": {
     "concept": "Concept",

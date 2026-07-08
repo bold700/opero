@@ -2,6 +2,7 @@
   "title": "Work order",
   "notFound": "Work order not found",
   "actionFailed": "Action failed",
+  "exportFailed": "Could not export the PDF",
   "finishedToast": "Work order completed",
   "stage": {
     "concept": "Concept",

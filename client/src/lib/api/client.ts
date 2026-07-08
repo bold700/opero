@@ -155,6 +155,42 @@ async function upload<T>(path: string, file: Blob, fields?: Record<string, strin
   return payload as T;
 }
 
+// GET a binary response (e.g. a generated PDF) as a Blob, with the auth header
+// and the same 401-refresh-retry flow as request(). Used for file downloads that
+// can't go through an <a href> (those can't send the bearer token).
+async function download(path: string): Promise<Blob> {
+  const send = () => {
+    const headers: Record<string, string> = {};
+    const token = getAccessToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return fetch(`${API_URL}${path}`, { headers });
+  };
+
+  let res = await send();
+  if (res.status === 401) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      res = await send();
+    } else {
+      clearTokens();
+      onAuthExpired?.();
+      throw new ApiError(401, "Sessie verlopen");
+    }
+  }
+  if (!res.ok) {
+    // Error bodies are JSON even on a binary endpoint.
+    let message = `Download failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { error?: { message?: string } };
+      if (body?.error?.message) message = body.error.message;
+    } catch {
+      /* non-JSON error body — keep the default */
+    }
+    throw new ApiError(res.status, message);
+  }
+  return res.blob();
+}
+
 // One page of a cursor-paginated list (mirrors backend Page<T>).
 export type Page<T> = { items: T[]; nextCursor: string | null };
 
@@ -217,4 +253,5 @@ export const api = {
   delete: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "DELETE", body }),
   upload,
+  download,
 };

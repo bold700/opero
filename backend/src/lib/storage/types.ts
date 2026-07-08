@@ -13,6 +13,10 @@ export interface Storage {
   // (/uploads/<key>); S3 → a presigned GET URL valid for `ttlSeconds`.
   url(key: string, ttlSeconds?: number): Promise<string>;
 
+  // Read the raw bytes of an object. Used server-side to embed images (photos,
+  // signature) into generated documents like the work-order PDF.
+  read(key: string): Promise<Buffer>;
+
   // Remove the object. Best-effort: callers log failures rather than failing
   // the surrounding DB transaction (a leaked object is not a correctness bug).
   delete(key: string): Promise<void>;

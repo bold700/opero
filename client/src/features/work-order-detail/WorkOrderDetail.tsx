@@ -12,6 +12,7 @@ import { useApi } from "../../lib/api/useApi";
 import { SPACING } from "../../theme/tokens";
 import {
   getWorkOrder,
+  exportWorkOrderPdf,
   getProject,
   getWorkTypes,
   getAssignableEmployees,
@@ -68,6 +69,7 @@ export function WorkOrderDetail() {
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
   const [materials, setMaterials] = useState<MaterialPickOption[]>([]);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -138,6 +140,18 @@ export function WorkOrderDetail() {
       await refreshProject();
     });
 
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      const filename = `werkbon-${project.projectNumber}-${wo.ordinal + 1}.pdf`;
+      await exportWorkOrderPdf(wo.id, filename);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("workOrderDetail.exportFailed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <PageLayout title={t("workOrderDetail.title")}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
@@ -147,7 +161,9 @@ export function WorkOrderDetail() {
           canFinish={role === "admin" || role === "technician"}
           finished={finished}
           busy={busy}
+          exporting={exporting}
           onBack={() => navigate("/work-orders")}
+          onExportPdf={handleExportPdf}
           onFinish={() => setSignOpen(true)}
         />
 

@@ -159,6 +159,21 @@ export function getWorkOrder(id: string): Promise<WorkOrder> {
   return api.get<WorkOrder>(`/work-orders/${id}`);
 }
 
+// Download the work order as a PDF. Fetches the blob (with auth) and triggers a
+// browser download. `filename` is the suggested save name.
+export async function exportWorkOrderPdf(id: string, filename: string): Promise<void> {
+  const blob = await api.download(`/work-orders/${id}/pdf`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoke on the next tick so the download has started.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function getProject(id: string): Promise<Project> {
   return api.get<Project>(`/projects/${id}`);
 }

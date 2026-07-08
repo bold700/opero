@@ -56,6 +56,15 @@ export class S3Storage implements Storage {
     );
   }
 
+  async read(key: string): Promise<Buffer> {
+    const res = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    // The SDK returns the body as a stream; collect it into a Buffer.
+    const bytes = await res.Body!.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+
   async delete(key: string): Promise<void> {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),

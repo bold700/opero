@@ -6,6 +6,7 @@ import {
   type PrejobCheckItem,
   normalizePrejobCheck,
   canDispatch,
+  canSeePrices,
 } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
@@ -27,6 +28,7 @@ import {
   type WorkOrderWithRelations,
 } from "./dto.js";
 import { recomputeWorkOrderStatus } from "./status.js";
+import { buildWorkOrderPdf, type WorkOrderPdfData } from "./pdf.js";
 import {
   addMaterialSchema,
   createWorkOrderSchema,
@@ -316,6 +318,88 @@ workOrdersRouter.get(
 );
 
 // GET /work-orders/:id — one workOrder, full nested, role-aware DTO.
+// GET /:id/pdf — the werkbon as a downloadable PDF. Visibility-checked like the
+// detail read; prices stripped for technicians. Streams application/pdf. Must be
+// registered BEFORE "/:id" so it isn't swallowed by the param route.
+workOrdersRouter.get(
+  "/:id/pdf",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await loadProjectForWorkOrder(user, req.params.id); // visibility (404 if not)
+
+    const wb = await prisma.workOrder.findUnique({
+      where: { id: req.params.id },
+      include: {
+        ...workOrderInclude,
+        project: {
+          select: {
+            projectNumber: true,
+            customerName: true,
+            address: true,
+            postalCode: true,
+            city: true,
+            insulationType: true,
+            urgency: true,
+            customer: { select: { contactName: true } },
+          },
+        },
+      },
+    });
+    if (!wb) throw NotFound("Work order not found");
+
+    const org = await prisma.organization.findUniqueOrThrow({
+      where: { id: user.orgId },
+    });
+    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
+    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+
+    const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
+    const pdfData: WorkOrderPdfData = {
+      number: wb.project.projectNumber,
+      ordinal: wb.ordinal,
+      title: wb.title,
+      status: wb.listStatus,
+      createdAt: wb.createdAt,
+      customer: {
+        name: wb.project.customerName,
+        contactName: wb.project.customer?.contactName || undefined,
+        address: wb.project.address || undefined,
+        postalCode: wb.project.postalCode || undefined,
+        city: wb.project.city || undefined,
+      },
+      insulationType: wb.project.insulationType || undefined,
+      tasks: sortedTasks.map((t) => ({
+        description: t.description,
+        workTypeName: t.workType?.name ?? undefined,
+        assigneeName: t.assignee?.name ?? undefined,
+        done: t.done,
+        hours: t.hours,
+        materials: [...t.materials]
+          .sort((a, b) => a.ordinal - b.ordinal)
+          .map((m) => ({
+            name: m.name,
+            quantity: m.quantity,
+            unit: m.unit,
+            unitPrice: showPrices ? m.unitPrice : null,
+          })),
+        beforePhotos: t.beforePhotos,
+        resultPhotos: t.resultPhotos,
+      })),
+      prejobCheck: normalizePrejobCheck(wb.prejobCheck) as Record<string, boolean>,
+      prejobPhotos: wb.prejobPhotos,
+      dispatchedAt: wb.dispatchedAt,
+      signature: wb.signature,
+      signedByName: wb.signedByName ?? wb.signedBy?.name ?? undefined,
+      signedAt: wb.signedAt,
+    };
+
+    const filename = `werkbon-${wb.project.projectNumber}-${wb.ordinal + 1}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    await buildWorkOrderPdf(pdfData, { showPrices, org }, res);
+  }),
+);
+
 workOrdersRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {
