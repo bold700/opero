@@ -18,7 +18,12 @@ export type WorkOrderMaterial = {
   diameter?: number;
   // Set when the line was picked from the materials catalog.
   variantId?: string;
+  // Selling price (verkoopprijs). Present for admin + client; stripped for
+  // technicians. Cost/margin below are ADMIN-ONLY (canSeeMargin).
   unitPrice?: number;
+  costPrice?: number;
+  margin?: number; // (sell − cost) × qty
+  marginPct?: number; // margin as % of the selling total
   onSite: boolean;
   done: boolean;
   note?: string;
@@ -76,6 +81,9 @@ export type WorkOrder = {
   signatureUrl?: string;
   signedAt?: string;
   signedByName?: string;
+  // The monteur assigned to this werkbon (werkbon-level, one per job).
+  assigneeId?: string;
+  assigneeName?: string;
   tasks: WorkOrderTask[];
 };
 
@@ -180,6 +188,15 @@ export function addTask(workOrderId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/tasks`, {});
 }
 
+// Assign (or clear with null) the werkbon's monteur. Werkbon-level: one person
+// does one job, so this lives on the header, not per-zone.
+export function setWorkOrderAssignee(
+  workOrderId: string,
+  assigneeId: string | null,
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { assigneeId });
+}
+
 export function updateTask(
   workOrderId: string,
   taskId: string,
@@ -216,6 +233,22 @@ export function addMaterialFromCatalog(
     `/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`,
     input,
   );
+}
+
+// Update an invoice-line row inline: quantity, description (`label`), or switch
+// the catalog variant (`variantId` → name/unit/price/cost/diameter re-resolve
+// server-side; the client never sends a price). Omit a field to leave it.
+export function updateMaterial(
+  workOrderId: string,
+  matId: string,
+  patch: {
+    variantId?: string | null;
+    label?: string | null;
+    quantity?: number;
+    diameter?: number | null;
+  },
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}/materials/${matId}`, patch);
 }
 
 export function deleteMaterial(workOrderId: string, matId: string): Promise<WorkOrder> {

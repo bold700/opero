@@ -10,9 +10,11 @@ export const createWorkOrderSchema = z.object({
   title: z.string().optional(),
 });
 
-// PATCH /work-orders/:id — header fields (title only for now).
+// PATCH /work-orders/:id — header fields. assigneeId sets the werkbon's monteur
+// (null clears it); validated against the org in the handler.
 export const updateWorkOrderSchema = z.object({
   title: z.string().optional(),
+  assigneeId: z.string().nullable().optional(),
 });
 
 // PATCH /work-orders/:id/tasks/:taskId — task fields incl. per-zone work type +
@@ -71,7 +73,12 @@ export const addMaterialFromCatalogSchema = z.object({
 });
 
 // PATCH /work-orders/:id/materials/:matId — mirror updateTaskMaterial patch.
+// `variantId` re-points the line at a different catalog variant: name / unit /
+// unitPrice / costPrice / diameter re-resolve SERVER-side (never trust a
+// client-supplied price — the requester may be a technician). Client-supplied
+// unitPrice is ignored when variantId is present.
 export const updateMaterialSchema = z.object({
+  variantId: z.string().nullable().optional(),
   label: z.string().nullable().optional(),
   name: z.string().optional(),
   quantity: z.number().optional(),

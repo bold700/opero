@@ -30,7 +30,9 @@
     "defaultTitle": "Werkbon {{n}}",
     "export": "Exporteren",
     "exportMenuQuote": "Offerte (PDF)",
-    "exportMenuWorkOrder": "Werkbon (PDF)"
+    "exportMenuWorkOrder": "Werkbon (PDF)",
+    "assignee": "Monteur",
+    "assigneeNone": "Niet toegewezen"
   },
   "photos": {
     "title": "Foto's",
@@ -71,7 +73,8 @@
     "assignee": "Monteur",
     "assigneeNone": "Niet toegewezen",
     "materialsLabel": "Materialen",
-    "addMaterial": "Materiaal"
+    "addMaterial": "Materiaal",
+    "marginTotal": "marge {{amount}}"
   },
   "material": {
     "delete": "materiaal verwijderen",
@@ -80,7 +83,9 @@
     "unit": "Eenheid",
     "price": "Prijs",
     "pickMaterial": "Materiaal",
-    "emptyCatalog": "Nog geen materialen in de catalogus. Voeg ze eerst toe onder Materialen."
+    "emptyCatalog": "Nog geen materialen in de catalogus. Voeg ze eerst toe onder Materialen.",
+    "margin": "marge {{amount}} ({{pct}}%)",
+    "marginShort": "marge {{amount}}"
   },
   "extraWork": {
     "title": "Meerwerk",
@@ -111,5 +116,40 @@
     "component": "Onderdeel",
     "quantity": "Aantal",
     "add": "Toevoegen"
+  },
+  "zone": {
+    "add": "Zone toevoegen",
+    "deleteAria": "Zone verwijderen",
+    "deleteTitle": "Zone verwijderen?",
+    "deleteMessage": "De zone en alle taken erin worden verwijderd. Dit kan niet ongedaan worden gemaakt.",
+    "deleteConfirm": "Verwijderen",
+    "titleLabel": "Taak",
+    "titlePlaceholder": "Bijv. Techniekruimte",
+    "untitled": "Zone",
+    "workDescriptionLabel": "Werkomschrijving",
+    "workDescriptionPlaceholder": "Wat moet er in deze zone gebeuren?",
+    "statusDone": "Klaar",
+    "statusTodo": "Nog te doen",
+    "empty": "Nog geen zones."
+  },
+  "line": {
+    "sectionTitle": "Taken",
+    "empty": "Nog geen taken.",
+    "add": "Taak toevoegen",
+    "delete": "Taak verwijderen",
+    "descriptionPlaceholder": "Omschrijving",
+    "statusOpen": "Open",
+    "statusDone": "Klaar",
+    "margin": "marge {{amount}} ({{pct}}%)",
+    "marginShort": "marge {{amount}}",
+    "marginTotal": "marge {{amount}}",
+    "addTitle": "Taak toevoegen",
+    "addSubtitle": "Kies een standaard artikel uit de lijst.",
+    "addSubmit": "Taak toevoegen",
+    "articleLabel": "Type isolatie / artikel",
+    "componentLabel": "Onderdeel",
+    "quantityLabel": "Aantal",
+    "unnamed": "Naamloos",
+    "renameHint": "Klik om te hernoemen"
   }
 }

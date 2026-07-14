@@ -41,8 +41,9 @@ export function materialSummaryDto(
 }
 
 // Variant price is stripped for technicians when the org hides prices from
-// them (same conditional-spread pattern as articleDto).
-export function variantDto(v: MaterialVariant, showPrices = true) {
+// them (same conditional-spread pattern as articleDto). `costPrice` is admin-
+// only (showMargin) — clients get the selling price but never the cost.
+export function variantDto(v: MaterialVariant, showPrices = true, showMargin = false) {
   return {
     id: v.id,
     size: v.size,
@@ -52,15 +53,18 @@ export function variantDto(v: MaterialVariant, showPrices = true) {
     // translates it to a display word at render time via i18n.
     unit: v.unit,
     ...(showPrices ? { unitPrice: v.unitPrice } : {}),
+    ...(showMargin ? { costPrice: v.costPrice ?? undefined } : {}),
   };
 }
 
 // Material detail: attributes + the full variant set. Price provenance
-// (priceSource/validFrom/validTo/priceNote) stays in the DB as internal seed
-// metadata — NOT exposed to the UI.
+// (priceSource/validFrom/validTo/priceNote) is optional metadata surfaced ONLY
+// to admins (showMargin) so the edit form can prefill it; other roles don't see
+// it.
 export function materialDetailDto(
   m: Material & { variants: MaterialVariant[] },
   showPrices = true,
+  showMargin = false,
 ) {
   return {
     id: m.id,
@@ -74,7 +78,16 @@ export function materialDetailDto(
     sizeUnit: m.sizeUnit,
     note: m.note ?? undefined,
     variantCount: m.variants.length,
-    variants: m.variants.map((v) => variantDto(v, showPrices)),
+    variants: m.variants.map((v) => variantDto(v, showPrices, showMargin)),
+    // Provenance (admin-only) — where the prices came from + validity window.
+    ...(showMargin
+      ? {
+          priceSource: m.priceSource ?? undefined,
+          priceValidFrom: m.priceValidFrom ? m.priceValidFrom.toISOString().slice(0, 10) : undefined,
+          priceValidTo: m.priceValidTo ? m.priceValidTo.toISOString().slice(0, 10) : undefined,
+          priceNote: m.priceNote ?? undefined,
+        }
+      : {}),
   };
 }
 
@@ -83,6 +96,7 @@ export function materialDetailDto(
 export function variantSearchRowDto(
   v: MaterialVariant & { material: Material },
   showPrices = true,
+  showMargin = false,
 ) {
   return {
     id: v.id, // = variantId
@@ -98,6 +112,7 @@ export function variantSearchRowDto(
     // Raw enum unit — English internal; the client translates at render time.
     unit: v.unit,
     ...(showPrices ? { unitPrice: v.unitPrice } : {}),
+    ...(showMargin ? { costPrice: v.costPrice ?? undefined } : {}),
   };
 }
 

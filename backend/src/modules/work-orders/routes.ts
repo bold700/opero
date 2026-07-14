@@ -198,6 +198,21 @@ async function loadMaterial(workOrderId: string, matId: string) {
   return mat;
 }
 
+// Derive a task's `done` from its lines: a zone is done when it has at least one
+// named (non-empty) line and every named line is done. Mirrors the client's
+// zone status badge (see ZoneStatusBadge) so the persisted task.done — which
+// feeds listStatus / planning / dashboard — never drifts from what's shown.
+// Call inside the same tx after any line add/update/delete/toggle.
+async function syncTaskDone(tx: Tx, taskId: string): Promise<void> {
+  const lines = await tx.taskMaterial.findMany({
+    where: { taskId },
+    select: { name: true, label: true, done: true },
+  });
+  const named = lines.filter((l) => (l.name ?? "").trim() || (l.label ?? "").trim());
+  const done = named.length > 0 && named.every((l) => l.done);
+  await tx.workOrderTask.update({ where: { id: taskId }, data: { done } });
+}
+
 // Human-readable scope for activity bodies (task description or workOrder title).
 function taskScopeLabel(
   task: { description: string } | null,
@@ -585,11 +600,20 @@ workOrdersRouter.patch(
     const input = updateWorkOrderSchema.parse(req.body);
     await loadProjectForWorkOrder(user, req.params.id); // visibility (404 if not)
     if (user.role !== "admin") throw Forbidden("Admin only");
+    // Validate the assigned monteur belongs to the org (when setting, not clearing).
+    if (input.assigneeId) {
+      const emp = await prisma.employee.findFirst({
+        where: { id: input.assigneeId, orgId: user.orgId, deletedAt: null },
+      });
+      if (!emp) throw BadRequest("Assignee not found in organization");
+    }
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
         data: {
           title: input.title !== undefined ? clampText(input.title) : undefined,
+          assigneeId:
+            input.assigneeId !== undefined ? input.assigneeId : undefined,
         },
       });
       await audit(tx, user, "workOrder.update", "workOrder", req.params.id, input);
@@ -1218,8 +1242,11 @@ workOrdersRouter.post(
         await appendActivity(tx, user, project.id, "material.added", { scope });
       }
       await audit(tx, user, "workOrder.material.add", "taskMaterial", mat.id);
+      // A new named line can un-complete the zone; keep task.done in sync.
+      await syncTaskDone(tx, task.id);
       // unitPrice may have been seeded → keep quote amount in sync.
       await recomputeQuoteAmount(tx, project.id);
+      await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
   }),
@@ -1263,6 +1290,9 @@ workOrdersRouter.post(
           quantity: input.quantity !== undefined ? clampNumber(input.quantity) : 1,
           unit,
           unitPrice: variant.unitPrice,
+          // Snapshot the cost too, so admin margin stays stable if catalog cost
+          // later changes. Null when the variant has no cost set yet.
+          costPrice: variant.costPrice,
           diameter: parseDiameter(variant.material, variant),
           variantId: variant.id,
           onSite: false,
@@ -1276,7 +1306,10 @@ workOrdersRouter.post(
       await audit(tx, user, "workOrder.material.addFromCatalog", "taskMaterial", mat.id, {
         variantId: variant.id,
       });
+      // New (not-done) line → the zone is no longer complete.
+      await syncTaskDone(tx, task.id);
       await recomputeQuoteAmount(tx, project.id);
+      await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
   }),
@@ -1290,12 +1323,53 @@ workOrdersRouter.patch(
     const input = updateMaterialSchema.parse(req.body);
     const { project } = await requireWritableWorkOrder(user, req.params.id);
     const before = await loadMaterial(req.params.id, req.params.matId);
+
+    // Repointing at a catalog variant: re-resolve name/unit/price/cost/diameter
+    // SERVER-side. Client-supplied name/unit/unitPrice/diameter are ignored for
+    // these fields — the variant is the source of truth (a technician's request
+    // must never set a price). variantId === null clears the catalog link but
+    // leaves the current values (free-text line).
+    let variantResolved:
+      | { name: string; unit: string; unitPrice: number; costPrice: number | null; diameter: number | null; variantId: string }
+      | undefined;
+    if (input.variantId) {
+      const variant = await prisma.materialVariant.findFirst({
+        where: { id: input.variantId, material: { orgId: user.orgId } },
+        include: { material: true },
+      });
+      if (!variant) throw NotFound("Material variant not found");
+      variantResolved = {
+        name: buildMaterialLineName(variant.material, variant, "nl"),
+        unit: LINE_UNIT_LABELS[variant.unit]?.nl ?? variant.unit,
+        unitPrice: variant.unitPrice,
+        costPrice: variant.costPrice,
+        diameter: parseDiameter(variant.material, variant),
+        variantId: variant.id,
+      };
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.taskMaterial.update({
         where: { id: before.id },
         data: {
+          // Variant switch wins over any client-supplied name/unit/price/diameter.
+          ...(variantResolved
+            ? {
+                variantId: variantResolved.variantId,
+                name: variantResolved.name,
+                unit: variantResolved.unit,
+                unitPrice: variantResolved.unitPrice,
+                costPrice: variantResolved.costPrice,
+                diameter: variantResolved.diameter,
+              }
+            : {
+                ...(input.variantId === null ? { variantId: null } : {}),
+                name: input.name !== undefined ? clampText(input.name) : undefined,
+                unit: input.unit !== undefined ? input.unit : undefined,
+                diameter: input.diameter !== undefined ? input.diameter : undefined,
+                unitPrice: input.unitPrice !== undefined ? input.unitPrice : undefined,
+              }),
           label: input.label !== undefined ? input.label : undefined,
-          name: input.name !== undefined ? clampText(input.name) : undefined,
           quantity:
             input.quantity !== undefined
               ? clampNumber(input.quantity)
@@ -1306,9 +1380,6 @@ workOrdersRouter.patch(
                 ? null
                 : clampNumber(input.usedQuantity)
               : undefined,
-          unit: input.unit !== undefined ? input.unit : undefined,
-          diameter: input.diameter !== undefined ? input.diameter : undefined,
-          unitPrice: input.unitPrice !== undefined ? input.unitPrice : undefined,
           onSite: input.onSite !== undefined ? input.onSite : undefined,
           done: input.done !== undefined ? input.done : undefined,
           note:
@@ -1334,8 +1405,11 @@ workOrdersRouter.patch(
         });
       }
       await audit(tx, user, "workOrder.material.update", "taskMaterial", before.id, input);
+      // `done` may have flipped → keep the parent zone's done in sync.
+      if (input.done !== undefined) await syncTaskDone(tx, before.taskId);
       // qty/price may have changed → recompute quote amount.
       await recomputeQuoteAmount(tx, project.id);
+      await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.json(await reloadWorkOrder(user, req.params.id));
   }),
@@ -1354,7 +1428,10 @@ workOrdersRouter.delete(
         name: before.name || "—",
       });
       await audit(tx, user, "workOrder.material.remove", "taskMaterial", before.id);
+      // Removing a line can complete the zone (all remaining named lines done).
+      await syncTaskDone(tx, before.taskId);
       await recomputeQuoteAmount(tx, project.id);
+      await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.json(await reloadWorkOrder(user, req.params.id));
   }),
@@ -1416,6 +1493,9 @@ workOrdersRouter.post(
       await audit(tx, user, "workOrder.material.toggle", "taskMaterial", before.id, {
         done: !before.done,
       });
+      // A line's done drives its zone's done (and thus the work-order status).
+      await syncTaskDone(tx, before.taskId);
+      await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.json(await reloadWorkOrder(user, req.params.id));
   }),

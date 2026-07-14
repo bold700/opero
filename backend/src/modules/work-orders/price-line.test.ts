@@ -19,6 +19,7 @@ let employeeId: string;
 let workOrderId: string;
 let taskId: string;
 let ownVariantId: string;
+let ownVariantId2: string;
 let otherOrgVariantId: string;
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -39,7 +40,8 @@ async function createCatalogVariant(org: string, suffix: string): Promise<string
       ordinal: 999,
       variants: {
         create: [
-          { size: "60", component: "elbow", unit: "piece", unitPrice: 28.25, ordinal: 0 },
+          // Selling 28.25, cost 20.00 → per-line margin 8.25/unit.
+          { size: "60", component: "elbow", unit: "piece", unitPrice: 28.25, costPrice: 20, ordinal: 0 },
         ],
       },
     },
@@ -108,6 +110,24 @@ beforeAll(async () => {
 
   ownVariantId = await createCatalogVariant(orgId, "own");
   otherOrgVariantId = await createCatalogVariant(otherOrgId, "other");
+
+  // A second variant on the SAME org material (different size + prices) so we can
+  // test switching a line's variant re-resolves name/price/cost server-side.
+  const ownVar = await prisma.materialVariant.findUniqueOrThrow({
+    where: { id: ownVariantId },
+  });
+  const v2 = await prisma.materialVariant.create({
+    data: {
+      materialId: ownVar.materialId,
+      size: "88",
+      component: "elbow",
+      unit: "piece",
+      unitPrice: 40,
+      costPrice: 25,
+      ordinal: 1,
+    },
+  });
+  ownVariantId2 = v2.id;
 });
 
 afterAll(async () => {
@@ -129,6 +149,9 @@ type MaterialDto = {
   unit: string;
   diameter?: number;
   unitPrice?: number;
+  costPrice?: number;
+  margin?: number;
+  marginPct?: number;
   variantId?: string;
   quantity: number;
 };
@@ -179,6 +202,202 @@ describe("materials from catalog", () => {
       .set(auth(adminToken))
       .send({ variantId: otherOrgVariantId, quantity: 1 });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("cost / margin visibility (3-way on the billable line)", () => {
+  // The admin already added a qty-3 line of ownVariantId in the first test.
+  it("admin sees selling price AND cost + margin", async () => {
+    const res = await request(app)
+      .get(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken));
+    const line = materialsOf(res.body).find(
+      (m) => m.variantId === ownVariantId && m.quantity === 3,
+    );
+    expect(line).toBeDefined();
+    expect(line!.unitPrice).toBe(28.25); // sell
+    expect(line!.costPrice).toBe(20); // cost snapshot
+    expect(line!.margin).toBeCloseTo((28.25 - 20) * 3, 5); // (sell−cost)×qty
+    expect(line!.marginPct).toBeCloseTo(((28.25 - 20) / 28.25) * 100, 3);
+  });
+
+  // Clients reach werkbon prices through the role-aware DTO (their route access
+  // is customer-scoped elsewhere). Assert the DTO guarantee directly: a client
+  // gets the selling price but NEVER cost/margin. This is the exact contract the
+  // work-order and project DTOs must uphold for the client (opdrachtgever) view.
+  it("client DTO exposes the selling price but NEVER cost or margin", async () => {
+    const { workOrderDto } = await import("./dto.js");
+    const { workOrderInclude } = await import("./dto.js");
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: workOrderId },
+      include: workOrderInclude,
+    });
+    const dto = await workOrderDto(wb as never, "client", false);
+    const line = dto.tasks
+      .flatMap((t) => t.materials)
+      .find((m) => m.variantId === ownVariantId && m.quantity === 3) as
+      | MaterialDto
+      | undefined;
+    expect(line).toBeDefined();
+    expect(line!.unitPrice).toBe(28.25); // sell IS visible
+    expect(line!.costPrice).toBeUndefined(); // cost NEVER
+    expect(line!.margin).toBeUndefined();
+    expect(line!.marginPct).toBeUndefined();
+  });
+
+  it("technician sees no price at all (and therefore no margin)", async () => {
+    const res = await request(app)
+      .get(`/api/work-orders/${workOrderId}`)
+      .set(auth(technicianToken));
+    for (const m of materialsOf(res.body)) {
+      expect(m.unitPrice).toBeUndefined();
+      expect(m.costPrice).toBeUndefined();
+      expect(m.margin).toBeUndefined();
+    }
+  });
+
+  it("PATCH /materials/variants/:id sets cost (admin) and is forbidden for others", async () => {
+    // Technician cannot write cost.
+    const techPatch = await request(app)
+      .patch(`/api/materials/variants/${ownVariantId}`)
+      .set(auth(technicianToken))
+      .send({ costPrice: 15 });
+    expect(techPatch.status).toBe(403);
+
+    // Admin updates cost; response carries the new cost.
+    const adminPatch = await request(app)
+      .patch(`/api/materials/variants/${ownVariantId}`)
+      .set(auth(adminToken))
+      .send({ costPrice: 22.5 });
+    expect(adminPatch.status).toBe(200);
+    expect(adminPatch.body.costPrice).toBe(22.5);
+
+    // Existing work-order lines keep their SNAPSHOT (20), not the new catalog cost.
+    const woView = await request(app)
+      .get(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken));
+    const line = materialsOf(woView.body).find(
+      (m) => m.variantId === ownVariantId && m.quantity === 3,
+    );
+    expect(line!.costPrice).toBe(20);
+  });
+});
+
+describe("werkbon-level monteur assignment", () => {
+  it("admin assigns the monteur on the werkbon; DTO returns it", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ assigneeId: employeeId });
+    expect(res.status).toBe(200);
+    expect(res.body.assigneeId).toBe(employeeId);
+    expect(res.body.assigneeName).toBe(`${TAG}-tech`);
+  });
+
+  it("assigning an employee from another org is rejected (400)", async () => {
+    const otherEmp = await prisma.employee.create({
+      data: { orgId: otherOrgId, name: `${TAG}-other-emp`, phone: "0", roles: ["Technician"], status: "active" },
+    });
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ assigneeId: otherEmp.id });
+    expect(res.status).toBe(400);
+  });
+
+  it("clearing the monteur (null) works", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ assigneeId: null });
+    expect(res.status).toBe(200);
+    expect(res.body.assigneeId).toBeUndefined();
+  });
+});
+
+describe("invoice-line editing (variant switch + derived zone status)", () => {
+  it("switching a line's variant re-resolves name / price / cost server-side", async () => {
+    // Add a fresh line (qty 1) on ownVariantId, then repoint it to ownVariantId2.
+    const added = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`)
+      .set(auth(adminToken))
+      .send({ variantId: ownVariantId, quantity: 1 });
+    const created = materialsOf(added.body).find(
+      (m) => m.variantId === ownVariantId && m.quantity === 1,
+    );
+    expect(created).toBeDefined();
+    expect(created!.unitPrice).toBe(28.25);
+
+    const switched = await request(app)
+      .patch(`/api/work-orders/${workOrderId}/materials/${created!.id}`)
+      .set(auth(adminToken))
+      .send({ variantId: ownVariantId2 });
+    expect(switched.status).toBe(200);
+    const line = materialsOf(switched.body).find((m) => m.id === created!.id);
+    expect(line!.variantId).toBe(ownVariantId2);
+    expect(line!.unitPrice).toBe(40); // re-resolved selling price
+    expect(line!.costPrice).toBe(25); // re-resolved cost (admin view)
+    // Clean up so it doesn't skew later assertions.
+    await request(app)
+      .delete(`/api/work-orders/${workOrderId}/materials/${created!.id}`)
+      .set(auth(adminToken));
+  });
+
+  it("a technician cannot inject a price via variant switch (server owns it)", async () => {
+    const added = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`)
+      .set(auth(adminToken))
+      .send({ variantId: ownVariantId, quantity: 1 });
+    const created = materialsOf(added.body).find(
+      (m) => m.variantId === ownVariantId && m.quantity === 1,
+    )!;
+    // Technician sends a bogus unitPrice alongside a variant switch.
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}/materials/${created.id}`)
+      .set(auth(technicianToken))
+      .send({ variantId: ownVariantId2, unitPrice: 1 });
+    expect(res.status).toBe(200);
+    // Admin re-reads: price is the VARIANT's, not the injected 1.
+    const adminView = await request(app)
+      .get(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken));
+    const line = materialsOf(adminView.body).find((m) => m.id === created.id);
+    expect(line!.unitPrice).toBe(40);
+    await request(app)
+      .delete(`/api/work-orders/${workOrderId}/materials/${created.id}`)
+      .set(auth(adminToken));
+  });
+
+  it("zone status derives from its lines: done when all named lines are done", async () => {
+    // Fresh zone with one line, toggle it done → task.done should become true.
+    const woWithZone = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks`)
+      .set(auth(adminToken))
+      .send({});
+    const zone = woWithZone.body.tasks[woWithZone.body.tasks.length - 1];
+    const withLine = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${zone.id}/materials/from-catalog`)
+      .set(auth(adminToken))
+      .send({ variantId: ownVariantId, quantity: 1 });
+    const zoneAfterAdd = withLine.body.tasks.find(
+      (z: { id: string; done: boolean }) => z.id === zone.id,
+    );
+    expect(zoneAfterAdd.done).toBe(false); // not-done line → zone not done
+
+    const lineId = (withLine.body.tasks.find(
+      (z: { id: string; materials: MaterialDto[] }) => z.id === zone.id,
+    ).materials as MaterialDto[])[0].id;
+    const toggled = await request(app)
+      .post(`/api/work-orders/${workOrderId}/materials/${lineId}/toggle`)
+      .set(auth(adminToken));
+    const zoneAfterToggle = toggled.body.tasks.find(
+      (z: { id: string; done: boolean }) => z.id === zone.id,
+    );
+    expect(zoneAfterToggle.done).toBe(true); // all named lines done → zone done
+
+    await request(app)
+      .delete(`/api/work-orders/${workOrderId}/tasks/${zone.id}`)
+      .set(auth(adminToken));
   });
 });
 

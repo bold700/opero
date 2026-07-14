@@ -44,7 +44,8 @@ export type MaterialGroup = {
 };
 
 // Mirrors the backend variantDto. `unitPrice` present only when the org shows
-// prices to this role (stripped server-side for technicians).
+// prices to this role (stripped server-side for technicians). `costPrice`
+// (inkoopprijs) is admin-only — present only for admins (canSeeMargin).
 export type MaterialVariant = {
   id: string;
   size: string;
@@ -52,12 +53,17 @@ export type MaterialVariant = {
   thicknessMm?: number;
   unit: "m" | "piece" | "m2";
   unitPrice?: number;
+  costPrice?: number;
 };
 
-// Mirrors the backend materialDetailDto (attributes + variants). Price
-// provenance is internal seed metadata — not exposed.
+// Mirrors the backend materialDetailDto (attributes + variants). Provenance
+// fields are admin-only optional metadata (present only for admins).
 export type MaterialDetail = Omit<MaterialSummary, "sizeRange"> & {
   variants: MaterialVariant[];
+  priceSource?: string;
+  priceValidFrom?: string;
+  priceValidTo?: string;
+  priceNote?: string;
 };
 
 // One flat search row = one variant with its material context. Mirrors the
@@ -75,6 +81,7 @@ export type MaterialVariantRow = {
   thicknessMm?: number;
   unit: string;
   unitPrice?: number;
+  costPrice?: number;
 };
 
 // The catalog grouped by class (browse mode; 28 materials, no pagination).
@@ -85,6 +92,81 @@ export function getMaterialGroups(): Promise<MaterialGroup[]> {
 // One material with its full variant set (detail page + picker cascade).
 export function getMaterial(id: string): Promise<MaterialDetail> {
   return api.get<MaterialDetail>(`/materials/${id}`);
+}
+
+// --- Catalog CRUD (admin) -------------------------------------------------
+// The catalog is user-managed: the seed only bootstraps it. `key`/`ordinal` are
+// generated server-side, so create/edit payloads never include them.
+
+export type MaterialInput = {
+  name: string;
+  class: MaterialClass;
+  supplier?: string;
+  sizeUnit: MaterialSizeUnit;
+  thicknessMm?: number | null;
+  pipeMaterial?: string | null;
+  finish?: string | null;
+  note?: string | null;
+  priceSource?: string | null;
+  priceValidFrom?: string | null;
+  priceValidTo?: string | null;
+  priceNote?: string | null;
+};
+
+export type VariantInput = {
+  size: string;
+  component: MaterialComponent;
+  thicknessMm?: number | null;
+  unit: "m" | "piece" | "m2";
+  unitPrice: number;
+  costPrice?: number | null;
+};
+
+export function createMaterial(input: MaterialInput): Promise<MaterialDetail> {
+  return api.post<MaterialDetail>("/materials", input);
+}
+
+export function updateMaterial(id: string, input: Partial<MaterialInput>): Promise<MaterialDetail> {
+  return api.patch<MaterialDetail>(`/materials/${id}`, input);
+}
+
+// force=true deletes even when the material's variants are used on werkbon lines
+// (those lines keep their snapshotted name/price; the variant link is nulled).
+export function deleteMaterial(id: string, force = false): Promise<void> {
+  return api.delete<void>(`/materials/${id}${force ? "?force=true" : ""}`);
+}
+
+export function createVariant(materialId: string, input: VariantInput): Promise<MaterialVariant> {
+  return api.post<MaterialVariant>(`/materials/${materialId}/variants`, input);
+}
+
+export function updateVariant(variantId: string, input: Partial<VariantInput>): Promise<MaterialVariant> {
+  return api.patch<MaterialVariant>(`/materials/variants/${variantId}`, input);
+}
+
+export function deleteVariant(variantId: string, force = false): Promise<void> {
+  return api.delete<void>(`/materials/variants/${variantId}${force ? "?force=true" : ""}`);
+}
+
+// Cost-only edit (kept for the inline cost cell). Thin wrapper over updateVariant.
+export function updateVariantCost(
+  variantId: string,
+  costPrice: number | null,
+): Promise<MaterialVariant> {
+  return api.patch<MaterialVariant>(`/materials/variants/${variantId}`, { costPrice });
+}
+
+// Enum option lists (class / component / sizeUnit / unit) with nl+en labels,
+// server-driven so the forms match the backend's source of truth.
+export type MetaOption = { value: string; nl: string; en: string };
+export type MaterialMeta = {
+  classes: MetaOption[];
+  components: MetaOption[];
+  units: MetaOption[];
+  sizeUnits: MetaOption[];
+};
+export function getMaterialMeta(): Promise<MaterialMeta> {
+  return api.get<MaterialMeta>("/materials/meta");
 }
 
 // Distinct supplier names for the filter chips.

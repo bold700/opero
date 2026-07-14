@@ -51,3 +51,78 @@ export const createMaterialOrderSchema = z.object({
   items: z.array(materialOrderItemSchema),
 });
 export type CreateMaterialOrderRequest = z.infer<typeof createMaterialOrderSchema>;
+
+// --- Materials catalog CRUD -----------------------------------------------
+// The catalog is normal user-managed data: the seed only bootstraps it, and
+// admins create/edit/delete materials + variants from here on. `key` is NOT a
+// user field — it's auto-generated server-side. Provenance fields are optional
+// metadata (they mattered only for seed data imported from supplier PDFs).
+
+export const materialClassSchema = z.enum([
+  "insulation",
+  "fitting",
+  "tank",
+  "cladding",
+]);
+
+export const materialComponentSchema = z.enum([
+  "meter",
+  "elbow",
+  "coupling",
+  "tee",
+  "threaded_fitting",
+  "flange",
+  "valve",
+  "pump",
+  "air_separator",
+  "reducer",
+  "alu_cap",
+  "buffer_vessel",
+  "area",
+]);
+
+export const sizeUnitSchema = z.enum([
+  "pipe_od_mm",
+  "pipe_dia_mm",
+  "tank_liters",
+  "flat",
+]);
+
+export const variantUnitSchema = z.enum(["m", "piece", "m2"]);
+
+export const createMaterialSchema = z.object({
+  name: z.string().min(1),
+  class: materialClassSchema,
+  supplier: z.string().default(""),
+  sizeUnit: sizeUnitSchema,
+  thicknessMm: z.number().int().nonnegative().nullable().optional(),
+  pipeMaterial: z.string().nullable().optional(),
+  finish: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
+  // Optional provenance metadata (blank for hand-created materials).
+  priceSource: z.string().nullable().optional(),
+  priceValidFrom: z.string().nullable().optional(), // ISO date
+  priceValidTo: z.string().nullable().optional(),
+  priceNote: z.string().nullable().optional(),
+});
+export type CreateMaterialRequest = z.infer<typeof createMaterialSchema>;
+
+export const updateMaterialSchema = createMaterialSchema.partial();
+export type UpdateMaterialRequest = z.infer<typeof updateMaterialSchema>;
+
+export const createVariantSchema = z.object({
+  size: z.string().min(1),
+  component: materialComponentSchema,
+  thicknessMm: z.number().int().nonnegative().nullable().optional(),
+  unit: variantUnitSchema,
+  unitPrice: z.number().min(0),
+  costPrice: z.number().min(0).nullable().optional(),
+});
+export type CreateVariantRequest = z.infer<typeof createVariantSchema>;
+
+// PATCH /variants/:id — full variant edit. `costPrice: null` clears it. A
+// cost-only edit (the earlier behaviour) is just this with one field.
+export const updateVariantSchema = createVariantSchema.partial().extend({
+  costPrice: z.number().min(0).nullable().optional(),
+});
+export type UpdateVariantRequest = z.infer<typeof updateVariantSchema>;

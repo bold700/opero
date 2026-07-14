@@ -1,6 +1,7 @@
 import type { TaskMaterial, WorkOrder, WorkOrderTask } from "@prisma/client";
 import {
   canSeePrices,
+  canSeeMargin,
   type UserRole,
   normalizePrejobCheck,
   isPrejobChecklistComplete,
@@ -14,6 +15,10 @@ import { photoRefs, photoUrl } from "../../lib/photoUrls.js";
 // not see prices. On TaskMaterial that means stripping `unitPrice` (the only
 // money field on the shared line-item row); there are no other derived totals
 // exposed here — project.value lives on the project DTO, not the workOrder DTO.
+//
+// COST/MARGIN is stricter: only admins (canSeeMargin) see `costPrice`, `margin`
+// and `marginPct`. Clients get the selling price but NEVER the cost/margin.
+// Three-way on the billable line: technician→none, client→sell, admin→sell+margin.
 
 // A task loaded with its materials + the per-zone work type / assignee names.
 type TaskWithRelations = WorkOrderTask & {
@@ -27,9 +32,28 @@ type TaskWithRelations = WorkOrderTask & {
 export type WorkOrderWithRelations = WorkOrder & {
   tasks: TaskWithRelations[];
   signedBy?: { name: string } | null;
+  assignee?: { id: string; name: string } | null;
 };
 
-function materialDto(m: TaskMaterial, showPrices: boolean) {
+function materialDto(m: TaskMaterial, showPrices: boolean, showMargin: boolean) {
+  // Margin (admin-only): per-line profit = (sell − cost) × qty, plus the % of
+  // the selling total. Only when BOTH prices are known. Cost/margin are never
+  // included for non-admins, even the raw costPrice.
+  const marginFields =
+    showMargin && m.unitPrice != null && m.costPrice != null
+      ? (() => {
+          const sellTotal = m.unitPrice * m.quantity;
+          const costTotal = m.costPrice * m.quantity;
+          const margin = sellTotal - costTotal;
+          return {
+            costPrice: m.costPrice,
+            margin,
+            marginPct: sellTotal > 0 ? (margin / sellTotal) * 100 : 0,
+          };
+        })()
+      : showMargin
+        ? { costPrice: m.costPrice ?? undefined }
+        : {};
   return {
     id: m.id,
     taskId: m.taskId,
@@ -43,6 +67,8 @@ function materialDto(m: TaskMaterial, showPrices: boolean) {
     variantId: m.variantId ?? undefined,
     // Price stripped for technicians / non-price roles.
     ...(showPrices ? { unitPrice: m.unitPrice ?? undefined } : {}),
+    // Cost/margin: admins only (see canSeeMargin). Never for clients.
+    ...marginFields,
     onSite: m.onSite,
     done: m.done,
     note: m.note ?? undefined,
@@ -50,7 +76,7 @@ function materialDto(m: TaskMaterial, showPrices: boolean) {
   };
 }
 
-async function taskDto(t: TaskWithRelations, showPrices: boolean) {
+async function taskDto(t: TaskWithRelations, showPrices: boolean, showMargin: boolean) {
   // Photo arrays hold object keys → resolve to {key, url} for the client.
   const [beforePhotos, resultPhotos] = await Promise.all([
     photoRefs(t.beforePhotos),
@@ -76,7 +102,7 @@ async function taskDto(t: TaskWithRelations, showPrices: boolean) {
     ordinal: t.ordinal,
     materials: [...t.materials]
       .sort((a, b) => a.ordinal - b.ordinal)
-      .map((m) => materialDto(m, showPrices)),
+      .map((m) => materialDto(m, showPrices, showMargin)),
   };
 }
 
@@ -89,12 +115,13 @@ export async function workOrderDto(
   hidePrices: boolean,
 ) {
   const showPrices = canSeePrices(role, hidePrices);
+  const showMargin = canSeeMargin(role);
   const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
   const [drawings, signatureUrl, prejobPhotos, tasks] = await Promise.all([
     photoRefs(wb.drawings),
     photoUrl(wb.signature),
     photoRefs(wb.prejobPhotos),
-    Promise.all(sortedTasks.map((t) => taskDto(t, showPrices))),
+    Promise.all(sortedTasks.map((t) => taskDto(t, showPrices, showMargin))),
   ]);
   const prejobCheck = normalizePrejobCheck(wb.prejobCheck);
   return {
@@ -117,6 +144,9 @@ export async function workOrderDto(
     signatureUrl,
     signedAt: wb.signedAt ? wb.signedAt.toISOString() : undefined,
     signedByName: wb.signedByName ?? wb.signedBy?.name ?? undefined,
+    // The monteur assigned to this werkbon (werkbon-level, not per-zone).
+    assigneeId: wb.assignee?.id ?? undefined,
+    assigneeName: wb.assignee?.name ?? undefined,
     tasks,
   };
 }
@@ -132,6 +162,7 @@ export const workOrderInclude = {
     },
   },
   signedBy: { select: { name: true } },
+  assignee: { select: { id: true, name: true } },
 } as const;
 
 // --- List view ------------------------------------------------------------
@@ -145,11 +176,13 @@ export type { WorkOrderListStatus };
 type WorkOrderListSource = WorkOrder & {
   // Persisted, denormalized status (see WorkOrder.listStatus + status.ts).
   listStatus: string;
+  // Technician is now werkbon-level (one monteur per job), not per-zone.
+  assignee: { name: string } | null;
   tasks: {
     done: boolean;
     startedAt: string | null;
-    workType: { name: string } | null;
-    assignee: { name: string } | null;
+    // Work type is DERIVED from the line articles' materials (no per-zone input).
+    materials: { variant: { material: { name: string } } | null }[];
   }[];
   project: {
     projectNumber: string;
@@ -174,12 +207,15 @@ function rollup(
 }
 
 export const workOrderListInclude = {
+  assignee: { select: { name: true } },
   tasks: {
     select: {
       done: true,
       startedAt: true,
-      workType: { select: { name: true } },
-      assignee: { select: { name: true } },
+      // Pull each line's material name to derive the werkbon's work type(s).
+      materials: {
+        select: { variant: { select: { material: { select: { name: true } } } } },
+      },
     },
   },
   project: {
@@ -200,16 +236,15 @@ export function workOrderListDto(wb: WorkOrderListSource) {
     number: wb.project.projectNumber,
     customerName: wb.project.customerName,
     city: wb.project.city,
-    // Work type + technician roll up from the work order's tasks (per-zone),
-    // falling back to project-level values when tasks don't set them.
+    // Work type is DERIVED from the distinct material names across all the
+    // werkbon's lines (the article implies the work type), falling back to the
+    // project's insulationType when the werkbon has no catalog lines yet.
     workType: rollup(
-      wb.tasks.map((t) => t.workType?.name),
+      wb.tasks.flatMap((t) => t.materials.map((m) => m.variant?.material.name)),
       wb.project.insulationType,
     ),
-    technician: rollup(
-      wb.tasks.map((t) => t.assignee?.name),
-      wb.project.teamLeader?.name ?? null,
-    ),
+    // Technician is the werkbon's assigned monteur (one per job).
+    technician: wb.assignee?.name ?? wb.project.teamLeader?.name ?? "—",
     // Read the denormalized column (kept in sync by recomputeWorkOrderStatus).
     status: wb.listStatus as WorkOrderListStatus,
     date: wb.createdAt.toISOString(),

@@ -10,33 +10,42 @@ import { LAVENDER, SPACING } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
+import { useAuth } from "../../auth/AuthContext";
 import {
   getMaterialGroups,
   getSuppliers,
+  getMaterialMeta,
   searchVariants,
   type MaterialVariantRow,
 } from "./api";
 import { MaterialsActions } from "./components/MaterialsActions";
 import { MaterialGroupList } from "./components/MaterialGroupList";
 import { VariantSearchTable } from "./components/VariantSearchTable";
+import { MaterialFormDialog } from "./components/MaterialFormDialog";
 
 // Materials — the company's catalog of real products (28 materials), grouped
 // by class (insulation / fittings / tanks / cladding). Tap a material → its
 // detail page with all sizes/prices. Typing a search term switches to a FLAT
 // list of matching variants (search = find a price fast; grouping = browse).
 export function Materials() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
   const [search, setSearch] = useState("");
   const [supplier, setSupplier] = useState<string>(""); // "" = all suppliers
+  const [createOpen, setCreateOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0); // bump to refetch groups
   const debouncedSearch = useDebounced(search, 300);
   const searching = debouncedSearch.trim().length > 0;
 
-  const { data: suppliers } = useApi(getSuppliers, []);
+  const { data: suppliers } = useApi(getSuppliers, [reloadKey]);
+  const { data: meta } = useApi(() => (isAdmin ? getMaterialMeta() : Promise.resolve(null)), [isAdmin]);
   const { data: groups, loading: groupsLoading, error: groupsError } = useApi(
     getMaterialGroups,
-    [],
+    [reloadKey],
   );
 
   // Flat variant search — only active while a term is entered.
@@ -74,7 +83,14 @@ export function Materials() {
   return (
     <PageLayout
       title={t("materials.title")}
-      actions={<MaterialsActions search={search} onSearch={setSearch} />}
+      actions={
+        <MaterialsActions
+          search={search}
+          onSearch={setSearch}
+          canCreate={isAdmin}
+          onCreate={() => setCreateOpen(true)}
+        />
+      }
     >
       {/* Supplier filter chips (only when there's more than one supplier). */}
       {suppliers && suppliers.length > 1 ? (
@@ -121,6 +137,20 @@ export function Materials() {
           ))}
         </Box>
       )}
+
+      {isAdmin ? (
+        <MaterialFormDialog
+          open={createOpen}
+          meta={meta ?? null}
+          lang={lang}
+          onClose={() => setCreateOpen(false)}
+          onSaved={(m) => {
+            setCreateOpen(false);
+            // Straight to the new material so the admin can add variants.
+            navigate(`/materials/${m.id}`);
+          }}
+        />
+      ) : null}
     </PageLayout>
   );
 }

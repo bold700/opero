@@ -24,19 +24,21 @@ import {
   formatPrice,
 } from "../../materials/constants";
 
-// Cascading picker over the materials catalog: material (grouped by class) →
-// size/Ø → component (variant) → quantity. Submits only the chosen variant id
-// + quantity — name/unit/unitPrice resolve SERVER-side (a technician's own
-// responses have prices stripped, so the price shown here is display only,
-// never the source of truth).
-export function AddMaterialDialog({
+// "Taak toevoegen" — add one invoice line to a zone, opero-old style: choose a
+// standard article, an amount (Aantal), and a size (Ø). Only the chosen variant
+// id + quantity are submitted; name/unit/price resolve SERVER-side (a
+// technician's response has prices stripped, so the price shown here is display
+// only, never the source of truth). `showMargin` annotates the margin for admins.
+export function AddTaskLineDialog({
   open,
   busy,
+  showMargin = false,
   onClose,
   onAdd,
 }: {
   open: boolean;
   busy: boolean;
+  showMargin?: boolean;
   onClose: () => void;
   onAdd: (input: { variantId: string; quantity: number }) => void;
 }) {
@@ -52,7 +54,6 @@ export function AddMaterialDialog({
   const [variantId, setVariantId] = useState("");
   const [quantity, setQuantity] = useState("1");
 
-  // Reset the cascade each time the dialog opens.
   useEffect(() => {
     if (open) {
       setMaterialId("");
@@ -67,7 +68,6 @@ export function AddMaterialDialog({
     [materialId],
   );
 
-  // Materials in one select, grouped by class via label prefixes.
   const materialOptions: SelectOption[] = (groups ?? []).flatMap((g) =>
     g.materials.map((m) => ({
       value: m.id,
@@ -75,8 +75,6 @@ export function AddMaterialDialog({
     })),
   );
 
-  // Distinct sizes in source order; the chosen size's variants become the
-  // component options (one option per priced variant, incl. thickness columns).
   const sizes = useMemo(() => {
     const out: string[] = [];
     for (const v of material?.variants ?? []) {
@@ -99,8 +97,14 @@ export function AddMaterialDialog({
       v.thicknessMm != null
         ? `${t(COMPONENT_LABEL_KEYS[v.component])} ${v.thicknessMm} mm`
         : t(COMPONENT_LABEL_KEYS[v.component]);
-    // Price is display-only here and stripped for technicians.
-    return v.unitPrice != null ? `${base} — ${formatPrice(v.unitPrice)}` : base;
+    if (v.unitPrice == null) return base;
+    const marginSuffix =
+      showMargin && v.costPrice != null
+        ? ` (${t("workOrderDetail.line.marginShort", {
+            amount: formatPrice(v.unitPrice - v.costPrice),
+          })})`
+        : "";
+    return `${base} — ${formatPrice(v.unitPrice)}${marginSuffix}`;
   };
 
   const sizeOptions: SelectOption[] = sizes.map((s) => ({ value: s, label: s }));
@@ -121,11 +125,14 @@ export function AddMaterialDialog({
     <ResponsiveDialog
       open={open}
       onClose={onClose}
-      title={t("workOrderDetail.addMaterialDialog.title")}
+      title={t("workOrderDetail.line.addTitle")}
       stableHeight
     >
-      <DialogTitle>{t("workOrderDetail.addMaterialDialog.title")}</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrderDetail.line.addTitle")}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
+          {t("workOrderDetail.line.addSubtitle")}
+        </Typography>
         {groupsLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress />
@@ -133,7 +140,7 @@ export function AddMaterialDialog({
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
             <SelectField
-              label={t("workOrderDetail.addMaterialDialog.material")}
+              label={t("workOrderDetail.line.articleLabel")}
               value={materialId}
               onChange={(v) => {
                 setMaterialId(v);
@@ -162,7 +169,7 @@ export function AddMaterialDialog({
             ) : null}
             {size ? (
               <SelectField
-                label={t("workOrderDetail.addMaterialDialog.component")}
+                label={t("workOrderDetail.line.componentLabel")}
                 value={variantId}
                 onChange={setVariantId}
                 options={variantOptions}
@@ -171,7 +178,7 @@ export function AddMaterialDialog({
             ) : null}
             {variantId ? (
               <TextField
-                label={t("workOrderDetail.addMaterialDialog.quantity")}
+                label={t("workOrderDetail.line.quantityLabel")}
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
@@ -190,7 +197,7 @@ export function AddMaterialDialog({
       <DialogActions>
         <Button onClick={onClose}>{t("common.actions.cancel")}</Button>
         <Button variant="contained" onClick={submit} disabled={!canSubmit}>
-          {t("workOrderDetail.addMaterialDialog.add")}
+          {t("workOrderDetail.line.addSubmit")}
         </Button>
       </DialogActions>
     </ResponsiveDialog>

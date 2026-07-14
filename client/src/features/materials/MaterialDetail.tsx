@@ -1,17 +1,33 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import AddIcon from "@mui/icons-material/Add";
 import { PageLayout } from "../../components/PageLayout";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ResponsiveList } from "../../components/ResponsiveList";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { STATUS_TONES, SPACING } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
-import { getMaterial, type MaterialVariant } from "./api";
+import { useAuth } from "../../auth/AuthContext";
+import {
+  getMaterial,
+  getMaterialMeta,
+  deleteMaterial,
+  deleteVariant,
+  type MaterialDetail as MaterialDetailType,
+  type MaterialVariant,
+} from "./api";
+import { MaterialFormDialog } from "./components/MaterialFormDialog";
+import { VariantFormDialog } from "./components/VariantFormDialog";
 import {
   CLASS_LABEL_KEYS,
   COMPONENT_LABEL_KEYS,
@@ -22,17 +38,40 @@ import {
   formatPrice,
 } from "./constants";
 
-// Material detail — one material's attributes and its full variant table
-// (size · component · price).
+// Material detail — one material's attributes and its full variant table.
+// Admins can edit/delete the material and create/edit/delete its variants; the
+// catalog is user-managed (the seed only bootstraps it).
 export function MaterialDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
-  const { data: material, loading, error } = useApi(
-    () => getMaterial(id),
+  const [material, setMaterial] = useState<MaterialDetailType | null>(null);
+  const { loading, error } = useApi(
+    async () => {
+      const m = await getMaterial(id);
+      setMaterial(m);
+      return m;
+    },
     [id],
   );
+  const { data: meta } = useApi(() => (isAdmin ? getMaterialMeta() : Promise.resolve(null)), [isAdmin]);
+
+  // Dialog + confirm state.
+  const [editMaterialOpen, setEditMaterialOpen] = useState(false);
+  const [deleteMaterialOpen, setDeleteMaterialOpen] = useState(false);
+  const [variantDialog, setVariantDialog] = useState<{ open: boolean; variant: MaterialVariant | null }>({
+    open: false,
+    variant: null,
+  });
+  const [deleteVariantTarget, setDeleteVariantTarget] = useState<MaterialVariant | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const variants = material?.variants ?? [];
 
   if (loading) {
     return (
@@ -56,17 +95,68 @@ export function MaterialDetail() {
       ? `${t(COMPONENT_LABEL_KEYS[v.component])} ${v.thicknessMm} mm`
       : t(COMPONENT_LABEL_KEYS[v.component]);
 
-  // Price + translated unit ("€ 30,13 / meter"). Raw enum unit is translated
-  // client-side (the API returns "m"/"piece"/"m2").
   const priceLabel = (v: MaterialVariant) =>
     v.unitPrice != null
       ? `${formatPrice(v.unitPrice)} / ${t(UNIT_LABEL_KEYS[v.unit] ?? v.unit)}`
       : "—";
 
+  const marginLabel = (v: MaterialVariant) =>
+    v.unitPrice != null && v.costPrice != null
+      ? `${formatPrice(v.costPrice)} · ${t("materials.columns.marginShort", { amount: formatPrice(v.unitPrice - v.costPrice) })}`
+      : v.costPrice != null
+        ? formatPrice(v.costPrice)
+        : "—";
+
+  // After any variant create/edit, merge it into local state (no full refetch).
+  const onVariantSaved = (saved: MaterialVariant) => {
+    setMaterial((m) =>
+      m
+        ? {
+            ...m,
+            variants: m.variants.some((v) => v.id === saved.id)
+              ? m.variants.map((v) => (v.id === saved.id ? { ...v, ...saved } : v))
+              : [...m.variants, saved],
+          }
+        : m,
+    );
+    setVariantDialog({ open: false, variant: null });
+  };
+
+  const runDeleteVariant = async (force: boolean) => {
+    if (!deleteVariantTarget) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await deleteVariant(deleteVariantTarget.id, force);
+      setMaterial((m) =>
+        m ? { ...m, variants: m.variants.filter((v) => v.id !== deleteVariantTarget.id) } : m,
+      );
+      setDeleteVariantTarget(null);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("materials.deleteError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runDeleteMaterial = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await deleteMaterial(material.id);
+      navigate("/materials");
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("materials.deleteError"));
+      setBusy(false);
+    }
+  };
+
   return (
     <PageLayout title={t("materials.title")}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
-        {/* Header: back + name + meta badges + provenance */}
+        {actionError ? <Alert severity="error" onClose={() => setActionError(null)}>{actionError}</Alert> : null}
+
+        {/* Header: back + name + meta badges + (admin) edit/delete */}
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
           <IconButton
             aria-label={t("materials.detail.back")}
@@ -75,13 +165,15 @@ export function MaterialDetail() {
           >
             <ArrowBackIcon />
           </IconButton>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0, flex: 1 }}>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {material.name}
             </Typography>
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               <StatusBadge label={t(CLASS_LABEL_KEYS[material.class])} tone={STATUS_TONES.open} />
-              <StatusBadge label={material.supplier} tone={STATUS_TONES.neutral} />
+              {material.supplier ? (
+                <StatusBadge label={material.supplier} tone={STATUS_TONES.neutral} />
+              ) : null}
               {material.thicknessMm != null ? (
                 <StatusBadge
                   label={t("materials.detail.thickness", { mm: material.thicknessMm })}
@@ -98,20 +190,35 @@ export function MaterialDetail() {
                 />
               ) : null}
             </Box>
-            {/* Material caveat only (e.g. "Incl. beugel +10%"). Price
-                provenance (source/validity) is internal seed metadata — not
-                shown. */}
             {material.note && (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {material.note}
               </Typography>
             )}
           </Box>
+          {isAdmin ? (
+            <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
+              <IconButton
+                aria-label={t("materials.form.editTitle")}
+                onClick={() => setEditMaterialOpen(true)}
+                disabled={busy}
+              >
+                <EditOutlinedIcon />
+              </IconButton>
+              <IconButton
+                aria-label={t("materials.detail.deleteMaterial")}
+                onClick={() => setDeleteMaterialOpen(true)}
+                disabled={busy}
+              >
+                <DeleteOutlineIcon />
+              </IconButton>
+            </Box>
+          ) : null}
         </Box>
 
-        {/* Variant table: size · component · price */}
+        {/* Variant table */}
         <ResponsiveList<MaterialVariant>
-          items={material.variants}
+          items={variants}
           keyOf={(v) => v.id}
           empty={t("materials.empty")}
           columns={[
@@ -136,19 +243,146 @@ export function MaterialDetail() {
                 </Typography>
               ),
             },
+            // Admin-only: cost + margin (read display; edit via the row action).
+            ...(isAdmin
+              ? [
+                  {
+                    header: t("materials.columns.cost"),
+                    align: "right" as const,
+                    cell: (v: MaterialVariant) => (
+                      <Typography variant="body2" sx={{ whiteSpace: "nowrap", color: "text.secondary" }}>
+                        {marginLabel(v)}
+                      </Typography>
+                    ),
+                  },
+                  {
+                    header: "",
+                    align: "right" as const,
+                    cell: (v: MaterialVariant) => (
+                      <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+                        <IconButton
+                          size="small"
+                          aria-label={t("materials.variantForm.editTitle")}
+                          onClick={() => setVariantDialog({ open: true, variant: v })}
+                          disabled={busy}
+                        >
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          aria-label={t("materials.variantForm.delete")}
+                          onClick={() => setDeleteVariantTarget(v)}
+                          disabled={busy}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ),
+                  },
+                ]
+              : []),
           ]}
           renderCard={(v) => (
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {v.size} · {componentLabel(v)}
-              </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
-                {priceLabel(v)}
-              </Typography>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {v.size} · {componentLabel(v)}
+                </Typography>
+                <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
+                  {priceLabel(v)}
+                </Typography>
+              </Box>
+              {isAdmin ? (
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
+                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    {marginLabel(v)}
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 0.5 }}>
+                    <IconButton
+                      size="small"
+                      aria-label={t("materials.variantForm.editTitle")}
+                      onClick={() => setVariantDialog({ open: true, variant: v })}
+                      disabled={busy}
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      aria-label={t("materials.variantForm.delete")}
+                      onClick={() => setDeleteVariantTarget(v)}
+                      disabled={busy}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+              ) : null}
             </Box>
           )}
         />
+
+        {isAdmin ? (
+          <Box>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setVariantDialog({ open: true, variant: null })}
+              disabled={busy}
+            >
+              {t("materials.variantForm.create")}
+            </Button>
+          </Box>
+        ) : null}
       </Box>
+
+      {/* Dialogs (admin only) */}
+      {isAdmin ? (
+        <>
+          <MaterialFormDialog
+            open={editMaterialOpen}
+            material={material}
+            meta={meta ?? null}
+            lang={lang}
+            onClose={() => setEditMaterialOpen(false)}
+            onSaved={(m) => {
+              setMaterial((prev) => (prev ? { ...prev, ...m } : m));
+              setEditMaterialOpen(false);
+            }}
+          />
+
+          <VariantFormDialog
+            open={variantDialog.open}
+            materialId={material.id}
+            variant={variantDialog.variant}
+            meta={meta ?? null}
+            lang={lang}
+            onClose={() => setVariantDialog({ open: false, variant: null })}
+            onSaved={onVariantSaved}
+          />
+
+          <ConfirmDialog
+            open={deleteMaterialOpen}
+            title={t("materials.detail.deleteMaterialTitle")}
+            body={t("materials.detail.deleteMaterialMessage", { name: material.name })}
+            confirmLabel={t("common.actions.delete")}
+            destructive
+            busy={busy}
+            onClose={() => setDeleteMaterialOpen(false)}
+            onConfirm={runDeleteMaterial}
+          />
+
+          <ConfirmDialog
+            open={deleteVariantTarget !== null}
+            title={t("materials.variantForm.deleteTitle")}
+            body={t("materials.variantForm.deleteMessage")}
+            confirmLabel={t("common.actions.delete")}
+            destructive
+            busy={busy}
+            onClose={() => setDeleteVariantTarget(null)}
+            onConfirm={() => runDeleteVariant(false)}
+          />
+        </>
+      ) : null}
     </PageLayout>
   );
 }

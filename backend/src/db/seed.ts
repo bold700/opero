@@ -209,6 +209,7 @@ async function main() {
         thicknessMm: v.thicknessMm ?? null,
         unit: v.unit,
         unitPrice: v.unitPrice,
+        costPrice: v.costPrice ?? null,
         ordinal: idx,
       })),
     });

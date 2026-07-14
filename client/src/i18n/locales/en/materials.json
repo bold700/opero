@@ -11,7 +11,10 @@
     "price": "Price",
     "sizeRange": "Sizes",
     "variantCount": "Prices",
-    "component": "Part"
+    "component": "Part",
+    "cost": "Cost / margin",
+    "costPlaceholder": "cost",
+    "marginShort": "+{{amount}}"
   },
   "class": {
     "insulation": "Insulation",
@@ -53,11 +56,42 @@
   "detail": {
     "back": "Back",
     "thickness": "Insulation {{mm}} mm",
-    "priceCount": "{{count}} prices"
+    "priceCount": "{{count}} prices",
+    "deleteMaterial": "Delete material",
+    "deleteMaterialTitle": "Delete material?",
+    "deleteMaterialMessage": "\"{{name}}\" and all its variants will be deleted. This cannot be undone."
   },
   "unit": {
     "m": "metre",
     "piece": "piece",
     "m2": "m²"
+  },
+  "deleteError": "Delete failed",
+  "form": {
+    "createTitle": "New material",
+    "editTitle": "Edit material",
+    "create": "New material",
+    "name": "Name",
+    "class": "Class",
+    "supplier": "Supplier",
+    "sizeUnit": "Size unit",
+    "thickness": "Thickness (mm)",
+    "note": "Note",
+    "saveError": "Save failed"
+  },
+  "variantForm": {
+    "createTitle": "Add variant",
+    "editTitle": "Edit variant",
+    "create": "Add variant",
+    "delete": "Delete variant",
+    "deleteTitle": "Delete variant?",
+    "deleteMessage": "This variant will be deleted. This cannot be undone.",
+    "size": "Size",
+    "component": "Component",
+    "thickness": "Thickness (mm)",
+    "unit": "Unit",
+    "unitPrice": "Selling price",
+    "costPrice": "Cost price",
+    "saveError": "Save failed"
   }
 }

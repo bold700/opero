@@ -35,7 +35,11 @@ export type SupplierMaterialVariant = {
   component: MaterialComponentKey;
   thicknessMm?: number; // set when the source varies thickness per column
   unit: "m" | "piece" | "m2";
-  unitPrice: number; // EUR excl. VAT
+  unitPrice: number; // EUR excl. VAT — the SELLING price (verkoopprijs)
+  // The PURCHASE / cost price (inkoopprijs), EUR excl. VAT. Optional: the
+  // supplier documents only list selling prices, so cost is set by an admin
+  // later (see PATCH /materials/variants/:id). Margin = unitPrice − costPrice.
+  costPrice?: number;
 };
 
 export type SupplierMaterial = {

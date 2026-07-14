@@ -11,7 +11,10 @@
     "price": "Prijs",
     "sizeRange": "Maten",
     "variantCount": "Prijzen",
-    "component": "Onderdeel"
+    "component": "Onderdeel",
+    "cost": "Inkoop / marge",
+    "costPlaceholder": "inkoop",
+    "marginShort": "+{{amount}}"
   },
   "class": {
     "insulation": "Isolatie",
@@ -53,11 +56,42 @@
   "detail": {
     "back": "Terug",
     "thickness": "Isolatiedikte {{mm}} mm",
-    "priceCount": "{{count}} prijzen"
+    "priceCount": "{{count}} prijzen",
+    "deleteMaterial": "Materiaal verwijderen",
+    "deleteMaterialTitle": "Materiaal verwijderen?",
+    "deleteMaterialMessage": "\"{{name}}\" en alle varianten worden verwijderd. Dit kan niet ongedaan worden gemaakt."
   },
   "unit": {
     "m": "meter",
     "piece": "stuk",
     "m2": "m²"
+  },
+  "deleteError": "Verwijderen mislukt",
+  "form": {
+    "createTitle": "Nieuw materiaal",
+    "editTitle": "Materiaal bewerken",
+    "create": "Nieuw materiaal",
+    "name": "Naam",
+    "class": "Soort",
+    "supplier": "Leverancier",
+    "sizeUnit": "Maateenheid",
+    "thickness": "Dikte (mm)",
+    "note": "Opmerking",
+    "saveError": "Opslaan mislukt"
+  },
+  "variantForm": {
+    "createTitle": "Variant toevoegen",
+    "editTitle": "Variant bewerken",
+    "create": "Variant toevoegen",
+    "delete": "Variant verwijderen",
+    "deleteTitle": "Variant verwijderen?",
+    "deleteMessage": "Deze variant wordt verwijderd. Dit kan niet ongedaan worden gemaakt.",
+    "size": "Maat",
+    "component": "Onderdeel",
+    "thickness": "Dikte (mm)",
+    "unit": "Eenheid",
+    "unitPrice": "Verkoopprijs",
+    "costPrice": "Inkoopprijs",
+    "saveError": "Opslaan mislukt"
   }
 }

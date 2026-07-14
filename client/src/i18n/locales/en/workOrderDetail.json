@@ -30,7 +30,9 @@
     "defaultTitle": "Work order {{n}}",
     "export": "Export",
     "exportMenuQuote": "Quote (PDF)",
-    "exportMenuWorkOrder": "Work order (PDF)"
+    "exportMenuWorkOrder": "Work order (PDF)",
+    "assignee": "Technician",
+    "assigneeNone": "Unassigned"
   },
   "photos": {
     "title": "Photos",
@@ -71,7 +73,8 @@
     "assignee": "Technician",
     "assigneeNone": "Unassigned",
     "materialsLabel": "Materials",
-    "addMaterial": "Material"
+    "addMaterial": "Material",
+    "marginTotal": "margin {{amount}}"
   },
   "material": {
     "delete": "delete material",
@@ -80,7 +83,9 @@
     "unit": "Unit",
     "price": "Price",
     "pickMaterial": "Material",
-    "emptyCatalog": "No materials in the catalog yet. Add them under Materials first."
+    "emptyCatalog": "No materials in the catalog yet. Add them under Materials first.",
+    "margin": "margin {{amount}} ({{pct}}%)",
+    "marginShort": "margin {{amount}}"
   },
   "extraWork": {
     "title": "Extra work",
@@ -111,5 +116,40 @@
     "component": "Part",
     "quantity": "Quantity",
     "add": "Add"
+  },
+  "zone": {
+    "add": "Add zone",
+    "deleteAria": "Delete zone",
+    "deleteTitle": "Delete zone?",
+    "deleteMessage": "The zone and all its tasks will be deleted. This cannot be undone.",
+    "deleteConfirm": "Delete",
+    "titleLabel": "Task",
+    "titlePlaceholder": "E.g. Plant room",
+    "untitled": "Zone",
+    "workDescriptionLabel": "Work description",
+    "workDescriptionPlaceholder": "What needs to happen in this zone?",
+    "statusDone": "Done",
+    "statusTodo": "To do",
+    "empty": "No zones yet."
+  },
+  "line": {
+    "sectionTitle": "Tasks",
+    "empty": "No tasks yet.",
+    "add": "Add task",
+    "delete": "Delete task",
+    "descriptionPlaceholder": "Description",
+    "statusOpen": "Open",
+    "statusDone": "Done",
+    "margin": "margin {{amount}} ({{pct}}%)",
+    "marginShort": "margin {{amount}}",
+    "marginTotal": "margin {{amount}}",
+    "addTitle": "Add task",
+    "addSubtitle": "Choose a standard article from the list.",
+    "addSubmit": "Add task",
+    "articleLabel": "Insulation type / article",
+    "componentLabel": "Component",
+    "quantityLabel": "Quantity",
+    "unnamed": "Untitled",
+    "renameHint": "Click to rename"
   }
 }

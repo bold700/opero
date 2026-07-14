@@ -394,6 +394,7 @@ model Employee {
 
   // per-task assignments (work-order zones)
   assignedTasks WorkOrderTask[] @relation("TaskAssignee")
+  assignedWorkOrders WorkOrder[] @relation("WorkOrderAssignee")
 
   @@index([orgId])
 }
@@ -454,8 +455,13 @@ model MaterialVariant {
   thicknessMm Int?
   // "m" | "piece" | "m2"
   unit        String
-  // EUR excluding VAT — the price is an attribute of the variant.
+  // EUR excluding VAT — the SELLING price (verkoopprijs) is an attribute of the
+  // variant.
   unitPrice   Float
+  // EUR excluding VAT — the PURCHASE / cost price (inkoopprijs). Nullable: the
+  // supplier docs only list selling prices, so an admin fills cost in later.
+  // Margin = unitPrice − costPrice. Admin-only; never exposed to other roles.
+  costPrice   Float?
   // Source row/column order for stable display.
   ordinal     Int
 
@@ -706,15 +712,20 @@ model WorkOrder {
   // quote-PDF export and stable afterwards. Format YYYYNNNN (e.g. 20260063).
   quoteNumber        String?
   quoteDate          DateTime?
+  // The monteur (or crew lead) assigned to THIS werkbon. One person does one
+  // job/visit, so assignment lives at the werkbon level (not per-zone).
+  assigneeId         String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
   project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   signedBy User?           @relation("WorkOrderSignedBy", fields: [signedById], references: [id], onDelete: SetNull)
+  assignee Employee?       @relation("WorkOrderAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   tasks    WorkOrderTask[]
 
   @@index([projectId])
   @@index([listStatus])
+  @@index([assigneeId])
 }
 
 model WorkOrderTask {
@@ -754,7 +765,13 @@ model TaskMaterial {
   usedQuantity Float?
   unit         String  @default("")
   diameter     Float?
+  // Selling price snapshot (verkoopprijs) at the time the line was added.
   unitPrice    Float?
+  // Cost price snapshot (inkoopprijs) at the time the line was added from the
+  // catalog. Snapshotting keeps historical margin stable if catalog cost later
+  // changes. Null for free-text lines or lines added before cost was set.
+  // Admin-only; stripped from every non-admin DTO.
+  costPrice    Float?
   onSite       Boolean @default(false)
   done         Boolean @default(false)
   note         String?

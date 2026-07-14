@@ -63,3 +63,16 @@ export function canSeePrices(
   if (role !== "technician") return true;
   return !hidePricesFromTechnicians;
 }
+
+// Whether the requesting role may see COST price + margin (the difference
+// between the selling price and what the material cost to buy).
+//
+// This is stricter than canSeePrices: only ADMINS see margin. The distinction
+// the business draws is three-way on any billable line —
+//   - technician (on the road): sees NO price at all (canSeePrices=false)
+//   - client (opdrachtgever):    sees the SELLING price only
+//   - admin (management):        sees the selling price AND the margin/cost
+// Cost/margin must never leak into any client-facing surface (PDF, quote).
+export function canSeeMargin(role: UserRole): boolean {
+  return role === "admin";
+}

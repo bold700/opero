@@ -5,7 +5,7 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
-import { canSeePrices } from "@opero/shared";
+import { canSeePrices, canSeeMargin } from "@opero/shared";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthContext";
 import { useApi } from "../../lib/api/useApi";
@@ -15,13 +15,14 @@ import {
   exportWorkOrderPdf,
   exportWorkOrderQuotePdf,
   getProject,
-  getWorkTypes,
   getAssignableEmployees,
+  setWorkOrderAssignee,
   addTask,
   updateTask,
   deleteTask,
   toggleTask,
   addMaterialFromCatalog,
+  updateMaterial,
   deleteMaterial,
   toggleMaterial,
   uploadTaskPhoto,
@@ -40,13 +41,11 @@ import {
   type WorkOrder,
   type Project,
   type NewExtraWork,
-  type WorkTypeOption,
   type AssigneeOption,
 } from "./api";
 import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
 import { PreJobPanel } from "./components/PreJobPanel";
-import { PhotosPanel } from "./components/PhotosPanel";
 import { ExtraWorkPanel } from "./components/ExtraWorkPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
 import { SignOffDialog } from "./components/SignOffDialog";
@@ -61,10 +60,10 @@ export function WorkOrderDetail() {
   const { user } = useAuth();
   const role = (user?.role ?? "technician") as "admin" | "technician" | "client";
   const showPrices = canSeePrices(role);
+  const showMargin = canSeeMargin(role);
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
   const [project, setProject] = useState<Project | null>(null);
-  const [workTypes, setWorkTypes] = useState<WorkTypeOption[]>([]);
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -80,7 +79,6 @@ export function WorkOrderDetail() {
       const p = await getProject(w.projectId);
       setWo(w);
       setProject(p);
-      getWorkTypes().then(setWorkTypes).catch(() => setWorkTypes([]));
       getAssignableEmployees().then(setAssignees).catch(() => setAssignees([]));
       return w;
     }, [id]),
@@ -172,6 +170,8 @@ export function WorkOrderDetail() {
           project={project}
           canFinish={role === "admin" || role === "technician"}
           canExportQuote={role === "admin"}
+          canAssign={role === "admin"}
+          assignees={assignees}
           finished={finished}
           busy={busy}
           exporting={exporting}
@@ -180,6 +180,7 @@ export function WorkOrderDetail() {
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
           onFinish={() => setSignOpen(true)}
+          onAssign={(assigneeId) => run(async () => { setWo(await setWorkOrderAssignee(wo.id, assigneeId)); })}
         />
 
         <Box sx={{ display: "flex", gap: SPACING.sectionGap, flexDirection: { xs: "column", lg: "row" }, alignItems: "flex-start" }}>
@@ -188,18 +189,19 @@ export function WorkOrderDetail() {
               workOrder={wo}
               canWrite={canWrite && !finished}
               showPrices={showPrices}
+              showMargin={showMargin}
               busy={busy}
-              workTypes={workTypes}
-              assignees={assignees}
-              onAddTask={() => run(async () => { await addTask(wo.id); await refreshWorkOrder(); })}
-              onRenameTask={(taskId, description) => run(async () => { await updateTask(wo.id, taskId, { description }); await refreshWorkOrder(); })}
-              onSetTaskType={(taskId, workTypeId) => run(async () => { await updateTask(wo.id, taskId, { workTypeId }); await refreshWorkOrder(); })}
-              onAssignTask={(taskId, assigneeId) => run(async () => { await updateTask(wo.id, taskId, { assigneeId }); await refreshWorkOrder(); })}
-              onDeleteTask={(taskId) => run(async () => { await deleteTask(wo.id, taskId); await refreshWorkOrder(); })}
-              onToggleTask={(taskId) => run(async () => { await toggleTask(wo.id, taskId); await refreshWorkOrder(); })}
-              onAddFromCatalog={(taskId, input) => run(async () => { await addMaterialFromCatalog(wo.id, taskId, input); await refreshWorkOrder(); })}
-              onDeleteMaterial={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
-              onToggleMaterial={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
+              onAddZone={() => run(async () => { await addTask(wo.id); await refreshWorkOrder(); })}
+              onRenameZone={(taskId, description) => run(async () => { await updateTask(wo.id, taskId, { description }); await refreshWorkOrder(); })}
+              onSetZoneNote={(taskId, note) => run(async () => { await updateTask(wo.id, taskId, { note }); await refreshWorkOrder(); })}
+              onDeleteZone={(taskId) => run(async () => { await deleteTask(wo.id, taskId); await refreshWorkOrder(); })}
+              onAddLine={(taskId, input) => run(async () => { await addMaterialFromCatalog(wo.id, taskId, input); await refreshWorkOrder(); })}
+              onDeleteLine={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
+              onToggleLine={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
+              onChangeLineQuantity={(m, quantity) => run(async () => { await updateMaterial(wo.id, m, { quantity }); await refreshWorkOrder(); })}
+              onChangeLineLabel={(m, label) => run(async () => { await updateMaterial(wo.id, m, { label }); await refreshWorkOrder(); })}
+              onUploadPhoto={(taskId, kind, file) => run(async () => { setWo(await uploadTaskPhoto(wo.id, taskId, kind, file)); })}
+              onDeletePhoto={(taskId, key) => run(async () => { setWo(await deleteTaskPhoto(wo.id, taskId, key)); })}
             />
 
             <PreJobPanel
@@ -225,22 +227,6 @@ export function WorkOrderDetail() {
                 run(async () => {
                   setWo(await dispatchWorkOrder(wo.id));
                   setToast(t("workOrderDetail.prejob.dispatchedToast"));
-                })
-              }
-            />
-
-            <PhotosPanel
-              workOrder={wo}
-              canWrite={canWrite && !finished}
-              busy={busy}
-              onUpload={(taskId, kind, file) =>
-                run(async () => {
-                  setWo(await uploadTaskPhoto(wo.id, taskId, kind, file));
-                })
-              }
-              onDelete={(taskId, key) =>
-                run(async () => {
-                  setWo(await deleteTaskPhoto(wo.id, taskId, key));
                 })
               }
             />
