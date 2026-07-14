@@ -2,17 +2,14 @@ import { Router } from "express";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
-import { BadRequest, Conflict, Forbidden, NotFound } from "../../lib/httpError.js";
+import { Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { resolveHidePrices } from "../../lib/orgPricing.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
-import { canSeePrices, materialCategories, type UserRole } from "@opero/shared";
+import { canSeePrices, type UserRole } from "@opero/shared";
 import {
-  createMaterialSchema,
-  updateMaterialSchema,
-  updateInventorySchema,
   createArticleSchema,
   updateArticleSchema,
   createWorkTypeSchema,
@@ -20,14 +17,14 @@ import {
   createMaterialOrderSchema,
 } from "./schema.js";
 import {
-  materialDto,
-  materialListDto,
-  inventoryDto,
+  materialSummaryDto,
+  materialDetailDto,
+  variantSearchRowDto,
   articleDto,
   workTypeDto,
   materialOrderDto,
 } from "./dto.js";
-import { recomputeMaterialStock } from "./status.js";
+import { componentsMatching } from "./labels.js";
 
 export const materialsRouter = Router();
 
@@ -41,150 +38,6 @@ function assertCanRead(user: { role: string }) {
   if (user.role === "admin" || user.role === "technician") return;
   throw Forbidden("Not available");
 }
-
-// Category must be one of the ORG's managed categories (or omitted → DB default).
-// Case-insensitive match against the org's MaterialCategory list.
-async function assertValidCategory(orgId: string, category: string | undefined) {
-  if (category === undefined || category === "") return;
-  const exists = await prisma.materialCategory.findFirst({
-    where: { orgId, name: { equals: category, mode: "insensitive" } },
-    select: { id: true },
-  });
-  if (!exists) throw BadRequest("Invalid material category");
-}
-
-// ===========================================================================
-// IMPORTANT — Express route ordering:
-// The literal sub-resource paths (/articles, /work-types, /orders) MUST be
-// registered BEFORE the parameterized /:id routes, otherwise a request to
-// e.g. GET /articles would match GET /:id with id="articles". Sub-resources
-// come first below.
-// ===========================================================================
-
-// GET /categories — the org's managed material categories (admin + technician).
-// Returns { id, name, count } (count = materials using it), sorted by sortOrder
-// then name. `count` powers the manager's in-use guard.
-materialsRouter.get(
-  "/categories",
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    assertCanRead(user);
-    const [rows, usage] = await Promise.all([
-      prisma.materialCategory.findMany({
-        where: { orgId: user.orgId },
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        select: { id: true, name: true },
-      }),
-      prisma.material.groupBy({
-        by: ["category"],
-        where: { orgId: user.orgId, deletedAt: null },
-        _count: { _all: true },
-      }),
-    ]);
-    const countByName = new Map(usage.map((u) => [u.category, u._count._all]));
-    res.json(rows.map((r) => ({ ...r, count: countByName.get(r.name) ?? 0 })));
-  }),
-);
-
-// POST /categories — admin. Create a category. Case-insensitive dedupe → 409.
-materialsRouter.post(
-  "/categories",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const name = clampText(String(req.body?.name ?? "")).trim();
-    if (!name) throw BadRequest("Category name is required");
-    const existing = await prisma.materialCategory.findFirst({
-      where: { orgId: user.orgId, name: { equals: name, mode: "insensitive" } },
-      select: { id: true },
-    });
-    if (existing) throw Conflict("A category with this name already exists");
-    const created = await prisma.$transaction(async (tx) => {
-      const max = await tx.materialCategory.aggregate({
-        where: { orgId: user.orgId },
-        _max: { sortOrder: true },
-      });
-      const cat = await tx.materialCategory.create({
-        data: { orgId: user.orgId, name, sortOrder: (max._max.sortOrder ?? -1) + 1 },
-      });
-      await audit(tx, user, "materialCategory.create", "materialCategory", cat.id, { name });
-      return cat;
-    });
-    res.status(201).json({ id: created.id, name: created.name });
-  }),
-);
-
-// PATCH /categories/:id — admin. Rename. Materials store the category NAME, so a
-// rename bulk-updates every material using the old name (same transaction).
-materialsRouter.patch(
-  "/categories/:id",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const name = clampText(String(req.body?.name ?? "")).trim();
-    if (!name) throw BadRequest("Category name is required");
-    const cat = await prisma.materialCategory.findFirst({
-      where: { id: req.params.id, orgId: user.orgId },
-    });
-    if (!cat) throw NotFound("Category not found");
-    // Dedupe against OTHER categories (allow renaming to the same casing).
-    const clash = await prisma.materialCategory.findFirst({
-      where: {
-        orgId: user.orgId,
-        name: { equals: name, mode: "insensitive" },
-        NOT: { id: cat.id },
-      },
-      select: { id: true },
-    });
-    if (clash) throw Conflict("A category with this name already exists");
-    const updated = await prisma.$transaction(async (tx) => {
-      const c = await tx.materialCategory.update({
-        where: { id: cat.id },
-        data: { name },
-      });
-      // Cascade the rename to materials that reference the old name.
-      if (cat.name !== name) {
-        await tx.material.updateMany({
-          where: { orgId: user.orgId, category: cat.name },
-          data: { category: name },
-        });
-      }
-      await audit(tx, user, "materialCategory.rename", "materialCategory", c.id, {
-        from: cat.name,
-        to: name,
-      });
-      return c;
-    });
-    res.json({ id: updated.id, name: updated.name });
-  }),
-);
-
-// DELETE /categories/:id — admin. Blocked (409) if any material uses it; the
-// response carries the in-use count so the UI can explain / prompt reassignment.
-materialsRouter.delete(
-  "/categories/:id",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const cat = await prisma.materialCategory.findFirst({
-      where: { id: req.params.id, orgId: user.orgId },
-    });
-    if (!cat) throw NotFound("Category not found");
-    const inUse = await prisma.material.count({
-      where: { orgId: user.orgId, category: cat.name, deletedAt: null },
-    });
-    if (inUse > 0) {
-      throw Conflict(`Category is used by ${inUse} material(s)`);
-    }
-    await prisma.$transaction(async (tx) => {
-      await tx.materialCategory.delete({ where: { id: cat.id } });
-      await audit(tx, user, "materialCategory.delete", "materialCategory", cat.id, {
-        name: cat.name,
-      });
-    });
-    res.status(204).end();
-  }),
-);
 
 // --- Articles (catalog) ---------------------------------------------------
 
@@ -436,256 +289,130 @@ materialsRouter.patch(
   }),
 );
 
+
 // ===========================================================================
-// Materials + inventory — parameterized /:id routes registered LAST so the
-// literal paths above take precedence.
+// Materials catalog — THE material entities (class-grouped), their variants
+// and the flat search. Read-only (data is seeded from @opero/shared).
+// Literal paths (/suppliers, /variants) BEFORE the parameterized /:id route.
 // ===========================================================================
 
-// The stock-status buckets shown as filter chips + count pills on the list.
-const MATERIAL_STOCK_STATUSES = ["ok", "low", "out_of_stock"] as const;
+// Class display order: how the four kinds appear in the catalog.
+const CLASS_ORDER = ["insulation", "fitting", "tank", "cladding"] as const;
 
-// GET /?cursor=&limit=&search=&filter= — cursor-paginated, server-searched
-// (name/category/supplier) and server-filtered by the denormalized stockStatus.
-// Returns { items, nextCursor, counts } where counts is the per-status totals
-// across the WHOLE (org-scoped + searched) set, so the count pills stay accurate
-// no matter how many pages are loaded.
+// GET / — the catalog grouped by material class. Summaries only (no variant
+// payloads): name, supplier, size range, variant count.
 materialsRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     assertCanRead(user);
-    const { limit, cursor, search } = parsePageParams(req);
-    const stockFilter =
-      typeof req.query.filter === "string" &&
-      (MATERIAL_STOCK_STATUSES as readonly string[]).includes(req.query.filter)
-        ? req.query.filter
-        : undefined;
-
-    // Base filter (shared by counts + the page query). Search matches name,
-    // category and the linked inventory's supplier.
-    const baseWhere: Prisma.MaterialWhereInput = {
-      orgId: user.orgId,
-      deletedAt: null,
-    };
-    if (search) {
-      const ci = { contains: search, mode: "insensitive" as const };
-      baseWhere.OR = [
-        { name: ci },
-        { category: ci },
-        { inventory: { is: { supplier: ci } } },
-      ];
-    }
-
-    // Per-status counts across the whole scoped+searched set (not just the page).
-    const grouped = await prisma.material.groupBy({
-      by: ["stockStatus"],
-      where: baseWhere,
-      _count: { _all: true },
+    const rows = await prisma.material.findMany({
+      where: { orgId: user.orgId },
+      orderBy: { ordinal: "asc" },
+      include: { variants: { select: { size: true } } },
     });
-    const counts: Record<string, number> = { total: 0 };
-    for (const s of MATERIAL_STOCK_STATUSES) counts[s] = 0;
-    for (const g of grouped) {
-      counts[g.stockStatus] = g._count._all;
-      counts.total += g._count._all;
-    }
+    const groups = CLASS_ORDER.map((cls) => ({
+      class: cls,
+      materials: rows.filter((m) => m.class === cls).map(materialSummaryDto),
+    })).filter((g) => g.materials.length > 0);
+    res.json(groups);
+  }),
+);
 
-    // The page itself: apply the stock-status filter on top of the base filter.
-    const pageWhere: Prisma.MaterialWhereInput = stockFilter
-      ? { AND: [baseWhere, { stockStatus: stockFilter }] }
-      : baseWhere;
+// GET /suppliers — distinct supplier names for the org (filter chips).
+materialsRouter.get(
+  "/suppliers",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    assertCanRead(user);
+    const rows = await prisma.material.findMany({
+      where: { orgId: user.orgId },
+      orderBy: { ordinal: "asc" },
+      select: { supplier: true },
+    });
+    const seen = new Set<string>();
+    res.json(
+      rows.map((r) => r.supplier).filter((s) => {
+        if (seen.has(s)) return false;
+        seen.add(s);
+        return true;
+      }),
+    );
+  }),
+);
 
-    const page = await paginate({ limit, cursor, search }, (args) =>
-      prisma.material.findMany({
-        where: pageWhere,
-        include: { inventory: true },
-        orderBy: [{ name: "asc" }, { id: "asc" }],
+// GET /variants — the FLAT, searchable catalog: one row per variant across all
+// the org's materials. Paginated (cursor). Optional ?supplier= filter and
+// ?search= (each word AND-matched against material name, size, OR a component
+// by its Dutch/English label — so "bocht 60" narrows to elbows at Ø60).
+// Prices stripped for technicians.
+materialsRouter.get(
+  "/variants",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    assertCanRead(user);
+    const params = parsePageParams(req);
+    const supplier = String(req.query.supplier ?? "").trim();
+
+    const words = params.search.split(/\s+/).filter(Boolean);
+    const where: Prisma.MaterialVariantWhereInput = {
+      material: {
+        orgId: user.orgId,
+        ...(supplier ? { supplier } : {}),
+      },
+      ...(words.length
+        ? {
+            AND: words.map((w) => {
+              const comps = componentsMatching(w);
+              return {
+                OR: [
+                  { material: { name: { contains: w, mode: "insensitive" as const } } },
+                  { size: { contains: w, mode: "insensitive" as const } },
+                  ...(comps.length ? [{ component: { in: comps } }] : []),
+                ],
+              };
+            }),
+          }
+        : {}),
+    };
+
+    const page = await paginate(params, (args) =>
+      prisma.materialVariant.findMany({
+        where,
+        // Stable order: material document order, then variant order, then id.
+        orderBy: [
+          { material: { ordinal: "asc" } },
+          { ordinal: "asc" },
+          { id: "asc" },
+        ],
+        include: { material: true },
         ...args,
       }),
     );
 
-    // Prices are admin-only (stripped for technicians, per the org's hide-prices).
     const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
     const showPrices = canSeePrices(user.role as UserRole, hidePrices);
-
     res.json({
-      items: page.items.map((m) => materialListDto(m, showPrices)),
+      items: page.items.map((v) => variantSearchRowDto(v, showPrices)),
       nextCursor: page.nextCursor,
-      counts,
     });
   }),
 );
 
-// GET /:id — admin + technician read; client 403.
+// GET /:id — one material with its full variant set. Prices stripped for
+// technicians when the org hides prices from them.
 materialsRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     assertCanRead(user);
-    const row = await prisma.material.findFirst({
-      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-      include: { inventory: true },
-    });
-    if (!row) throw NotFound("Material not found");
-    res.json(materialDto(row));
-  }),
-);
-
-// POST / — admin only. Also create the Inventory row if inventory fields given.
-materialsRouter.post(
-  "/",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = createMaterialSchema.parse(req.body);
-    await assertValidCategory(user.orgId, input.category);
-    const created = await prisma.$transaction(async (tx) => {
-      const m = await tx.material.create({
-        data: {
-          orgId: user.orgId,
-          name: clampText(input.name),
-          unit: clampText(input.unit),
-          ...(input.category ? { category: clampText(input.category) } : {}),
-          ...(input.unitPrice !== undefined ? { unitPrice: clampNumber(input.unitPrice) } : {}),
-        },
-      });
-      await audit(tx, user, "material.create", "material", m.id, { name: m.name });
-
-      // Seed the linked Inventory row when any inventory field is supplied.
-      const hasInventory =
-        input.quantityInStock !== undefined ||
-        input.supplier !== undefined ||
-        input.reorderPoint !== undefined;
-      let inventory = null;
-      if (hasInventory) {
-        inventory = await tx.inventory.create({
-          data: {
-            materialId: m.id,
-            materialName: m.name,
-            quantityInStock: clampNumber(input.quantityInStock),
-            unit: m.unit,
-            supplier: input.supplier ? clampText(input.supplier) : "",
-            reorderPoint: clampNumber(input.reorderPoint),
-          },
-        });
-        await audit(tx, user, "inventory.create", "inventory", inventory.id);
-      }
-      // Seed the denormalized stockStatus from whatever inventory was created.
-      await recomputeMaterialStock(tx, m.id);
-      return { ...m, inventory };
-    });
-    res.status(201).json(materialDto(created));
-  }),
-);
-
-// PATCH /:id — admin only.
-materialsRouter.patch(
-  "/:id",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = updateMaterialSchema.parse(req.body);
-    await assertValidCategory(user.orgId, input.category);
-    const existing = await prisma.material.findFirst({
-      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-    });
-    if (!existing) throw NotFound("Material not found");
-    const updated = await prisma.$transaction(async (tx) => {
-      const m = await tx.material.update({
-        where: { id: existing.id },
-        data: {
-          name: input.name !== undefined ? clampText(input.name) : undefined,
-          unit: input.unit !== undefined ? clampText(input.unit) : undefined,
-          category:
-            input.category !== undefined ? clampText(input.category) : undefined,
-          unitPrice:
-            input.unitPrice !== undefined ? clampNumber(input.unitPrice) : undefined,
-        },
-        include: { inventory: true },
-      });
-      await audit(tx, user, "material.update", "material", m.id, input);
-      return m;
-    });
-    res.json(materialDto(updated));
-  }),
-);
-
-// DELETE /:id — admin only, soft delete.
-materialsRouter.delete(
-  "/:id",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const existing = await prisma.material.findFirst({
-      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-    });
-    if (!existing) throw NotFound("Material not found");
-    await prisma.$transaction(async (tx) => {
-      await tx.material.update({
-        where: { id: existing.id },
-        data: { deletedAt: new Date() },
-      });
-      await audit(tx, user, "material.delete", "material", existing.id);
-    });
-    res.status(204).end();
-  }),
-);
-
-// PATCH /:id/inventory — admin only. Update the linked Inventory row.
-materialsRouter.patch(
-  "/:id/inventory",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = updateInventorySchema.parse(req.body);
     const material = await prisma.material.findFirst({
-      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-      include: { inventory: true },
+      where: { id: req.params.id, orgId: user.orgId },
+      include: { variants: { orderBy: { ordinal: "asc" } } },
     });
     if (!material) throw NotFound("Material not found");
-    const updated = await prisma.$transaction(async (tx) => {
-      // Upsert: create the inventory row if this material doesn't have one yet
-      // (so stock can be set on a material that was created without it).
-      if (!material.inventory) {
-        const inv = await tx.inventory.create({
-          data: {
-            materialId: material.id,
-            materialName: material.name,
-            unit: input.unit ? clampText(input.unit) : material.unit,
-            quantityInStock:
-              input.quantityInStock !== undefined
-                ? clampNumber(input.quantityInStock)
-                : 0,
-            supplier: input.supplier ? clampText(input.supplier) : "",
-            reorderPoint:
-              input.reorderPoint !== undefined
-                ? clampNumber(input.reorderPoint)
-                : 0,
-          },
-        });
-        await audit(tx, user, "inventory.create", "inventory", inv.id, input);
-        await recomputeMaterialStock(tx, material.id);
-        return inv;
-      }
-      const inv = await tx.inventory.update({
-        where: { id: material.inventory.id },
-        data: {
-          quantityInStock:
-            input.quantityInStock !== undefined
-              ? clampNumber(input.quantityInStock)
-              : undefined,
-          supplier:
-            input.supplier !== undefined ? clampText(input.supplier) : undefined,
-          reorderPoint:
-            input.reorderPoint !== undefined
-              ? clampNumber(input.reorderPoint)
-              : undefined,
-          unit: input.unit !== undefined ? clampText(input.unit) : undefined,
-        },
-      });
-      await audit(tx, user, "inventory.update", "inventory", inv.id, input);
-      await recomputeMaterialStock(tx, material.id);
-      return inv;
-    });
-    res.json(inventoryDto(updated));
+    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
+    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+    res.json(materialDetailDto(material, showPrices));
   }),
 );

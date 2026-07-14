@@ -1,39 +1,8 @@
 import { z } from "zod";
 
 // Local request schemas for the materials module. Kept module-local (not in
-// @opero/shared) per task scope.
-
-// --- Materials + inventory ------------------------------------------------
-
-// On create, the optional inventory fields seed the linked Inventory row.
-export const createMaterialSchema = z.object({
-  name: z.string().min(1),
-  unit: z.string().min(1),
-  category: z.string().optional(),
-  unitPrice: z.number().optional(),
-  quantityInStock: z.number().optional(),
-  supplier: z.string().optional(),
-  reorderPoint: z.number().optional(),
-});
-export type CreateMaterialRequest = z.infer<typeof createMaterialSchema>;
-
-export const updateMaterialSchema = z
-  .object({
-    name: z.string().min(1),
-    unit: z.string().min(1),
-    category: z.string(),
-    unitPrice: z.number(),
-  })
-  .partial();
-export type UpdateMaterialRequest = z.infer<typeof updateMaterialSchema>;
-
-export const updateInventorySchema = z.object({
-  quantityInStock: z.number().optional(),
-  supplier: z.string().optional(),
-  reorderPoint: z.number().optional(),
-  unit: z.string().optional(),
-});
-export type UpdateInventoryRequest = z.infer<typeof updateInventorySchema>;
+// @opero/shared) per task scope. The materials CATALOG itself is read-only
+// (seeded from @opero/shared) — no create/update schemas for it.
 
 // --- Articles (catalog) ---------------------------------------------------
 

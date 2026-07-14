@@ -10,11 +10,10 @@ import { prisma } from "./client.js";
 import {
   mockCustomers,
   mockTeamMembers,
-  mockMaterials,
-  mockInventory,
   mockProjects,
   catalogItems,
   projectTypes,
+  supplierMaterials,
   type QuoteLineItem,
   type MaterialRequirement,
   type PlanningItem,
@@ -70,8 +69,8 @@ async function main() {
     // catalog / werksoort
     prisma.article.deleteMany({}),
     prisma.workType.deleteMany({}),
-    // inventory before material (FK)
-    prisma.inventory.deleteMany({}),
+    // materials catalog (variants → materials, FK order)
+    prisma.materialVariant.deleteMany({}),
     prisma.material.deleteMany({}),
     // users before customers/employees (FK), and before org
     prisma.user.deleteMany({}),
@@ -159,50 +158,6 @@ async function main() {
     id && employeeIds.has(id) ? id : null;
 
   // -----------------------------------------------------------------------
-  // 5. Materials + Inventory (keep ids)
-  // -----------------------------------------------------------------------
-  // Seed the org's managed material categories (the list behind the dropdown).
-  const defaultCategories = [
-    "insulation",
-    "fastening",
-    "foil",
-    "sealing",
-    "tools",
-    "floor_insulation",
-    "other",
-  ];
-  for (let i = 0; i < defaultCategories.length; i++) {
-    await prisma.materialCategory.create({
-      data: { orgId, name: defaultCategories[i], sortOrder: i },
-    });
-  }
-  for (const m of mockMaterials) {
-    // Derive a category KEY from the material name (i18n-translated in the UI).
-    const n = m.name.toLowerCase();
-    const category = /folie/.test(n)
-      ? "foil"
-      : /schroef|plug|beugel|bevestig/.test(n)
-        ? "fastening"
-        : "insulation";
-    await prisma.material.create({
-      data: { id: m.id, orgId, name: m.name, unit: m.unit, category },
-    });
-  }
-  for (const inv of mockInventory) {
-    await prisma.inventory.create({
-      data: {
-        id: inv.id,
-        materialId: inv.materialId,
-        materialName: inv.materialName,
-        quantityInStock: inv.quantityInStock,
-        unit: inv.unit,
-        supplier: inv.supplier,
-        reorderPoint: inv.reorderPoint,
-      },
-    });
-  }
-
-  // -----------------------------------------------------------------------
   // 6. Articles (catalog) — keep ids; category → CatalogCategory enum
   // -----------------------------------------------------------------------
   for (const item of catalogItems) {
@@ -216,6 +171,46 @@ async function main() {
         unitPrice: item.unitPrice,
         defaultQuantity: item.defaultQuantity,
       },
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // 6b. Materials catalog — THE material entities from the supplier documents
+  //     (Merwede 2026-2029, Ezron 2025, AF5/AF6 adjusted). Data in
+  //     @opero/shared (shared/src/materials.ts); one Material per product with
+  //     its price provenance, one MaterialVariant per priced size × component.
+  // -----------------------------------------------------------------------
+  for (let m = 0; m < supplierMaterials.length; m++) {
+    const mat = supplierMaterials[m];
+    const created = await prisma.material.create({
+      data: {
+        orgId,
+        key: mat.key,
+        name: mat.name,
+        class: mat.class,
+        supplier: mat.supplier,
+        pipeMaterial: mat.pipeMaterial ?? null,
+        thicknessMm: mat.thicknessMm ?? null,
+        finish: mat.finish ?? null,
+        sizeUnit: mat.sizeUnit,
+        note: mat.note ?? null,
+        priceSource: mat.priceSource,
+        priceValidFrom: mat.priceValidFrom ? new Date(mat.priceValidFrom) : null,
+        priceValidTo: mat.priceValidTo ? new Date(mat.priceValidTo) : null,
+        priceNote: mat.priceNote ?? null,
+        ordinal: m,
+      },
+    });
+    await prisma.materialVariant.createMany({
+      data: mat.variants.map((v, idx) => ({
+        materialId: created.id,
+        size: v.size,
+        component: v.component,
+        thicknessMm: v.thicknessMm ?? null,
+        unit: v.unit,
+        unitPrice: v.unitPrice,
+        ordinal: idx,
+      })),
     });
   }
 
@@ -613,6 +608,7 @@ async function main() {
     customers,
     employees,
     materials,
+    materialVariants,
     articles,
     workTypes,
     projects,
@@ -621,6 +617,7 @@ async function main() {
     prisma.customer.count(),
     prisma.employee.count(),
     prisma.material.count(),
+    prisma.materialVariant.count(),
     prisma.article.count(),
     prisma.workType.count(),
     prisma.project.count(),
@@ -632,6 +629,7 @@ async function main() {
     customers,
     employees,
     materials,
+    materialVariants,
     articles,
     workTypes,
     projects,

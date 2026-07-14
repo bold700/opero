@@ -132,6 +132,35 @@ enum ExtraWorkRejectedBy {
   client
 }
 
+// What class of object a catalog material is — the four real kinds found in the
+// supplier documents, each priced on its own axis (Dutch labels via i18n:
+// Isolatie, Hulpstukken, Buffervaten, Plaatwerk).
+enum MaterialClass {
+  insulation // pipe insulation, per Ø per meter (+ insulated fittings as variants)
+  fitting // fittings-only products (Victaulic hulpstukken)
+  tank // buffer vessels, priced per liter
+  cladding // sheet-metal finishing / ducts, per Ø or m2
+}
+
+// What a material VARIANT is: a running metre, a specific insulated fitting,
+// a vessel, or an area rate (Dutch labels via i18n: bocht, koppeling, T-stuk,
+// draadappendage, flens, afsluiter, pomp, spirovent, verloop, alu-kap, buffervat).
+enum MaterialComponent {
+  meter // per running metre
+  elbow
+  coupling
+  tee
+  threaded_fitting
+  flange
+  valve
+  pump
+  air_separator
+  reducer
+  alu_cap
+  buffer_vessel
+  area // per m2 flat rate
+}
+
 // ---------------------------------------------------------------------------
 // Tenant + auth
 // ---------------------------------------------------------------------------
@@ -146,6 +175,12 @@ model Organization {
   city       String?
   phone      String?
   vatNumber  String?
+  // Additional letterhead details for customer-facing documents (quote PDF):
+  // bank account, chamber-of-commerce number, and website.
+  iban       String?
+  bic        String?
+  kvkNumber  String?
+  website    String?
   // Org-wide privacy: when true, technicians do NOT see prices. Default true
   // preserves today's behavior (technicians never saw prices); admins can flip
   // it off to let technicians see amounts on work orders.
@@ -160,26 +195,8 @@ model Organization {
   projects     Project[]
   articles     Article[]
   workTypes    WorkType[]
-  materialCategories MaterialCategory[]
   materialOrders MaterialOrder[]
   auditLogs    AuditLog[]
-}
-
-// A per-org, user-managed material category (the list behind the Materials
-// category dropdown). Replaces the old hardcoded global enum: each org defines
-// its own. Materials store the category NAME (string), so rename does a bulk
-// update of matching materials — see the materials routes.
-model MaterialCategory {
-  id        String   @id @default(uuid())
-  orgId     String
-  name      String
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-
-  org Organization @relation(fields: [orgId], references: [id])
-
-  @@unique([orgId, name])
-  @@index([orgId])
 }
 
 model User {
@@ -382,46 +399,71 @@ model Employee {
 }
 
 // ---------------------------------------------------------------------------
-// Materials, inventory, orders (types.ts Material + InventoryItem + PurchaseList)
+// Materials — THE catalog entity. A Material is a real product the company
+// installs (e.g. "AF/Armaflex AF/2 13 mm", "Steenwolschalen", a buffervat, a
+// cladding product). Its concrete purchasable items are MaterialVariants
+// (size × component), each carrying ITS price. The supplier price list is NOT
+// an entity — it's demoted to price-provenance attributes on the material.
+// Seed data: shared/src/materials.ts. Read-only catalog for now.
 // ---------------------------------------------------------------------------
 
 model Material {
-  id        String    @id @default(uuid())
-  orgId     String
-  name      String
-  unit      String
-  category  String    @default("other")
-  // Unit price for this material — prefilled onto a werkbon material line when
-  // picked. Admin-only: stripped from DTOs for technicians (canSeePrices).
-  unitPrice Float     @default(0)
-  // Denormalized stock status ("ok" | "low" | "out_of_stock"), derived from the
-  // linked inventory's quantityInStock vs reorderPoint (out_of_stock when there's
-  // no inventory row). Kept in sync by recomputeMaterialStock() so the list can
-  // filter/count/paginate on a real column instead of computing in app code.
-  stockStatus String  @default("out_of_stock")
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String        @id @default(uuid())
+  orgId        String
+  // Stable english identifier, e.g. "af_armaflex_af2_13".
+  key          String
+  // Display/trade name (business data, typically the supplier's Dutch name).
+  name         String
+  class        MaterialClass
+  supplier     String
+  // Physical attributes (nullable — not every class has them).
+  thicknessMm  Int? // fixed product thickness; null when it varies per variant
+  pipeMaterial String? // "steel" | "copper" | "pvc"
+  finish       String? // "none" | "white_pvc" | "reinforced_alu_foil"
+  // What a variant's `size` means: "pipe_od_mm" | "pipe_dia_mm" | "tank_liters" | "flat".
+  sizeUnit     String
+  note         String?
+  // Price provenance — where the current prices came from and how long they hold.
+  priceSource    String? // e.g. "Prijslijst Merwede 2026-2029"
+  priceValidFrom DateTime?
+  priceValidTo   DateTime?
+  priceNote      String? // e.g. indexation clause
+  // Document order for stable display.
+  ordinal      Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  org       Organization @relation(fields: [orgId], references: [id])
-  inventory Inventory?
+  org      Organization      @relation(fields: [orgId], references: [id])
+  variants MaterialVariant[]
 
+  @@unique([orgId, key])
   @@index([orgId])
-  @@index([stockStatus])
 }
 
-model Inventory {
-  id              String   @id @default(uuid())
-  materialId      String   @unique
-  materialName    String
-  quantityInStock Int
-  unit            String
-  supplier        String
-  reorderPoint    Int
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+// A concrete purchasable item of a material: one size × component combination
+// (e.g. Ø22 elbow of AF/2), with ITS unit price.
+model MaterialVariant {
+  id          String            @id @default(uuid())
+  materialId  String
+  // Size row key as printed in the source: "17".."324" (Ø mm), "150".."2500"
+  // (liters), or "flat". String — combined sizes like "21/22" exist.
+  size        String
+  component   MaterialComponent
+  // Column thickness where the source varies it (Kooltherm 15–80, steenwol
+  // 25–50, Victaulic 13/19); null when the material has one fixed thickness.
+  thicknessMm Int?
+  // "m" | "piece" | "m2"
+  unit        String
+  // EUR excluding VAT — the price is an attribute of the variant.
+  unitPrice   Float
+  // Source row/column order for stable display.
+  ordinal     Int
 
-  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  material      Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  taskMaterials TaskMaterial[]
+
+  @@unique([materialId, size, component, thicknessMm])
+  @@index([materialId])
 }
 
 // Combines spec "Create Order" with the store PurchaseList.
@@ -660,6 +702,10 @@ model WorkOrder {
   // recomputeWorkOrderStatus() so the list endpoint can filter/count/paginate on a
   // real indexed column instead of computing over the whole table in app code.
   listStatus         String        @default("open")
+  // Customer-facing quote (offerte) document identity — assigned on the first
+  // quote-PDF export and stable afterwards. Format YYYYNNNN (e.g. 20260063).
+  quoteNumber        String?
+  quoteDate          DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -713,10 +759,16 @@ model TaskMaterial {
   done         Boolean @default(false)
   note         String?
   ordinal      Int     @default(0)
+  // Set when the line was picked from the materials catalog — traces the line
+  // back to its variant. Null for free-text lines; kept (SetNull) if the
+  // variant is ever removed.
+  variantId    String?
 
-  task WorkOrderTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task    WorkOrderTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  variant MaterialVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
   @@index([taskId])
+  @@index([variantId])
 }
 
 // ---------------------------------------------------------------------------

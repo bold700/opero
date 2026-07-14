@@ -2,7 +2,6 @@ import type { UserRole } from "@opero/shared";
 import WorkOrderIcon from "@mui/icons-material/Assignment";
 import CustomerIcon from "@mui/icons-material/Groups";
 import EmployeeIcon from "@mui/icons-material/Badge";
-import MaterialIcon from "@mui/icons-material/Inventory2";
 import PlanningIcon from "@mui/icons-material/CalendarMonth";
 import type { SvgIconComponent } from "@mui/icons-material";
 
@@ -28,7 +27,6 @@ export const QUICK_CREATE_ACTIONS: QuickCreateAction[] = [
   { key: "planning", icon: PlanningIcon, route: "/planning?create=1", roles: ["admin"] },
   { key: "customer", icon: CustomerIcon, route: "/customers?create=1", roles: ["admin"] },
   { key: "employee", icon: EmployeeIcon, route: "/employees?create=1", roles: ["admin"] },
-  { key: "material", icon: MaterialIcon, route: "/materials?create=1", roles: ["admin"] },
 ];
 
 export function quickCreateActionsForRole(role: UserRole): QuickCreateAction[] {

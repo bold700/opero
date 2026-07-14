@@ -27,7 +27,8 @@
     "signedBy": "by {{name}}",
     "finish": "Complete work order",
     "exportPdf": "Export PDF",
-    "defaultTitle": "Work order {{n}}"
+    "defaultTitle": "Work order {{n}}",
+    "exportQuote": "Export quote"
   },
   "photos": {
     "title": "Photos",
@@ -101,5 +102,12 @@
     "drawLabel": "Signature",
     "clear": "Clear",
     "confirm": "Complete"
+  },
+  "addMaterialDialog": {
+    "title": "Add material",
+    "material": "Material",
+    "component": "Part",
+    "quantity": "Quantity",
+    "add": "Add"
   }
 }

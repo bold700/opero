@@ -6,6 +6,7 @@ import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
+import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { URGENCY } from "../constants";
@@ -19,22 +20,29 @@ export function DetailHeader({
   workOrder,
   project,
   canFinish,
+  canExportQuote,
   finished,
   busy,
   exporting,
+  exportingQuote,
   onBack,
   onFinish,
   onExportPdf,
+  onExportQuotePdf,
 }: {
   workOrder: WorkOrder;
   project: Project;
   canFinish: boolean;
+  /** Admin-only: the quote (offerte) PDF is a commercial document with prices. */
+  canExportQuote: boolean;
   finished: boolean;
   busy: boolean;
   exporting: boolean;
+  exportingQuote: boolean;
   onBack: () => void;
   onFinish: () => void;
   onExportPdf: () => void;
+  onExportQuotePdf: () => void;
 }) {
   const { t } = useTranslation();
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
@@ -106,6 +114,24 @@ export function DetailHeader({
           >
             {t("workOrderDetail.header.exportPdf")}
           </Button>
+          {/* Export as a customer-facing quote (offerte) PDF — admin only. */}
+          {canExportQuote ? (
+            <Button
+              variant="outlined"
+              startIcon={
+                exportingQuote ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <RequestQuoteOutlinedIcon />
+                )
+              }
+              onClick={onExportQuotePdf}
+              disabled={exportingQuote}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            >
+              {t("workOrderDetail.header.exportQuote")}
+            </Button>
+          ) : null}
           {canFinish && !finished ? (
             <Button
               variant="contained"

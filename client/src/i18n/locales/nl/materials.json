@@ -1,80 +1,61 @@
 {
   "title": "Materialen",
   "searchPlaceholder": "Zoek materiaal...",
-  "addMaterial": "Materiaal toevoegen",
   "empty": "Geen materialen gevonden.",
-  "viewAction": "bekijken",
   "filters": {
-    "all": "Alle",
-    "ok": "Voorraad OK",
-    "low": "Bijna op",
-    "outOfStock": "Uitverkocht"
-  },
-  "kpis": {
-    "totalItems": "Totaal items",
-    "low": "Bijna op",
-    "outOfStock": "Uitverkocht",
-    "stockOk": "Voorraad OK"
+    "allSuppliers": "Alle leveranciers"
   },
   "columns": {
-    "name": "Naam",
-    "category": "Categorie",
-    "unit": "Eenheid",
-    "unitPrice": "Prijs",
-    "stock": "Voorraad",
-    "minStock": "Min. voorraad",
-    "status": "Status",
-    "action": "Actie"
+    "name": "Omschrijving",
+    "supplier": "Leverancier",
+    "price": "Prijs",
+    "sizeRange": "Maten",
+    "variantCount": "Prijzen",
+    "component": "Onderdeel"
   },
-  "status": {
-    "ok": "OK",
-    "low": "Bijna op",
-    "outOfStock": "Uitverkocht"
-  },
-  "category": {
+  "class": {
     "insulation": "Isolatie",
-    "fastening": "Bevestiging",
-    "foil": "Folie",
-    "sealing": "Afdichting",
-    "tools": "Gereedschap",
-    "floor_insulation": "Bodemisolatie",
-    "other": "Overig"
+    "fitting": "Hulpstukken",
+    "tank": "Buffervaten",
+    "cladding": "Plaatwerk"
   },
-  "dialog": {
-    "newTitle": "Nieuw materiaal",
-    "editTitle": "Materiaal bewerken",
-    "name": "Naam",
-    "unit": "Eenheid",
-    "category": "Categorie",
-    "unitPrice": "Stukprijs",
-    "stock": "Voorraad",
-    "minStock": "Min. voorraad",
-    "supplier": "Leverancier"
+  "sizeUnit": {
+    "pipe_od_mm": "Ø (mm)",
+    "pipe_dia_mm": "Dia (mm)",
+    "tank_liters": "Inhoud (L)",
+    "flat": "Item"
   },
-  "delete": {
-    "title": "Materiaal verwijderen",
-    "body": "Weet je zeker dat je \"{{name}}\" wilt verwijderen?"
+  "component": {
+    "meter": "Per meter",
+    "elbow": "Bocht",
+    "coupling": "Koppeling",
+    "tee": "T-stuk",
+    "threaded_fitting": "Draadappendage",
+    "flange": "Flens",
+    "valve": "Afsluiter",
+    "pump": "Pomp",
+    "air_separator": "Spirovent",
+    "reducer": "Verloop",
+    "alu_cap": "Alu-kap",
+    "buffer_vessel": "Buffervat",
+    "area": "Per m²"
   },
-  "toast": {
-    "created": "Materiaal aangemaakt",
-    "updated": "Materiaal bijgewerkt",
-    "deleted": "Materiaal verwijderd",
-    "saveError": "Opslaan mislukt",
-    "deleteError": "Verwijderen mislukt"
+  "finish": {
+    "none": "Geen afwerking",
+    "white_pvc": "Wit PVC",
+    "reinforced_alu_foil": "Versterkte alufolie"
   },
-  "categoryManager": {
-    "open": "Categorieën",
-    "title": "Materiaalcategorieën",
-    "subtitle": "Beheer je categorieën. Hernoemen past elk materiaal in die categorie aan.",
-    "addNew": "+ Nieuwe categorie…",
-    "newName": "Categorienaam",
-    "add": "Categorie toevoegen",
-    "usedCount": "{{count}} materiaal",
-    "usedCount_other": "{{count}} materialen",
-    "inUseTooltip": "In gebruik — wijs deze materialen eerst opnieuw toe",
-    "empty": "Nog geen categorieën. Voeg hierboven je eerste toe.",
-    "createError": "Categorie aanmaken mislukt",
-    "renameError": "Categorie hernoemen mislukt",
-    "deleteError": "Categorie verwijderen mislukt"
+  "pipeMaterial": {
+    "steel": "Staal",
+    "copper": "Koper",
+    "pvc": "PVC"
+  },
+  "detail": {
+    "back": "Terug",
+    "thickness": "{{mm}} mm dik",
+    "priceSource": "Prijzen: {{source}}",
+    "validFrom": "geldig vanaf {{from}}",
+    "validRange": "geldig {{from}} – {{to}}",
+    "priceCount": "{{count}} prijzen"
   }
 }

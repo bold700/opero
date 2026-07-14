@@ -12,6 +12,7 @@ import { Customers } from "../features/customers/Customers";
 import { Planning } from "../features/planning/Planning";
 import { Employees } from "../features/employees/Employees";
 import { Materials } from "../features/materials/Materials";
+import { MaterialDetail } from "../features/materials/MaterialDetail";
 import { Reports } from "../features/reports/Reports";
 import { Timesheet } from "../features/timesheet/Timesheet";
 import { Users } from "../features/users/Users";
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
               { path: "/customers", element: <Customers /> },
               { path: "/employees", element: <Employees /> },
               { path: "/materials", element: <Materials /> },
+              { path: "/materials/:id", element: <MaterialDetail /> },
               { path: "/reports", element: <Reports /> },
               { path: "/timesheet", element: <Timesheet /> },
               { path: "/users", element: <Users /> },

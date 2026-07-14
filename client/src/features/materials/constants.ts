@@ -1,29 +1,91 @@
-import { STATUS_TONES, type StatusTone } from "../../theme/tokens";
-import type { StockStatus } from "./api";
+import type { MaterialClass, MaterialComponent, MaterialSizeUnit } from "./api";
 
-// English status value → i18n label key + tone. Translate labelKey at call sites.
-export const STATUS: Record<StockStatus, { labelKey: string; tone: StatusTone }> = {
-  ok: { labelKey: "materials.status.ok", tone: STATUS_TONES.success },
-  low: { labelKey: "materials.status.low", tone: STATUS_TONES.danger },
-  out_of_stock: { labelKey: "materials.status.outOfStock", tone: STATUS_TONES.danger },
+// Class display order — how the four kinds of catalog objects are grouped.
+export const CLASS_ORDER: MaterialClass[] = [
+  "insulation",
+  "fitting",
+  "tank",
+  "cladding",
+];
+
+export const CLASS_LABEL_KEYS: Record<MaterialClass, string> = {
+  insulation: "materials.class.insulation",
+  fitting: "materials.class.fitting",
+  tank: "materials.class.tank",
+  cladding: "materials.class.cladding",
 };
 
-// Stable English filter keys; translate labels at call sites.
-export type MaterialFilter = "all" | "ok" | "low" | "out_of_stock";
-export const FILTERS: MaterialFilter[] = ["all", "ok", "low", "out_of_stock"];
+// Variant/component order for pickers and detail tables — mirrors the source
+// documents' layout (meter first, then fittings left-to-right as printed).
+export const COMPONENT_ORDER: MaterialComponent[] = [
+  "meter",
+  "elbow",
+  "coupling",
+  "tee",
+  "threaded_fitting",
+  "flange",
+  "valve",
+  "pump",
+  "air_separator",
+  "reducer",
+  "alu_cap",
+  "buffer_vessel",
+  "area",
+];
 
-// i18n label key for a filter chip.
-export const FILTER_LABEL_KEYS: Record<MaterialFilter, string> = {
-  all: "materials.filters.all",
-  ok: "materials.filters.ok",
-  low: "materials.filters.low",
-  out_of_stock: "materials.filters.outOfStock",
+export const COMPONENT_LABEL_KEYS: Record<MaterialComponent, string> = {
+  meter: "materials.component.meter",
+  elbow: "materials.component.elbow",
+  coupling: "materials.component.coupling",
+  tee: "materials.component.tee",
+  threaded_fitting: "materials.component.threaded_fitting",
+  flange: "materials.component.flange",
+  valve: "materials.component.valve",
+  pump: "materials.component.pump",
+  air_separator: "materials.component.air_separator",
+  reducer: "materials.component.reducer",
+  alu_cap: "materials.component.alu_cap",
+  buffer_vessel: "materials.component.buffer_vessel",
+  area: "materials.component.area",
 };
 
-// Deterministic swatch color from the material name.
-const COLORS = ["#F59E0B", "#3B82F6", "#10B981", "#9333EA", "#14B8A6", "#EAB308", "#6B7280"];
-export function swatchColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return COLORS[hash % COLORS.length];
+// Header label of the size column, by what `size` means for the material.
+export const SIZE_UNIT_LABEL_KEYS: Record<MaterialSizeUnit, string> = {
+  pipe_od_mm: "materials.sizeUnit.pipe_od_mm",
+  pipe_dia_mm: "materials.sizeUnit.pipe_dia_mm",
+  tank_liters: "materials.sizeUnit.tank_liters",
+  flat: "materials.sizeUnit.flat",
+};
+
+// Material meta badge labels.
+export const FINISH_LABEL_KEYS: Record<string, string> = {
+  none: "materials.finish.none",
+  white_pvc: "materials.finish.white_pvc",
+  reinforced_alu_foil: "materials.finish.reinforced_alu_foil",
+};
+
+export const PIPE_MATERIAL_LABEL_KEYS: Record<string, string> = {
+  steel: "materials.pipeMaterial.steel",
+  copper: "materials.pipeMaterial.copper",
+  pvc: "materials.pipeMaterial.pvc",
+};
+
+// € formatting — nl-NL, 2 decimals (same style as the work-order lines).
+export function formatPrice(value: number): string {
+  return `€ ${value.toLocaleString("nl-NL", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+// "Ø 17–324" / "150–2500 L" — compact display of a material's size range.
+export function formatSizeRange(
+  sizeUnit: MaterialSizeUnit,
+  range?: { min: number; max: number },
+): string {
+  if (!range) return "—";
+  const span = range.min === range.max ? `${range.min}` : `${range.min}–${range.max}`;
+  if (sizeUnit === "tank_liters") return `${span} L`;
+  if (sizeUnit === "flat") return "—";
+  return `Ø ${span}`;
 }

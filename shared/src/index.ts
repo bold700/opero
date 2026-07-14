@@ -10,6 +10,9 @@ export * from "./types";
 export * from "./catalog";
 export * from "./mock-data";
 
+// Materials catalog (seed data for the Material/MaterialVariant entity model).
+export * from "./materials";
+
 // Pure domain logic: lifecycle stages, workflow predicates, pricing/derivation.
 export * from "./domain/stages";
 export * from "./domain/workflow";

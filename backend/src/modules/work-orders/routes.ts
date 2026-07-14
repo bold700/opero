@@ -29,7 +29,10 @@ import {
 } from "./dto.js";
 import { recomputeWorkOrderStatus } from "./status.js";
 import { buildWorkOrderPdf, type WorkOrderPdfData } from "./pdf.js";
+import { buildQuotePdf, type QuotePdfData } from "./quote-pdf.js";
+import { buildMaterialLineName, parseDiameter, LINE_UNIT_LABELS } from "../materials/labels.js";
 import {
+  addMaterialFromCatalogSchema,
   addMaterialSchema,
   createWorkOrderSchema,
   prejobCheckSchema,
@@ -397,6 +400,109 @@ workOrdersRouter.get(
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     await buildWorkOrderPdf(pdfData, { showPrices, org }, res);
+  }),
+);
+
+// How long a quote (offerte) stays valid, matching the org's paper documents.
+const QUOTE_VALIDITY_DAYS = 35;
+
+// Next quote number for the org: YYYYNNNN (e.g. 20260063). Same scan-the-max
+// approach as projectNumber generation (projects routes). WorkOrder has no
+// orgId, so scope via the parent project.
+async function nextQuoteNumber(orgId: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const existing = await prisma.workOrder.findMany({
+    where: { project: { orgId }, quoteNumber: { startsWith: String(year) } },
+    select: { quoteNumber: true },
+  });
+  let max = 0;
+  for (const { quoteNumber } of existing) {
+    const m = quoteNumber?.match(/^\d{4}(\d{4})$/);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `${year}${String(max + 1).padStart(4, "0")}`;
+}
+
+// GET /work-orders/:id/quote-pdf — the werkbon as a customer-facing quote
+// (offerte) PDF. ADMIN ONLY: it's a commercial document with prices always
+// shown. Assigns a stable quote number + date on first export. Registered
+// BEFORE "/:id" so it isn't swallowed by the param route.
+workOrdersRouter.get(
+  "/:id/quote-pdf",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await loadProjectForWorkOrder(user, req.params.id); // org scoping (404 if not)
+
+    const wb = await prisma.workOrder.findUnique({
+      where: { id: req.params.id },
+      include: {
+        ...workOrderInclude,
+        project: {
+          select: {
+            customerName: true,
+            address: true,
+            postalCode: true,
+            city: true,
+            customer: { select: { contactName: true } },
+          },
+        },
+      },
+    });
+    if (!wb) throw NotFound("Work order not found");
+
+    // First export assigns the document identity; later exports reuse it so the
+    // customer's copy never changes number.
+    let quoteNumber = wb.quoteNumber;
+    let quoteDate = wb.quoteDate;
+    if (!quoteNumber || !quoteDate) {
+      quoteNumber = quoteNumber ?? (await nextQuoteNumber(user.orgId));
+      quoteDate = quoteDate ?? new Date();
+      await prisma.$transaction(async (tx) => {
+        await tx.workOrder.update({
+          where: { id: wb.id },
+          data: { quoteNumber, quoteDate },
+        });
+        await audit(tx, user, "workOrder.quote.export", "workOrder", wb.id, {
+          quoteNumber,
+        });
+      });
+    }
+    const expiryDate = new Date(quoteDate.getTime() + QUOTE_VALIDITY_DAYS * 24 * 60 * 60 * 1000);
+
+    const org = await prisma.organization.findUniqueOrThrow({
+      where: { id: user.orgId },
+    });
+
+    const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
+    const pdfData: QuotePdfData = {
+      quoteNumber,
+      quoteDate,
+      expiryDate,
+      title: wb.title,
+      customer: {
+        name: wb.project.customerName,
+        contactName: wb.project.customer?.contactName || undefined,
+        address: wb.project.address || undefined,
+        postalCode: wb.project.postalCode || undefined,
+        city: wb.project.city || undefined,
+      },
+      groups: sortedTasks.map((t) => ({
+        heading: t.description,
+        lines: [...t.materials]
+          .sort((a, b) => a.ordinal - b.ordinal)
+          .map((m) => ({
+            quantity: m.quantity,
+            unit: m.unit,
+            name: m.name,
+            unitPrice: m.unitPrice,
+          })),
+      })),
+    };
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="offerte-${quoteNumber}.pdf"`);
+    await buildQuotePdf(pdfData, { org }, res);
   }),
 );
 
@@ -1113,6 +1219,63 @@ workOrdersRouter.post(
       }
       await audit(tx, user, "workOrder.material.add", "taskMaterial", mat.id);
       // unitPrice may have been seeded → keep quote amount in sync.
+      await recomputeQuoteAmount(tx, project.id);
+    });
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/tasks/:taskId/materials/from-catalog — add a line from
+// the materials catalog. Name/unit/unitPrice/diameter resolve SERVER-side from
+// the MaterialVariant: a technician's own API responses strip prices, so
+// client-side autofill would create priceless lines. The variant is org-scoped
+// via its parent material.
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/materials/from-catalog",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = addMaterialFromCatalogSchema.parse(req.body);
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { title: true },
+    });
+    const scope = taskScopeLabel(task, wb.title);
+
+    const variant = await prisma.materialVariant.findFirst({
+      where: { id: input.variantId, material: { orgId: user.orgId } },
+      include: { material: true },
+    });
+    if (!variant) throw NotFound("Material variant not found");
+
+    // Werkbon lines are the org's business data — compose the description in
+    // the org's document locale (nl) from the English-keyed label maps.
+    const name = buildMaterialLineName(variant.material, variant, "nl");
+    const unit = LINE_UNIT_LABELS[variant.unit]?.nl ?? variant.unit;
+
+    await prisma.$transaction(async (tx) => {
+      const count = await tx.taskMaterial.count({ where: { taskId: task.id } });
+      const mat = await tx.taskMaterial.create({
+        data: {
+          taskId: task.id,
+          name,
+          quantity: input.quantity !== undefined ? clampNumber(input.quantity) : 1,
+          unit,
+          unitPrice: variant.unitPrice,
+          diameter: parseDiameter(variant.material, variant),
+          variantId: variant.id,
+          onSite: false,
+          ordinal: count,
+        },
+      });
+      await appendActivity(tx, user, project.id, "material.addedTask", {
+        scope,
+        name,
+      });
+      await audit(tx, user, "workOrder.material.addFromCatalog", "taskMaterial", mat.id, {
+        variantId: variant.id,
+      });
       await recomputeQuoteAmount(tx, project.id);
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));

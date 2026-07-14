@@ -61,7 +61,11 @@
     "phone": "Telefoonnummer",
     "vat": "BTW / Belastingnummer",
     "saved": "Bedrijfsgegevens opgeslagen",
-    "saveError": "Opslaan mislukt"
+    "saveError": "Opslaan mislukt",
+    "iban": "IBAN",
+    "bic": "BIC",
+    "kvkNumber": "KVK-nummer",
+    "website": "Website"
   },
   "notifications": {
     "preferences": "Meldingsvoorkeuren",

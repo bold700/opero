@@ -13,15 +13,15 @@ import { SPACING } from "../../theme/tokens";
 import {
   getWorkOrder,
   exportWorkOrderPdf,
+  exportWorkOrderQuotePdf,
   getProject,
   getWorkTypes,
   getAssignableEmployees,
-  getMaterialsForPicker,
   addTask,
   updateTask,
   deleteTask,
   toggleTask,
-  addMaterial,
+  addMaterialFromCatalog,
   deleteMaterial,
   toggleMaterial,
   uploadTaskPhoto,
@@ -42,7 +42,6 @@ import {
   type NewExtraWork,
   type WorkTypeOption,
   type AssigneeOption,
-  type MaterialPickOption,
 } from "./api";
 import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
@@ -67,9 +66,9 @@ export function WorkOrderDetail() {
   const [project, setProject] = useState<Project | null>(null);
   const [workTypes, setWorkTypes] = useState<WorkTypeOption[]>([]);
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
-  const [materials, setMaterials] = useState<MaterialPickOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingQuote, setExportingQuote] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -83,7 +82,6 @@ export function WorkOrderDetail() {
       setProject(p);
       getWorkTypes().then(setWorkTypes).catch(() => setWorkTypes([]));
       getAssignableEmployees().then(setAssignees).catch(() => setAssignees([]));
-      getMaterialsForPicker().then(setMaterials).catch(() => setMaterials([]));
       return w;
     }, [id]),
     [id],
@@ -152,6 +150,20 @@ export function WorkOrderDetail() {
     }
   };
 
+  const handleExportQuotePdf = async () => {
+    setExportingQuote(true);
+    try {
+      // The server names the file after the assigned quote number via
+      // Content-Disposition; this is the client-side fallback name.
+      const filename = `offerte-${project.projectNumber}-${wo.ordinal + 1}.pdf`;
+      await exportWorkOrderQuotePdf(wo.id, filename);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("workOrderDetail.exportFailed"));
+    } finally {
+      setExportingQuote(false);
+    }
+  };
+
   return (
     <PageLayout title={t("workOrderDetail.title")}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
@@ -159,11 +171,14 @@ export function WorkOrderDetail() {
           workOrder={wo}
           project={project}
           canFinish={role === "admin" || role === "technician"}
+          canExportQuote={role === "admin"}
           finished={finished}
           busy={busy}
           exporting={exporting}
+          exportingQuote={exportingQuote}
           onBack={() => navigate("/work-orders")}
           onExportPdf={handleExportPdf}
+          onExportQuotePdf={handleExportQuotePdf}
           onFinish={() => setSignOpen(true)}
         />
 
@@ -176,14 +191,13 @@ export function WorkOrderDetail() {
               busy={busy}
               workTypes={workTypes}
               assignees={assignees}
-              materials={materials}
               onAddTask={() => run(async () => { await addTask(wo.id); await refreshWorkOrder(); })}
               onRenameTask={(taskId, description) => run(async () => { await updateTask(wo.id, taskId, { description }); await refreshWorkOrder(); })}
               onSetTaskType={(taskId, workTypeId) => run(async () => { await updateTask(wo.id, taskId, { workTypeId }); await refreshWorkOrder(); })}
               onAssignTask={(taskId, assigneeId) => run(async () => { await updateTask(wo.id, taskId, { assigneeId }); await refreshWorkOrder(); })}
               onDeleteTask={(taskId) => run(async () => { await deleteTask(wo.id, taskId); await refreshWorkOrder(); })}
               onToggleTask={(taskId) => run(async () => { await toggleTask(wo.id, taskId); await refreshWorkOrder(); })}
-              onAddMaterial={(taskId, m) => run(async () => { await addMaterial(wo.id, taskId, m); await refreshWorkOrder(); })}
+              onAddFromCatalog={(taskId, input) => run(async () => { await addMaterialFromCatalog(wo.id, taskId, input); await refreshWorkOrder(); })}
               onDeleteMaterial={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
               onToggleMaterial={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
             />

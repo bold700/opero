@@ -22,6 +22,10 @@ type Form = {
   city: string;
   phone: string;
   vatNumber: string;
+  iban: string;
+  bic: string;
+  kvkNumber: string;
+  website: string;
 };
 
 const RULES = { email: [emailRule] };
@@ -32,7 +36,19 @@ export function CompanyForm() {
   const { t } = useTranslation();
   const { data: org, loading } = useApi<Organization>(getOrganization);
   const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
-    { name: "", email: "", address: "", postalCode: "", city: "", phone: "", vatNumber: "" },
+    {
+      name: "",
+      email: "",
+      address: "",
+      postalCode: "",
+      city: "",
+      phone: "",
+      vatNumber: "",
+      iban: "",
+      bic: "",
+      kvkNumber: "",
+      website: "",
+    },
     RULES,
   );
   const [busy, setBusy] = useState(false);
@@ -49,6 +65,10 @@ export function CompanyForm() {
         city: org.city,
         phone: org.phone,
         vatNumber: org.vatNumber,
+        iban: org.iban,
+        bic: org.bic,
+        kvkNumber: org.kvkNumber,
+        website: org.website,
       });
   }, [org, reset]);
 
@@ -139,6 +159,30 @@ export function CompanyForm() {
           label={t("settings.company.vat")}
           value={values.vatNumber}
           onChange={setField("vatNumber")}
+          fullWidth
+        />
+        <TextField
+          label={t("settings.company.kvkNumber")}
+          value={values.kvkNumber}
+          onChange={setField("kvkNumber")}
+          fullWidth
+        />
+        <TextField
+          label={t("settings.company.iban")}
+          value={values.iban}
+          onChange={setField("iban")}
+          fullWidth
+        />
+        <TextField
+          label={t("settings.company.bic")}
+          value={values.bic}
+          onChange={setField("bic")}
+          fullWidth
+        />
+        <TextField
+          label={t("settings.company.website")}
+          value={values.website}
+          onChange={setField("website")}
           fullWidth
         />
       </Box>

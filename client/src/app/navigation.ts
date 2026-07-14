@@ -34,6 +34,8 @@ export const NAV_ITEMS: NavItem[] = [
   // "manage own profile" is served by Settings (profile/security/notifications).
   { path: "/customers", labelKey: "nav.customers", icon: CustomersIcon, roles: ["admin"] },
   { path: "/employees", labelKey: "nav.employees", icon: EmployeesIcon, roles: ["admin"] },
+  // Materials — the supplier parts catalog (prices from the price lists). Admin
+  // full, technician limited (prices stripped per org setting), client none.
   { path: "/materials", labelKey: "nav.materials", icon: MaterialsIcon, roles: ["admin", "technician"] },
   { path: "/reports", labelKey: "nav.reports", icon: ReportsIcon, roles: ["admin"] },
   // Own timesheet — the technician's "Reports = own hours" access (spec matrix).

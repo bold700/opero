@@ -76,6 +76,11 @@ export const updateOrganizationSchema = z.object({
   city: z.string().optional(),
   phone: z.string().optional(),
   vatNumber: z.string().optional(),
+  // Letterhead details for customer-facing documents (quote PDF).
+  iban: z.string().optional(),
+  bic: z.string().optional(),
+  kvkNumber: z.string().optional(),
+  website: z.string().optional(),
   hidePricesFromTechnicians: z.boolean().optional(),
 });
 export type UpdateOrganizationRequest = z.infer<typeof updateOrganizationSchema>;

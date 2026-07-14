@@ -62,6 +62,14 @@ export const addMaterialSchema = z
   })
   .optional();
 
+// POST /work-orders/:id/tasks/:taskId/materials/from-catalog — add a line from
+// the materials catalog. Price/name/unit resolve SERVER-side (the requester
+// may be a technician whose API responses have prices stripped).
+export const addMaterialFromCatalogSchema = z.object({
+  variantId: z.string().min(1),
+  quantity: z.number().positive().optional(),
+});
+
 // PATCH /work-orders/:id/materials/:matId — mirror updateTaskMaterial patch.
 export const updateMaterialSchema = z.object({
   label: z.string().nullable().optional(),

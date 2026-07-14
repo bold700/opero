@@ -1,62 +1,102 @@
 import type {
   Article,
-  Inventory,
   Material,
   MaterialOrder,
   MaterialOrderItem,
+  MaterialVariant,
 } from "@prisma/client";
+import { buildMaterialLineName, LINE_UNIT_LABELS } from "./labels.js";
 
 // DTO mappers — never return raw rows with internal columns to clients.
 
-export function inventoryDto(i: Inventory) {
-  return {
-    id: i.id,
-    materialId: i.materialId,
-    materialName: i.materialName,
-    quantityInStock: i.quantityInStock,
-    unit: i.unit,
-    supplier: i.supplier,
-    reorderPoint: i.reorderPoint,
-  };
+// Numeric min–max of a material's variant sizes ("Ø 17–324" / "150–2500 L"),
+// null when sizes aren't numeric (combined sizes like "21/22" are skipped;
+// "flat" materials have no range).
+function sizeRange(variants: Pick<MaterialVariant, "size">[]): { min: number; max: number } | null {
+  const nums = variants
+    .map((v) => Number(v.size))
+    .filter((n) => Number.isFinite(n));
+  if (nums.length === 0) return null;
+  return { min: Math.min(...nums), max: Math.max(...nums) };
 }
 
-export function materialDto(m: Material & { inventory?: Inventory | null; unitPrice?: number }) {
+// Summary row for the class-grouped catalog list (no variants payload).
+export function materialSummaryDto(
+  m: Material & { variants: Pick<MaterialVariant, "size">[] },
+) {
   return {
     id: m.id,
+    key: m.key,
     name: m.name,
-    unit: m.unit,
-    category: m.category,
-    unitPrice: m.unitPrice ?? 0,
-    inventory: m.inventory ? inventoryDto(m.inventory) : undefined,
+    class: m.class,
+    supplier: m.supplier,
+    thicknessMm: m.thicknessMm ?? undefined,
+    pipeMaterial: m.pipeMaterial ?? undefined,
+    finish: m.finish ?? undefined,
+    sizeUnit: m.sizeUnit,
+    note: m.note ?? undefined,
+    variantCount: m.variants.length,
+    sizeRange: sizeRange(m.variants) ?? undefined,
   };
 }
 
-// Stock status is derived from quantity vs reorder point but PERSISTED on
-// Material.stockStatus (kept in sync by recomputeMaterialStock) so the list can
-// filter/count on a real column. The derivation itself lives in ./status.ts.
-export type { MaterialStockStatus } from "./status.js";
+// Variant price is stripped for technicians when the org hides prices from
+// them (same conditional-spread pattern as articleDto).
+export function variantDto(v: MaterialVariant, showPrices = true) {
+  return {
+    id: v.id,
+    size: v.size,
+    component: v.component,
+    thicknessMm: v.thicknessMm ?? undefined,
+    unit: v.unit,
+    ...(showPrices ? { unitPrice: v.unitPrice } : {}),
+  };
+}
 
-// Flat row for the materials list (per the Figma): name, category, unit, stock,
-// min stock, status. `status` reads the denormalized column. `unitPrice` is
-// stripped for technicians (showPrices=false), mirroring articleDto.
-export function materialListDto(
-  m: Material & { inventory?: Inventory | null; stockStatus?: string; unitPrice?: number },
+// Material detail: attributes + price provenance + the full variant set.
+export function materialDetailDto(
+  m: Material & { variants: MaterialVariant[] },
   showPrices = true,
 ) {
-  const inv = m.inventory ?? null;
   return {
     id: m.id,
+    key: m.key,
     name: m.name,
-    category: m.category,
-    unit: m.unit,
-    stock: inv?.quantityInStock ?? 0,
-    minStock: inv?.reorderPoint ?? 0,
-    supplier: inv?.supplier ?? "—",
-    status: (m.stockStatus ?? "out_of_stock") as
-      | "ok"
-      | "low"
-      | "out_of_stock",
-    ...(showPrices ? { unitPrice: m.unitPrice ?? 0 } : {}),
+    class: m.class,
+    supplier: m.supplier,
+    thicknessMm: m.thicknessMm ?? undefined,
+    pipeMaterial: m.pipeMaterial ?? undefined,
+    finish: m.finish ?? undefined,
+    sizeUnit: m.sizeUnit,
+    note: m.note ?? undefined,
+    priceSource: m.priceSource ?? undefined,
+    priceValidFrom: m.priceValidFrom?.toISOString() ?? undefined,
+    priceValidTo: m.priceValidTo?.toISOString() ?? undefined,
+    priceNote: m.priceNote ?? undefined,
+    variantCount: m.variants.length,
+    variants: m.variants.map((v) => variantDto(v, showPrices)),
+  };
+}
+
+// A single flat search row = one variant, with a composed Dutch description
+// (same naming as the work-order line), its material context and price.
+export function variantSearchRowDto(
+  v: MaterialVariant & { material: Material },
+  showPrices = true,
+) {
+  return {
+    id: v.id, // = variantId
+    materialId: v.materialId,
+    name: buildMaterialLineName(v.material, v, "nl"),
+    materialName: v.material.name,
+    class: v.material.class,
+    supplier: v.material.supplier,
+    size: v.size,
+    sizeUnit: v.material.sizeUnit,
+    component: v.component,
+    thicknessMm: v.thicknessMm ?? undefined,
+    unit: LINE_UNIT_LABELS[v.unit]?.nl ?? v.unit,
+    ...(showPrices ? { unitPrice: v.unitPrice } : {}),
   };
 }
 

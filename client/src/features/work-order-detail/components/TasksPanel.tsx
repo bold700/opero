@@ -17,10 +17,9 @@ import type {
   WorkOrderTask,
   WorkTypeOption,
   AssigneeOption,
-  MaterialPickOption,
 } from "../api";
 import { MaterialLine } from "./MaterialLine";
-import { AddMaterialRow } from "./AddMaterialRow";
+import { AddMaterialDialog } from "./AddMaterialDialog";
 
 // The tasks (zones) panel: add tasks, rename them inline, toggle done, and
 // manage each task's materials. `canWrite` gates editing; `showPrices` hides
@@ -33,14 +32,13 @@ export function TasksPanel({
   busy,
   workTypes,
   assignees,
-  materials,
   onAddTask,
   onRenameTask,
   onSetTaskType,
   onAssignTask,
   onDeleteTask,
   onToggleTask,
-  onAddMaterial,
+  onAddFromCatalog,
   onDeleteMaterial,
   onToggleMaterial,
 }: {
@@ -50,17 +48,13 @@ export function TasksPanel({
   busy: boolean;
   workTypes: WorkTypeOption[];
   assignees: AssigneeOption[];
-  materials: MaterialPickOption[];
   onAddTask: () => void;
   onRenameTask: (taskId: string, description: string) => void;
   onSetTaskType: (taskId: string, workTypeId: string | null) => void;
   onAssignTask: (taskId: string, assigneeId: string | null) => void;
   onDeleteTask: (taskId: string) => void;
   onToggleTask: (taskId: string) => void;
-  onAddMaterial: (
-    taskId: string,
-    m: { name: string; quantity?: number; unit?: string; unitPrice?: number },
-  ) => void;
+  onAddFromCatalog: (taskId: string, input: { variantId: string; quantity: number }) => void;
   onDeleteMaterial: (matId: string) => void;
   onToggleMaterial: (matId: string) => void;
 }) {
@@ -110,13 +104,12 @@ export function TasksPanel({
             busy={busy}
             workTypes={workTypes}
             assignees={assignees}
-            materials={materials}
             onRename={(desc) => onRenameTask(task.id, desc)}
             onSetType={(workTypeId) => onSetTaskType(task.id, workTypeId)}
             onAssign={(assigneeId) => onAssignTask(task.id, assigneeId)}
             onDeleteTask={() => onDeleteTask(task.id)}
             onToggleTask={() => onToggleTask(task.id)}
-            onAddMaterial={(m) => onAddMaterial(task.id, m)}
+            onAddFromCatalog={(input) => onAddFromCatalog(task.id, input)}
             onDeleteMaterial={onDeleteMaterial}
             onToggleMaterial={onToggleMaterial}
           />
@@ -133,13 +126,12 @@ function TaskRow({
   busy,
   workTypes,
   assignees,
-  materials,
   onRename,
   onSetType,
   onAssign,
   onDeleteTask,
   onToggleTask,
-  onAddMaterial,
+  onAddFromCatalog,
   onDeleteMaterial,
   onToggleMaterial,
 }: {
@@ -149,23 +141,17 @@ function TaskRow({
   busy: boolean;
   workTypes: WorkTypeOption[];
   assignees: AssigneeOption[];
-  materials: MaterialPickOption[];
   onRename: (description: string) => void;
   onSetType: (workTypeId: string | null) => void;
   onAssign: (assigneeId: string | null) => void;
   onDeleteTask: () => void;
   onToggleTask: () => void;
-  onAddMaterial: (m: {
-    name: string;
-    quantity?: number;
-    unit?: string;
-    unitPrice?: number;
-  }) => void;
+  onAddFromCatalog: (input: { variantId: string; quantity: number }) => void;
   onDeleteMaterial: (matId: string) => void;
   onToggleMaterial: (matId: string) => void;
 }) {
   const { t } = useTranslation();
-  const [adding, setAdding] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.description);
 
@@ -323,30 +309,29 @@ function TaskRow({
         ))}
 
         {canWrite ? (
-          adding ? (
-            <AddMaterialRow
-              showPrices={showPrices}
-              materials={materials}
-              busy={busy}
-              onAdd={(m) => {
-                onAddMaterial(m);
-                setAdding(false);
-              }}
-              onCancel={() => setAdding(false)}
-            />
-          ) : (
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setAdding(true)}
-              disabled={busy}
-              sx={{ mt: 0.5 }}
-            >
-              {t("workOrderDetail.tasks.addMaterial")}
-            </Button>
-          )
+          // Single add flow: pick a part from the materials catalog (the
+          // supplier price lists). Name/unit/price resolve server-side.
+          <Button
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setPickerOpen(true)}
+            disabled={busy}
+            sx={{ mt: 0.5 }}
+          >
+            {t("workOrderDetail.tasks.addMaterial")}
+          </Button>
         ) : null}
       </Box>
+
+      <AddMaterialDialog
+        open={pickerOpen}
+        busy={busy}
+        onClose={() => setPickerOpen(false)}
+        onAdd={(input) => {
+          onAddFromCatalog(input);
+          setPickerOpen(false);
+        }}
+      />
     </Box>
   );
 }

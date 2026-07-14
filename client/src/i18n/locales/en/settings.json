@@ -61,7 +61,11 @@
     "phone": "Phone number",
     "vat": "VAT / Tax number",
     "saved": "Company details saved",
-    "saveError": "Save failed"
+    "saveError": "Save failed",
+    "iban": "IBAN",
+    "bic": "BIC",
+    "kvkNumber": "Chamber of Commerce no.",
+    "website": "Website"
   },
   "notifications": {
     "preferences": "Notification preferences",

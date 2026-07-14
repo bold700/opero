@@ -57,6 +57,11 @@ export type Organization = {
   city: string;
   phone: string;
   vatNumber: string;
+  // Letterhead details for customer-facing documents (quote PDF).
+  iban: string;
+  bic: string;
+  kvkNumber: string;
+  website: string;
   hidePricesFromTechnicians: boolean;
 };
 
@@ -68,6 +73,10 @@ export type OrganizationInput = {
   city?: string;
   phone?: string;
   vatNumber?: string;
+  iban?: string;
+  bic?: string;
+  kvkNumber?: string;
+  website?: string;
   hidePricesFromTechnicians?: boolean;
 };
 

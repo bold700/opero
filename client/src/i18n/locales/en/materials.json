@@ -1,80 +1,61 @@
 {
   "title": "Materials",
   "searchPlaceholder": "Search material...",
-  "addMaterial": "Add material",
   "empty": "No materials found.",
-  "viewAction": "view",
   "filters": {
-    "all": "All",
-    "ok": "Stock OK",
-    "low": "Low stock",
-    "outOfStock": "Out of stock"
-  },
-  "kpis": {
-    "totalItems": "Total items",
-    "low": "Low stock",
-    "outOfStock": "Out of stock",
-    "stockOk": "Stock OK"
+    "allSuppliers": "All suppliers"
   },
   "columns": {
-    "name": "Name",
-    "category": "Category",
-    "unit": "Unit",
-    "unitPrice": "Price",
-    "stock": "Stock",
-    "minStock": "Min. stock",
-    "status": "Status",
-    "action": "Action"
+    "name": "Description",
+    "supplier": "Supplier",
+    "price": "Price",
+    "sizeRange": "Sizes",
+    "variantCount": "Prices",
+    "component": "Part"
   },
-  "status": {
-    "ok": "OK",
-    "low": "Low stock",
-    "outOfStock": "Out of stock"
-  },
-  "category": {
+  "class": {
     "insulation": "Insulation",
-    "fastening": "Fastening",
-    "foil": "Foil",
-    "sealing": "Sealing",
-    "tools": "Tools",
-    "floor_insulation": "Floor insulation",
-    "other": "Other"
+    "fitting": "Fittings",
+    "tank": "Buffer vessels",
+    "cladding": "Cladding"
   },
-  "dialog": {
-    "newTitle": "New material",
-    "editTitle": "Edit material",
-    "name": "Name",
-    "unit": "Unit",
-    "category": "Category",
-    "unitPrice": "Unit price",
-    "stock": "Stock",
-    "minStock": "Min. stock",
-    "supplier": "Supplier"
+  "sizeUnit": {
+    "pipe_od_mm": "Ø (mm)",
+    "pipe_dia_mm": "Dia (mm)",
+    "tank_liters": "Volume (L)",
+    "flat": "Item"
   },
-  "delete": {
-    "title": "Delete material",
-    "body": "Are you sure you want to delete \"{{name}}\"?"
+  "component": {
+    "meter": "Per metre",
+    "elbow": "Elbow",
+    "coupling": "Coupling",
+    "tee": "Tee",
+    "threaded_fitting": "Threaded fitting",
+    "flange": "Flange",
+    "valve": "Valve",
+    "pump": "Pump",
+    "air_separator": "Air separator",
+    "reducer": "Reducer",
+    "alu_cap": "Aluminium cap",
+    "buffer_vessel": "Buffer vessel",
+    "area": "Per m²"
   },
-  "toast": {
-    "created": "Material created",
-    "updated": "Material updated",
-    "deleted": "Material deleted",
-    "saveError": "Save failed",
-    "deleteError": "Delete failed"
+  "finish": {
+    "none": "No finish",
+    "white_pvc": "White PVC",
+    "reinforced_alu_foil": "Reinforced alu foil"
   },
-  "categoryManager": {
-    "open": "Categories",
-    "title": "Material categories",
-    "subtitle": "Organize your materials. Renaming updates every material in that category.",
-    "addNew": "+ New category…",
-    "newName": "Category name",
-    "add": "Add category",
-    "usedCount": "{{count}} material",
-    "usedCount_other": "{{count}} materials",
-    "inUseTooltip": "In use — reassign these materials before deleting",
-    "empty": "No categories yet. Add your first one above.",
-    "createError": "Could not create category",
-    "renameError": "Could not rename category",
-    "deleteError": "Could not delete category"
+  "pipeMaterial": {
+    "steel": "Steel",
+    "copper": "Copper",
+    "pvc": "PVC"
+  },
+  "detail": {
+    "back": "Back",
+    "thickness": "{{mm}} mm thick",
+    "priceSource": "Prices: {{source}}",
+    "validFrom": "valid from {{from}}",
+    "validRange": "valid {{from}} – {{to}}",
+    "priceCount": "{{count}} prices"
   }
 }

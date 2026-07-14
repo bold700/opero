@@ -16,6 +16,8 @@ export type WorkOrderMaterial = {
   usedQuantity?: number;
   unit: string;
   diameter?: number;
+  // Set when the line was picked from the materials catalog.
+  variantId?: string;
   unitPrice?: number;
   onSite: boolean;
   done: boolean;
@@ -48,32 +50,12 @@ export type WorkOrderTask = {
 export type WorkTypeOption = { id: string; name: string };
 export type AssigneeOption = { id: string; name: string };
 
-// A material from the org's Materials catalog — the source you pick from when
-// adding a material line to a task. name/unit/price come from the catalog, never
-// typed. `unitPrice` is undefined for technicians (backend strips it).
-export type MaterialPickOption = {
-  id: string;
-  name: string;
-  unit: string;
-  unitPrice?: number;
-};
-
-// Backend materialListDto row shape (the fields we need for the picker).
-type MaterialListRow = { id: string; name: string; unit: string; unitPrice?: number };
-
 export function getWorkTypes(): Promise<WorkTypeOption[]> {
   return api.get<WorkTypeOption[]>("/materials/work-types");
 }
 
 export function getAssignableEmployees(): Promise<AssigneeOption[]> {
   return api.get<AssigneeOption[]>("/work-orders/assignable");
-}
-
-// The Materials catalog for the pick-a-material flow. /materials is paginated, so
-// drain all pages (a picker needs the full list). Maps to the picker shape.
-export async function getMaterialsForPicker(): Promise<MaterialPickOption[]> {
-  const rows = await api.getAll<MaterialListRow>("/materials");
-  return rows.map((m) => ({ id: m.id, name: m.name, unit: m.unit, unitPrice: m.unitPrice }));
 }
 
 export type WorkOrder = {
@@ -174,6 +156,20 @@ export async function exportWorkOrderPdf(id: string, filename: string): Promise<
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Download the work order as a customer-facing quote (offerte) PDF — admin
+// only (403 otherwise). Same blob-download flow as exportWorkOrderPdf.
+export async function exportWorkOrderQuotePdf(id: string, filename: string): Promise<void> {
+  const blob = await api.download(`/work-orders/${id}/quote-pdf`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function getProject(id: string): Promise<Project> {
   return api.get<Project>(`/projects/${id}`);
 }
@@ -208,21 +204,17 @@ export function toggleTask(workOrderId: string, taskId: string): Promise<WorkOrd
 
 // --- Materials (work-order mutations) -------------------------------------
 
-export type NewMaterial = {
-  name: string;
-  quantity?: number;
-  unit?: string;
-  unitPrice?: number;
-};
-
-export function addMaterial(
+// Add a line from the materials catalog. Only the variant id + quantity go
+// up — name/unit/unitPrice/diameter resolve server-side (technicians' own
+// responses have prices stripped, so the server owns the price).
+export function addMaterialFromCatalog(
   workOrderId: string,
   taskId: string,
-  material: NewMaterial,
+  input: { variantId: string; quantity: number },
 ): Promise<WorkOrder> {
   return api.post<WorkOrder>(
-    `/work-orders/${workOrderId}/tasks/${taskId}/materials`,
-    material,
+    `/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`,
+    input,
   );
 }
 

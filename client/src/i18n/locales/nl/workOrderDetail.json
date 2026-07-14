@@ -27,7 +27,8 @@
     "signedBy": "door {{name}}",
     "finish": "Werkbon afronden",
     "exportPdf": "Exporteer PDF",
-    "defaultTitle": "Werkbon {{n}}"
+    "defaultTitle": "Werkbon {{n}}",
+    "exportQuote": "Offerte exporteren"
   },
   "photos": {
     "title": "Foto's",
@@ -101,5 +102,12 @@
     "drawLabel": "Handtekening",
     "clear": "Wissen",
     "confirm": "Afronden"
+  },
+  "addMaterialDialog": {
+    "title": "Materiaal toevoegen",
+    "material": "Materiaal",
+    "component": "Onderdeel",
+    "quantity": "Aantal",
+    "add": "Toevoegen"
   }
 }

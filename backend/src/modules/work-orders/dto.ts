@@ -39,6 +39,8 @@ function materialDto(m: TaskMaterial, showPrices: boolean) {
     usedQuantity: m.usedQuantity ?? undefined,
     unit: m.unit,
     diameter: m.diameter ?? undefined,
+    // Set when the line was picked from the materials catalog.
+    variantId: m.variantId ?? undefined,
     // Price stripped for technicians / non-price roles.
     ...(showPrices ? { unitPrice: m.unitPrice ?? undefined } : {}),
     onSite: m.onSite,
