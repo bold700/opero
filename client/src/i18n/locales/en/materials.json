@@ -20,8 +20,8 @@
     "cladding": "Cladding"
   },
   "sizeUnit": {
-    "pipe_od_mm": "Ø (mm)",
-    "pipe_dia_mm": "Dia (mm)",
+    "pipe_od_mm": "Pipe Ø (mm)",
+    "pipe_dia_mm": "Pipe Ø (mm)",
     "tank_liters": "Volume (L)",
     "flat": "Item"
   },
@@ -52,10 +52,12 @@
   },
   "detail": {
     "back": "Back",
-    "thickness": "{{mm}} mm thick",
-    "priceSource": "Prices: {{source}}",
-    "validFrom": "valid from {{from}}",
-    "validRange": "valid {{from}} – {{to}}",
+    "thickness": "Insulation {{mm}} mm",
     "priceCount": "{{count}} prices"
+  },
+  "unit": {
+    "m": "metre",
+    "piece": "piece",
+    "m2": "m²"
   }
 }

@@ -5,7 +5,7 @@ import type {
   MaterialOrderItem,
   MaterialVariant,
 } from "@prisma/client";
-import { buildMaterialLineName, LINE_UNIT_LABELS } from "./labels.js";
+import { buildMaterialLineName } from "./labels.js";
 
 // DTO mappers — never return raw rows with internal columns to clients.
 
@@ -48,12 +48,16 @@ export function variantDto(v: MaterialVariant, showPrices = true) {
     size: v.size,
     component: v.component,
     thicknessMm: v.thicknessMm ?? undefined,
+    // Raw enum unit ("m" | "piece" | "m2") — English internal. The client
+    // translates it to a display word at render time via i18n.
     unit: v.unit,
     ...(showPrices ? { unitPrice: v.unitPrice } : {}),
   };
 }
 
-// Material detail: attributes + price provenance + the full variant set.
+// Material detail: attributes + the full variant set. Price provenance
+// (priceSource/validFrom/validTo/priceNote) stays in the DB as internal seed
+// metadata — NOT exposed to the UI.
 export function materialDetailDto(
   m: Material & { variants: MaterialVariant[] },
   showPrices = true,
@@ -69,10 +73,6 @@ export function materialDetailDto(
     finish: m.finish ?? undefined,
     sizeUnit: m.sizeUnit,
     note: m.note ?? undefined,
-    priceSource: m.priceSource ?? undefined,
-    priceValidFrom: m.priceValidFrom?.toISOString() ?? undefined,
-    priceValidTo: m.priceValidTo?.toISOString() ?? undefined,
-    priceNote: m.priceNote ?? undefined,
     variantCount: m.variants.length,
     variants: m.variants.map((v) => variantDto(v, showPrices)),
   };
@@ -95,7 +95,8 @@ export function variantSearchRowDto(
     sizeUnit: v.material.sizeUnit,
     component: v.component,
     thicknessMm: v.thicknessMm ?? undefined,
-    unit: LINE_UNIT_LABELS[v.unit]?.nl ?? v.unit,
+    // Raw enum unit — English internal; the client translates at render time.
+    unit: v.unit,
     ...(showPrices ? { unitPrice: v.unitPrice } : {}),
   };
 }

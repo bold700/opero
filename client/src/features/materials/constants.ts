@@ -70,6 +70,13 @@ export const PIPE_MATERIAL_LABEL_KEYS: Record<string, string> = {
   pvc: "materials.pipeMaterial.pvc",
 };
 
+// Variant unit (raw enum from the API) → display word.
+export const UNIT_LABEL_KEYS: Record<string, string> = {
+  m: "materials.unit.m",
+  piece: "materials.unit.piece",
+  m2: "materials.unit.m2",
+};
+
 // € formatting — nl-NL, 2 decimals (same style as the work-order lines).
 export function formatPrice(value: number): string {
   return `€ ${value.toLocaleString("nl-NL", {

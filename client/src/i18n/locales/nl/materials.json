@@ -20,8 +20,8 @@
     "cladding": "Plaatwerk"
   },
   "sizeUnit": {
-    "pipe_od_mm": "Ø (mm)",
-    "pipe_dia_mm": "Dia (mm)",
+    "pipe_od_mm": "Buisdiameter (mm)",
+    "pipe_dia_mm": "Buisdiameter (mm)",
     "tank_liters": "Inhoud (L)",
     "flat": "Item"
   },
@@ -52,10 +52,12 @@
   },
   "detail": {
     "back": "Terug",
-    "thickness": "{{mm}} mm dik",
-    "priceSource": "Prijzen: {{source}}",
-    "validFrom": "geldig vanaf {{from}}",
-    "validRange": "geldig {{from}} – {{to}}",
+    "thickness": "Isolatiedikte {{mm}} mm",
     "priceCount": "{{count}} prijzen"
+  },
+  "unit": {
+    "m": "meter",
+    "piece": "stuk",
+    "m2": "m²"
   }
 }

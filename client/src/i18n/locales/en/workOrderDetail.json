@@ -28,7 +28,9 @@
     "finish": "Complete work order",
     "exportPdf": "Export PDF",
     "defaultTitle": "Work order {{n}}",
-    "exportQuote": "Export quote"
+    "export": "Export",
+    "exportMenuQuote": "Quote (PDF)",
+    "exportMenuWorkOrder": "Work order (PDF)"
   },
   "photos": {
     "title": "Photos",

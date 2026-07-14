@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import { Card } from "../../../components/Card";
@@ -46,6 +51,9 @@ export function DetailHeader({
 }) {
   const { t } = useTranslation();
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
+  // Admin export menu (offerte / werkbon in one button).
+  const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
+  const anyExporting = exporting || exportingQuote;
 
   return (
     <Card>
@@ -102,36 +110,69 @@ export function DetailHeader({
             width: { xs: "100%", md: "auto" },
           }}
         >
-          {/* Export the werkbon as a PDF (streamed from the server). */}
-          <Button
-            variant="outlined"
-            startIcon={
-              exporting ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfOutlinedIcon />
-            }
-            onClick={onExportPdf}
-            disabled={exporting}
-            sx={{ width: { xs: "100%", sm: "auto" } }}
-          >
-            {t("workOrderDetail.header.exportPdf")}
-          </Button>
-          {/* Export as a customer-facing quote (offerte) PDF — admin only. */}
+          {/* ONE export button. Technicians export the werkbon PDF directly
+              (the only document they may export). Admins get a small menu:
+              the customer-facing quote (offerte) or the werkbon job sheet. */}
           {canExportQuote ? (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={
+                  anyExporting ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <PictureAsPdfOutlinedIcon />
+                  )
+                }
+                endIcon={<ArrowDropDownIcon />}
+                onClick={(e) => setExportAnchor(e.currentTarget)}
+                disabled={anyExporting}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
+                {t("workOrderDetail.header.export")}
+              </Button>
+              <Menu
+                anchorEl={exportAnchor}
+                open={exportAnchor !== null}
+                onClose={() => setExportAnchor(null)}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setExportAnchor(null);
+                    onExportQuotePdf();
+                  }}
+                >
+                  <ListItemIcon>
+                    <RequestQuoteOutlinedIcon fontSize="small" />
+                  </ListItemIcon>
+                  {t("workOrderDetail.header.exportMenuQuote")}
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setExportAnchor(null);
+                    onExportPdf();
+                  }}
+                >
+                  <ListItemIcon>
+                    <PictureAsPdfOutlinedIcon fontSize="small" />
+                  </ListItemIcon>
+                  {t("workOrderDetail.header.exportMenuWorkOrder")}
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
             <Button
               variant="outlined"
               startIcon={
-                exportingQuote ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <RequestQuoteOutlinedIcon />
-                )
+                exporting ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfOutlinedIcon />
               }
-              onClick={onExportQuotePdf}
-              disabled={exportingQuote}
+              onClick={onExportPdf}
+              disabled={exporting}
               sx={{ width: { xs: "100%", sm: "auto" } }}
             >
-              {t("workOrderDetail.header.exportQuote")}
+              {t("workOrderDetail.header.exportPdf")}
             </Button>
-          ) : null}
+          )}
           {canFinish && !finished ? (
             <Button
               variant="contained"

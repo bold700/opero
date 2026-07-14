@@ -28,7 +28,9 @@
     "finish": "Werkbon afronden",
     "exportPdf": "Exporteer PDF",
     "defaultTitle": "Werkbon {{n}}",
-    "exportQuote": "Offerte exporteren"
+    "export": "Exporteren",
+    "exportMenuQuote": "Offerte (PDF)",
+    "exportMenuWorkOrder": "Werkbon (PDF)"
   },
   "photos": {
     "title": "Foto's",

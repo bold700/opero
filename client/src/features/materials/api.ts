@@ -54,12 +54,9 @@ export type MaterialVariant = {
   unitPrice?: number;
 };
 
-// Mirrors the backend materialDetailDto (attributes + provenance + variants).
+// Mirrors the backend materialDetailDto (attributes + variants). Price
+// provenance is internal seed metadata — not exposed.
 export type MaterialDetail = Omit<MaterialSummary, "sizeRange"> & {
-  priceSource?: string;
-  priceValidFrom?: string;
-  priceValidTo?: string;
-  priceNote?: string;
   variants: MaterialVariant[];
 };
 

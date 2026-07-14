@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { ResponsiveList } from "../../../components/ResponsiveList";
-import { formatPrice } from "../constants";
+import { formatPrice, UNIT_LABEL_KEYS } from "../constants";
 import type { MaterialVariantRow } from "../api";
 
 // Flat search results: one row per matching variant (search mode of the
@@ -22,7 +22,9 @@ export function VariantSearchTable({
   const { t } = useTranslation();
 
   const price = (r: MaterialVariantRow) =>
-    r.unitPrice != null ? `${formatPrice(r.unitPrice)} / ${r.unit}` : "—";
+    r.unitPrice != null
+      ? `${formatPrice(r.unitPrice)} / ${t(UNIT_LABEL_KEYS[r.unit] ?? r.unit)}`
+      : "—";
 
   return (
     <ResponsiveList<MaterialVariantRow>

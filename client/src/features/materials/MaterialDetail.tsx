@@ -18,16 +18,12 @@ import {
   FINISH_LABEL_KEYS,
   PIPE_MATERIAL_LABEL_KEYS,
   SIZE_UNIT_LABEL_KEYS,
+  UNIT_LABEL_KEYS,
   formatPrice,
 } from "./constants";
 
-// Compact date for provenance display (nl-NL, the app's locale default).
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("nl-NL");
-}
-
-// Material detail — one material's attributes, price provenance and its full
-// variant table (size · component · price).
+// Material detail — one material's attributes and its full variant table
+// (size · component · price).
 export function MaterialDetail() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
@@ -55,20 +51,17 @@ export function MaterialDetail() {
     );
   }
 
-  const validity =
-    material.priceValidFrom && material.priceValidTo
-      ? t("materials.detail.validRange", {
-          from: formatDate(material.priceValidFrom),
-          to: formatDate(material.priceValidTo),
-        })
-      : material.priceValidFrom
-        ? t("materials.detail.validFrom", { from: formatDate(material.priceValidFrom) })
-        : null;
-
   const componentLabel = (v: MaterialVariant) =>
     v.thicknessMm != null
       ? `${t(COMPONENT_LABEL_KEYS[v.component])} ${v.thicknessMm} mm`
       : t(COMPONENT_LABEL_KEYS[v.component]);
+
+  // Price + translated unit ("€ 30,13 / meter"). Raw enum unit is translated
+  // client-side (the API returns "m"/"piece"/"m2").
+  const priceLabel = (v: MaterialVariant) =>
+    v.unitPrice != null
+      ? `${formatPrice(v.unitPrice)} / ${t(UNIT_LABEL_KEYS[v.unit] ?? v.unit)}`
+      : "—";
 
   return (
     <PageLayout title={t("materials.title")}>
@@ -105,18 +98,12 @@ export function MaterialDetail() {
                 />
               ) : null}
             </Box>
-            {(material.priceSource || validity || material.priceNote || material.note) && (
+            {/* Material caveat only (e.g. "Incl. beugel +10%"). Price
+                provenance (source/validity) is internal seed metadata — not
+                shown. */}
+            {material.note && (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {[
-                  material.priceSource
-                    ? t("materials.detail.priceSource", { source: material.priceSource })
-                    : null,
-                  validity,
-                  material.priceNote,
-                  material.note,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+                {material.note}
               </Typography>
             )}
           </Box>
@@ -145,7 +132,7 @@ export function MaterialDetail() {
               align: "right",
               cell: (v) => (
                 <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
-                  {v.unitPrice != null ? `${formatPrice(v.unitPrice)} / ${v.unit}` : "—"}
+                  {priceLabel(v)}
                 </Typography>
               ),
             },
@@ -156,7 +143,7 @@ export function MaterialDetail() {
                 {v.size} · {componentLabel(v)}
               </Typography>
               <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
-                {v.unitPrice != null ? `${formatPrice(v.unitPrice)} / ${v.unit}` : "—"}
+                {priceLabel(v)}
               </Typography>
             </Box>
           )}
