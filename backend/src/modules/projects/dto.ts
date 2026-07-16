@@ -37,6 +37,15 @@ export type ProjectWithRelations = Project & {
   materialRequirements: MaterialRequirement[];
   tasks: ProjectTask[];
   installers: { id: string }[];
+  workOrders?: {
+    id: string;
+    ordinal: number;
+    title: string;
+    listStatus: string;
+    plannedDate: string | null;
+    value: number;
+    signedAt: Date | null;
+  }[];
   activity?: (ProjectActivity & { user?: { name: string } | null })[];
 };
 
@@ -194,19 +203,32 @@ export function activityDto(
 
 // Lightweight list/summary DTO. `value` omitted for technicians when the org
 // hides prices from them.
-export function projectSummaryDto(p: Project, role: UserRole, hidePrices: boolean) {
+export function projectSummaryDto(
+  p: Project & {
+    _count?: { workOrders: number };
+    workOrders?: { value: number }[];
+  },
+  role: UserRole,
+  hidePrices: boolean,
+) {
   const showPrices = canSeePrices(role, hidePrices);
+  // Billing is per-werkbon: a project's value is the SUM of its werkbonnen's
+  // values, derived on read (no stale denormalized column).
+  const value = (p.workOrders ?? []).reduce((sum, w) => sum + w.value, 0);
   return {
     id: p.id,
     projectNumber: p.projectNumber,
     name: p.name ?? undefined,
     customerId: p.customerId,
     customerName: p.customerName,
+    city: p.city,
     status: p.status,
     stage: p.stage,
     urgency: p.urgency,
     nextStepKey: p.nextStepKey,
-    ...(showPrices ? { value: p.value } : {}),
+    // How many werkbonnen this project groups (the projects list needs this).
+    workOrderCount: p._count?.workOrders ?? 0,
+    ...(showPrices ? { value } : {}),
   };
 }
 
@@ -219,6 +241,8 @@ export function projectDto(
   urlOf: UrlOf,
 ) {
   const showPrices = canSeePrices(role, hidePrices);
+  // Project value = sum of its werkbonnen's values (per-werkbon billing).
+  const value = (p.workOrders ?? []).reduce((sum, w) => sum + w.value, 0);
   return {
     id: p.id,
     projectNumber: p.projectNumber,
@@ -248,7 +272,7 @@ export function projectDto(
     blockerKey: p.blockerKey ?? undefined,
     nextStepKey: p.nextStepKey,
     materialsReady: p.materialsReady,
-    ...(showPrices ? { value: p.value } : {}),
+    ...(showPrices ? { value } : {}),
     surveyPhotos: refsFrom(p.surveyPhotos, urlOf),
     surveyNotes: p.surveyNotes,
     // team ids
@@ -262,6 +286,16 @@ export function projectDto(
       ? deliveryChecklistDto(p.deliveryChecklist)
       : undefined,
     materialRequirements: p.materialRequirements.map(materialRequirementDto),
+    // The werkbonnen this project groups (summary rows for the detail screen).
+    workOrders: (p.workOrders ?? []).map((w) => ({
+      id: w.id,
+      ordinal: w.ordinal,
+      title: w.title,
+      status: w.listStatus,
+      plannedDate: w.plannedDate ?? undefined,
+      signed: w.signedAt != null,
+      ...(showPrices ? { value: w.value } : {}),
+    })),
     tasks: [...p.tasks]
       .sort((a, b) => a.ordinal - b.ordinal)
       .map(taskDto),
@@ -280,6 +314,20 @@ export const projectInclude = {
   materialRequirements: true,
   tasks: true,
   installers: { select: { id: true } },
+  // The project's werkbonnen (the visits it groups) — summary only, for the
+  // project detail screen's werkbon list.
+  workOrders: {
+    orderBy: { ordinal: "asc" as const },
+    select: {
+      id: true,
+      ordinal: true,
+      title: true,
+      listStatus: true,
+      plannedDate: true,
+      value: true,
+      signedAt: true,
+    },
+  },
   activity: {
     orderBy: { createdAt: "desc" as const },
     take: 20,

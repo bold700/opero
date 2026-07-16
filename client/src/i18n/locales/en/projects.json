@@ -1,0 +1,61 @@
+{
+  "title": "Projects",
+  "actions": {
+    "searchPlaceholder": "Search project or customer…",
+    "newProject": "New project"
+  },
+  "status": {
+    "sales": "Sales",
+    "operations": "In progress",
+    "closing": "Wrapping up"
+  },
+  "table": {
+    "number": "Project #",
+    "customer": "Customer",
+    "city": "City",
+    "workOrders": "Work orders",
+    "status": "Status",
+    "value": "Value",
+    "action": "Action",
+    "empty": "No projects found."
+  },
+  "form": {
+    "createTitle": "New project",
+    "editTitle": "Edit project",
+    "create": "Create project",
+    "customer": "Customer",
+    "name": "Project name",
+    "workType": "Work type",
+    "workTypeNone": "To be determined",
+    "description": "Description"
+  },
+  "detail": {
+    "notFound": "Project not found",
+    "info": "Project info",
+    "workOrders": "Work orders",
+    "newWorkOrder": "New work order",
+    "noWorkOrders": "No work orders yet.",
+    "workOrderDefault": "Work order {{n}}",
+    "woTitle": "Work order",
+    "woStatus": "Status",
+    "woDate": "Date",
+    "woSigned": "Signed",
+    "address": "Address",
+    "contact": "Contact",
+    "instructions": "Work instructions",
+    "total": "Total",
+    "deleteWorkOrderTitle": "Delete werkbon?",
+    "deleteWorkOrderBody": "\"{{name}}\" and all its work, photos and billing will be permanently deleted. This cannot be undone."
+  },
+  "toast": {
+    "created": "Project created",
+    "deleted": "Project deleted",
+    "saveError": "Save failed",
+    "deleteError": "Delete failed"
+  },
+  "delete": {
+    "title": "Delete project?",
+    "body_one": "Project {{number}} and its 1 work order will be permanently deleted. This cannot be undone.",
+    "body_other": "Project {{number}} and its {{count}} work orders will be permanently deleted. This cannot be undone."
+  }
+}

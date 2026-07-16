@@ -17,8 +17,8 @@
     "list": "List"
   },
   "schedule": {
-    "newTitle": "Schedule werkbon",
-    "editTitle": "Reschedule werkbon",
+    "newTitle": "Schedule work order",
+    "editTitle": "Reschedule work order",
     "date": "Date",
     "teamLeader": "Team leader",
     "unassigned": "Unassigned",
@@ -27,7 +27,7 @@
     "noTime": "No time",
     "pickStartFirst": "Pick a start time first",
     "dateInPast": "Date can't be in the past",
-    "workOrder": "Werkbon"
+    "workOrder": "Work order"
   },
   "remove": {
     "title": "Remove from planning",

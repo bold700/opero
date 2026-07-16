@@ -6,6 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
+import TableFooter from "@mui/material/TableFooter";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import { Card } from "./Card";
@@ -48,6 +49,7 @@ export function ResponsiveList<T>({
   renderCard,
   empty,
   onRowClick,
+  footerCells,
   hasMore = false,
   loadingMore = false,
   onLoadMore,
@@ -59,6 +61,9 @@ export function ResponsiveList<T>({
   empty: ReactNode;
   /** Optional row/card tap handler (e.g. navigate to detail). */
   onRowClick?: (item: T) => void;
+  /** Optional summary/total footer. One cell per column (null = empty cell);
+   *  rendered as a real TableFooter row on desktop and a footer line on mobile. */
+  footerCells?: (ReactNode | null)[];
   /** Whether another page is available (enables the load-more footer). */
   hasMore?: boolean;
   /** Whether the next page is currently loading. */
@@ -122,6 +127,30 @@ export function ResponsiveList<T>({
                 </TableRow>
               ))}
             </TableBody>
+            {footerCells ? (
+              <TableFooter>
+                <TableRow
+                  sx={{
+                    // Summary row: the classic accounting "double rule" above the
+                    // total — non-colour, unmistakably a sum, not another data row.
+                    "& td": {
+                      borderTop: "3px double",
+                      borderTopColor: "text.disabled",
+                      borderBottom: 0,
+                      fontWeight: 700,
+                      color: "text.primary",
+                      fontSize: 14,
+                    },
+                  }}
+                >
+                  {columns.map((c, i) => (
+                    <TableCell key={i} align={c.align ?? "left"}>
+                      {footerCells[i] ?? null}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableFooter>
+            ) : null}
           </Table>
         </Card>
         {footer}
@@ -143,6 +172,24 @@ export function ResponsiveList<T>({
             {renderCard(item)}
           </Card>
         ))}
+        {footerCells ? (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 2,
+              px: 2,
+              py: 1.5,
+              fontWeight: 700,
+              bgcolor: "#E7E7EA",
+            }}
+          >
+            {footerCells.filter((c) => c != null).map((c, i) => (
+              <Box key={i}>{c}</Box>
+            ))}
+          </Box>
+        ) : null}
         {footer}
       </Box>
     </>

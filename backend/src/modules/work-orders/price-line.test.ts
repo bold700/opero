@@ -439,3 +439,37 @@ describe("quote (offerte) PDF export", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("delete werkbon", () => {
+  it("deletes a werkbon that has priced lines (no post-delete recompute crash)", async () => {
+    // A throwaway werkbon with a task + a material line — the exact shape that
+    // previously crashed (recomputeQuoteAmount ran on the just-deleted werkbon).
+    const created = await request(app)
+      .post("/api/work-orders")
+      .set(auth(adminToken))
+      .send({ projectId, title: `${TAG} to-delete` });
+    const delId = created.body.id;
+    const withTask = await request(app)
+      .post(`/api/work-orders/${delId}/tasks`)
+      .set(auth(adminToken))
+      .send({});
+    const delTaskId = withTask.body.tasks[0].id;
+    await request(app)
+      .post(`/api/work-orders/${delId}/tasks/${delTaskId}/materials/from-catalog`)
+      .set(auth(adminToken))
+      .send({ variantId: ownVariantId, quantity: 2 });
+
+    const del = await request(app)
+      .delete(`/api/work-orders/${delId}`)
+      .set(auth(adminToken));
+    expect(del.status).toBe(204);
+    expect(await prisma.workOrder.findUnique({ where: { id: delId } })).toBeNull();
+  });
+
+  it("technician cannot delete a werkbon (403)", async () => {
+    const res = await request(app)
+      .delete(`/api/work-orders/${workOrderId}`)
+      .set(auth(technicianToken));
+    expect(res.status).toBe(403);
+  });
+});

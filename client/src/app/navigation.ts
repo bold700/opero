@@ -1,6 +1,7 @@
 import type { UserRole } from "@opero/shared";
 import DashboardIcon from "@mui/icons-material/SpaceDashboard";
 import WorkOrdersIcon from "@mui/icons-material/Assignment";
+import ProjectsIcon from "@mui/icons-material/FolderSpecial";
 import PlanningIcon from "@mui/icons-material/CalendarMonth";
 import CustomersIcon from "@mui/icons-material/Groups";
 import EmployeesIcon from "@mui/icons-material/Badge";
@@ -28,6 +29,8 @@ const ALL: UserRole[] = ["admin", "technician", "client"];
 export const NAV_ITEMS: NavItem[] = [
   { path: "/", labelKey: "nav.dashboard", icon: DashboardIcon, roles: ALL },
   { path: "/work-orders", labelKey: "nav.workOrders", icon: WorkOrdersIcon, roles: ALL },
+  // Projects — the grouping layer above werkbonnen (admin office task).
+  { path: "/projects", labelKey: "nav.projects", icon: ProjectsIcon, roles: ["admin"] },
   { path: "/planning", labelKey: "nav.planning", icon: PlanningIcon, roles: ["admin", "technician"] },
   // Customers is the admin's customer DATABASE — not for clients. A client's own
   // record is business data owned by the office (read-only to them); their

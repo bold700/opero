@@ -9,6 +9,8 @@ import { Dashboard } from "../features/dashboard/Dashboard";
 import { WorkOrders } from "../features/work-orders/WorkOrders";
 import { WorkOrderDetail } from "../features/work-order-detail/WorkOrderDetail";
 import { Customers } from "../features/customers/Customers";
+import { Projects } from "../features/projects/Projects";
+import { ProjectDetail } from "../features/projects/ProjectDetail";
 import { Planning } from "../features/planning/Planning";
 import { Employees } from "../features/employees/Employees";
 import { Materials } from "../features/materials/Materials";
@@ -50,6 +52,8 @@ export const router = createBrowserRouter([
               { path: "/", element: <Dashboard /> },
               { path: "/work-orders", element: <WorkOrders /> },
               { path: "/work-orders/:id", element: <WorkOrderDetail /> },
+              { path: "/projects", element: <Projects /> },
+              { path: "/projects/:id", element: <ProjectDetail /> },
               { path: "/planning", element: <Planning /> },
               { path: "/customers", element: <Customers /> },
               { path: "/employees", element: <Employees /> },

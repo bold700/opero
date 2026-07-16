@@ -668,8 +668,8 @@ workOrdersRouter.delete(
         title: woLabel(wb),
       });
       await audit(tx, user, "workOrder.delete", "workOrder", req.params.id);
-      // Materials gone → keep quote amount in sync.
-      await recomputeQuoteAmount(tx, req.params.id);
+      // No quote recompute: billing is per-werkbon and the werkbon (with its
+      // own quote/value) is now deleted — nothing to recompute.
     });
     res.status(204).end();
   }),

@@ -1,0 +1,61 @@
+{
+  "title": "Projecten",
+  "actions": {
+    "searchPlaceholder": "Zoek project of klant…",
+    "newProject": "Nieuw project"
+  },
+  "status": {
+    "sales": "Verkoop",
+    "operations": "In uitvoering",
+    "closing": "Afronding"
+  },
+  "table": {
+    "number": "Project #",
+    "customer": "Klant",
+    "city": "Plaats",
+    "workOrders": "Werkbonnen",
+    "status": "Status",
+    "value": "Waarde",
+    "action": "Actie",
+    "empty": "Geen projecten gevonden."
+  },
+  "form": {
+    "createTitle": "Nieuw project",
+    "editTitle": "Project bewerken",
+    "create": "Project aanmaken",
+    "customer": "Klant",
+    "name": "Projectnaam",
+    "workType": "Werksoort",
+    "workTypeNone": "Nog te bepalen",
+    "description": "Omschrijving"
+  },
+  "detail": {
+    "notFound": "Project niet gevonden",
+    "info": "Projectinfo",
+    "workOrders": "Werkbonnen",
+    "newWorkOrder": "Nieuwe werkbon",
+    "noWorkOrders": "Nog geen werkbonnen.",
+    "workOrderDefault": "Werkbon {{n}}",
+    "woTitle": "Werkbon",
+    "woStatus": "Status",
+    "woDate": "Datum",
+    "woSigned": "Ondertekend",
+    "address": "Adres",
+    "contact": "Contact",
+    "instructions": "Uitvoeringsinstructies",
+    "total": "Totaal",
+    "deleteWorkOrderTitle": "Werkbon verwijderen?",
+    "deleteWorkOrderBody": "\"{{name}}\" en al het werk, de foto’s en de facturatie worden definitief verwijderd. Dit kan niet ongedaan worden gemaakt."
+  },
+  "toast": {
+    "created": "Project aangemaakt",
+    "deleted": "Project verwijderd",
+    "saveError": "Opslaan mislukt",
+    "deleteError": "Verwijderen mislukt"
+  },
+  "delete": {
+    "title": "Project verwijderen?",
+    "body_one": "Project {{number}} en de bijbehorende werkbon worden definitief verwijderd. Dit kan niet ongedaan worden gemaakt.",
+    "body_other": "Project {{number}} en de {{count}} bijbehorende werkbonnen worden definitief verwijderd. Dit kan niet ongedaan worden gemaakt."
+  }
+}

@@ -38,7 +38,10 @@ async function projectDtoFor(user: AuthUser, p: ProjectWithRelations) {
 
 async function projectSummaryListFor(
   user: AuthUser,
-  rows: import("@prisma/client").Project[],
+  rows: (import("@prisma/client").Project & {
+    _count?: { workOrders: number };
+    workOrders?: { value: number }[];
+  })[],
 ) {
   const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
   return rows.map((p) => projectSummaryDto(p, user.role as UserRole, hidePrices));
@@ -178,6 +181,11 @@ projectsRouter.get(
       prisma.project.findMany({
         where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          _count: { select: { workOrders: true } },
+          // Werkbon values → the project's value is their sum (per-werkbon billing).
+          workOrders: { select: { value: true } },
+        },
         ...args,
       }),
     );

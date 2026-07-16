@@ -6,6 +6,7 @@ import nav from "./en/nav.json";
 import auth from "./en/auth.json";
 import dashboard from "./en/dashboard.json";
 import customers from "./en/customers.json";
+import projects from "./en/projects.json";
 import workOrders from "./en/workOrders.json";
 import workOrderDetail from "./en/workOrderDetail.json";
 import planning from "./en/planning.json";
@@ -28,6 +29,7 @@ export const en = {
   auth,
   dashboard,
   customers,
+  projects,
   workOrders,
   workOrderDetail,
   planning,
