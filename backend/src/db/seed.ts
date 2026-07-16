@@ -32,6 +32,14 @@ import type {
   ExtraWorkRejectedBy,
 } from "@prisma/client";
 
+// Demo dataset toggle. By DEFAULT the seed only bootstraps the essentials the
+// app needs to run — organization, materials catalog, articles, work types and
+// the three login accounts — and creates NO placeholder customers, employees or
+// projects, so a fresh reset gives you a clean slate to enter real data into.
+// Set SEED_DEMO=1 to also generate the demo customers/employees/projects (handy
+// for local UI work). Everything is still wiped first either way.
+const SEED_DEMO = process.env.SEED_DEMO === "1" || process.env.SEED_DEMO === "true";
+
 async function main() {
   // -----------------------------------------------------------------------
   // 1. Wipe everything in FK-safe order (children → parents). deleteMany on
@@ -89,8 +97,9 @@ async function main() {
   const orgId = org.id;
 
   // -----------------------------------------------------------------------
-  // 3. Customers (keep mock ids as PK)
+  // 3. Customers (keep mock ids as PK) — DEMO ONLY
   // -----------------------------------------------------------------------
+  if (SEED_DEMO) {
   for (const c of mockCustomers) {
     // Company-looking names → business, otherwise private.
     const isBusiness = /\b(bv|vve|vastgoed|beheer|holding|&|zn)\b/i.test(c.name);
@@ -132,12 +141,19 @@ async function main() {
       });
     }
   }
+  } // end SEED_DEMO customers
 
   // -----------------------------------------------------------------------
   // 4. Employees (keep mock ids). roles strings map 1:1 to TeamRole enum.
+  //    DEMO mode seeds the full mock team; otherwise seed only the handful the
+  //    demo login accounts attach to (one Technician), so the technician login
+  //    still resolves to a real employee on a clean slate.
   // -----------------------------------------------------------------------
-  for (let i = 0; i < mockTeamMembers.length; i++) {
-    const tm = mockTeamMembers[i];
+  const seededTeam = SEED_DEMO
+    ? mockTeamMembers
+    : mockTeamMembers.filter((tm) => tm.roles.includes("Technician")).slice(0, 1);
+  for (let i = 0; i < seededTeam.length; i++) {
+    const tm = seededTeam[i];
     // Most active; sprinkle a few on_leave / inactive for realistic variety.
     const status =
       i % 7 === 3 ? "on_leave" : i % 11 === 5 ? "inactive" : "active";
@@ -153,7 +169,7 @@ async function main() {
       },
     });
   }
-  const employeeIds = new Set(mockTeamMembers.map((tm) => tm.id));
+  const employeeIds = new Set(seededTeam.map((tm) => tm.id));
   const validEmployeeId = (id?: string | null): string | null =>
     id && employeeIds.has(id) ? id : null;
 
@@ -501,8 +517,10 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
-  // 8. Projects — nested create so children insert with the parent.
+  // 8. Projects — nested create so children insert with the parent. DEMO ONLY:
+  //    real projects are created through the app, not seeded.
   // -----------------------------------------------------------------------
+  if (SEED_DEMO)
   for (const p of mockProjects) {
     const workType = resolveWorkType(p.insulationType);
     const intake = p.intake;
@@ -673,10 +691,11 @@ async function main() {
   // -----------------------------------------------------------------------
   const passwordHash = await bcrypt.hash("opero123", 12);
 
-  const technicianEmployee = mockTeamMembers.find((tm) =>
+  const technicianEmployee = seededTeam.find((tm) =>
     tm.roles.includes("Technician"),
   );
-  const firstCustomerId = mockCustomers[0]?.id ?? null;
+  // Only link the client login to a customer when demo customers were seeded.
+  const firstCustomerId = SEED_DEMO ? mockCustomers[0]?.id ?? null : null;
 
   await prisma.user.create({
     data: {
