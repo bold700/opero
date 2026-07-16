@@ -44,6 +44,8 @@ import {
   updateWorkOrderSchema,
   usageSchema,
 } from "./schema.js";
+// Meerwerk (extra work) is field-based; reuse the existing zod schemas.
+import { addExtraWorkSchema, rejectExtraWorkSchema } from "../projects/schema.js";
 
 export const workOrdersRouter = Router();
 
@@ -96,18 +98,21 @@ function msToHours(ms: number): number {
 // Recompute project.value (offertebedrag) = sum over all workOrders tasks
 // materials of quantity * unitPrice (ported from the quote-amount calc).
 // Mirrors the store: a zero sum keeps the existing value untouched.
-async function recomputeQuoteAmount(tx: Tx, projectId: string): Promise<void> {
+// Billing is per-WERKBON: sum only THIS werkbon's task materials into its own
+// `value`, and keep its Quote amount in sync. Each werkbon is quoted/invoiced
+// on its own (the project is just a grouping of werkbonnen).
+async function recomputeQuoteAmount(tx: Tx, workOrderId: string): Promise<void> {
   const materials = await tx.taskMaterial.findMany({
-    where: { task: { workOrder: { projectId } } },
+    where: { task: { workOrderId } },
     select: { quantity: true, unitPrice: true },
   });
   const value = materials.reduce(
     (sum, m) => sum + m.quantity * (m.unitPrice ?? 0),
     0,
   );
-  if (value > 0) {
-    await tx.project.update({ where: { id: projectId }, data: { value } });
-  }
+  await tx.workOrder.update({ where: { id: workOrderId }, data: { value } });
+  // Keep the draft quote's amount aligned with the werkbon value when one exists.
+  await tx.quote.updateMany({ where: { workOrderId }, data: { amount: value } });
 }
 
 // Load a workOrder + its project, enforce visibility, return write-ability.
@@ -224,6 +229,16 @@ function taskScopeLabel(
 // Work-order display label for activity: its title, or "#N" when untitled.
 function woLabel(wb: { title: string; ordinal: number }): string {
   return wb.title.trim() || `#${wb.ordinal + 1}`;
+}
+
+// Date-only ISO (YYYY-MM-DD) for the extra-work createdAt column.
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Format a euro amount for activity params (nl display, English-keyed).
+function formatEuro(value: number): string {
+  return `€ ${Math.round(value).toLocaleString("nl-NL")}`;
 }
 
 // =========================================================================
@@ -572,6 +587,9 @@ workOrdersRouter.post(
           title: input.title?.trim() ?? "",
           drawings: [],
           ordinal: count,
+          // Billing is per-werkbon: each werkbon gets its own quote + invoice.
+          quote: { create: { status: "draft", amount: 0 } },
+          invoice: { create: { status: "not_started" } },
         },
         include: workOrderInclude,
       });
@@ -600,20 +618,31 @@ workOrdersRouter.patch(
     const input = updateWorkOrderSchema.parse(req.body);
     await loadProjectForWorkOrder(user, req.params.id); // visibility (404 if not)
     if (user.role !== "admin") throw Forbidden("Admin only");
-    // Validate the assigned monteur belongs to the org (when setting, not clearing).
-    if (input.assigneeId) {
-      const emp = await prisma.employee.findFirst({
-        where: { id: input.assigneeId, orgId: user.orgId, deletedAt: null },
+    // Validate every assigned monteur belongs to the org (a full-crew replace).
+    if (input.assigneeIds !== undefined && input.assigneeIds.length > 0) {
+      const found = await prisma.employee.count({
+        where: { id: { in: input.assigneeIds }, orgId: user.orgId, deletedAt: null },
       });
-      if (!emp) throw BadRequest("Assignee not found in organization");
+      if (found !== new Set(input.assigneeIds).size) {
+        throw BadRequest("One or more assignees not found in organization");
+      }
     }
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
         data: {
           title: input.title !== undefined ? clampText(input.title) : undefined,
-          assigneeId:
-            input.assigneeId !== undefined ? input.assigneeId : undefined,
+          // Werkbon schedule (the visit's date(s)). Reconcile end ≥ start.
+          ...(input.plannedDate !== undefined
+            ? { plannedDate: input.plannedDate || null }
+            : {}),
+          ...(input.plannedEndDate !== undefined
+            ? { plannedEndDate: input.plannedEndDate || null }
+            : {}),
+          // Full replace of the assigned crew when assigneeIds is provided.
+          ...(input.assigneeIds !== undefined
+            ? { assignees: { set: input.assigneeIds.map((id) => ({ id })) } }
+            : {}),
         },
       });
       await audit(tx, user, "workOrder.update", "workOrder", req.params.id, input);
@@ -640,7 +669,7 @@ workOrdersRouter.delete(
       });
       await audit(tx, user, "workOrder.delete", "workOrder", req.params.id);
       // Materials gone → keep quote amount in sync.
-      await recomputeQuoteAmount(tx, project.id);
+      await recomputeQuoteAmount(tx, req.params.id);
     });
     res.status(204).end();
   }),
@@ -942,7 +971,7 @@ workOrdersRouter.delete(
       await tx.workOrderTask.delete({ where: { id: task.id } });
       await appendActivity(tx, user, project.id, "task.removed", { scope });
       await audit(tx, user, "workOrder.task.remove", "workOrderTask", task.id);
-      await recomputeQuoteAmount(tx, project.id);
+      await recomputeQuoteAmount(tx, req.params.id);
     });
     res.json(await reloadWorkOrder(user, req.params.id));
   }),
@@ -1245,7 +1274,7 @@ workOrdersRouter.post(
       // A new named line can un-complete the zone; keep task.done in sync.
       await syncTaskDone(tx, task.id);
       // unitPrice may have been seeded → keep quote amount in sync.
-      await recomputeQuoteAmount(tx, project.id);
+      await recomputeQuoteAmount(tx, req.params.id);
       await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
@@ -1308,7 +1337,7 @@ workOrdersRouter.post(
       });
       // New (not-done) line → the zone is no longer complete.
       await syncTaskDone(tx, task.id);
-      await recomputeQuoteAmount(tx, project.id);
+      await recomputeQuoteAmount(tx, req.params.id);
       await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
@@ -1408,7 +1437,7 @@ workOrdersRouter.patch(
       // `done` may have flipped → keep the parent zone's done in sync.
       if (input.done !== undefined) await syncTaskDone(tx, before.taskId);
       // qty/price may have changed → recompute quote amount.
-      await recomputeQuoteAmount(tx, project.id);
+      await recomputeQuoteAmount(tx, req.params.id);
       await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.json(await reloadWorkOrder(user, req.params.id));
@@ -1430,7 +1459,7 @@ workOrdersRouter.delete(
       await audit(tx, user, "workOrder.material.remove", "taskMaterial", before.id);
       // Removing a line can complete the zone (all remaining named lines done).
       await syncTaskDone(tx, before.taskId);
-      await recomputeQuoteAmount(tx, project.id);
+      await recomputeQuoteAmount(tx, req.params.id);
       await recomputeWorkOrderStatus(tx, req.params.id);
     });
     res.json(await reloadWorkOrder(user, req.params.id));
@@ -1598,6 +1627,232 @@ workOrdersRouter.post(
         signedByName,
       });
     });
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// EXTRA WORK (meerwerk) — per-WERKBON. Billing/meerwerk is scoped to a werkbon.
+// =========================================================================
+
+// Load an extra-work row scoped to THIS work order (:id), enforcing visibility
+// via the loaded werkbon, or 404.
+async function loadExtraWork(user: AuthUser, workOrderId: string, mwId: string) {
+  const loaded = await loadProjectForWorkOrder(user, workOrderId);
+  const item = await prisma.extraWork.findFirst({
+    where: { id: mwId, workOrderId },
+  });
+  if (!item) throw NotFound("Extra work not found");
+  return { ...loaded, item };
+}
+
+// POST /work-orders/:id/extra-work — admin + technician (assigned) may create.
+workOrdersRouter.post(
+  "/:id/extra-work",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = addExtraWorkSchema.parse(req.body);
+    // Client may not create extra work; requireWritable gates to admin/assigned.
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
+
+    const name = clampText(input.name).trim();
+    if (!name) throw BadRequest("Name required");
+    const quantity = input.quantity !== undefined ? clampNumber(input.quantity) : 0;
+    const unit = input.unit ? clampText(input.unit).trim() : "";
+    const unitPrice = input.unitPrice ? clampNumber(input.unitPrice) : 0;
+    const label = input.label ? clampText(input.label).trim() : null;
+    const description = label || `${quantity} ${unit} ${name}`.trim();
+    const amount = Math.round(quantity * unitPrice);
+    // Photos are uploaded separately via POST /:id/extra-work/:mwId/photo after
+    // the row exists (real multipart upload, not a create-time flag).
+
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.create({
+        data: {
+          workOrderId: req.params.id,
+          description,
+          label,
+          name,
+          quantity,
+          unit,
+          diameter: input.diameter ? clampNumber(input.diameter) : null,
+          unitPrice,
+          amount,
+          photos: [],
+          createdAt: todayIso(),
+        },
+      });
+      await appendActivity(tx, user, project.id, "extraWork.reported", {
+        description,
+        amount: formatEuro(amount),
+      });
+      await audit(tx, user, "workOrder.extraWork.add", "extraWork", req.params.id);
+    });
+
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/extra-work/:mwId/photo — upload a photo for an item.
+workOrdersRouter.post(
+  "/:id/extra-work/:mwId/photo",
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWorkOrder(user, req.params.id);
+    const { item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+    const key = await storeUpload(user, req.file, "extra-work", item.id);
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: { photos: { push: key } },
+      });
+      await audit(tx, user, "workOrder.extraWork.photo", "extraWork", item.id, {
+        photo: key,
+      });
+    });
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/extra-work/:mwId/photo {photo} — remove a photo by key.
+workOrdersRouter.delete(
+  "/:id/extra-work/:mwId/photo",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = removePhotoSchema.parse(req.body);
+    await requireWritableWorkOrder(user, req.params.id);
+    const { item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+    const existed = item.photos.includes(input.photo);
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: { photos: item.photos.filter((p) => p !== input.photo) },
+      });
+      await audit(tx, user, "workOrder.extraWork.photo.remove", "extraWork", item.id, {
+        photo: input.photo,
+      });
+    });
+    if (existed) await deleteStored(input.photo);
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/extra-work/:mwId/approve-office — admin. Toggle.
+workOrdersRouter.post(
+  "/:id/extra-work/:mwId/approve-office",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+    const next = !item.approvedByOffice;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: { approvedByOffice: next, rejected: false },
+      });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        next ? "extraWork.officeApproved" : "extraWork.officeWithdrawn",
+        { description: item.description },
+      );
+      await audit(tx, user, "workOrder.extraWork.approveOffice", "extraWork", item.id);
+    });
+
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/extra-work/:mwId/approve-client — admin OR client on own. Toggle.
+workOrdersRouter.post(
+  "/:id/extra-work/:mwId/approve-client",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+    if (user.role !== "admin") {
+      if (user.role !== "client" || project.customerId !== user.customerId) {
+        throw Forbidden("Not allowed to approve this extra work");
+      }
+    }
+    const next = !item.approvedByClient;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: { approvedByClient: next, rejected: false },
+      });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        next ? "extraWork.clientApproved" : "extraWork.clientWithdrawn",
+        { description: item.description },
+      );
+      await audit(tx, user, "workOrder.extraWork.approveClient", "extraWork", item.id);
+    });
+
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/extra-work/:mwId/reject — admin. {by?}.
+workOrdersRouter.post(
+  "/:id/extra-work/:mwId/reject",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { by } = rejectExtraWorkSchema.parse(req.body);
+    const rejectedBy = by ?? "office";
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: {
+          rejected: true,
+          rejectedBy,
+          approvedByOffice: false,
+          approvedByClient: false,
+        },
+      });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        rejectedBy === "client" ? "extraWork.rejectedByClient" : "extraWork.rejectedByOffice",
+        { description: item.description },
+      );
+      await audit(tx, user, "workOrder.extraWork.reject", "extraWork", item.id);
+    });
+
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/extra-work/:mwId/toggle-done — admin.
+workOrdersRouter.post(
+  "/:id/extra-work/:mwId/toggle-done",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+    const next = !item.done;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({ where: { id: item.id }, data: { done: next } });
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        next ? "extraWork.done" : "extraWork.reopened",
+        { description: item.description },
+      );
+      await audit(tx, user, "workOrder.extraWork.toggleDone", "extraWork", item.id);
+    });
+
     res.json(await reloadWorkOrder(user, req.params.id));
   }),
 );

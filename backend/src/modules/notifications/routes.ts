@@ -55,7 +55,7 @@ notificationsRouter.get(
         const extra = await prisma.extraWork.findMany({
           where: {
             ...awaitingWhere,
-            project: { is: projectScopeWhere(user) },
+            workOrder: { is: { project: { is: projectScopeWhere(user) } } },
           },
           orderBy: { id: "desc" },
           take: NOTIFICATIONS_LIMIT,
@@ -63,17 +63,17 @@ notificationsRouter.get(
             id: true,
             description: true,
             createdAt: true,
-            project: {
+            workOrderId: true,
+            workOrder: {
               select: {
                 id: true,
-                customerName: true,
-                workOrders: { select: { id: true }, take: 1, orderBy: { ordinal: "asc" } },
+                project: { select: { id: true, customerName: true } },
               },
             },
           },
         });
         for (const e of extra) {
-          const woId = e.project.workOrders[0]?.id;
+          const woId = e.workOrder.id;
           items.push({
             id: `extrawork:${e.id}`,
             category: "extraWorkApproval",
@@ -81,7 +81,7 @@ notificationsRouter.get(
               user.role === "client"
                 ? "notifications.extraWorkAwaitingClient"
                 : "notifications.extraWorkAwaitingOffice",
-            params: { description: e.description, customer: e.project.customerName },
+            params: { description: e.description, customer: e.workOrder.project.customerName },
             // ExtraWork.createdAt is a plain date string; normalize to ISO-ish.
             createdAt: toIso(e.createdAt),
             route: woId ? `/work-orders/${woId}` : "/work-orders",

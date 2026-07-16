@@ -9,8 +9,8 @@ import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
 import { projectScopeWhere } from "../projects/visibility.js";
 import {
-  planningProjectInclude,
-  planningEntriesForProject,
+  planningWorkOrderInclude,
+  planningEntriesForWorkOrder,
   type PlanningEntry,
 } from "./dto.js";
 import {
@@ -30,6 +30,22 @@ type Tx = Prisma.TransactionClient;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// A werkbon is visible if its parent project is visible. Reuse projectScopeWhere
+// (org + soft-delete + role visibility) nested under `project`, then AND the
+// werkbon-level constraints so both always hold (never let one OR clobber the
+// other — see visibility.ts).
+function workOrderScopeWhere(
+  user: AuthUser,
+  extra?: Prisma.WorkOrderWhereInput,
+): Prisma.WorkOrderWhereInput {
+  return {
+    AND: [
+      { project: projectScopeWhere(user) },
+      ...(extra ? [extra] : []),
+    ],
+  };
 }
 
 // Append a ProjectActivity row inside a transaction (mirror makeActivity +
@@ -64,24 +80,32 @@ async function appendActivity(
 }
 
 // Reject client outright (Planning = client NONE). admin + technician continue;
-// technician is read-only and own-scoped (enforced by projectScopeWhere).
+// technician is read-only and own-scoped (enforced by workOrderScopeWhere).
 function assertNotClient(user: AuthUser): void {
   if (user.role === "client") throw Forbidden("Not available");
 }
 
-// Load a project scoped to org + role visibility, throw 404 if not visible.
-// Used by the admin write paths (visibility for admin is unrestricted).
-async function loadProjectForUser(user: AuthUser, id: string) {
-  const project = await prisma.project.findFirst({
-    where: projectScopeWhere(user, { id }),
+// Load a werkbon scoped to org + role visibility (via its project), throw 404 if
+// not visible. Includes the parent project + crew needed by the write paths.
+async function loadWorkOrderForUser(user: AuthUser, id: string) {
+  const workOrder = await prisma.workOrder.findFirst({
+    where: workOrderScopeWhere(user, { id }),
     include: {
       quote: { select: { status: true } },
-      materialRequirements: true,
-      installers: { select: { id: true } },
+      assignees: { select: { id: true } },
+      project: {
+        select: {
+          id: true,
+          status: true,
+          projectLeaderId: true,
+          teamLeaderId: true,
+          materialRequirements: true,
+        },
+      },
     },
   });
-  if (!project) throw NotFound("Project not found");
-  return project;
+  if (!workOrder) throw NotFound("Work order not found");
+  return workOrder;
 }
 
 // Mirror getProjectMaterialReadiness === "available".
@@ -92,16 +116,16 @@ function materialsAvailable(
   return reqs.every((r) => r.quantityInStock >= r.quantityNeeded);
 }
 
-// Reload a project as planning entries (after a write).
+// Reload a werkbon as planning entries (after a write).
 async function reloadEntries(
   user: AuthUser,
-  projectId: string,
+  workOrderId: string,
 ): Promise<PlanningEntry[]> {
-  const p = await prisma.project.findUniqueOrThrow({
-    where: { id: projectId },
-    include: planningProjectInclude,
+  const wo = await prisma.workOrder.findUniqueOrThrow({
+    where: { id: workOrderId },
+    include: planningWorkOrderInclude,
   });
-  return planningEntriesForProject(p);
+  return planningEntriesForWorkOrder(wo);
 }
 
 // =========================================================================
@@ -109,8 +133,8 @@ async function reloadEntries(
 // =========================================================================
 
 // GET /?from=&to=&view= — flat calendar feed. admin: whole org; technician: only
-// projects they're assigned to (teamLeader/projectLeader/installer). client: 403.
-// A project is "on the calendar" if it has PlanningItems or a plannedDate.
+// werkbonnen whose project they're assigned to. client: 403.
+// A werkbon is "on the calendar" if it has PlanningItems or a plannedDate.
 planningRouter.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -118,21 +142,21 @@ planningRouter.get(
     assertNotClient(user);
     const { from, to } = calendarQuerySchema.parse(req.query);
 
-    const projects = await prisma.project.findMany({
-      where: projectScopeWhere(user, {
+    const workOrders = await prisma.workOrder.findMany({
+      where: workOrderScopeWhere(user, {
         OR: [
           { plannedDate: { not: null } },
           { planningItems: { some: {} } },
         ],
       }),
-      include: planningProjectInclude,
+      include: planningWorkOrderInclude,
       orderBy: { plannedDate: "asc" },
     });
 
     // Flatten to entries, then filter by the [from, to] inclusive date window
     // (string compare on YYYY-MM-DD, matching the store's date semantics).
-    const entries = projects
-      .flatMap(planningEntriesForProject)
+    const entries = workOrders
+      .flatMap(planningEntriesForWorkOrder)
       .filter((e) => {
         if (from && e.date < from) return false;
         if (to && e.date > to) return false;
@@ -148,7 +172,7 @@ planningRouter.get(
 // ROUTE OVERVIEW
 // =========================================================================
 
-// GET /route?date= — planned projects for a day, ordered by address (MVP: a
+// GET /route?date= — planned werkbonnen for a day, ordered by address (MVP: a
 // simple ordered list, no real routing). admin: org-wide; technician: own. client: 403.
 planningRouter.get(
   "/route",
@@ -158,26 +182,28 @@ planningRouter.get(
     const { date } = routeQuerySchema.parse(req.query);
     const day = date ?? todayIso();
 
-    const projects = await prisma.project.findMany({
-      where: projectScopeWhere(user, {
+    const workOrders = await prisma.workOrder.findMany({
+      where: workOrderScopeWhere(user, {
         OR: [
           { plannedDate: day },
           { planningItems: { some: { date: day } } },
         ],
       }),
-      include: planningProjectInclude,
-      orderBy: { address: "asc" },
+      include: planningWorkOrderInclude,
+      orderBy: { project: { address: "asc" } },
     });
 
-    // One entry per project for that day. Prefer a matching PlanningItem; fall
+    // One entry per werkbon for that day. Prefer a matching PlanningItem; fall
     // back to the date-only entry. Ordered by project.address (DB orderBy).
-    const stops = projects.flatMap((p) => {
-      const entries = planningEntriesForProject(p).filter((e) => e.date === day);
+    const stops = workOrders.flatMap((wo) => {
+      const entries = planningEntriesForWorkOrder(wo).filter(
+        (e) => e.date === day,
+      );
       return entries.map((e) => ({
         ...e,
-        address: p.address,
-        postalCode: p.postalCode,
-        city: p.city,
+        address: wo.project.address,
+        postalCode: wo.project.postalCode,
+        city: wo.project.city,
       }));
     });
 
@@ -189,13 +215,12 @@ planningRouter.get(
 // SCHEDULE A SLOT — admin only
 // =========================================================================
 
-// POST /projects/:projectId/planning — create/replace a PlanningItem and set
-// plannedDate. Mirrors schedulePlanningSlot + scheduleProjectOnDay: updates the
-// first PlanningItem in place (or creates one with the store defaults),
-// preserves project duration by shifting plannedEndDate, and advances a
-// sales+accepted project to operations. Adds a "scheduled" activity.
+// POST /work-orders/:workOrderId/planning — create/replace a PlanningItem and
+// set the werkbon's plannedDate. Updates the first PlanningItem in place (or
+// creates one with the store defaults), preserving the werkbon's duration by
+// shifting plannedEndDate. Adds a "scheduled" activity on the parent project.
 planningRouter.post(
-  "/projects/:projectId/planning",
+  "/work-orders/:workOrderId/planning",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
@@ -203,15 +228,15 @@ planningRouter.post(
     const date = clampText(input.date).trim();
     if (!date) throw BadRequest("date required");
 
-    const existing = await prisma.project.findFirst({
-      where: projectScopeWhere(user, { id: req.params.projectId }),
+    const existing = await prisma.workOrder.findFirst({
+      where: workOrderScopeWhere(user, { id: req.params.workOrderId }),
       include: {
-        quote: { select: { status: true } },
         planningItems: { orderBy: { date: "asc" } },
-        installers: { select: { id: true } },
+        assignees: { select: { id: true } },
+        project: { select: { id: true, projectLeaderId: true, teamLeaderId: true } },
       },
     });
-    if (!existing) throw NotFound("Project not found");
+    if (!existing) throw NotFound("Work order not found");
 
     const teamLeaderId =
       input.teamLeaderId !== undefined
@@ -222,8 +247,7 @@ planningRouter.post(
     const vehicle =
       input.vehicle !== undefined ? clampText(input.vehicle) : undefined;
 
-    // Preserve looptijd: shift plannedEndDate by the same span (mirror
-    // scheduleProjectOnDay).
+    // Preserve looptijd: shift plannedEndDate by the same span.
     const oldStart = existing.plannedDate;
     const oldEnd = existing.plannedEndDate ?? existing.plannedDate;
     const spanMs =
@@ -232,9 +256,6 @@ planningRouter.post(
       spanMs > 0
         ? new Date(Date.parse(date) + spanMs).toISOString().slice(0, 10)
         : null;
-
-    const shouldAdvance =
-      existing.status === "sales" && existing.quote?.status === "accepted";
 
     const leader =
       teamLeaderId != null
@@ -264,56 +285,45 @@ planningRouter.post(
           },
         });
       } else {
-        // Create a new slot with the store defaults: 08:00–15:30, installers
-        // copied from the project, vehicle "Bus - nog toewijzen".
+        // Create a new slot with the store defaults: 08:00–15:30, crew copied
+        // from the werkbon's assignees, vehicle "Bus - nog toewijzen".
         const createData: Prisma.PlanningItemCreateInput = {
-          project: { connect: { id: existing.id } },
+          workOrder: { connect: { id: existing.id } },
           date,
           startTime: startTime ?? "08:00",
           endTime: endTime ?? "15:30",
           vehicle: vehicle ?? "Bus - nog toewijzen",
           installers: {
-            connect: existing.installers.map((i) => ({ id: i.id })),
+            connect: existing.assignees.map((a) => ({ id: a.id })),
           },
         };
-        if (existing.projectLeaderId) {
+        if (existing.project.projectLeaderId) {
           createData.projectLeader = {
-            connect: { id: existing.projectLeaderId },
+            connect: { id: existing.project.projectLeaderId },
           };
         }
-        const slotTeamLeaderId = teamLeaderId ?? existing.teamLeaderId;
+        const slotTeamLeaderId = teamLeaderId ?? existing.project.teamLeaderId;
         if (slotTeamLeaderId) {
           createData.teamLeader = { connect: { id: slotTeamLeaderId } };
         }
         await tx.planningItem.create({ data: createData });
       }
 
-      // Update the project: plannedDate/end, status advance, and propagate the
-      // chosen teamLeaderId onto the project (mirror schedulePlanningSlot).
-      const projectData: Prisma.ProjectUpdateInput = {
-        plannedDate: date,
-        plannedEndDate: newEnd,
-      };
-      if (teamLeaderId !== undefined) {
-        projectData.teamLeader = teamLeaderId
-          ? { connect: { id: teamLeaderId } }
-          : { disconnect: true };
-      }
-      if (shouldAdvance) {
-        projectData.status = "operations";
-        projectData.nextStepKey = "prepareWorkOrder";
-      }
-      await tx.project.update({ where: { id: existing.id }, data: projectData });
+      // Update the werkbon: plannedDate/end.
+      await tx.workOrder.update({
+        where: { id: existing.id },
+        data: { plannedDate: date, plannedEndDate: newEnd },
+      });
 
       await appendActivity(
         tx,
         user,
-        existing.id,
+        existing.projectId,
         "scheduled",
         leader ? "planning.scheduledWithTeam" : "planning.scheduled",
         { params: { date, leader: leader?.name } },
       );
-      await audit(tx, user, "planning.schedule", "project", existing.id, {
+      await audit(tx, user, "planning.schedule", "workOrder", existing.id, {
         date,
         teamLeaderId,
       });
@@ -327,17 +337,17 @@ planningRouter.post(
 // DURATION — admin only
 // =========================================================================
 
-// PATCH /projects/:projectId/planning/duration {days} — setProjectDurationDays.
-// plannedEndDate = plannedDate + (days-1); days<=1 clears the end date.
+// PATCH /work-orders/:workOrderId/planning/duration {days} — set the werkbon's
+// duration. plannedEndDate = plannedDate + (days-1); days<=1 clears the end date.
 planningRouter.patch(
-  "/projects/:projectId/planning/duration",
+  "/work-orders/:workOrderId/planning/duration",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { days } = durationSchema.parse(req.body);
-    const existing = await loadProjectForUser(user, req.params.projectId);
+    const existing = await loadWorkOrderForUser(user, req.params.workOrderId);
     if (!existing.plannedDate) {
-      throw BadRequest("Project has no plannedDate");
+      throw BadRequest("Work order has no plannedDate");
     }
 
     const clamped = Math.max(1, Math.round(days));
@@ -349,11 +359,11 @@ planningRouter.patch(
             .slice(0, 10);
 
     await prisma.$transaction(async (tx) => {
-      await tx.project.update({
+      await tx.workOrder.update({
         where: { id: existing.id },
         data: { plannedEndDate: end },
       });
-      await audit(tx, user, "planning.duration", "project", existing.id, {
+      await audit(tx, user, "planning.duration", "workOrder", existing.id, {
         days: clamped,
       });
     });
@@ -366,23 +376,29 @@ planningRouter.patch(
 // UNSCHEDULE — admin only
 // =========================================================================
 
-// DELETE /projects/:projectId/planning — unscheduleProject: clear
-// plannedDate/plannedEndDate and remove all PlanningItems for the project.
+// DELETE /work-orders/:workOrderId/planning — unschedule the werkbon: clear
+// plannedDate/plannedEndDate and remove all PlanningItems for the werkbon.
 planningRouter.delete(
-  "/projects/:projectId/planning",
+  "/work-orders/:workOrderId/planning",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const existing = await loadProjectForUser(user, req.params.projectId);
+    const existing = await loadWorkOrderForUser(user, req.params.workOrderId);
 
     await prisma.$transaction(async (tx) => {
-      await tx.planningItem.deleteMany({ where: { projectId: existing.id } });
-      await tx.project.update({
+      await tx.planningItem.deleteMany({ where: { workOrderId: existing.id } });
+      await tx.workOrder.update({
         where: { id: existing.id },
         data: { plannedDate: null, plannedEndDate: null },
       });
-      await appendActivity(tx, user, existing.id, "system", "planning.unscheduled");
-      await audit(tx, user, "planning.unschedule", "project", existing.id);
+      await appendActivity(
+        tx,
+        user,
+        existing.projectId,
+        "system",
+        "planning.unscheduled",
+      );
+      await audit(tx, user, "planning.unschedule", "workOrder", existing.id);
     });
 
     res.status(204).end();
@@ -393,66 +409,70 @@ planningRouter.delete(
 // MARK PLANNED — admin only
 // =========================================================================
 
-// POST /projects/:projectId/planning/mark-planned — markProjectPlanned. Guarded
-// by canMoveToPlanned (status operations + materials available). Sets status
-// operations, ensures a plannedDate, creates a PlanningItem if none exists, and
-// logs a status_change activity.
+// POST /work-orders/:workOrderId/planning/mark-planned — mark the werkbon
+// planned. Guarded by the parent project's readiness (status operations +
+// materials available). Ensures a plannedDate, creates a PlanningItem if none
+// exists, and logs a status_change activity on the project.
 planningRouter.post(
-  "/projects/:projectId/planning/mark-planned",
+  "/work-orders/:workOrderId/planning/mark-planned",
   requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const existing = await loadProjectForUser(user, req.params.projectId);
+    const existing = await loadWorkOrderForUser(user, req.params.workOrderId);
+    const project = existing.project;
 
-    // canMoveToPlanned: status === "operations" && materials available.
-    const available = materialsAvailable(existing.materialRequirements);
-    if (existing.status !== "operations" || !available) {
-      throw BadRequest("Project cannot be marked planned");
+    // canMoveToPlanned: parent project status === "operations" && materials available.
+    const available = materialsAvailable(project.materialRequirements);
+    if (project.status !== "operations" || !available) {
+      throw BadRequest("Work order cannot be marked planned");
     }
 
     const planningItems = await prisma.planningItem.findMany({
-      where: { projectId: existing.id },
+      where: { workOrderId: existing.id },
     });
-    const fromStatus = existing.status;
+    const fromStatus = project.status;
     // Mirror the store's fallback default plannedDate.
     const plannedDate = existing.plannedDate ?? "2026-05-20";
 
     await prisma.$transaction(async (tx) => {
-      await tx.project.update({
+      await tx.workOrder.update({
         where: { id: existing.id },
-        data: {
-          status: "operations",
-          nextStepKey: "prepareWorkOrder",
-          plannedDate,
-        },
+        data: { plannedDate },
       });
 
       if (planningItems.length === 0) {
         const createData: Prisma.PlanningItemCreateInput = {
-          project: { connect: { id: existing.id } },
+          workOrder: { connect: { id: existing.id } },
           date: plannedDate,
           startTime: "08:00",
           endTime: "15:30",
           vehicle: "Bus 8 - Transit",
           installers: {
-            connect: existing.installers.map((i) => ({ id: i.id })),
+            connect: existing.assignees.map((a) => ({ id: a.id })),
           },
         };
-        if (existing.projectLeaderId) {
+        if (project.projectLeaderId) {
           createData.projectLeader = {
-            connect: { id: existing.projectLeaderId },
+            connect: { id: project.projectLeaderId },
           };
         }
-        if (existing.teamLeaderId) {
-          createData.teamLeader = { connect: { id: existing.teamLeaderId } };
+        if (project.teamLeaderId) {
+          createData.teamLeader = { connect: { id: project.teamLeaderId } };
         }
         await tx.planningItem.create({ data: createData });
       }
 
-      await appendActivity(tx, user, existing.id, "status_change", "planning.projectScheduled", {
-        statuses: { fromStatus, toStatus: "operations" },
-      });
-      await audit(tx, user, "planning.markPlanned", "project", existing.id);
+      await appendActivity(
+        tx,
+        user,
+        project.id,
+        "status_change",
+        "planning.projectScheduled",
+        {
+          statuses: { fromStatus, toStatus: "operations" },
+        },
+      );
+      await audit(tx, user, "planning.markPlanned", "workOrder", existing.id);
     });
 
     res.json(await reloadEntries(user, existing.id));

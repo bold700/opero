@@ -36,11 +36,14 @@ export const updateProjectSchema = z.object({
   contactPhone: z.string().optional(),
   instructions: z.string().optional(),
   insulationType: z.string().optional(),
-  plannedDate: z.string().nullable().optional(),
-  plannedEndDate: z.string().nullable().optional(),
   materialsReady: z.boolean().optional(),
   exclusions: z.string().optional(),
   billingType: z.enum(["fixed", "time_and_materials"]).nullable().optional(),
+  // Sidebar fields surfaced from the werkbon detail (all project-level).
+  urgency: z.enum(["normal", "urgent", "blocked"]).optional(),
+  projectLeaderId: z.string().nullable().optional(),
+  installerIds: z.array(z.string()).optional(),
+  workTypeId: z.string().nullable().optional(),
 });
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 

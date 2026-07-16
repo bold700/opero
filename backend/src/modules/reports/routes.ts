@@ -68,7 +68,7 @@ reportsRouter.get(
         // (paidDate is an ISO string; lexical range works.)
         prisma.invoice.findMany({
           where: {
-            project: { is: orgWhere },
+            workOrder: { is: { project: { is: orgWhere } } },
             paidDate: { gte: from, lte: to },
           },
           select: {

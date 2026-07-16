@@ -30,9 +30,7 @@
     "defaultTitle": "Work order {{n}}",
     "export": "Export",
     "exportMenuQuote": "Quote (PDF)",
-    "exportMenuWorkOrder": "Work order (PDF)",
-    "assignee": "Technician",
-    "assigneeNone": "Unassigned"
+    "exportMenuWorkOrder": "Work order (PDF)"
   },
   "photos": {
     "title": "Photos",
@@ -151,5 +149,29 @@
     "quantityLabel": "Quantity",
     "unnamed": "Untitled",
     "renameHint": "Click to rename"
+  },
+  "info": {
+    "title": "Project info",
+    "progress": "Progress",
+    "progressValue": "{{done}} of {{total}} zones done",
+    "urgency": "Urgency",
+    "startDate": "Start date",
+    "date": "Date",
+    "instructions": "Work instructions",
+    "daysValue": "{{count}} day(s)",
+    "projectLeader": "Project leader",
+    "none": "Unassigned",
+    "monteurs": "Technicians",
+    "monteursPlaceholder": "Search a technician…",
+    "address": "Address",
+    "postalCode": "Postal code",
+    "city": "City",
+    "contact": "Contact",
+    "contactName": "Contact name",
+    "contactPhone": "Phone",
+    "description": "Description",
+    "planning": "Planning",
+    "endDateOptional": "End date (optional)",
+    "sameDay": "same day"
   }
 }

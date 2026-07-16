@@ -26,13 +26,14 @@ export type CalendarViewName =
 const DEFAULT_START = "08:00";
 const DEFAULT_END = "10:00";
 
-// One planning entry → a FullCalendar event. The entry's projectId + date make a
-// stable id; the original entry rides along in extendedProps for the panel.
+// One planning entry → a FullCalendar event. The entry's workOrderId + date make
+// a stable id (a project can have multiple werkbonnen); the original entry rides
+// along in extendedProps for the panel.
 function toEvent(e: PlanningEntry): EventInput {
   const startTime = e.startTime ?? DEFAULT_START;
   const endTime = e.endTime ?? (e.startTime ? undefined : DEFAULT_END);
   return {
-    id: `${e.projectId}-${e.date}`,
+    id: `${e.workOrderId}-${e.date}`,
     title: e.customerName,
     start: `${e.date}T${startTime}`,
     end: endTime ? `${e.date}T${endTime}` : undefined,

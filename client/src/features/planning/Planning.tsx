@@ -15,13 +15,13 @@ import { useCreateParam } from "../../lib/useCreateParam";
 import { SURFACE, SPACING, PAGE_PADDING_RESPONSIVE } from "../../theme/tokens";
 import {
   getPlanning,
-  scheduleProject,
-  unscheduleProject,
-  getProjectsForScheduling,
+  scheduleWorkOrder,
+  unscheduleWorkOrder,
+  getWorkOrdersForScheduling,
   getAssignableEmployees,
   type PlanningEntry,
   type ScheduleInput,
-  type SchedulableProject,
+  type SchedulableWorkOrder,
   type AssignableEmployee,
 } from "./api";
 import { PlanningActions } from "./components/PlanningActions";
@@ -51,7 +51,7 @@ export function Planning() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Dropdown sources for the schedule dialog.
-  const [projects, setProjects] = useState<SchedulableProject[]>([]);
+  const [workOrders, setWorkOrders] = useState<SchedulableWorkOrder[]>([]);
   const [employees, setEmployees] = useState<AssignableEmployee[]>([]);
 
   // Dialog state.
@@ -83,7 +83,7 @@ export function Planning() {
   // Load dropdown data once (admins only — they're the schedulers).
   useEffect(() => {
     if (!canManage) return;
-    getProjectsForScheduling().then(setProjects).catch(() => setProjects([]));
+    getWorkOrdersForScheduling().then(setWorkOrders).catch(() => setWorkOrders([]));
     getAssignableEmployees().then(setEmployees).catch(() => setEmployees([]));
   }, [canManage]);
 
@@ -92,7 +92,7 @@ export function Planning() {
   };
 
   const selected =
-    entries.find((e) => `${e.projectId}-${e.date}` === selectedId) ?? null;
+    entries.find((e) => `${e.workOrderId}-${e.date}` === selectedId) ?? null;
 
   const fcLocale = i18n.language.startsWith("nl") ? "nl" : "en";
 
@@ -111,11 +111,11 @@ export function Planning() {
     setScheduleOpen(true);
   };
 
-  const handleSchedule = async (projectId: string, input: ScheduleInput) => {
+  const handleSchedule = async (workOrderId: string, input: ScheduleInput) => {
     setBusy(true);
     setFormError(null);
     try {
-      await scheduleProject(projectId, input);
+      await scheduleWorkOrder(workOrderId, input);
       setScheduleOpen(false);
       setToast(t("planning.toast.scheduled"));
       refresh();
@@ -126,7 +126,7 @@ export function Planning() {
     }
   };
 
-  // Drag-to-reschedule: same project, new date/time. Reject drops into the past.
+  // Drag-to-reschedule: same werkbon, new date/time. Reject drops into the past.
   const handleDrop = async (
     entry: PlanningEntry,
     date: string,
@@ -141,7 +141,7 @@ export function Planning() {
     }
     setBusy(true);
     try {
-      await scheduleProject(entry.projectId, { date, startTime, endTime });
+      await scheduleWorkOrder(entry.workOrderId, { date, startTime, endTime });
       setToast(t("planning.toast.scheduled"));
       refresh();
     } catch (e) {
@@ -156,7 +156,7 @@ export function Planning() {
     if (!removing) return;
     setBusy(true);
     try {
-      await unscheduleProject(removing.projectId);
+      await unscheduleWorkOrder(removing.workOrderId);
       setRemoving(null);
       setSelectedId(null);
       setToast(t("planning.toast.removed"));
@@ -225,7 +225,7 @@ export function Planning() {
               editable={canManage}
               onDatesSet={(from, to) => setDateWindow({ from, to })}
               onEventClick={(entry) => {
-                const id = `${entry.projectId}-${entry.date}`;
+                const id = `${entry.workOrderId}-${entry.date}`;
                 // Clicking the already-selected event deselects it.
                 setSelectedId((cur) => (cur === id ? null : id));
               }}
@@ -248,7 +248,7 @@ export function Planning() {
               canManage={canManage}
               busy={busy}
               onClose={() => setSelectedId(null)}
-              onOpenWorkOrder={() => navigate(`/work-orders?project=${selected.projectId}`)}
+              onOpenWorkOrder={() => navigate(`/work-orders/${selected.workOrderId}`)}
               onEdit={() => openEdit(selected)}
               onRemove={() => setRemoving(selected)}
             />
@@ -262,11 +262,11 @@ export function Planning() {
 
       <ScheduleDialog
         open={scheduleOpen}
-        projects={projects}
+        workOrders={workOrders}
         employees={employees}
-        lockedProject={
+        lockedWorkOrder={
           editing
-            ? { id: editing.projectId, label: `${editing.projectNumber} · ${editing.customerName}` }
+            ? { id: editing.workOrderId, label: `${editing.projectNumber} · ${editing.customerName}` }
             : null
         }
         defaultDate={defaultDate}

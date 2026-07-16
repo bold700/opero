@@ -3,27 +3,40 @@ import type { Prisma } from "@prisma/client";
 // DTO mappers for the planning module — never return raw rows with internal
 // columns to clients.
 
-// A project row carrying just the fields the calendar feed needs, plus its
-// planning items (with installers) and assigned installers.
-export const planningProjectInclude = {
+// A werkbon (WorkOrder) row carrying just the fields the calendar feed needs,
+// plus its planning items (with installers) and its parent project's
+// customer/address/number context + team. Scheduling lives on the werkbon.
+export const planningWorkOrderInclude = {
   planningItems: {
     include: {
       installers: { select: { id: true } },
       teamLeader: { select: { name: true } },
     },
   },
-  installers: { select: { id: true } },
-  teamLeader: { select: { name: true } },
-} satisfies Prisma.ProjectInclude;
+  assignees: { select: { id: true } },
+  project: {
+    select: {
+      projectNumber: true,
+      customerName: true,
+      address: true,
+      postalCode: true,
+      city: true,
+      teamLeaderId: true,
+      teamLeader: { select: { name: true } },
+    },
+  },
+} satisfies Prisma.WorkOrderInclude;
 
-type PlanningProject = Prisma.ProjectGetPayload<{
-  include: typeof planningProjectInclude;
+type PlanningWorkOrder = Prisma.WorkOrderGetPayload<{
+  include: typeof planningWorkOrderInclude;
 }>;
 
-// One flat calendar entry. A scheduled project surfaces either via a concrete
+// One flat calendar entry. A scheduled werkbon surfaces either via a concrete
 // PlanningItem (preferred — carries times/vehicle/team) or, when none exists,
-// via the project's plannedDate alone.
+// via the werkbon's plannedDate alone. Customer/address/number context comes
+// from the parent project.
 export type PlanningEntry = {
+  workOrderId: string;
   projectId: string;
   projectNumber: string;
   customerName: string;
@@ -40,50 +53,55 @@ export type PlanningEntry = {
   status: string;
 };
 
-// Build the flat list of calendar entries for a single project. Emits one entry
-// per PlanningItem; if the project has a plannedDate but no PlanningItems, emits
-// a single date-only entry so date-driven scheduling (scheduleProjectOnDay /
-// updateProject.plannedDate) still shows on the calendar.
-export function planningEntriesForProject(p: PlanningProject): PlanningEntry[] {
-  const projectInstallerIds = p.installers.map((i) => i.id);
+// Build the flat list of calendar entries for a single werkbon. Emits one entry
+// per PlanningItem; if the werkbon has a plannedDate but no PlanningItems, emits
+// a single date-only entry so date-driven scheduling still shows on the
+// calendar.
+export function planningEntriesForWorkOrder(
+  wo: PlanningWorkOrder,
+): PlanningEntry[] {
+  const assigneeIds = wo.assignees.map((a) => a.id);
+  const project = wo.project;
 
-  if (p.planningItems.length > 0) {
-    return p.planningItems.map((item) => ({
-      projectId: p.id,
-      projectNumber: p.projectNumber,
-      customerName: p.customerName,
-      address: p.address,
-      city: p.city,
+  if (wo.planningItems.length > 0) {
+    return wo.planningItems.map((item) => ({
+      workOrderId: wo.id,
+      projectId: wo.projectId,
+      projectNumber: project.projectNumber,
+      customerName: project.customerName,
+      address: project.address,
+      city: project.city,
       date: item.date,
       startTime: item.startTime || undefined,
       endTime: item.endTime || undefined,
-      plannedEndDate: p.plannedEndDate ?? undefined,
-      teamLeaderId: item.teamLeaderId ?? p.teamLeaderId ?? undefined,
+      plannedEndDate: wo.plannedEndDate ?? undefined,
+      teamLeaderId: item.teamLeaderId ?? project.teamLeaderId ?? undefined,
       teamLeaderName:
-        item.teamLeader?.name ?? p.teamLeader?.name ?? undefined,
+        item.teamLeader?.name ?? project.teamLeader?.name ?? undefined,
       installerIds:
         item.installers.length > 0
           ? item.installers.map((i) => i.id)
-          : projectInstallerIds,
+          : assigneeIds,
       vehicle: item.vehicle || undefined,
-      status: p.status,
+      status: wo.listStatus,
     }));
   }
 
-  if (p.plannedDate) {
+  if (wo.plannedDate) {
     return [
       {
-        projectId: p.id,
-        projectNumber: p.projectNumber,
-        customerName: p.customerName,
-        address: p.address,
-        city: p.city,
-        date: p.plannedDate,
-        plannedEndDate: p.plannedEndDate ?? undefined,
-        teamLeaderId: p.teamLeaderId ?? undefined,
-        teamLeaderName: p.teamLeader?.name ?? undefined,
-        installerIds: projectInstallerIds,
-        status: p.status,
+        workOrderId: wo.id,
+        projectId: wo.projectId,
+        projectNumber: project.projectNumber,
+        customerName: project.customerName,
+        address: project.address,
+        city: project.city,
+        date: wo.plannedDate,
+        plannedEndDate: wo.plannedEndDate ?? undefined,
+        teamLeaderId: project.teamLeaderId ?? undefined,
+        teamLeaderName: project.teamLeader?.name ?? undefined,
+        installerIds: assigneeIds,
+        status: wo.listStatus,
       },
     ];
   }

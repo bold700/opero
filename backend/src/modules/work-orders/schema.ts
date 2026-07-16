@@ -10,11 +10,15 @@ export const createWorkOrderSchema = z.object({
   title: z.string().optional(),
 });
 
-// PATCH /work-orders/:id — header fields. assigneeId sets the werkbon's monteur
-// (null clears it); validated against the org in the handler.
+// PATCH /work-orders/:id — header fields. assigneeIds sets the werkbon's
+// monteur(s) — a full replace of the assigned crew (empty array clears them);
+// all ids are validated against the org in the handler.
 export const updateWorkOrderSchema = z.object({
   title: z.string().optional(),
-  assigneeId: z.string().nullable().optional(),
+  assigneeIds: z.array(z.string()).optional(),
+  // The werkbon is the scheduled visit — its date(s) live here.
+  plannedDate: z.string().nullable().optional(),
+  plannedEndDate: z.string().nullable().optional(),
 });
 
 // PATCH /work-orders/:id/tasks/:taskId — task fields incl. per-zone work type +

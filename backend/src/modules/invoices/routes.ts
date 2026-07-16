@@ -42,26 +42,27 @@ function invoiceDto(inv: {
   };
 }
 
-// Load the project's invoice, org-scoped. Throws if project/invoice missing.
-async function loadInvoice(orgId: string, projectId: string) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, orgId, deletedAt: null },
-    include: { invoice: true, quote: true, extraWork: true },
+// Load the werkbon's invoice, org-scoped via its parent project. Throws if
+// work order/invoice missing.
+async function loadInvoice(orgId: string, workOrderId: string) {
+  const workOrder = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, project: { orgId, deletedAt: null } },
+    include: { quote: true, invoice: true, extraWork: true, project: true },
   });
-  if (!project) throw NotFound("Project not found");
-  if (!project.invoice) throw NotFound("Invoice not found");
-  return project;
+  if (!workOrder) throw NotFound("Work order not found");
+  if (!workOrder.invoice) throw NotFound("Invoice not found");
+  return workOrder;
 }
 
 // Compute invoice totals from the accepted quote + approved extra work
 // (mirrors the store's deriveInvoiceTotals intent in relational form).
-function deriveTotals(project: {
-  value: number;
+function deriveTotals(workOrder: {
+  project: { value: number };
   quote: { amount: number; status: string } | null;
   extraWork: { amount: number; approvedByOffice: boolean; approvedByClient: boolean; rejected: boolean }[];
 }) {
-  const acceptedQuoteAmount = project.quote?.amount ?? project.value;
-  const extraWorkAmount = project.extraWork
+  const acceptedQuoteAmount = workOrder.quote?.amount ?? workOrder.project.value;
+  const extraWorkAmount = workOrder.extraWork
     .filter((m) => m.approvedByOffice && m.approvedByClient && !m.rejected)
     .reduce((sum, m) => sum + m.amount, 0);
   return {
@@ -72,21 +73,21 @@ function deriveTotals(project: {
   };
 }
 
-// POST /projects/:projectId/invoice/draft
+// POST /work-orders/:workOrderId/invoice/draft
 invoicesRouter.post(
-  "/projects/:projectId/invoice/draft",
+  "/work-orders/:workOrderId/invoice/draft",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const project = await loadInvoice(user.orgId, req.params.projectId);
-    const totals = deriveTotals(project);
+    const workOrder = await loadInvoice(user.orgId, req.params.workOrderId);
+    const totals = deriveTotals(workOrder);
     const updated = await prisma.$transaction(async (tx) => {
       const inv = await tx.invoice.update({
-        where: { id: project.invoice!.id },
+        where: { id: workOrder.invoice!.id },
         data: { ...totals, status: "draft" },
       });
       await tx.projectActivity.create({
         data: {
-          projectId: project.id,
+          projectId: workOrder.projectId,
           userId: user.id,
           type: "system",
           messageKey: "invoice.drafted",
@@ -99,23 +100,23 @@ invoicesRouter.post(
   }),
 );
 
-// POST /projects/:projectId/invoice/send
+// POST /work-orders/:workOrderId/invoice/send
 invoicesRouter.post(
-  "/projects/:projectId/invoice/send",
+  "/work-orders/:workOrderId/invoice/send",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const project = await loadInvoice(user.orgId, req.params.projectId);
-    if (project.invoice!.status === "not_started") {
+    const workOrder = await loadInvoice(user.orgId, req.params.workOrderId);
+    if (workOrder.invoice!.status === "not_started") {
       throw BadRequest("Create a draft before sending");
     }
     const updated = await prisma.$transaction(async (tx) => {
       const inv = await tx.invoice.update({
-        where: { id: project.invoice!.id },
+        where: { id: workOrder.invoice!.id },
         data: { status: "sent", sentDate: todayIso() },
       });
       await tx.projectActivity.create({
         data: {
-          projectId: project.id,
+          projectId: workOrder.projectId,
           userId: user.id,
           type: "system",
           messageKey: "invoice.sent",
@@ -128,20 +129,20 @@ invoicesRouter.post(
   }),
 );
 
-// POST /projects/:projectId/invoice/paid
+// POST /work-orders/:workOrderId/invoice/paid
 invoicesRouter.post(
-  "/projects/:projectId/invoice/paid",
+  "/work-orders/:workOrderId/invoice/paid",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const project = await loadInvoice(user.orgId, req.params.projectId);
+    const workOrder = await loadInvoice(user.orgId, req.params.workOrderId);
     const updated = await prisma.$transaction(async (tx) => {
       const inv = await tx.invoice.update({
-        where: { id: project.invoice!.id },
+        where: { id: workOrder.invoice!.id },
         data: { status: "paid", paidDate: todayIso() },
       });
       await tx.projectActivity.create({
         data: {
-          projectId: project.id,
+          projectId: workOrder.projectId,
           userId: user.id,
           type: "system",
           messageKey: "invoice.paid",

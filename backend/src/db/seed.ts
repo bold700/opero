@@ -258,13 +258,254 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
+  // 8a. Werkbon builder — billing (quote+invoice), scheduling and extra work
+  //     are per-werkbon now. This maps a mock project onto its nested werkbon
+  //     create array with these rules:
+  //       - Always produce at least one werkbon (the "primary") so the
+  //         project's quote/invoice have a home even when the mock carries no
+  //         explicit workOrders.
+  //       - The PRIMARY werkbon inherits the project's plannedDate(s), quote
+  //         (with line items), invoice, extraWork and planningItems.
+  //       - Every ADDITIONAL werkbon gets its own derived quote + invoice so
+  //         billing works uniformly across all werkbonnen. To exercise the
+  //         multi-werkbon flow, a couple of projects are given 2–3 werkbonnen.
+  // -----------------------------------------------------------------------
+  // Synthesize a couple of tasks with varied completion for projects whose
+  // mock carries no explicit werkbon tasks. mode: 0 = none done (Open),
+  // 1 = some done (In progress), 2 = all done (Done).
+  function synthTasks(mode: number): WorkOrderTask[] {
+    const now = new Date().toISOString();
+    return [
+      {
+        description: "Voorbereiding en materiaal controleren",
+        done: mode === 2,
+        beforePhotos: [],
+        resultPhotos: [],
+        startedAt: mode >= 1 ? now : undefined,
+        endedAt: mode === 2 ? now : undefined,
+        materials: [],
+      } as unknown as WorkOrderTask,
+      {
+        description: "Isolatie aanbrengen",
+        done: mode === 2,
+        beforePhotos: [],
+        resultPhotos: [],
+        materials: [],
+      } as unknown as WorkOrderTask,
+    ];
+  }
+
+  function buildTaskCreate(t: WorkOrderTask, tIdx: number) {
+    return {
+      description: t.description,
+      done: t.done,
+      day: t.day ?? null,
+      beforePhotos: t.beforePhotos,
+      resultPhotos: t.resultPhotos,
+      startedAt: t.startedAt ?? null,
+      endedAt: t.endedAt ?? null,
+      hours: t.hours ?? null,
+      note: t.note ?? null,
+      ordinal: tIdx,
+      materials: {
+        create: (t.materials ?? []).map((mtl: TaskMaterial, mIdx: number) => ({
+          label: mtl.label ?? null,
+          name: mtl.name,
+          quantity: mtl.quantity,
+          usedQuantity: mtl.usedQuantity ?? null,
+          unit: mtl.unit,
+          diameter: mtl.diameter ?? null,
+          unitPrice: mtl.unitPrice ?? null,
+          onSite: mtl.onSite,
+          done: mtl.done ?? false,
+          note: mtl.note ?? null,
+          ordinal: mIdx,
+        })),
+      },
+    };
+  }
+
+  function buildWorkOrders(p: (typeof mockProjects)[number]) {
+    const quote = p.quote;
+    const invoice = p.invoice;
+
+    // The mock werkbonnen (may be empty). We always want at least one.
+    const mockWos = p.workOrders ?? [];
+
+    // Decide how many werkbonnen to seed. To exercise the multi-werkbon flow,
+    // give a couple of projects (every 5th operational/closing one is enough
+    // variety) 2–3 werkbonnen even though the mock only defines one shape.
+    const projectIndex = mockProjects.indexOf(p);
+    const isBillable = p.status === "operations" || p.status === "closing";
+    const extraWerkbonnen = isBillable && projectIndex % 5 === 2 ? 2 : 0;
+
+    // Base list of werkbonnen to create: the mock ones, or a synthesized
+    // primary when the mock has none.
+    const base: Array<{ title: string; drawings: string[]; approvedBySupervisor: boolean; tasks: WorkOrderTask[] }> =
+      mockWos.length > 0
+        ? mockWos.map((wb: WorkOrder) => ({
+            title: wb.title,
+            drawings: wb.drawings,
+            approvedBySupervisor: wb.approvedBySupervisor,
+            tasks: wb.tasks ?? [],
+          }))
+        : [
+            {
+              title: "Werkbon 1",
+              drawings: [],
+              approvedBySupervisor: false,
+              // Vary completion across operational projects so the werkbon list
+              // shows Open / In progress / Done states. Non-operational
+              // projects get an empty (Open) werkbon.
+              tasks: isBillable
+                ? synthTasks(projectIndex % 3)
+                : [],
+            },
+          ];
+
+    // Append the synthetic extra werkbonnen (own quote+invoice, no inherited
+    // project billing) so multi-werkbon projects have several billed visits.
+    for (let e = 0; e < extraWerkbonnen; e++) {
+      base.push({
+        title: `Werkbon ${base.length + 1}`,
+        drawings: [],
+        approvedBySupervisor: false,
+        tasks: [
+          { description: "Voorbereiding", done: false, beforePhotos: [], resultPhotos: [], materials: [] } as unknown as WorkOrderTask,
+          { description: "Isolatie aanbrengen", done: false, beforePhotos: [], resultPhotos: [], materials: [] } as unknown as WorkOrderTask,
+        ],
+      });
+    }
+
+    const count = base.length;
+    // Split the project's total quote amount across the werkbonnen so each has
+    // a realistic (non-zero) value; the primary keeps any rounding remainder.
+    const totalAmount = quote.amount ?? 0;
+    const share = count > 0 ? Math.round(totalAmount / count) : totalAmount;
+
+    return base.map((wb, wbIdx) => {
+      const isPrimary = wbIdx === 0;
+      const amount = isPrimary ? totalAmount - share * (count - 1) : share;
+
+      return {
+        title: wb.title,
+        drawings: wb.drawings,
+        approvedBySupervisor: wb.approvedBySupervisor,
+        ordinal: wbIdx,
+        // Scheduling lives on the werkbon; only the primary inherits the
+        // project's planned dates.
+        plannedDate: isPrimary ? p.plannedDate ?? null : null,
+        plannedEndDate: isPrimary ? p.plannedEndDate ?? null : null,
+        value: amount,
+
+        tasks: {
+          create: (wb.tasks ?? []).map((t: WorkOrderTask, tIdx: number) =>
+            buildTaskCreate(t, tIdx),
+          ),
+        },
+
+        // Every werkbon gets a quote. The primary inherits the project's quote
+        // (status/dates + line items); additional werkbonnen get a simple
+        // derived quote with the shared amount.
+        quote: {
+          create: isPrimary
+            ? {
+                status: quote.status,
+                amount,
+                sentDate: quote.sentDate ?? null,
+                acceptedDate: quote.acceptedDate ?? null,
+                lineItems: {
+                  create: quote.lineItems.map(
+                    (li: QuoteLineItem, idx: number) => ({
+                      catalogItemId: li.catalogItemId ?? null,
+                      workType: li.workType ?? null,
+                      description: li.description,
+                      size: li.size ?? null,
+                      quantity: li.quantity,
+                      unit: li.unit,
+                      unitPrice: li.unitPrice,
+                      ordinal: idx,
+                    }),
+                  ),
+                },
+              }
+            : {
+                status: quote.status,
+                amount,
+              },
+        },
+
+        // Every werkbon gets an invoice. The primary inherits the project's
+        // invoice amounts; additional werkbonnen get a minimal invoice carrying
+        // the werkbon's share as its accepted quote amount.
+        invoice: {
+          create: isPrimary
+            ? {
+                status: invoice.status,
+                acceptedQuoteAmount: invoice.acceptedQuoteAmount,
+                extraWorkAmount: invoice.extraWorkAmount,
+                materialsAmount: invoice.materialsAmount,
+                laborAmount: invoice.laborAmount,
+                sentDate: invoice.sentDate ?? null,
+                paidDate: invoice.paidDate ?? null,
+              }
+            : {
+                status: invoice.status,
+                acceptedQuoteAmount: amount,
+              },
+        },
+
+        // extraWork + planningItems only attach to the primary werkbon (the
+        // mock defines them once, at project level).
+        ...(isPrimary
+          ? {
+              extraWork: {
+                create: (p.extraWork ?? []).map((mw: ExtraWorkItem) => ({
+                  description: mw.description,
+                  label: mw.label ?? null,
+                  name: mw.name ?? null,
+                  quantity: mw.quantity ?? null,
+                  unit: mw.unit ?? null,
+                  diameter: mw.diameter ?? null,
+                  unitPrice: mw.unitPrice ?? null,
+                  amount: mw.amount,
+                  photos: mw.photos,
+                  createdAt: mw.createdAt,
+                  done: mw.done ?? false,
+                  approvedByOffice: mw.approvedByOffice,
+                  approvedByClient: mw.approvedByClient,
+                  rejected: mw.rejected,
+                  rejectedBy:
+                    (mw.rejectedBy as ExtraWorkRejectedBy | undefined) ?? null,
+                })),
+              },
+              planningItems: {
+                create: (p.planningItems ?? []).map((pi: PlanningItem) => ({
+                  date: pi.date,
+                  startTime: pi.startTime,
+                  endTime: pi.endTime,
+                  vehicle: pi.vehicle,
+                  projectLeaderId: validEmployeeId(pi.projectLeaderId),
+                  teamLeaderId: validEmployeeId(pi.teamLeaderId),
+                  installers: {
+                    connect: (pi.installerIds ?? [])
+                      .filter((id: string) => employeeIds.has(id))
+                      .map((id: string) => ({ id })),
+                  },
+                })),
+              },
+            }
+          : {}),
+      };
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // 8. Projects — nested create so children insert with the parent.
   // -----------------------------------------------------------------------
   for (const p of mockProjects) {
     const workType = resolveWorkType(p.insulationType);
     const intake = p.intake;
-    const quote = p.quote;
-    const invoice = p.invoice;
     const checklist = p.deliveryChecklist;
 
     // Derive stage if not present on the mock.
@@ -310,8 +551,6 @@ async function main() {
         nextStepKey: p.nextStepKey,
         signature: p.signature ?? null,
         materialsReady: p.materialsReady ?? false,
-        plannedDate: p.plannedDate ?? null,
-        plannedEndDate: p.plannedEndDate ?? null,
         value: p.value,
 
         surveyPhotos: p.survey?.photos ?? [],
@@ -344,40 +583,9 @@ async function main() {
           },
         },
 
-        // 1:1 quote with line items
-        quote: {
-          create: {
-            status: quote.status,
-            amount: quote.amount,
-            sentDate: quote.sentDate ?? null,
-            acceptedDate: quote.acceptedDate ?? null,
-            lineItems: {
-              create: quote.lineItems.map((li: QuoteLineItem, idx: number) => ({
-                catalogItemId: li.catalogItemId ?? null,
-                workType: li.workType ?? null,
-                description: li.description,
-                size: li.size ?? null,
-                quantity: li.quantity,
-                unit: li.unit,
-                unitPrice: li.unitPrice,
-                ordinal: idx,
-              })),
-            },
-          },
-        },
-
-        // 1:1 invoice
-        invoice: {
-          create: {
-            status: invoice.status,
-            acceptedQuoteAmount: invoice.acceptedQuoteAmount,
-            extraWorkAmount: invoice.extraWorkAmount,
-            materialsAmount: invoice.materialsAmount,
-            laborAmount: invoice.laborAmount,
-            sentDate: invoice.sentDate ?? null,
-            paidDate: invoice.paidDate ?? null,
-          },
-        },
+        // NOTE: Quote + Invoice moved from Project to WorkOrder (billing is
+        // per-werkbon now). They are nested under the workOrders create below,
+        // not here. Same for planningItems, extraWork, and plannedDate(s).
 
         // 1:1 delivery checklist with items
         deliveryChecklist: {
@@ -411,81 +619,15 @@ async function main() {
           })),
         },
 
-        // planning items
-        planningItems: {
-          create: (p.planningItems ?? []).map((pi: PlanningItem) => ({
-            date: pi.date,
-            startTime: pi.startTime,
-            endTime: pi.endTime,
-            vehicle: pi.vehicle,
-            projectLeaderId: validEmployeeId(pi.projectLeaderId),
-            teamLeaderId: validEmployeeId(pi.teamLeaderId),
-            installers: {
-              connect: (pi.installerIds ?? [])
-                .filter((id: string) => employeeIds.has(id))
-                .map((id: string) => ({ id })),
-            },
-          })),
-        },
-
-        // workOrders (work orders in the new model) — optional, absent on mocks
+        // workOrders (werkbonnen) — billing (quote+invoice), scheduling
+        // (plannedDate/plannedEndDate), planningItems and extraWork all live on
+        // the werkbon now. `buildWorkOrders(p)` (defined above the loop) builds
+        // the nested create array: it always yields at least one werkbon so the
+        // project's billing has a home, attaches the project's quote/invoice/
+        // extraWork/planningItems/plannedDate to the PRIMARY werkbon, and gives
+        // every additional werkbon its own derived quote + invoice.
         workOrders: {
-          create: (p.workOrders ?? []).map((wb: WorkOrder, wbIdx: number) => ({
-            title: wb.title,
-            drawings: wb.drawings,
-            approvedBySupervisor: wb.approvedBySupervisor,
-            ordinal: wbIdx,
-            tasks: {
-              create: (wb.tasks ?? []).map((t: WorkOrderTask, tIdx: number) => ({
-                description: t.description,
-                done: t.done,
-                day: t.day ?? null,
-                beforePhotos: t.beforePhotos,
-                resultPhotos: t.resultPhotos,
-                startedAt: t.startedAt ?? null,
-                endedAt: t.endedAt ?? null,
-                hours: t.hours ?? null,
-                note: t.note ?? null,
-                ordinal: tIdx,
-                materials: {
-                  create: (t.materials ?? []).map((mtl: TaskMaterial, mIdx: number) => ({
-                    label: mtl.label ?? null,
-                    name: mtl.name,
-                    quantity: mtl.quantity,
-                    usedQuantity: mtl.usedQuantity ?? null,
-                    unit: mtl.unit,
-                    diameter: mtl.diameter ?? null,
-                    unitPrice: mtl.unitPrice ?? null,
-                    onSite: mtl.onSite,
-                    done: mtl.done ?? false,
-                    note: mtl.note ?? null,
-                    ordinal: mIdx,
-                  })),
-                },
-              })),
-            },
-          })),
-        },
-
-        // extraWork — optional, absent on mocks
-        extraWork: {
-          create: (p.extraWork ?? []).map((mw: ExtraWorkItem) => ({
-            description: mw.description,
-            label: mw.label ?? null,
-            name: mw.name ?? null,
-            quantity: mw.quantity ?? null,
-            unit: mw.unit ?? null,
-            diameter: mw.diameter ?? null,
-            unitPrice: mw.unitPrice ?? null,
-            amount: mw.amount,
-            photos: mw.photos,
-            createdAt: mw.createdAt,
-            done: mw.done ?? false,
-            approvedByOffice: mw.approvedByOffice,
-            approvedByClient: mw.approvedByClient,
-            rejected: mw.rejected,
-            rejectedBy: (mw.rejectedBy as ExtraWorkRejectedBy | undefined) ?? null,
-          })),
+          create: buildWorkOrders(p),
         },
 
         // handover — optional 1:1, absent on mocks
@@ -522,42 +664,9 @@ async function main() {
     });
   }
 
-  // -----------------------------------------------------------------------
-  // 8b. Work orders — the mocks carry none, so generate one per operational
-  //     project (status operations/closing) with a couple of tasks, varying
-  //     completion so the list shows Open / In progress / Done states.
-  // -----------------------------------------------------------------------
-  const operationalProjects = mockProjects.filter(
-    (p) => p.status === "operations" || p.status === "closing",
-  );
-  for (let i = 0; i < operationalProjects.length; i++) {
-    const p = operationalProjects[i];
-    // Vary task completion: 0 = none done (Open), 1 = some (In progress), 2 = all (Done).
-    const mode = i % 3;
-    await prisma.workOrder.create({
-      data: {
-        projectId: p.id,
-        title: "Werkbon 1",
-        ordinal: 0,
-        tasks: {
-          create: [
-            {
-              description: "Voorbereiding en materiaal controleren",
-              done: mode === 2,
-              ordinal: 0,
-              startedAt: mode >= 1 ? new Date().toISOString() : null,
-              endedAt: mode === 2 ? new Date().toISOString() : null,
-            },
-            {
-              description: "Isolatie aanbrengen",
-              done: mode === 2,
-              ordinal: 1,
-            },
-          ],
-        },
-      },
-    });
-  }
+  // Note: werkbon (WorkOrder) generation — including billing (quote+invoice),
+  // scheduling and varied task-completion states — is handled by
+  // buildWorkOrders(p) nested under each project create above.
 
   // -----------------------------------------------------------------------
   // 9. Demo users

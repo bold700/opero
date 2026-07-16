@@ -30,13 +30,10 @@ type UrlOf = (key: string | null | undefined) => string | undefined;
 export type ProjectWithRelations = Project & {
   workType: { id: string; name: string } | null;
   intake: Intake | null;
-  quote: (Quote & { lineItems: QuoteLineItem[] }) | null;
-  invoice: Invoice | null;
   handover: (Handover & { checklist: HandoverItem[] }) | null;
   deliveryChecklist:
     | (DeliveryChecklist & { items: DeliveryChecklistItem[] })
     | null;
-  extraWork: ExtraWork[];
   materialRequirements: MaterialRequirement[];
   tasks: ProjectTask[];
   installers: { id: string }[];
@@ -209,7 +206,6 @@ export function projectSummaryDto(p: Project, role: UserRole, hidePrices: boolea
     stage: p.stage,
     urgency: p.urgency,
     nextStepKey: p.nextStepKey,
-    plannedDate: p.plannedDate ?? undefined,
     ...(showPrices ? { value: p.value } : {}),
   };
 }
@@ -252,8 +248,6 @@ export function projectDto(
     blockerKey: p.blockerKey ?? undefined,
     nextStepKey: p.nextStepKey,
     materialsReady: p.materialsReady,
-    plannedDate: p.plannedDate ?? undefined,
-    plannedEndDate: p.plannedEndDate ?? undefined,
     ...(showPrices ? { value: p.value } : {}),
     surveyPhotos: refsFrom(p.surveyPhotos, urlOf),
     surveyNotes: p.surveyNotes,
@@ -261,15 +255,12 @@ export function projectDto(
     projectLeaderId: p.projectLeaderId ?? undefined,
     teamLeaderId: p.teamLeaderId ?? undefined,
     installerIds: p.installers.map((i) => i.id),
-    // nested
+    // nested (quote/invoice/extraWork are per-werkbon, on the work-order DTO)
     intake: p.intake ? intakeDto(p.intake) : undefined,
-    quote: p.quote ? quoteDto(p.quote, showPrices) : undefined,
-    invoice: p.invoice ? invoiceDto(p.invoice, showPrices) : undefined,
     handover: p.handover ? handoverDto(p.handover, urlOf) : undefined,
     deliveryChecklist: p.deliveryChecklist
       ? deliveryChecklistDto(p.deliveryChecklist)
       : undefined,
-    extraWork: p.extraWork.map((m) => extraWorkDto(m, showPrices, urlOf)),
     materialRequirements: p.materialRequirements.map(materialRequirementDto),
     tasks: [...p.tasks]
       .sort((a, b) => a.ordinal - b.ordinal)
@@ -282,11 +273,10 @@ export function projectDto(
 export const projectInclude = {
   workType: { select: { id: true, name: true } },
   intake: true,
-  quote: { include: { lineItems: true } },
-  invoice: true,
+  // quote / invoice / extraWork are per-WERKBON now — carried by the work-order
+  // DTO, not the project. The project is a grouping of werkbonnen.
   handover: { include: { checklist: true } },
   deliveryChecklist: { include: { items: true } },
-  extraWork: true,
   materialRequirements: true,
   tasks: true,
   installers: { select: { id: true } },

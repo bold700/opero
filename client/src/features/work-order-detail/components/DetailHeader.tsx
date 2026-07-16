@@ -5,7 +5,6 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
-import TextField from "@mui/material/TextField";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -18,17 +17,16 @@ import { StatusBadge } from "../../../components/StatusBadge";
 import { URGENCY } from "../constants";
 import { humanize } from "../../../lib/labels";
 import { STATUS_TONES } from "../../../theme/tokens";
-import type { Project, WorkOrder, AssigneeOption } from "../api";
+import type { Project, WorkOrder } from "../api";
 
 // Detail header: back button, work-order title + number, customer/location,
-// stage + urgency badges, and the "afronden" (sign-off) action.
+// stage + urgency badges, and the "afronden" (sign-off) action. Lean — job
+// setup (team, planning, contact…) lives in the Projectinfo sidebar.
 export function DetailHeader({
   workOrder,
   project,
   canFinish,
   canExportQuote,
-  canAssign,
-  assignees,
   finished,
   busy,
   exporting,
@@ -37,16 +35,12 @@ export function DetailHeader({
   onFinish,
   onExportPdf,
   onExportQuotePdf,
-  onAssign,
 }: {
   workOrder: WorkOrder;
   project: Project;
   canFinish: boolean;
   /** Admin-only: the quote (offerte) PDF is a commercial document with prices. */
   canExportQuote: boolean;
-  /** Admin-only: assign the werkbon's monteur. */
-  canAssign: boolean;
-  assignees: AssigneeOption[];
   finished: boolean;
   busy: boolean;
   exporting: boolean;
@@ -55,7 +49,6 @@ export function DetailHeader({
   onFinish: () => void;
   onExportPdf: () => void;
   onExportQuotePdf: () => void;
-  onAssign: (assigneeId: string | null) => void;
 }) {
   const { t } = useTranslation();
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
@@ -106,28 +99,6 @@ export function DetailHeader({
               </Typography>
             ) : null}
           </Box>
-
-          {/* Monteur — assigned at the WERKBON level (one person per job). */}
-          {canAssign && !finished ? (
-            <TextField
-              select
-              size="small"
-              label={t("workOrderDetail.header.assignee")}
-              value={workOrder.assigneeId ?? ""}
-              onChange={(e) => onAssign(e.target.value || null)}
-              disabled={busy}
-              sx={{ mt: 1.5, minWidth: 220, maxWidth: 320 }}
-            >
-              <MenuItem value="">{t("workOrderDetail.header.assigneeNone")}</MenuItem>
-              {assignees.map((a) => (
-                <MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>
-              ))}
-            </TextField>
-          ) : workOrder.assigneeName ? (
-            <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
-              {t("workOrderDetail.header.assignee")}: {workOrder.assigneeName}
-            </Typography>
-          ) : null}
         </Box>
 
         <Box

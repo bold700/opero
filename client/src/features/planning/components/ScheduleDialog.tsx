@@ -11,7 +11,7 @@ import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import type {
-  SchedulableProject,
+  SchedulableWorkOrder,
   AssignableEmployee,
   ScheduleInput,
 } from "../api";
@@ -25,14 +25,14 @@ const TIME_SLOTS: string[] = Array.from({ length: 24 * 4 }, (_, i) => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 });
 
-// Schedule a project on the calendar (or reschedule an existing one). When
-// `lockedProject` is set we're editing that entry (project not changeable);
-// otherwise the user picks a project from the dropdown.
+// Schedule a werkbon on the calendar (or reschedule an existing one). When
+// `lockedWorkOrder` is set we're editing that entry (werkbon not changeable);
+// otherwise the user picks a werkbon from the dropdown.
 export function ScheduleDialog({
   open,
-  projects,
+  workOrders,
   employees,
-  lockedProject,
+  lockedWorkOrder,
   defaultDate,
   busy,
   error,
@@ -40,18 +40,18 @@ export function ScheduleDialog({
   onSubmit,
 }: {
   open: boolean;
-  projects: SchedulableProject[];
+  workOrders: SchedulableWorkOrder[];
   employees: AssignableEmployee[];
-  lockedProject?: { id: string; label: string } | null;
+  lockedWorkOrder?: { id: string; label: string } | null;
   defaultDate?: string;
   busy: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (projectId: string, input: ScheduleInput) => void;
+  onSubmit: (workOrderId: string, input: ScheduleInput) => void;
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const [projectId, setProjectId] = useState("");
+  const [workOrderId, setWorkOrderId] = useState("");
   const [date, setDate] = useState("");
   const [teamLeaderId, setTeamLeaderId] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -59,12 +59,12 @@ export function ScheduleDialog({
 
   useEffect(() => {
     if (!open) return;
-    setProjectId(lockedProject?.id ?? "");
+    setWorkOrderId(lockedWorkOrder?.id ?? "");
     setDate(defaultDate ?? "");
     setTeamLeaderId("");
     setStartTime("");
     setEndTime("");
-  }, [open, lockedProject, defaultDate]);
+  }, [open, lockedWorkOrder, defaultDate]);
 
   // Smart start: clears an end that's no longer after start; if no end is set,
   // suggests start + 2h (a typical job slot, capped at 23:45).
@@ -91,10 +91,10 @@ export function ScheduleDialog({
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
   const dateInPast = Boolean(date) && date < today;
 
-  const canSubmit = Boolean(projectId && date) && !dateInPast && !busy;
+  const canSubmit = Boolean(workOrderId && date) && !dateInPast && !busy;
 
   const submit = () =>
-    onSubmit(projectId, {
+    onSubmit(workOrderId, {
       date,
       teamLeaderId: teamLeaderId || null,
       startTime: startTime || undefined,
@@ -102,31 +102,31 @@ export function ScheduleDialog({
     });
 
   return (
-    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" title={lockedProject ? t("planning.schedule.editTitle") : t("planning.schedule.newTitle")}>
+    <ResponsiveDialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" title={lockedWorkOrder ? t("planning.schedule.editTitle") : t("planning.schedule.newTitle")}>
       <DialogTitle sx={{ fontWeight: 700 }}>
-        {lockedProject ? t("planning.schedule.editTitle") : t("planning.schedule.newTitle")}
+        {lockedWorkOrder ? t("planning.schedule.editTitle") : t("planning.schedule.newTitle")}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
 
-          {lockedProject ? (
+          {lockedWorkOrder ? (
             <TextField
-              label={t("planning.schedule.project")}
-              value={lockedProject.label}
+              label={t("planning.schedule.workOrder")}
+              value={lockedWorkOrder.label}
               disabled
               size="small"
             />
           ) : (
             <SelectField
-              label={t("planning.schedule.project")}
-              value={projectId}
-              onChange={setProjectId}
+              label={t("planning.schedule.workOrder")}
+              value={workOrderId}
+              onChange={setWorkOrderId}
               disabled={busy}
               autoFocus={!isMobile}
-              options={projects.map((p) => ({
-                value: p.id,
-                label: `${p.projectNumber} · ${p.customerName}`,
+              options={workOrders.map((w) => ({
+                value: w.id,
+                label: `${w.number} · ${w.customerName}`,
               }))}
             />
           )}

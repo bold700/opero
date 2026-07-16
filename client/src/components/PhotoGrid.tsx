@@ -96,7 +96,10 @@ export function PhotoGrid({
           </Box>
         ))}
 
-        {canEdit && onAdd ? (
+        {/* The dashed add-tile only appears once there's at least one photo, so
+            an empty section shows just the small text button below (not a big
+            empty square + a button — that doubled affordance was visual noise). */}
+        {canEdit && onAdd && photos.length > 0 ? (
           <Box
             role="button"
             onClick={busy ? undefined : pick}
@@ -119,15 +122,13 @@ export function PhotoGrid({
         ) : null}
       </Box>
 
-      {/* Fallback explicit button (also opens the picker) when there are no
-          thumbnails yet, to make the affordance obvious on mobile. */}
+      {/* Empty state: one compact button, no big empty tile. */}
       {canEdit && onAdd && photos.length === 0 ? (
         <Button
           size="small"
           startIcon={<AddPhotoAlternateOutlinedIcon />}
           onClick={pick}
           disabled={busy}
-          sx={{ mt: 1 }}
         >
           {addLabel ?? t("photos.add")}
         </Button>

@@ -68,13 +68,16 @@ dashboardRouter.get(
           select: { status: true, stage: true, value: true },
         }),
         prisma.project.count({
-          where: { ...where, plannedDate: { gte: start, lte: end } },
+          where: { ...where, workOrders: { some: { plannedDate: { gte: start, lte: end } } } },
         }),
         prisma.project.count({ where: { ...where, urgency: "urgent" } }),
         prisma.project.count({ where: { ...where, urgency: "blocked" } }),
-        // unpaid/overdue: invoice sent or not yet paid (anything not "paid").
+        // unpaid/overdue: a werkbon invoice sent or not yet paid (anything not "paid").
         prisma.project.count({
-          where: { ...where, invoice: { is: { status: { in: ["draft", "sent"] } } } },
+          where: {
+            ...where,
+            workOrders: { some: { invoice: { is: { status: { in: ["draft", "sent"] } } } } },
+          },
         }),
         // recent activity over the org's visible projects in the last 7 days.
         prisma.projectActivity.count({
@@ -87,13 +90,18 @@ dashboardRouter.get(
           where: {
             ...where,
             status: "closing",
-            invoice: { is: { status: { in: ["not_started", "draft"] } } },
+            workOrders: {
+              some: { invoice: { is: { status: { in: ["not_started", "draft"] } } } },
+            },
           },
         }),
         prisma.project.count({
           where: {
             ...where,
-            OR: [{ invoice: { is: { status: { not: "paid" } } } }, { invoice: { is: null } }],
+            OR: [
+              { workOrders: { some: { invoice: { is: { status: { not: "paid" } } } } } },
+              { workOrders: { some: { invoice: { is: null } } } },
+            ],
           },
         }),
       ]);
@@ -132,14 +140,18 @@ dashboardRouter.get(
       const where = projectScopeWhere(user); // only assigned projects
       const today = todayIso();
 
-      // Assigned projects with their open work-order tasks. canSeePrices(technician)
-      // is false, so we never select or return any price/value fields.
+      // Assigned projects with their open work-order tasks. Scheduling now lives on
+      // the werkbon, so a project is "upcoming" when it has a werkbon planned today
+      // or later, or a werkbon with no date yet. canSeePrices(technician) is false,
+      // so we never select or return any price/value fields.
       const projects = await prisma.project.findMany({
         where: {
           ...where,
-          OR: [{ plannedDate: { gte: today } }, { plannedDate: null }],
+          OR: [
+            { workOrders: { some: { plannedDate: { gte: today } } } },
+            { workOrders: { some: { plannedDate: null } } },
+          ],
         },
-        orderBy: { plannedDate: "asc" },
         select: {
           id: true,
           projectNumber: true,
@@ -148,10 +160,12 @@ dashboardRouter.get(
           city: true,
           status: true,
           stage: true,
-          plannedDate: true,
           nextStepKey: true,
           workOrders: {
-            select: { tasks: { where: { done: false }, select: { id: true } } },
+            select: {
+              plannedDate: true,
+              tasks: { where: { done: false }, select: { id: true } },
+            },
           },
         },
       });
@@ -162,7 +176,19 @@ dashboardRouter.get(
       const rows = projects.map((p) => {
         const open = p.workOrders.reduce((sum, w) => sum + w.tasks.length, 0);
         openTaskCount += open;
-        return technicianProjectRow(p, open);
+        // The project's "date" is the earliest scheduled werkbon (null if none set).
+        const plannedDate = p.workOrders
+          .map((w) => w.plannedDate)
+          .filter((d): d is string => d !== null)
+          .sort()[0] ?? null;
+        return technicianProjectRow({ ...p, plannedDate }, open);
+      });
+      // Earliest-scheduled-first, unplanned projects last.
+      rows.sort((a, b) => {
+        if (a.plannedDate === b.plannedDate) return 0;
+        if (a.plannedDate === null) return 1;
+        if (b.plannedDate === null) return -1;
+        return a.plannedDate < b.plannedDate ? -1 : 1;
       });
 
       const payload: TechnicianDashboard = {
@@ -183,23 +209,41 @@ dashboardRouter.get(
     const where = projectScopeWhere(user); // only their customer's projects
     const projects = await prisma.project.findMany({
       where,
-      orderBy: [{ status: "asc" }, { plannedDate: "asc" }],
+      orderBy: [{ status: "asc" }],
       select: {
         id: true,
         projectNumber: true,
         status: true,
         stage: true,
-        plannedDate: true,
         nextStepKey: true,
+        // Scheduling lives on the werkbon; the project's date is its earliest one.
+        workOrders: { select: { plannedDate: true } },
       },
     });
 
     const byStatus = emptyCount(PROJECT_STATUSES);
     for (const p of projects) byStatus[p.status] += 1;
 
+    const rows = projects
+      .map((p) => {
+        const plannedDate = p.workOrders
+          .map((w) => w.plannedDate)
+          .filter((d): d is string => d !== null)
+          .sort()[0] ?? null;
+        return clientProjectRow({ ...p, plannedDate });
+      })
+      // Group by status, then earliest-scheduled first within a group (unplanned last).
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status < b.status ? -1 : 1;
+        if (a.plannedDate === b.plannedDate) return 0;
+        if (a.plannedDate === null) return 1;
+        if (b.plannedDate === null) return -1;
+        return a.plannedDate < b.plannedDate ? -1 : 1;
+      });
+
     const payload: ClientDashboard = {
       role: "client",
-      projects: projects.map(clientProjectRow),
+      projects: rows,
       byStatus,
     };
     res.json(payload);

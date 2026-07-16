@@ -17,9 +17,8 @@
     "list": "Lijst"
   },
   "schedule": {
-    "newTitle": "Project inplannen",
-    "editTitle": "Planning bewerken",
-    "project": "Project",
+    "newTitle": "Werkbon inplannen",
+    "editTitle": "Werkbon verplaatsen",
     "date": "Datum",
     "teamLeader": "Teamleider",
     "unassigned": "Niet toegewezen",
@@ -27,7 +26,8 @@
     "endTime": "Eindtijd",
     "noTime": "Geen tijd",
     "pickStartFirst": "Kies eerst een starttijd",
-    "dateInPast": "Datum mag niet in het verleden liggen"
+    "dateInPast": "Datum mag niet in het verleden liggen",
+    "workOrder": "Werkbon"
   },
   "remove": {
     "title": "Uit planning verwijderen",

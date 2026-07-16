@@ -1,4 +1,4 @@
-import type { TaskMaterial, WorkOrder, WorkOrderTask } from "@prisma/client";
+import type { ExtraWork, TaskMaterial, WorkOrder, WorkOrderTask } from "@prisma/client";
 import {
   canSeePrices,
   canSeeMargin,
@@ -31,8 +31,9 @@ type TaskWithRelations = WorkOrderTask & {
 // signer (for the sign-off display).
 export type WorkOrderWithRelations = WorkOrder & {
   tasks: TaskWithRelations[];
+  extraWork?: ExtraWork[];
   signedBy?: { name: string } | null;
-  assignee?: { id: string; name: string } | null;
+  assignees?: { id: string; name: string }[];
 };
 
 function materialDto(m: TaskMaterial, showPrices: boolean, showMargin: boolean) {
@@ -106,6 +107,30 @@ async function taskDto(t: TaskWithRelations, showPrices: boolean, showMargin: bo
   };
 }
 
+// Meerwerk (extra work) line, per-WERKBON. Prices (unitPrice + amount) are
+// stripped for non-price roles, mirroring the task-material three-way rule.
+// Photos hold object keys → resolved to {key, url} for the client.
+async function extraWorkDto(m: ExtraWork, showPrices: boolean) {
+  const photos = await photoRefs(m.photos);
+  return {
+    id: m.id,
+    description: m.description,
+    label: m.label ?? undefined,
+    name: m.name ?? undefined,
+    quantity: m.quantity ?? undefined,
+    unit: m.unit ?? undefined,
+    diameter: m.diameter ?? undefined,
+    ...(showPrices ? { unitPrice: m.unitPrice ?? undefined, amount: m.amount } : {}),
+    photos,
+    createdAt: m.createdAt,
+    done: m.done,
+    approvedByOffice: m.approvedByOffice,
+    approvedByClient: m.approvedByClient,
+    rejected: m.rejected,
+    rejectedBy: m.rejectedBy ?? undefined,
+  };
+}
+
 // Full nested workOrder DTO. Takes the requesting role + the org's hide-prices
 // flag so prices are stripped for technicians when the org enables that privacy
 // setting (admins/clients always see prices).
@@ -117,11 +142,12 @@ export async function workOrderDto(
   const showPrices = canSeePrices(role, hidePrices);
   const showMargin = canSeeMargin(role);
   const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
-  const [drawings, signatureUrl, prejobPhotos, tasks] = await Promise.all([
+  const [drawings, signatureUrl, prejobPhotos, tasks, extraWork] = await Promise.all([
     photoRefs(wb.drawings),
     photoUrl(wb.signature),
     photoRefs(wb.prejobPhotos),
     Promise.all(sortedTasks.map((t) => taskDto(t, showPrices, showMargin))),
+    Promise.all((wb.extraWork ?? []).map((m) => extraWorkDto(m, showPrices))),
   ]);
   const prejobCheck = normalizePrejobCheck(wb.prejobCheck);
   return {
@@ -144,10 +170,14 @@ export async function workOrderDto(
     signatureUrl,
     signedAt: wb.signedAt ? wb.signedAt.toISOString() : undefined,
     signedByName: wb.signedByName ?? wb.signedBy?.name ?? undefined,
-    // The monteur assigned to this werkbon (werkbon-level, not per-zone).
-    assigneeId: wb.assignee?.id ?? undefined,
-    assigneeName: wb.assignee?.name ?? undefined,
+    // The monteur(s) assigned to this werkbon (werkbon-level, not per-zone).
+    assignees: (wb.assignees ?? []).map((a) => ({ id: a.id, name: a.name })),
+    // The werkbon is the scheduled visit — its own date(s).
+    plannedDate: wb.plannedDate ?? undefined,
+    plannedEndDate: wb.plannedEndDate ?? undefined,
     tasks,
+    // Meerwerk (extra work) is per-WERKBON; prices stripped for non-price roles.
+    extraWork,
   };
 }
 
@@ -161,8 +191,9 @@ export const workOrderInclude = {
       assignee: { select: { id: true, name: true } },
     },
   },
+  extraWork: { orderBy: { createdAt: "asc" } },
   signedBy: { select: { name: true } },
-  assignee: { select: { id: true, name: true } },
+  assignees: { select: { id: true, name: true } },
 } as const;
 
 // --- List view ------------------------------------------------------------
@@ -176,8 +207,8 @@ export type { WorkOrderListStatus };
 type WorkOrderListSource = WorkOrder & {
   // Persisted, denormalized status (see WorkOrder.listStatus + status.ts).
   listStatus: string;
-  // Technician is now werkbon-level (one monteur per job), not per-zone.
-  assignee: { name: string } | null;
+  // Technicians are werkbon-level (a crew per job), not per-zone.
+  assignees: { name: string }[];
   tasks: {
     done: boolean;
     startedAt: string | null;
@@ -207,7 +238,7 @@ function rollup(
 }
 
 export const workOrderListInclude = {
-  assignee: { select: { name: true } },
+  assignees: { select: { name: true } },
   tasks: {
     select: {
       done: true,
@@ -243,8 +274,12 @@ export function workOrderListDto(wb: WorkOrderListSource) {
       wb.tasks.flatMap((t) => t.materials.map((m) => m.variant?.material.name)),
       wb.project.insulationType,
     ),
-    // Technician is the werkbon's assigned monteur (one per job).
-    technician: wb.assignee?.name ?? wb.project.teamLeader?.name ?? "—",
+    // Technician column rolls up the werkbon's assigned monteur(s); falls back
+    // to the project team leader when none are assigned yet.
+    technician: rollup(
+      wb.assignees.map((a) => a.name),
+      wb.project.teamLeader?.name ?? null,
+    ),
     // Read the denormalized column (kept in sync by recomputeWorkOrderStatus).
     status: wb.listStatus as WorkOrderListStatus,
     date: wb.createdAt.toISOString(),

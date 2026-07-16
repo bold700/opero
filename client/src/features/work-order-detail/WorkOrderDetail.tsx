@@ -16,7 +16,9 @@ import {
   exportWorkOrderQuotePdf,
   getProject,
   getAssignableEmployees,
-  setWorkOrderAssignee,
+  setWorkOrderAssignees,
+  setWorkOrderSchedule,
+  updateProject,
   addTask,
   updateTask,
   deleteTask,
@@ -42,10 +44,12 @@ import {
   type Project,
   type NewExtraWork,
   type AssigneeOption,
+  type ProjectSidebarPatch,
 } from "./api";
 import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
 import { PreJobPanel } from "./components/PreJobPanel";
+import { ProjectInfoPanel } from "./components/ProjectInfoPanel";
 import { ExtraWorkPanel } from "./components/ExtraWorkPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
 import { SignOffDialog } from "./components/SignOffDialog";
@@ -132,8 +136,8 @@ export function WorkOrderDetail() {
 
   const handleReport = (input: NewExtraWork) =>
     run(async () => {
-      await reportExtraWork(project.id, input);
-      await refreshProject();
+      await reportExtraWork(wo.id, input);
+      await refreshWorkOrder();
     });
 
   const handleExportPdf = async () => {
@@ -170,8 +174,6 @@ export function WorkOrderDetail() {
           project={project}
           canFinish={role === "admin" || role === "technician"}
           canExportQuote={role === "admin"}
-          canAssign={role === "admin"}
-          assignees={assignees}
           finished={finished}
           busy={busy}
           exporting={exporting}
@@ -180,11 +182,11 @@ export function WorkOrderDetail() {
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
           onFinish={() => setSignOpen(true)}
-          onAssign={(assigneeId) => run(async () => { setWo(await setWorkOrderAssignee(wo.id, assigneeId)); })}
         />
 
         <Box sx={{ display: "flex", gap: SPACING.sectionGap, flexDirection: { xs: "column", lg: "row" }, alignItems: "flex-start" }}>
-          <Box sx={{ flex: 2, minWidth: 0, display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
+          {/* Left / main: the werkbon body (zones + extra work). */}
+          <Box sx={{ flex: 3, minWidth: 0, display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
             <TasksPanel
               workOrder={wo}
               canWrite={canWrite && !finished}
@@ -204,25 +206,29 @@ export function WorkOrderDetail() {
               onDeletePhoto={(taskId, key) => run(async () => { setWo(await deleteTaskPhoto(wo.id, taskId, key)); })}
             />
 
+            <ExtraWorkPanel
+              items={wo.extraWork}
+              role={role}
+              showPrices={showPrices}
+              busy={busy}
+              onReport={handleReport}
+              onApproveOffice={(mw) => run(async () => { await approveOffice(wo.id, mw); await refreshWorkOrder(); })}
+              onApproveClient={(mw) => run(async () => { await approveClient(wo.id, mw); await refreshWorkOrder(); })}
+              onReject={(mw) => run(async () => { await rejectExtraWork(wo.id, mw); await refreshWorkOrder(); })}
+              onUploadPhoto={(mw, file) => run(async () => { await uploadExtraWorkPhoto(wo.id, mw, file); await refreshWorkOrder(); })}
+              onDeletePhoto={(mw, key) => run(async () => { await deleteExtraWorkPhoto(wo.id, mw, key); await refreshWorkOrder(); })}
+            />
+          </Box>
+
+          {/* Right / side: separate cards — Controle vooraf, Projectinfo, Activiteit. */}
+          <Box sx={{ flex: 2, minWidth: 0, width: "100%", display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
             <PreJobPanel
               workOrder={wo}
               isAdmin={role === "admin"}
               busy={busy}
-              onToggleCheck={(key, done) =>
-                run(async () => {
-                  setWo(await setPrejobCheck(wo.id, key, done));
-                })
-              }
-              onUploadPhoto={(file) =>
-                run(async () => {
-                  setWo(await uploadPrejobPhoto(wo.id, file));
-                })
-              }
-              onDeletePhoto={(key) =>
-                run(async () => {
-                  setWo(await deletePrejobPhoto(wo.id, key));
-                })
-              }
+              onToggleCheck={(key, done) => run(async () => { setWo(await setPrejobCheck(wo.id, key, done)); })}
+              onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
+              onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
               onDispatch={() =>
                 run(async () => {
                   setWo(await dispatchWorkOrder(wo.id));
@@ -231,21 +237,21 @@ export function WorkOrderDetail() {
               }
             />
 
-            <ExtraWorkPanel
-              items={project.extraWork}
-              role={role}
-              showPrices={showPrices}
+            <ProjectInfoPanel
+              project={project}
+              workOrder={wo}
+              canEdit={role === "admin"}
               busy={busy}
-              onReport={handleReport}
-              onApproveOffice={(mw) => run(async () => { await approveOffice(project.id, mw); await refreshProject(); })}
-              onApproveClient={(mw) => run(async () => { await approveClient(project.id, mw); await refreshProject(); })}
-              onReject={(mw) => run(async () => { await rejectExtraWork(project.id, mw); await refreshProject(); })}
-              onUploadPhoto={(mw, file) => run(async () => { await uploadExtraWorkPhoto(project.id, mw, file); await refreshProject(); })}
-              onDeletePhoto={(mw, key) => run(async () => { await deleteExtraWorkPhoto(project.id, mw, key); await refreshProject(); })}
+              employees={assignees}
+              onPatch={(patch: ProjectSidebarPatch) =>
+                run(async () => {
+                  setProject(await updateProject(project.id, patch));
+                })
+              }
+              onAssignMonteurs={(ids) => run(async () => { setWo(await setWorkOrderAssignees(wo.id, ids)); })}
+              onSetSchedule={(patch) => run(async () => { setWo(await setWorkOrderSchedule(wo.id, patch)); })}
             />
-          </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
             <ActivityPanel activity={project.activity} />
           </Box>
         </Box>

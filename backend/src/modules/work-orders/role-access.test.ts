@@ -97,12 +97,12 @@ beforeAll(async () => {
     data: { installers: { connect: { id: otherEmployeeId } } },
   });
   // Give BOTH projects a work order so the list would show both if unscoped.
-  await request(app).post("/api/work-orders").set(auth(adminToken)).send({ projectId });
-  await request(app).post("/api/work-orders").set(auth(adminToken)).send({ projectId: otherProjectId });
-  // Put BOTH projects on the planning calendar (plannedDate) so the feed would
-  // include both if scoping were broken.
-  await prisma.project.update({ where: { id: projectId }, data: { plannedDate: "2030-06-01" } });
-  await prisma.project.update({ where: { id: otherProjectId }, data: { plannedDate: "2030-06-02" } });
+  const wo1 = await request(app).post("/api/work-orders").set(auth(adminToken)).send({ projectId });
+  const wo2 = await request(app).post("/api/work-orders").set(auth(adminToken)).send({ projectId: otherProjectId });
+  // Put BOTH werkbonnen on the planning calendar (plannedDate is per-werkbon now)
+  // so the feed would include both if scoping were broken.
+  await prisma.workOrder.update({ where: { id: wo1.body.id }, data: { plannedDate: "2030-06-01" } });
+  await prisma.workOrder.update({ where: { id: wo2.body.id }, data: { plannedDate: "2030-06-02" } });
 });
 
 afterAll(async () => {

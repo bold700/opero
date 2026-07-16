@@ -30,9 +30,7 @@
     "defaultTitle": "Werkbon {{n}}",
     "export": "Exporteren",
     "exportMenuQuote": "Offerte (PDF)",
-    "exportMenuWorkOrder": "Werkbon (PDF)",
-    "assignee": "Monteur",
-    "assigneeNone": "Niet toegewezen"
+    "exportMenuWorkOrder": "Werkbon (PDF)"
   },
   "photos": {
     "title": "Foto's",
@@ -151,5 +149,29 @@
     "quantityLabel": "Aantal",
     "unnamed": "Naamloos",
     "renameHint": "Klik om te hernoemen"
+  },
+  "info": {
+    "title": "Projectinfo",
+    "progress": "Voortgang",
+    "progressValue": "{{done}} van {{total}} zones afgerond",
+    "urgency": "Urgentie",
+    "startDate": "Startdatum",
+    "date": "Datum",
+    "instructions": "Uitvoeringsinstructies",
+    "daysValue": "{{count}} dag(en)",
+    "projectLeader": "Projectleider",
+    "none": "Niet toegewezen",
+    "monteurs": "Monteurs",
+    "monteursPlaceholder": "Zoek een monteur…",
+    "address": "Adres",
+    "postalCode": "Postcode",
+    "city": "Plaats",
+    "contact": "Contact",
+    "contactName": "Naam contactpersoon",
+    "contactPhone": "Telefoon",
+    "description": "Omschrijving",
+    "planning": "Planning",
+    "endDateOptional": "Einddatum (optioneel)",
+    "sameDay": "zelfde dag"
   }
 }

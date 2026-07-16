@@ -1,7 +1,8 @@
 import { api } from "../../lib/api/client";
 
-// Mirrors the backend planning calendar entry (planningEntriesForProject).
+// Mirrors the backend planning calendar entry (per-werkbon now).
 export type PlanningEntry = {
+  workOrderId: string;
   projectId: string;
   projectNumber: string;
   customerName: string;
@@ -36,18 +37,18 @@ export type ScheduleInput = {
   vehicle?: string;
 };
 
-// Schedule or reschedule a project (upsert). NOTE: these live under the planning
-// router → /api/planning/projects/:id/planning.
-export function scheduleProject(
-  projectId: string,
+// Schedule or reschedule a WERKBON (upsert). Scheduling is per-werkbon now:
+// /api/planning/work-orders/:id/planning.
+export function scheduleWorkOrder(
+  workOrderId: string,
   input: ScheduleInput,
 ): Promise<unknown> {
-  return api.post(`/planning/projects/${projectId}/planning`, input);
+  return api.post(`/planning/work-orders/${workOrderId}/planning`, input);
 }
 
-// Remove a project from the planning.
-export function unscheduleProject(projectId: string): Promise<void> {
-  return api.delete<void>(`/planning/projects/${projectId}/planning`);
+// Remove a werkbon from the planning.
+export function unscheduleWorkOrder(workOrderId: string): Promise<void> {
+  return api.delete<void>(`/planning/work-orders/${workOrderId}/planning`);
 }
 
 // --- Route overview (per day) ---------------------------------------------
@@ -60,18 +61,20 @@ export async function getRoute(date: string): Promise<RouteStop[]> {
   return res.stops;
 }
 
-// --- Schedulable projects (for the schedule dialog dropdown) ---------------
-export type SchedulableProject = {
+// --- Schedulable werkbonnen (for the schedule dialog dropdown) -------------
+// Scheduling is per-werkbon now, so the "new schedule" picker lists werkbonnen,
+// not projects. Each werkbon is a schedulable visit.
+export type SchedulableWorkOrder = {
   id: string;
-  projectNumber: string;
+  number: string; // the parent project's number (display)
   customerName: string;
-  plannedDate?: string;
+  city: string;
 };
 
-// The projects endpoint is cursor-paginated; drain all pages — planning needs
-// the full in-scope set to lay out the calendar / scheduling board.
-export function getProjectsForScheduling(): Promise<SchedulableProject[]> {
-  return api.getAll<SchedulableProject>("/projects");
+// The work-orders list endpoint is cursor-paginated and returns items under
+// `items`; drain all pages so the picker sees the full in-scope set.
+export function getWorkOrdersForScheduling(): Promise<SchedulableWorkOrder[]> {
+  return api.getAll<SchedulableWorkOrder>("/work-orders");
 }
 
 // Field staff for the team-leader dropdown in the schedule dialog.

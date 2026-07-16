@@ -1,10 +1,6 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
-import {
-  statusForStage,
-  deriveQuoteLineItems,
-  type UserRole,
-} from "@opero/shared";
+import { statusForStage, type UserRole } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
@@ -34,7 +30,6 @@ async function projectDtoFor(user: AuthUser, p: ProjectWithRelations) {
   const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
   const photoKeys = [
     ...p.surveyPhotos,
-    ...p.extraWork.flatMap((m) => m.photos),
     ...(p.handover?.photos ?? []),
   ];
   const urlOf = await buildUrlMap(photoKeys);
@@ -60,9 +55,6 @@ import {
   commentSchema,
   updateIntakeSchema,
   completeIntakeSchema,
-  addQuoteLineSchema,
-  updateQuoteLineSchema,
-  quoteFromCatalogSchema,
   addExtraWorkSchema,
   rejectExtraWorkSchema,
   restpuntenSchema,
@@ -100,14 +92,6 @@ function todayIso(): string {
 
 function formatEuro(value: number): string {
   return `€ ${Math.round(value).toLocaleString("nl-NL")}`;
-}
-
-// Mirror the store's normPriceFor.
-function normPriceFor(unit: string): number {
-  if (unit === "m") return 22;
-  if (unit === "m2") return 38;
-  if (unit === "stuks" || unit === "stuk") return 45;
-  return 30;
 }
 
 // Append a ProjectActivity row inside a transaction (replaces makeActivity +
@@ -149,44 +133,6 @@ async function appendComment(
   await tx.projectActivity.create({
     data: { projectId, userId: user.id, type: "comment", body: text },
   });
-}
-
-// Recompute quote.amount = sum(round(quantity * unitPrice)) from current lines.
-async function recalcQuoteAmount(tx: Tx, quoteId: string): Promise<number> {
-  const lines = await tx.quoteLineItem.findMany({ where: { quoteId } });
-  const amount = lines.reduce(
-    (sum, l) => sum + Math.round(l.quantity * l.unitPrice),
-    0,
-  );
-  await tx.quote.update({ where: { id: quoteId }, data: { amount } });
-  return amount;
-}
-
-// Derive invoice totals from a project's quote (mirror deriveInvoiceTotals).
-function deriveInvoiceTotals(
-  quoteAmount: number,
-  lineItems: { quantity: number; unitPrice: number; unit: string }[],
-): {
-  acceptedQuoteAmount: number;
-  laborAmount: number;
-  materialsAmount: number;
-  extraWorkAmount: number;
-} {
-  const laborLine = lineItems.find((l) => l.unit === "uur");
-  const materialLines = lineItems.filter((l) => l.unit !== "uur");
-  const laborAmount = laborLine
-    ? Math.round(laborLine.quantity * laborLine.unitPrice)
-    : 0;
-  const materialsAmount = materialLines.reduce(
-    (sum, l) => sum + Math.round(l.quantity * l.unitPrice),
-    0,
-  );
-  return {
-    acceptedQuoteAmount: quoteAmount,
-    extraWorkAmount: 0,
-    laborAmount,
-    materialsAmount,
-  };
 }
 
 // Load a project (scoped to org + visibility), throw 404 if not visible.
@@ -361,8 +307,8 @@ projectsRouter.post(
               photos: [],
             },
           },
-          quote: { create: { status: "draft", amount: 0 } },
-          invoice: { create: { status: "not_started" } },
+          // NOTE: quote + invoice are per-WERKBON now (billing is per werkbon),
+          // so they're created with the work order, not here on the project.
           deliveryChecklist: {
             create: {
               items: {
@@ -401,28 +347,9 @@ projectsRouter.patch(
     const input = updateProjectSchema.parse(req.body);
     const existing = await loadProjectForUser(user, req.params.id);
 
-    // Date reconciliation: plannedEndDate can't precede plannedDate.
-    let plannedDate = existing.plannedDate;
-    let plannedEndDate = existing.plannedEndDate;
-    if (input.plannedDate !== undefined) {
-      const nextStart = input.plannedDate || null;
-      plannedDate = nextStart;
-      if (!nextStart) {
-        plannedEndDate = null;
-      } else if (plannedEndDate && plannedEndDate < nextStart) {
-        plannedEndDate = null;
-      }
-    }
-    if (input.plannedEndDate !== undefined) {
-      const end = input.plannedEndDate || null;
-      plannedEndDate =
-        end && plannedDate && end < plannedDate ? plannedDate : end;
-    }
-
-    const data: Prisma.ProjectUpdateInput = {
-      plannedDate,
-      plannedEndDate,
-    };
+    // Scheduling (plannedDate/plannedEndDate) is per-werkbon now — handled by
+    // PATCH /work-orders/:id, not here.
+    const data: Prisma.ProjectUpdateInput = {};
     if (input.name !== undefined)
       data.name = clampText(input.name).trim() || null;
     if (input.description !== undefined)
@@ -444,6 +371,44 @@ projectsRouter.patch(
     if (input.exclusions !== undefined)
       data.exclusions = clampText(input.exclusions);
     if (input.billingType !== undefined) data.billingType = input.billingType;
+    if (input.urgency !== undefined) data.urgency = input.urgency;
+
+    // Team + work type (all project-level). Validate org membership first.
+    if (input.projectLeaderId) {
+      const leader = await prisma.employee.findFirst({
+        where: { id: input.projectLeaderId, orgId: user.orgId, deletedAt: null },
+      });
+      if (!leader) throw BadRequest("Project leader not found in organization");
+    }
+    if (input.projectLeaderId !== undefined) {
+      data.projectLeader = input.projectLeaderId
+        ? { connect: { id: input.projectLeaderId } }
+        : { disconnect: true };
+    }
+    if (input.installerIds !== undefined && input.installerIds.length > 0) {
+      const found = await prisma.employee.count({
+        where: { id: { in: input.installerIds }, orgId: user.orgId, deletedAt: null },
+      });
+      if (found !== new Set(input.installerIds).size) {
+        throw BadRequest("One or more installers not found in organization");
+      }
+    }
+    if (input.installerIds !== undefined) {
+      data.installers = { set: input.installerIds.map((id) => ({ id })) };
+    }
+    if (input.workTypeId) {
+      const wt = await prisma.workType.findFirst({
+        where: { id: input.workTypeId, orgId: user.orgId },
+      });
+      if (!wt) throw BadRequest("Work type not found in organization");
+      // Keep the free-text mirror in sync (workTypeName wins in DTOs).
+      data.insulationType = wt.name;
+    }
+    if (input.workTypeId !== undefined) {
+      data.workType = input.workTypeId
+        ? { connect: { id: input.workTypeId } }
+        : { disconnect: true };
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.project.update({ where: { id: existing.id }, data });
@@ -509,7 +474,6 @@ projectsRouter.post(
     const { status } = statusSchema.parse(req.body);
     const existing = await prisma.project.findFirst({
       where: projectScopeWhere(user, { id: req.params.id }),
-      include: { quote: { include: { lineItems: true } }, invoice: true },
     });
     if (!existing) throw NotFound("Project not found");
     if (existing.status === status) {
@@ -522,37 +486,8 @@ projectsRouter.post(
         status,
         nextStepKey: NEXT_STEP_BY_STATUS[status],
       };
-      // Moving to operations/closing implies accepted quote.
-      if (
-        (status === "operations" || status === "closing") &&
-        existing.quote
-      ) {
-        await tx.quote.update({
-          where: { id: existing.quote.id },
-          data: {
-            status: "accepted",
-            acceptedDate: existing.quote.acceptedDate ?? todayIso(),
-            sentDate: existing.quote.sentDate ?? todayIso(),
-          },
-        });
-      }
-      // Moving to closing readies a draft invoice with derived totals.
-      if (status === "closing" && existing.invoice && existing.quote) {
-        const totals = deriveInvoiceTotals(
-          existing.quote.amount,
-          existing.quote.lineItems,
-        );
-        await tx.invoice.update({
-          where: { id: existing.invoice.id },
-          data: {
-            ...totals,
-            status:
-              existing.invoice.status === "not_started"
-                ? "draft"
-                : existing.invoice.status,
-          },
-        });
-      }
+      // Quote-accept + invoice-ready are per-WERKBON now (billing is per werkbon),
+      // handled by each werkbon's own lifecycle — not on the project status.
       await tx.project.update({ where: { id: existing.id }, data });
       await appendActivity(tx, user, existing.id, "status_change", "project.statusChanged", {
         params: { from: fromStatus, to: status },
@@ -581,7 +516,6 @@ projectsRouter.post(
     const body = stageSchema_.parse(req.body);
     const existing = await prisma.project.findFirst({
       where: projectScopeWhere(user, { id: req.params.id }),
-      include: { quote: { include: { lineItems: true } }, invoice: true },
     });
     if (!existing) throw NotFound("Project not found");
 
@@ -595,21 +529,8 @@ projectsRouter.post(
     const status = statusForStage(stage);
 
     const updated = await prisma.$transaction(async (tx) => {
-      // When stage="done" and invoice not_started, set invoice draft + totals.
-      if (
-        stage === "done" &&
-        existing.invoice?.status === "not_started" &&
-        existing.quote
-      ) {
-        const totals = deriveInvoiceTotals(
-          existing.quote.amount,
-          existing.quote.lineItems,
-        );
-        await tx.invoice.update({
-          where: { id: existing.invoice.id },
-          data: { ...totals, status: "draft" },
-        });
-      }
+      // Invoice draft + totals are seeded per-WERKBON now (billing per werkbon),
+      // driven by each werkbon's lifecycle — not by the project's stage.
       await tx.project.update({
         where: { id: existing.id },
         data: { stage, status },
@@ -759,10 +680,7 @@ projectsRouter.post(
     const data = completeIntakeSchema.parse(req.body);
     const existing = await prisma.project.findFirst({
       where: projectScopeWhere(user, { id: req.params.id }),
-      include: {
-        intake: true,
-        quote: { include: { lineItems: true } },
-      },
+      include: { intake: true },
     });
     if (!existing) throw NotFound("Project not found");
     if (!existing.intake) throw NotFound("Intake not found");
@@ -798,37 +716,9 @@ projectsRouter.post(
         data: intakeData,
       });
 
-      // Prepare a draft quote from type + m² if there are no lines yet.
-      let value = existing.value;
-      if (existing.quote && existing.quote.lineItems.length === 0) {
-        // deriveQuoteLineItems only reads project.id; pass a minimal stub.
-        const derived = deriveQuoteLineItems(
-          { id: existing.id } as Parameters<typeof deriveQuoteLineItems>[0],
-          {
-            estimatedLaborHours:
-              data.estimatedLaborHours !== undefined
-                ? clampNumber(data.estimatedLaborHours)
-                : existing.intake!.estimatedLaborHours,
-            insulationType,
-            squareMeters,
-          },
-        );
-        let ordinal = 0;
-        for (const line of derived) {
-          await tx.quoteLineItem.create({
-            data: {
-              quoteId: existing.quote.id,
-              description: line.description,
-              quantity: line.quantity,
-              unit: line.unit,
-              unitPrice: line.unitPrice,
-              ordinal: ordinal++,
-            },
-          });
-        }
-        value = await recalcQuoteAmount(tx, existing.quote.id);
-      }
-
+      // Draft quote seeding is per-WERKBON now (billing per werkbon) — the
+      // project no longer carries a single quote, so intake completion only
+      // finalizes the intake + project header fields.
       await tx.project.update({
         where: { id: existing.id },
         data: {
@@ -837,7 +727,6 @@ projectsRouter.post(
           blocker: blocker ?? existing.blocker,
           urgency: blocker ? "blocked" : existing.urgency,
           nextStepKey: blocker ? "resolveBlocker" : "sendQuote",
-          value,
         },
       });
       // Urgency may have flipped to/from "blocked" → resync work-order statuses.
@@ -861,20 +750,6 @@ projectsRouter.post(
   }),
 );
 
-// =========================================================================
-// QUOTE LINE ITEMS
-// =========================================================================
-
-async function loadQuote(user: AuthUser, projectId: string) {
-  const project = await prisma.project.findFirst({
-    where: projectScopeWhere(user, { id: projectId }),
-    include: { quote: true },
-  });
-  if (!project) throw NotFound("Project not found");
-  if (!project.quote) throw NotFound("Quote not found");
-  return { project, quote: project.quote };
-}
-
 async function reloadProject(user: AuthUser, projectId: string) {
   const p = await prisma.project.findUniqueOrThrow({
     where: { id: projectId },
@@ -882,273 +757,6 @@ async function reloadProject(user: AuthUser, projectId: string) {
   });
   return projectDtoFor(user, p);
 }
-
-// POST /:id/quote/lines — add blank or from body. admin.
-projectsRouter.post(
-  "/:id/quote/lines",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = addQuoteLineSchema.parse(req.body) ?? {};
-    const { project, quote } = await loadQuote(user, req.params.id);
-
-    await prisma.$transaction(async (tx) => {
-      const count = await tx.quoteLineItem.count({ where: { quoteId: quote.id } });
-      await tx.quoteLineItem.create({
-        data: {
-          quoteId: quote.id,
-          description:
-            input.description !== undefined ? clampText(input.description) : "",
-          workType: input.workType
-            ? clampText(input.workType)
-            : "Warme leidingisolatie",
-          size: input.size !== undefined ? clampText(input.size) : "",
-          quantity: input.quantity !== undefined ? clampNumber(input.quantity) : 1,
-          unit: input.unit ? clampText(input.unit) : "m",
-          unitPrice:
-            input.unitPrice !== undefined ? clampNumber(input.unitPrice) : 0,
-          ordinal: count,
-        },
-      });
-      await recalcQuoteAmount(tx, quote.id);
-      await audit(tx, user, "project.quote.line.add", "project", project.id);
-    });
-
-    res.status(201).json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/quote/from-catalog — add a line from an Article. admin.
-projectsRouter.post(
-  "/:id/quote/from-catalog",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = quoteFromCatalogSchema.parse(req.body);
-    const { project, quote } = await loadQuote(user, req.params.id);
-
-    const article = await prisma.article.findFirst({
-      where: { id: input.catalogItemId, orgId: user.orgId },
-    });
-    if (!article) throw BadRequest("Article not found in organization");
-
-    await prisma.$transaction(async (tx) => {
-      const count = await tx.quoteLineItem.count({ where: { quoteId: quote.id } });
-      await tx.quoteLineItem.create({
-        data: {
-          quoteId: quote.id,
-          catalogItemId: article.id,
-          description: article.name,
-          quantity:
-            input.quantity !== undefined
-              ? clampNumber(input.quantity)
-              : article.defaultQuantity,
-          unit: article.unit,
-          unitPrice: article.unitPrice,
-          ordinal: count,
-        },
-      });
-      await recalcQuoteAmount(tx, quote.id);
-      // Keep accepted quotes accepted; otherwise draft (mirror store).
-      if (quote.status !== "accepted") {
-        await tx.quote.update({
-          where: { id: quote.id },
-          data: { status: "draft" },
-        });
-      }
-      await audit(tx, user, "project.quote.line.catalog", "project", project.id, {
-        catalogItemId: article.id,
-      });
-    });
-
-    res.status(201).json(await reloadProject(user, project.id));
-  }),
-);
-
-// PATCH /:id/quote/lines/:lineId — admin.
-projectsRouter.patch(
-  "/:id/quote/lines/:lineId",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = updateQuoteLineSchema.parse(req.body);
-    const { project, quote } = await loadQuote(user, req.params.id);
-
-    const line = await prisma.quoteLineItem.findFirst({
-      where: { id: req.params.lineId, quoteId: quote.id },
-    });
-    if (!line) throw NotFound("Quote line not found");
-
-    const data: Prisma.QuoteLineItemUpdateInput = {};
-    if (input.description !== undefined)
-      data.description = clampText(input.description);
-    if (input.workType !== undefined) data.workType = clampText(input.workType);
-    if (input.size !== undefined) data.size = clampText(input.size);
-    if (input.quantity !== undefined) data.quantity = clampNumber(input.quantity);
-    if (input.unit !== undefined) data.unit = clampText(input.unit);
-    if (input.unitPrice !== undefined)
-      data.unitPrice = clampNumber(input.unitPrice);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.quoteLineItem.update({ where: { id: line.id }, data });
-      await recalcQuoteAmount(tx, quote.id);
-      await audit(tx, user, "project.quote.line.update", "project", project.id, {
-        lineId: line.id,
-      });
-    });
-
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// DELETE /:id/quote/lines/:lineId — admin.
-projectsRouter.delete(
-  "/:id/quote/lines/:lineId",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { project, quote } = await loadQuote(user, req.params.id);
-    const line = await prisma.quoteLineItem.findFirst({
-      where: { id: req.params.lineId, quoteId: quote.id },
-    });
-    if (!line) throw NotFound("Quote line not found");
-
-    await prisma.$transaction(async (tx) => {
-      await tx.quoteLineItem.delete({ where: { id: line.id } });
-      await recalcQuoteAmount(tx, quote.id);
-      await audit(tx, user, "project.quote.line.delete", "project", project.id, {
-        lineId: line.id,
-      });
-    });
-
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/quote/apply-norm-prices — fill unitPrice where 0. admin.
-projectsRouter.post(
-  "/:id/quote/apply-norm-prices",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { project, quote } = await loadQuote(user, req.params.id);
-    const lines = await prisma.quoteLineItem.findMany({
-      where: { quoteId: quote.id },
-    });
-
-    await prisma.$transaction(async (tx) => {
-      for (const line of lines) {
-        if (line.unitPrice > 0) continue;
-        await tx.quoteLineItem.update({
-          where: { id: line.id },
-          data: { unitPrice: normPriceFor(line.unit) },
-        });
-      }
-      await recalcQuoteAmount(tx, quote.id);
-      await audit(tx, user, "project.quote.normPrices", "project", project.id);
-    });
-
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/quote/send — admin. status sent, sentDate today.
-projectsRouter.post(
-  "/:id/quote/send",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { project, quote } = await loadQuote(user, req.params.id);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.quote.update({
-        where: { id: quote.id },
-        data: { status: "sent", sentDate: quote.sentDate ?? todayIso() },
-      });
-      await tx.project.update({
-        where: { id: project.id },
-        data: { nextStepKey: "waitingApproval" },
-      });
-      await appendActivity(tx, user, project.id, "system", "quote.sent");
-      await audit(tx, user, "project.quote.send", "project", project.id);
-    });
-
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/quote/accept — admin OR client on own project. Mirror acceptQuote.
-projectsRouter.post(
-  "/:id/quote/accept",
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const existing = await prisma.project.findFirst({
-      where: projectScopeWhere(user, { id: req.params.id }),
-      include: {
-        quote: true,
-        materialRequirements: true,
-        installers: { select: { id: true } },
-      },
-    });
-    if (!existing) throw NotFound("Project not found");
-    if (!existing.quote) throw NotFound("Quote not found");
-
-    // admin always; client only on their own project (visibility already
-    // enforces customer match, but gate explicitly to forbid technician).
-    if (user.role !== "admin") {
-      if (user.role !== "client" || existing.customerId !== user.customerId) {
-        throw Forbidden("Not allowed to accept this quote");
-      }
-    }
-
-    const reqs = existing.materialRequirements;
-    const readiness =
-      reqs.length === 0
-        ? "needs_ordering"
-        : reqs.every((r) => r.quantityInStock >= r.quantityNeeded)
-          ? "available"
-          : reqs.some(
-                (r) =>
-                  r.quantityInStock > 0 && r.quantityInStock < r.quantityNeeded,
-              )
-            ? "partly_available"
-            : "needs_ordering";
-    const available = readiness === "available";
-    const fromStatus = existing.status;
-
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.quote.update({
-        where: { id: existing.quote!.id },
-        data: { status: "accepted", acceptedDate: todayIso() },
-      });
-      await tx.project.update({
-        where: { id: existing.id },
-        data: {
-          status: "operations",
-          blocker: available ? null : existing.blocker,
-          blockerKey:
-            available || existing.blocker ? null : "materialsUnavailable",
-          nextStepKey: available ? "planProject" : "createPurchaseList",
-          urgency: available ? existing.urgency : "blocked",
-        },
-      });
-      // Urgency may have flipped to "blocked" → resync work-order statuses.
-      await recomputeWorkOrdersForProject(tx, existing.id);
-      if (fromStatus !== "operations") {
-        await appendActivity(tx, user, existing.id, "status_change", "quote.accepted", {
-          statuses: { fromStatus, toStatus: "operations" },
-        });
-      }
-      await audit(tx, user, "project.quote.accept", "project", existing.id);
-      return tx.project.findUniqueOrThrow({
-        where: { id: existing.id },
-        include: projectInclude,
-      });
-    });
-
-    res.json(await projectDtoFor(user, updated));
-  }),
-);
 
 // =========================================================================
 // URGENCY / BLOCKER / TEAM
@@ -1310,114 +918,6 @@ projectsRouter.post(
   }),
 );
 
-// =========================================================================
-// EXTRA WORK
-// =========================================================================
-
-// POST /:id/extra-work — admin + technician (assigned) may create. Mirror addExtraWork.
-projectsRouter.post(
-  "/:id/extra-work",
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = addExtraWorkSchema.parse(req.body);
-    const existing = await loadProjectForUser(user, req.params.id);
-    // admin or technician-on-assigned (client may not create extra work).
-    if (user.role !== "admin") {
-      if (user.role !== "technician" || !canViewProject(user, existing)) {
-        throw Forbidden("Not allowed to add extra work to this project");
-      }
-    }
-
-    const name = clampText(input.name).trim();
-    if (!name) throw BadRequest("Name required");
-    const quantity = input.quantity !== undefined ? clampNumber(input.quantity) : 0;
-    const unit = input.unit ? clampText(input.unit).trim() : "";
-    const unitPrice = input.unitPrice ? clampNumber(input.unitPrice) : 0;
-    const label = input.label ? clampText(input.label).trim() : null;
-    const description = label || `${quantity} ${unit} ${name}`.trim();
-    const amount = Math.round(quantity * unitPrice);
-    // Photos are uploaded separately via POST /:id/extra-work/:mwId/photo after
-    // the row exists (real multipart upload, not a create-time flag).
-
-    await prisma.$transaction(async (tx) => {
-      await tx.extraWork.create({
-        data: {
-          projectId: existing.id,
-          description,
-          label,
-          name,
-          quantity,
-          unit,
-          diameter: input.diameter ? clampNumber(input.diameter) : null,
-          unitPrice,
-          amount,
-          photos: [],
-          createdAt: todayIso(),
-        },
-      });
-      await appendActivity(tx, user, existing.id, "system", "extraWork.reported", {
-        params: { description, amount: formatEuro(amount) },
-      });
-      await audit(tx, user, "project.extraWork.add", "project", existing.id);
-    });
-
-    res.status(201).json(await reloadProject(user, existing.id));
-  }),
-);
-
-// Load an extra work row scoped to a visible project.
-async function loadExtraWork(user: AuthUser, projectId: string, mwId: string) {
-  const project = await loadProjectForUser(user, projectId);
-  const item = await prisma.extraWork.findFirst({
-    where: { id: mwId, projectId: project.id },
-  });
-  if (!item) throw NotFound("Extra work not found");
-  return { project, item };
-}
-
-// POST /:id/extra-work/:mwId/photo — upload a photo for an extra-work item.
-projectsRouter.post(
-  "/:id/extra-work/:mwId/photo",
-  uploadSingle,
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
-    const key = await storeUpload(user, req.file, "extra-work", item.id);
-    await prisma.$transaction(async (tx) => {
-      await tx.extraWork.update({
-        where: { id: item.id },
-        data: { photos: { push: key } },
-      });
-      await audit(tx, user, "project.extraWork.photo", "project", project.id, {
-        photo: key,
-      });
-    });
-    res.status(201).json(await reloadProject(user, project.id));
-  }),
-);
-
-// DELETE /:id/extra-work/:mwId/photo {photo} — remove a photo by object key.
-projectsRouter.delete(
-  "/:id/extra-work/:mwId/photo",
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = removePhotoSchema.parse(req.body);
-    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
-    const existed = item.photos.includes(input.photo);
-    await prisma.$transaction(async (tx) => {
-      await tx.extraWork.update({
-        where: { id: item.id },
-        data: { photos: item.photos.filter((p) => p !== input.photo) },
-      });
-      await audit(tx, user, "project.extraWork.photo.remove", "project", project.id, {
-        photo: input.photo,
-      });
-    });
-    if (existed) await deleteStored(input.photo);
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
 // POST /:id/survey/photo — upload a survey (opname) photo onto the project.
 projectsRouter.post(
   "/:id/survey/photo",
@@ -1463,129 +963,6 @@ projectsRouter.delete(
       });
     });
     if (existed) await deleteStored(input.photo);
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/extra-work/:mwId/approve-office — admin. Toggle. Mirror store.
-projectsRouter.post(
-  "/:id/extra-work/:mwId/approve-office",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
-    const next = !item.approvedByOffice;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.extraWork.update({
-        where: { id: item.id },
-        data: { approvedByOffice: next, rejected: false },
-      });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        "system",
-        next ? "extraWork.officeApproved" : "extraWork.officeWithdrawn",
-        { params: { description: item.description } },
-      );
-      await audit(tx, user, "project.extraWork.approveOffice", "project", project.id);
-    });
-
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/extra-work/:mwId/approve-client — admin OR client on own. Toggle.
-projectsRouter.post(
-  "/:id/extra-work/:mwId/approve-client",
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
-    if (user.role !== "admin") {
-      if (user.role !== "client" || project.customerId !== user.customerId) {
-        throw Forbidden("Not allowed to approve this extra work");
-      }
-    }
-    const next = !item.approvedByClient;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.extraWork.update({
-        where: { id: item.id },
-        data: { approvedByClient: next, rejected: false },
-      });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        "system",
-        next ? "extraWork.clientApproved" : "extraWork.clientWithdrawn",
-        { params: { description: item.description } },
-      );
-      await audit(tx, user, "project.extraWork.approveClient", "project", project.id);
-    });
-
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/extra-work/:mwId/reject — admin. {by?}. Mirror rejectExtraWork.
-projectsRouter.post(
-  "/:id/extra-work/:mwId/reject",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { by } = rejectExtraWorkSchema.parse(req.body);
-    const rejectedBy = by ?? "office";
-    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.extraWork.update({
-        where: { id: item.id },
-        data: {
-          rejected: true,
-          rejectedBy,
-          approvedByOffice: false,
-          approvedByClient: false,
-        },
-      });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        "system",
-        rejectedBy === "client" ? "extraWork.rejectedByClient" : "extraWork.rejectedByOffice",
-        { params: { description: item.description } },
-      );
-      await audit(tx, user, "project.extraWork.reject", "project", project.id);
-    });
-
-    res.json(await reloadProject(user, project.id));
-  }),
-);
-
-// POST /:id/extra-work/:mwId/toggle-done — admin. Mirror toggleExtraWorkDone.
-projectsRouter.post(
-  "/:id/extra-work/:mwId/toggle-done",
-  requireRole("admin"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
-    const next = !item.done;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.extraWork.update({ where: { id: item.id }, data: { done: next } });
-      await appendActivity(
-        tx,
-        user,
-        project.id,
-        "system",
-        next ? "extraWork.done" : "extraWork.reopened",
-        { params: { description: item.description } },
-      );
-      await audit(tx, user, "project.extraWork.toggleDone", "project", project.id);
-    });
-
     res.json(await reloadProject(user, project.id));
   }),
 );

@@ -81,9 +81,13 @@ export type WorkOrder = {
   signatureUrl?: string;
   signedAt?: string;
   signedByName?: string;
-  // The monteur assigned to this werkbon (werkbon-level, one per job).
-  assigneeId?: string;
-  assigneeName?: string;
+  // The monteur(s) assigned to this werkbon (werkbon-level; a crew per job).
+  assignees: { id: string; name: string }[];
+  // The werkbon is the scheduled visit — its own date(s), possibly multi-day.
+  plannedDate?: string;
+  plannedEndDate?: string;
+  // Extra work (meerwerk) is billed per-werkbon, so it lives on the werkbon.
+  extraWork: ExtraWork[];
   tasks: WorkOrderTask[];
 };
 
@@ -135,15 +139,45 @@ export type Project = {
   address: string;
   postalCode: string;
   city: string;
+  contactName?: string;
+  contactPhone?: string;
+  instructions?: string;
+  description?: string;
   insulationType: string;
+  workTypeId?: string;
+  workTypeName?: string;
   stage: string;
   status: string;
   urgency: string;
+  plannedDate?: string;
+  plannedEndDate?: string;
+  projectLeaderId?: string;
+  installerIds: string[];
   nextStepKey: string;
   value?: number;
   extraWork: ExtraWork[];
   activity: Activity[];
 };
+
+// Fields the werkbon-detail project sidebar can edit (all project-level).
+export type ProjectSidebarPatch = {
+  urgency?: "normal" | "urgent" | "blocked";
+  // NOTE: scheduling (plannedDate) is per-werkbon → setWorkOrderSchedule, not here.
+  projectLeaderId?: string | null;
+  installerIds?: string[];
+  workTypeId?: string | null;
+  description?: string;
+  contactName?: string;
+  contactPhone?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  instructions?: string;
+};
+
+export function updateProject(projectId: string, patch: ProjectSidebarPatch): Promise<Project> {
+  return api.patch<Project>(`/projects/${projectId}`, patch);
+}
 
 export function getWorkOrder(id: string): Promise<WorkOrder> {
   return api.get<WorkOrder>(`/work-orders/${id}`);
@@ -188,13 +222,21 @@ export function addTask(workOrderId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/tasks`, {});
 }
 
-// Assign (or clear with null) the werkbon's monteur. Werkbon-level: one person
-// does one job, so this lives on the header, not per-zone.
-export function setWorkOrderAssignee(
+// Set the werkbon's monteur crew (full replace; empty clears). Werkbon-level —
+// a job can be split across a crew — so this lives on the header, not per-zone.
+export function setWorkOrderAssignees(
   workOrderId: string,
-  assigneeId: string | null,
+  assigneeIds: string[],
 ): Promise<WorkOrder> {
-  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { assigneeId });
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { assigneeIds });
+}
+
+// Set the werkbon's schedule (the visit's date(s)). Scheduling is per-werkbon.
+export function setWorkOrderSchedule(
+  workOrderId: string,
+  patch: { plannedDate?: string | null; plannedEndDate?: string | null },
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, patch);
 }
 
 export function updateTask(
@@ -339,37 +381,38 @@ export type NewExtraWork = {
   label?: string;
 };
 
+// Extra work (meerwerk) is per-WERKBON now — all these target the work order.
 export function reportExtraWork(
-  projectId: string,
+  workOrderId: string,
   input: NewExtraWork,
 ): Promise<unknown> {
-  return api.post(`/projects/${projectId}/extra-work`, input);
+  return api.post(`/work-orders/${workOrderId}/extra-work`, input);
 }
 
-export function approveOffice(projectId: string, mwId: string): Promise<unknown> {
-  return api.post(`/projects/${projectId}/extra-work/${mwId}/approve-office`, {});
+export function approveOffice(workOrderId: string, mwId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/extra-work/${mwId}/approve-office`, {});
 }
 
-export function approveClient(projectId: string, mwId: string): Promise<unknown> {
-  return api.post(`/projects/${projectId}/extra-work/${mwId}/approve-client`, {});
+export function approveClient(workOrderId: string, mwId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/extra-work/${mwId}/approve-client`, {});
 }
 
-export function rejectExtraWork(projectId: string, mwId: string): Promise<unknown> {
-  return api.post(`/projects/${projectId}/extra-work/${mwId}/reject`, {});
+export function rejectExtraWork(workOrderId: string, mwId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/extra-work/${mwId}/reject`, {});
 }
 
 export function uploadExtraWorkPhoto(
-  projectId: string,
+  workOrderId: string,
   mwId: string,
   file: Blob,
 ): Promise<unknown> {
-  return api.upload(`/projects/${projectId}/extra-work/${mwId}/photo`, file);
+  return api.upload(`/work-orders/${workOrderId}/extra-work/${mwId}/photo`, file);
 }
 
 export function deleteExtraWorkPhoto(
-  projectId: string,
+  workOrderId: string,
   mwId: string,
   key: string,
 ): Promise<unknown> {
-  return api.delete(`/projects/${projectId}/extra-work/${mwId}/photo`, { photo: key });
+  return api.delete(`/work-orders/${workOrderId}/extra-work/${mwId}/photo`, { photo: key });
 }

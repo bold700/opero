@@ -283,15 +283,14 @@ describe("cost / margin visibility (3-way on the billable line)", () => {
   });
 });
 
-describe("werkbon-level monteur assignment", () => {
-  it("admin assigns the monteur on the werkbon; DTO returns it", async () => {
+describe("werkbon-level monteur assignment (multiple)", () => {
+  it("admin assigns monteur(s) on the werkbon; DTO returns them", async () => {
     const res = await request(app)
       .patch(`/api/work-orders/${workOrderId}`)
       .set(auth(adminToken))
-      .send({ assigneeId: employeeId });
+      .send({ assigneeIds: [employeeId] });
     expect(res.status).toBe(200);
-    expect(res.body.assigneeId).toBe(employeeId);
-    expect(res.body.assigneeName).toBe(`${TAG}-tech`);
+    expect(res.body.assignees).toEqual([{ id: employeeId, name: `${TAG}-tech` }]);
   });
 
   it("assigning an employee from another org is rejected (400)", async () => {
@@ -301,17 +300,17 @@ describe("werkbon-level monteur assignment", () => {
     const res = await request(app)
       .patch(`/api/work-orders/${workOrderId}`)
       .set(auth(adminToken))
-      .send({ assigneeId: otherEmp.id });
+      .send({ assigneeIds: [otherEmp.id] });
     expect(res.status).toBe(400);
   });
 
-  it("clearing the monteur (null) works", async () => {
+  it("clearing the crew (empty array) works", async () => {
     const res = await request(app)
       .patch(`/api/work-orders/${workOrderId}`)
       .set(auth(adminToken))
-      .send({ assigneeId: null });
+      .send({ assigneeIds: [] });
     expect(res.status).toBe(200);
-    expect(res.body.assigneeId).toBeUndefined();
+    expect(res.body.assignees).toEqual([]);
   });
 });
 
