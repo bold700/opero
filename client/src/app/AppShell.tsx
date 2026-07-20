@@ -18,7 +18,7 @@ import { OfflineBanner } from "../components/OfflineBanner";
 
 const RAIL_WIDTH = 96;
 
-// M3 navigation rail (desktop) — matches the purple Figma: hamburger, FAB,
+///  M3 navigation rail (desktop) — matches the purple Figma: hamburger, FAB,
 // icon+label destinations, settings/profile pinned to the bottom.
 function NavRail({ items }: { items: NavItem[] }) {
   const navigate = useNavigate();
