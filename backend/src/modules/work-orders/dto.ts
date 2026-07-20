@@ -20,9 +20,16 @@ import { photoRefs, photoUrl } from "../../lib/photoUrls.js";
 // and `marginPct`. Clients get the selling price but NEVER the cost/margin.
 // Three-way on the billable line: technician→none, client→sell, admin→sell+margin.
 
+// The variant's material + size — carried only so the client's edit dialog can
+// pre-select the current article in its material→size→variant cascade. Ids/size
+// only; never any price data.
+type VariantRef = { variantMaterialId: string; variantSize: string } | null;
+type MaterialWithVariant = TaskMaterial & { variant: { materialId: string; size: string } | null };
+type ExtraWorkWithVariant = ExtraWork & { variant: { materialId: string; size: string } | null };
+
 // A task loaded with its materials + the per-zone work type / assignee names.
 type TaskWithRelations = WorkOrderTask & {
-  materials: TaskMaterial[];
+  materials: MaterialWithVariant[];
   workType?: { id: string; name: string } | null;
   assignee?: { id: string; name: string } | null;
 };
@@ -31,12 +38,18 @@ type TaskWithRelations = WorkOrderTask & {
 // signer (for the sign-off display).
 export type WorkOrderWithRelations = WorkOrder & {
   tasks: TaskWithRelations[];
-  extraWork?: ExtraWork[];
+  extraWork?: ExtraWorkWithVariant[];
   signedBy?: { name: string } | null;
   assignees?: { id: string; name: string }[];
 };
 
-function materialDto(m: TaskMaterial, showPrices: boolean, showMargin: boolean) {
+// Pull the material+size off the (optionally-loaded) variant relation, for
+// edit-dialog prefill. Undefined for free-text rows or when not loaded.
+function variantRef(v: { materialId: string; size: string } | null | undefined): VariantRef {
+  return v ? { variantMaterialId: v.materialId, variantSize: v.size } : null;
+}
+
+function materialDto(m: MaterialWithVariant, showPrices: boolean, showMargin: boolean) {
   // Margin (admin-only): per-line profit = (sell − cost) × qty, plus the % of
   // the selling total. Only when BOTH prices are known. Cost/margin are never
   // included for non-admins, even the raw costPrice.
@@ -66,6 +79,9 @@ function materialDto(m: TaskMaterial, showPrices: boolean, showMargin: boolean) 
     diameter: m.diameter ?? undefined,
     // Set when the line was picked from the materials catalog.
     variantId: m.variantId ?? undefined,
+    // Material + size of the current variant, so the edit dialog can pre-select
+    // it. Ids/size only, no price — safe for every role.
+    ...(variantRef(m.variant) ?? {}),
     // Price stripped for technicians / non-price roles.
     ...(showPrices ? { unitPrice: m.unitPrice ?? undefined } : {}),
     // Cost/margin: admins only (see canSeeMargin). Never for clients.
@@ -110,8 +126,16 @@ async function taskDto(t: TaskWithRelations, showPrices: boolean, showMargin: bo
 // Meerwerk (extra work) line, per-WERKBON. Prices (unitPrice + amount) are
 // stripped for non-price roles, mirroring the task-material three-way rule.
 // Photos hold object keys → resolved to {key, url} for the client.
-async function extraWorkDto(m: ExtraWork, showPrices: boolean) {
+async function extraWorkDto(m: ExtraWorkWithVariant, showPrices: boolean, showMargin: boolean) {
   const photos = await photoRefs(m.photos);
+  // Cost/margin are admin-only, same as task lines. Never leak costPrice below.
+  const margin =
+    showMargin && m.unitPrice != null && m.costPrice != null && m.quantity != null
+      ? {
+          costPrice: m.costPrice,
+          margin: (m.unitPrice - m.costPrice) * m.quantity,
+        }
+      : {};
   return {
     id: m.id,
     description: m.description,
@@ -120,7 +144,12 @@ async function extraWorkDto(m: ExtraWork, showPrices: boolean) {
     quantity: m.quantity ?? undefined,
     unit: m.unit ?? undefined,
     diameter: m.diameter ?? undefined,
+    // A trace id only (no price) — safe for every role.
+    variantId: m.variantId ?? undefined,
+    // Material + size, so the edit dialog can pre-select the article.
+    ...(variantRef(m.variant) ?? {}),
     ...(showPrices ? { unitPrice: m.unitPrice ?? undefined, amount: m.amount } : {}),
+    ...margin,
     photos,
     createdAt: m.createdAt,
     done: m.done,
@@ -147,7 +176,7 @@ export async function workOrderDto(
     photoUrl(wb.signature),
     photoRefs(wb.prejobPhotos),
     Promise.all(sortedTasks.map((t) => taskDto(t, showPrices, showMargin))),
-    Promise.all((wb.extraWork ?? []).map((m) => extraWorkDto(m, showPrices))),
+    Promise.all((wb.extraWork ?? []).map((m) => extraWorkDto(m, showPrices, showMargin))),
   ]);
   const prejobCheck = normalizePrejobCheck(wb.prejobCheck);
   return {
@@ -186,12 +215,17 @@ export async function workOrderDto(
 export const workOrderInclude = {
   tasks: {
     include: {
-      materials: true,
+      materials: {
+        include: { variant: { select: { materialId: true, size: true } } },
+      },
       workType: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true } },
     },
   },
-  extraWork: { orderBy: { createdAt: "asc" } },
+  extraWork: {
+    orderBy: { createdAt: "asc" },
+    include: { variant: { select: { materialId: true, size: true } } },
+  },
   signedBy: { select: { name: true } },
   assignees: { select: { id: true, name: true } },
 } as const;

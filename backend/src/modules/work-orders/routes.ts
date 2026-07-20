@@ -45,7 +45,12 @@ import {
   usageSchema,
 } from "./schema.js";
 // Meerwerk (extra work) is field-based; reuse the existing zod schemas.
-import { addExtraWorkSchema, rejectExtraWorkSchema } from "../projects/schema.js";
+import {
+  addExtraWorkSchema,
+  addExtraWorkFromCatalogSchema,
+  updateExtraWorkSchema,
+  rejectExtraWorkSchema,
+} from "../projects/schema.js";
 
 export const workOrdersRouter = Router();
 
@@ -883,9 +888,13 @@ workOrdersRouter.post(
 // TASKS (zones)
 // =========================================================================
 
-// POST /work-orders/:id/tasks — add a blank task (zone). admin + technician.
+// POST /work-orders/:id/tasks — add a blank task (zone). admin-only: creating/
+// removing zones is office work, not something a technician does in the field
+// (they fill in tasks, add photos, capture signatures, and report meerwerk —
+// see docs/roles-and-permissions.md).
 workOrdersRouter.post(
   "/:id/tasks",
+  requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { project } = await requireWritableWorkOrder(user, req.params.id);
@@ -955,9 +964,11 @@ workOrdersRouter.patch(
   }),
 );
 
-// DELETE /work-orders/:id/tasks/:taskId — remove a zone.
+// DELETE /work-orders/:id/tasks/:taskId — remove a zone. admin-only (see the
+// POST /:id/tasks comment above).
 workOrdersRouter.delete(
   "/:id/tasks/:taskId",
+  requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { project } = await requireWritableWorkOrder(user, req.params.id);
@@ -1631,6 +1642,41 @@ workOrdersRouter.post(
   }),
 );
 
+// POST /work-orders/:id/reopen — undo a sign-off. admin-only: finishing captures
+// a customer signature (a business/legal record), so unlocking it back to
+// editable is an office decision, not something a technician self-serves.
+// Clears signature/signedAt/signedByName; does NOT revert the task/material
+// "done" flags that /finish force-completed (no record of which were already
+// done vs. force-completed, and re-opening for a correction shouldn't silently
+// un-tick genuinely finished work).
+workOrdersRouter.post(
+  "/:id/reopen",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { workOrder, project } = await requireWritableWorkOrder(user, req.params.id);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: workOrder.id },
+      select: { title: true, signedAt: true, signature: true, ordinal: true },
+    });
+    if (!wb.signedAt) throw BadRequest("Work order is not signed off");
+
+    const signatureKey = wb.signature;
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { signature: null, signedByName: null, signedAt: null, signedById: null },
+      });
+      await appendActivity(tx, user, project.id, "workOrder.reopened", {
+        title: wb.title || `#${wb.ordinal + 1}`,
+      });
+      await audit(tx, user, "workOrder.reopen", "workOrder", workOrder.id);
+    });
+    if (signatureKey) await deleteStored(signatureKey);
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
 // =========================================================================
 // EXTRA WORK (meerwerk) — per-WERKBON. Billing/meerwerk is scoped to a werkbon.
 // =========================================================================
@@ -1659,7 +1705,12 @@ workOrdersRouter.post(
     if (!name) throw BadRequest("Name required");
     const quantity = input.quantity !== undefined ? clampNumber(input.quantity) : 0;
     const unit = input.unit ? clampText(input.unit).trim() : "";
-    const unitPrice = input.unitPrice ? clampNumber(input.unitPrice) : 0;
+    // Only an admin may price free-text meerwerk. A technician's unitPrice is
+    // discarded — the office prices unforeseen work afterward. (For a priced
+    // catalog item, the technician uses .../extra-work/from-catalog instead,
+    // where the price is resolved server-side from the variant.)
+    const unitPrice =
+      user.role === "admin" && input.unitPrice ? clampNumber(input.unitPrice) : 0;
     const label = input.label ? clampText(input.label).trim() : null;
     const description = label || `${quantity} ${unit} ${name}`.trim();
     const amount = Math.round(quantity * unitPrice);
@@ -1690,6 +1741,166 @@ workOrdersRouter.post(
     });
 
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/extra-work/from-catalog — report meerwerk picked from
+// the materials catalog. Only variantId + quantity are sent; name/unit/price/
+// cost/diameter resolve SERVER-side from the variant (mirrors the task-line
+// /materials/from-catalog route), so a technician's request can't set a price.
+workOrdersRouter.post(
+  "/:id/extra-work/from-catalog",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = addExtraWorkFromCatalogSchema.parse(req.body);
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
+
+    const variant = await prisma.materialVariant.findFirst({
+      where: { id: input.variantId, material: { orgId: user.orgId } },
+      include: { material: true },
+    });
+    if (!variant) throw NotFound("Material variant not found");
+
+    // Compose the line in the org's document locale (nl) from English-keyed maps.
+    const name = buildMaterialLineName(variant.material, variant, "nl");
+    const unit = LINE_UNIT_LABELS[variant.unit]?.nl ?? variant.unit;
+    const quantity = input.quantity !== undefined ? clampNumber(input.quantity) : 1;
+    const amount = Math.round(quantity * variant.unitPrice);
+    const description = `${quantity} ${unit} ${name}`.trim();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.create({
+        data: {
+          workOrderId: req.params.id,
+          description,
+          label: null,
+          name,
+          quantity,
+          unit,
+          diameter: parseDiameter(variant.material, variant),
+          unitPrice: variant.unitPrice,
+          // Snapshot cost so admin margin stays stable if catalog cost changes.
+          costPrice: variant.costPrice,
+          variantId: variant.id,
+          amount,
+          photos: [],
+          createdAt: todayIso(),
+        },
+      });
+      await appendActivity(tx, user, project.id, "extraWork.reported", {
+        description,
+        amount: formatEuro(amount),
+      });
+      await audit(tx, user, "workOrder.extraWork.addFromCatalog", "extraWork", req.params.id, {
+        variantId: variant.id,
+      });
+    });
+
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// PATCH /work-orders/:id/extra-work/:mwId — edit an existing meerwerk row.
+// - `variantId` re-points at a catalog variant: name/unit/price/cost/diameter
+//   re-resolve SERVER-side (a technician can't inject a price this way).
+// - free-text edits (name/unit/qty) are honored; a client-supplied `unitPrice`
+//   is only honored for admins on a free-text row — same rule as create.
+// Any edit resets approvals: what office/client approved is no longer the row.
+workOrdersRouter.patch(
+  "/:id/extra-work/:mwId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = updateExtraWorkSchema.parse(req.body);
+    const { project, item } = await loadExtraWork(user, req.params.id, req.params.mwId);
+
+    // Resolve the target catalog variant, if repointing (variantId given & not null).
+    let variant = null;
+    if (input.variantId) {
+      variant = await prisma.materialVariant.findFirst({
+        where: { id: input.variantId, material: { orgId: user.orgId } },
+        include: { material: true },
+      });
+      if (!variant) throw NotFound("Material variant not found");
+    }
+
+    // Compose the next row state. A catalog variant is the source of truth for
+    // name/unit/price/cost/diameter; a free-text edit keeps the row uncatalogued.
+    const quantity =
+      input.quantity !== undefined ? clampNumber(input.quantity) : (item.quantity ?? 0);
+
+    let name: string;
+    let unit: string;
+    let unitPrice: number;
+    let costPrice: number | null;
+    let diameter: number | null;
+    let variantId: string | null;
+    let label: string | null = item.label;
+
+    if (variant) {
+      name = buildMaterialLineName(variant.material, variant, "nl");
+      unit = LINE_UNIT_LABELS[variant.unit]?.nl ?? variant.unit;
+      unitPrice = variant.unitPrice;
+      costPrice = variant.costPrice;
+      diameter = parseDiameter(variant.material, variant);
+      variantId = variant.id;
+      label = null;
+    } else if (input.variantId === null || item.variantId === null) {
+      // Free-text row (either explicitly cleared, or was already free text):
+      // apply the typed fields. Price only for admins; a technician's is dropped.
+      name = input.name !== undefined ? clampText(input.name).trim() : (item.name ?? "");
+      unit = input.unit !== undefined ? clampText(input.unit).trim() : (item.unit ?? "");
+      unitPrice =
+        user.role === "admin" && input.unitPrice !== undefined
+          ? clampNumber(input.unitPrice)
+          : (item.unitPrice ?? 0);
+      costPrice = item.costPrice;
+      diameter =
+        input.diameter !== undefined
+          ? (input.diameter === null ? null : clampNumber(input.diameter))
+          : item.diameter;
+      variantId = null;
+      if (input.label !== undefined) label = input.label ? clampText(input.label).trim() : null;
+    } else {
+      // Catalog row, no repoint: only quantity changes; keep resolved fields.
+      name = item.name ?? "";
+      unit = item.unit ?? "";
+      unitPrice = item.unitPrice ?? 0;
+      costPrice = item.costPrice;
+      diameter = item.diameter;
+      variantId = item.variantId;
+    }
+
+    if (!name) throw BadRequest("Name required");
+    const amount = Math.round(quantity * unitPrice);
+    const description = label || `${quantity} ${unit} ${name}`.trim();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.extraWork.update({
+        where: { id: item.id },
+        data: {
+          description,
+          label,
+          name,
+          quantity,
+          unit,
+          diameter,
+          unitPrice,
+          costPrice,
+          variantId,
+          amount,
+          // The row changed — prior approvals no longer describe it.
+          approvedByOffice: false,
+          approvedByClient: false,
+        },
+      });
+      await appendActivity(tx, user, project.id, "extraWork.updated", {
+        description,
+        amount: formatEuro(amount),
+      });
+      await audit(tx, user, "workOrder.extraWork.update", "extraWork", item.id);
+    });
+
+    res.json(await reloadWorkOrder(user, req.params.id));
   }),
 );
 

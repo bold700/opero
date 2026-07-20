@@ -46,6 +46,7 @@
   },
   "extraWork": {
     "reported": "Extra work reported: {{description}} ({{amount}})",
+    "updated": "Extra work updated: {{description}} ({{amount}})",
     "officeApproved": "Extra work \"{{description}}\": office approved",
     "officeWithdrawn": "Extra work \"{{description}}\": office approval withdrawn",
     "clientApproved": "Extra work \"{{description}}\": client approved",
@@ -85,6 +86,7 @@
     "approved": "Work order approved: {{title}}",
     "unapproved": "Approval withdrawn: {{title}}",
     "signed": "{{title}} completed and signed",
+    "reopened": "{{title}} reopened",
     "dispatched": "{{title}} dispatched"
   }
 }

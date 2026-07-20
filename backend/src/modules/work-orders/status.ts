@@ -13,12 +13,22 @@ export type WorkOrderListStatus = "open" | "on_the_way" | "urgent" | "done";
 // delegates we use, so recompute can run inside or outside a $transaction.
 type Db = PrismaClient | Prisma.TransactionClient;
 
-// Inputs needed to derive the status: the project's urgency + each task's
-// done/startedAt. Pure function — no I/O.
+// Inputs needed to derive the status: sign-off, the project's urgency + each
+// task's done/startedAt. Pure function — no I/O.
+//
+// SIGN-OFF WINS. A signed work order is finished, full stop — it reports "done"
+// even when the project is urgent/blocked, and even when it has no tasks at all.
+// Without this, an urgent work order could never reach "done" (urgency returned
+// first), and a task-less one stayed "open" forever (the tasks.length check
+// below) — both showed as unfinished in the list after being signed.
+// Urgency is still surfaced on its own badge in the detail header, so ranking
+// completion above it here loses no information.
 export function deriveWorkOrderStatus(input: {
   urgency: string;
+  signedAt: Date | string | null;
   tasks: { done: boolean; startedAt: string | null }[];
 }): WorkOrderListStatus {
+  if (input.signedAt) return "done";
   if (input.urgency === "urgent" || input.urgency === "blocked") return "urgent";
   const { tasks } = input;
   if (tasks.length > 0 && tasks.every((t) => t.done)) return "done";
@@ -37,6 +47,7 @@ export async function recomputeWorkOrderStatus(
     where: { id: workOrderId },
     select: {
       id: true,
+      signedAt: true,
       project: { select: { urgency: true } },
       tasks: { select: { done: true, startedAt: true } },
     },
@@ -44,6 +55,7 @@ export async function recomputeWorkOrderStatus(
   if (!wb) return null;
   const status = deriveWorkOrderStatus({
     urgency: wb.project.urgency,
+    signedAt: wb.signedAt,
     tasks: wb.tasks,
   });
   await db.workOrder.update({
@@ -63,6 +75,7 @@ export async function recomputeWorkOrdersForProject(
     where: { projectId },
     select: {
       id: true,
+      signedAt: true,
       project: { select: { urgency: true } },
       tasks: { select: { done: true, startedAt: true } },
     },
@@ -70,6 +83,7 @@ export async function recomputeWorkOrdersForProject(
   for (const wb of workOrders) {
     const status = deriveWorkOrderStatus({
       urgency: wb.project.urgency,
+      signedAt: wb.signedAt,
       tasks: wb.tasks,
     });
     await db.workOrder.update({ where: { id: wb.id }, data: { listStatus: status } });

@@ -46,6 +46,7 @@
   },
   "extraWork": {
     "reported": "Meerwerk gemeld: {{description}} ({{amount}})",
+    "updated": "Meerwerk bijgewerkt: {{description}} ({{amount}})",
     "officeApproved": "Meerwerk \"{{description}}\": kantoor akkoord",
     "officeWithdrawn": "Meerwerk \"{{description}}\": kantoor akkoord ingetrokken",
     "clientApproved": "Meerwerk \"{{description}}\": opdrachtgever akkoord",
@@ -85,6 +86,7 @@
     "approved": "Werkbon goedgekeurd: {{title}}",
     "unapproved": "Goedkeuring ingetrokken: {{title}}",
     "signed": "{{title}} afgerond en ondertekend",
+    "reopened": "{{title}} heropend",
     "dispatched": "{{title}} op pad gestuurd"
   }
 }

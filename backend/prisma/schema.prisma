@@ -467,6 +467,7 @@ model MaterialVariant {
 
   material      Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
   taskMaterials TaskMaterial[]
+  extraWork     ExtraWork[]
 
   @@unique([materialId, size, component, thicknessMm])
   @@index([materialId])
@@ -806,6 +807,10 @@ model ExtraWork {
   unit             String?
   diameter         Float?
   unitPrice        Float?
+  // Cost price snapshot (inkoopprijs), set when the item was picked from the
+  // catalog. Admin-only; stripped from every non-admin DTO. Null for free-text
+  // meerwerk (which carries no price until an admin sets one).
+  costPrice        Float?
   amount           Int                  @default(0)
   photos           String[]
   createdAt        String
@@ -814,10 +819,16 @@ model ExtraWork {
   approvedByClient Boolean              @default(false)
   rejected         Boolean              @default(false)
   rejectedBy       ExtraWorkRejectedBy?
+  // Set when the item was picked from the materials catalog — traces it back
+  // to its variant. Null for free-text meerwerk; kept (SetNull) if the variant
+  // is ever removed.
+  variantId        String?
 
-  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrder WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  variant   MaterialVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
   @@index([workOrderId])
+  @@index([variantId])
 }
 
 model Handover {

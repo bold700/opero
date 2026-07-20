@@ -128,7 +128,9 @@ export const quoteFromCatalogSchema = z.object({
   quantity: z.number().optional(),
 });
 
-// ExtraWork (mirror addExtraWork input).
+// ExtraWork (mirror addExtraWork input). Free-text meerwerk: name/qty/unit are
+// the reporter's own words. A client-supplied `unitPrice` is only honored for
+// admins — a technician's price is discarded server-side (see the route).
 export const addExtraWorkSchema = z.object({
   name: z.string().min(1),
   quantity: z.number().optional(),
@@ -137,6 +139,28 @@ export const addExtraWorkSchema = z.object({
   unitPrice: z.number().optional(),
   label: z.string().optional(),
   photo: z.boolean().optional(),
+});
+
+// ExtraWork picked from the materials catalog. Only the variant + quantity are
+// sent; name/unit/price/cost/diameter resolve SERVER-side from the variant, so
+// a technician can never inject a price.
+export const addExtraWorkFromCatalogSchema = z.object({
+  variantId: z.string().min(1),
+  quantity: z.number().positive().optional(),
+});
+
+// Edit an existing meerwerk row. `variantId` re-points it at a catalog variant
+// (name/unit/price/cost/diameter re-resolve SERVER-side); the free-text fields
+// edit an uncatalogued row. A client-supplied `unitPrice` is only honored for
+// admins on a free-text row (see the route) — same rule as create.
+export const updateExtraWorkSchema = z.object({
+  variantId: z.string().nullable().optional(),
+  name: z.string().optional(),
+  quantity: z.number().optional(),
+  unit: z.string().optional(),
+  diameter: z.number().nullable().optional(),
+  unitPrice: z.number().optional(),
+  label: z.string().nullable().optional(),
 });
 
 export const rejectExtraWorkSchema = z.object({

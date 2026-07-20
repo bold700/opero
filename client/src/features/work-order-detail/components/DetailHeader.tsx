@@ -14,18 +14,21 @@ import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { URGENCY } from "../constants";
 import { humanize } from "../../../lib/labels";
 import { STATUS_TONES } from "../../../theme/tokens";
 import type { Project, WorkOrder } from "../api";
 
 // Detail header: back button, work-order title + number, customer/location,
-// stage + urgency badges, and the "afronden" (sign-off) action. Lean — job
-// setup (team, planning, contact…) lives in the Projectinfo sidebar.
+// stage + urgency badges, and the "afronden" (sign-off) / "heropenen" (reopen)
+// actions. Lean — job setup (team, planning, contact…) lives in the Projectinfo
+// sidebar.
 export function DetailHeader({
   workOrder,
   project,
   canFinish,
+  canReopen,
   canExportQuote,
   finished,
   busy,
@@ -33,12 +36,15 @@ export function DetailHeader({
   exportingQuote,
   onBack,
   onFinish,
+  onReopen,
   onExportPdf,
   onExportQuotePdf,
 }: {
   workOrder: WorkOrder;
   project: Project;
   canFinish: boolean;
+  /** Admin-only: undoes a sign-off (clears the customer signature). */
+  canReopen: boolean;
   /** Admin-only: the quote (offerte) PDF is a commercial document with prices. */
   canExportQuote: boolean;
   finished: boolean;
@@ -47,6 +53,7 @@ export function DetailHeader({
   exportingQuote: boolean;
   onBack: () => void;
   onFinish: () => void;
+  onReopen: () => void;
   onExportPdf: () => void;
   onExportQuotePdf: () => void;
 }) {
@@ -54,6 +61,7 @@ export function DetailHeader({
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
   // Admin export menu (offerte / werkbon in one button).
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
+  const [confirmReopen, setConfirmReopen] = useState(false);
   const anyExporting = exporting || exportingQuote;
 
   return (
@@ -184,8 +192,32 @@ export function DetailHeader({
               {t("workOrderDetail.header.finish")}
             </Button>
           ) : null}
+          {canReopen && finished ? (
+            <Button
+              variant="outlined"
+              onClick={() => setConfirmReopen(true)}
+              disabled={busy}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            >
+              {t("workOrderDetail.header.reopen")}
+            </Button>
+          ) : null}
         </Box>
       </Box>
+
+      <ConfirmDialog
+        open={confirmReopen}
+        title={t("workOrderDetail.header.reopenTitle")}
+        body={t("workOrderDetail.header.reopenBody")}
+        confirmLabel={t("workOrderDetail.header.reopen")}
+        busy={busy}
+        destructive
+        onClose={() => setConfirmReopen(false)}
+        onConfirm={() => {
+          onReopen();
+          setConfirmReopen(false);
+        }}
+      />
     </Card>
   );
 }

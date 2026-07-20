@@ -128,6 +128,7 @@ function extraWorkDto(m: ExtraWork, showPrices: boolean, urlOf: UrlOf) {
     quantity: m.quantity ?? undefined,
     unit: m.unit ?? undefined,
     diameter: m.diameter ?? undefined,
+    variantId: m.variantId ?? undefined,
     ...(showPrices ? { unitPrice: m.unitPrice ?? undefined, amount: m.amount } : {}),
     photos: refsFrom(m.photos, urlOf),
     createdAt: m.createdAt,

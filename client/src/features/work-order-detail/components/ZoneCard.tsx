@@ -12,8 +12,7 @@ import { PhotoGrid } from "../../../components/PhotoGrid";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { STATUS_TONES } from "../../../theme/tokens";
-import { euro } from "../constants";
-import type { WorkOrderTask } from "../api";
+import type { WorkOrderMaterial, WorkOrderTask } from "../api";
 import { TaskLineRow } from "./TaskLineRow";
 import { AddTaskLineDialog } from "./AddTaskLineDialog";
 import { isZoneComplete } from "./zoneStatus";
@@ -29,46 +28,46 @@ import { isZoneComplete } from "./zoneStatus";
 export function ZoneCard({
   task,
   canWrite,
-  showPrices,
-  showMargin,
+  canManageZones,
   busy,
   onRename,
   onSetNote,
   onDeleteZone,
   onAddLine,
+  onEditLine,
   onDeleteLine,
   onToggleLine,
   onChangeLineQuantity,
-  onChangeLineLabel,
   onUploadPhoto,
   onDeletePhoto,
 }: {
   task: WorkOrderTask;
   canWrite: boolean;
-  showPrices: boolean;
-  showMargin: boolean;
+  // Creating/deleting a ZONE is office work (admin-only) — narrower than
+  // canWrite, which also covers a technician filling in an existing zone's
+  // fields (note, task lines, photos). See docs/roles-and-permissions.md.
+  canManageZones: boolean;
   busy: boolean;
   onRename: (description: string) => void;
   onSetNote: (note: string) => void;
   onDeleteZone: () => void;
   onAddLine: (input: { variantId: string; quantity: number }) => void;
+  onEditLine: (matId: string, input: { variantId: string; quantity: number }) => void;
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
   onChangeLineQuantity: (matId: string, quantity: number) => void;
-  onChangeLineLabel: (matId: string, label: string) => void;
   onUploadPhoto: (kind: "before" | "result", file: File) => void;
   onDeletePhoto: (key: string) => void;
 }) {
   const { t } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [editingLine, setEditingLine] = useState<WorkOrderMaterial | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const complete = isZoneComplete(task);
   const namedLines = task.materials.filter(
     (m) => (m.name ?? "").trim() || (m.label ?? "").trim(),
   );
-  const zoneTotal = task.materials.reduce((s, m) => s + m.quantity * (m.unitPrice ?? 0), 0);
-  const zoneMargin = task.materials.reduce((s, m) => s + (m.margin ?? 0), 0);
 
   return (
     <Card>
@@ -96,7 +95,7 @@ export function ZoneCard({
             label={complete ? t("workOrderDetail.zone.statusDone") : t("workOrderDetail.zone.statusTodo")}
             tone={complete ? STATUS_TONES.success : STATUS_TONES.neutral}
           />
-          {canWrite ? (
+          {canManageZones ? (
             <IconButton
               size="small"
               aria-label={t("workOrderDetail.zone.deleteAria")}
@@ -129,26 +128,14 @@ export function ZoneCard({
           </Typography>
         ) : null}
 
-        {/* TAKEN — the invoice lines. */}
+        {/* TAKEN — the invoice lines. No prices in this table. */}
         <Box>
-          <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 0.5 }}>
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
-            >
-              {t("workOrderDetail.line.sectionTitle")}
-            </Typography>
-            {showPrices && zoneTotal > 0 ? (
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                {euro(zoneTotal)}
-                {showMargin && zoneMargin > 0 ? (
-                  <Box component="span" sx={{ color: "success.main", fontWeight: 600 }}>
-                    {" "}· {t("workOrderDetail.line.marginTotal", { amount: euro(zoneMargin) })}
-                  </Box>
-                ) : null}
-              </Typography>
-            ) : null}
-          </Box>
+          <Typography
+            variant="caption"
+            sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+          >
+            {t("workOrderDetail.line.sectionTitle")}
+          </Typography>
 
           {(canWrite ? task.materials : namedLines).length === 0 ? (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -160,13 +147,11 @@ export function ZoneCard({
                 key={m.id}
                 material={m}
                 canWrite={canWrite}
-                showPrices={showPrices}
-                showMargin={showMargin}
                 busy={busy}
                 onToggle={() => onToggleLine(m.id)}
+                onEdit={() => setEditingLine(m)}
                 onDelete={() => onDeleteLine(m.id)}
                 onChangeQuantity={(q) => onChangeLineQuantity(m.id, q)}
-                onChangeLabel={(lbl) => onChangeLineLabel(m.id, lbl)}
               />
             ))
           )}
@@ -216,13 +201,33 @@ export function ZoneCard({
       <AddTaskLineDialog
         open={pickerOpen}
         busy={busy}
-        showMargin={showMargin}
         onClose={() => setPickerOpen(false)}
         onAdd={(input) => {
           onAddLine(input);
           setPickerOpen(false);
         }}
       />
+
+      {/* Edit an existing catalog line — the same picker, pre-selected to the
+          line's current article (only opened for lines that have a variantId). */}
+      {editingLine?.variantId && editingLine.variantMaterialId && editingLine.variantSize ? (
+        <AddTaskLineDialog
+          open
+          mode="edit"
+          busy={busy}
+          initial={{
+            materialId: editingLine.variantMaterialId,
+            size: editingLine.variantSize,
+            variantId: editingLine.variantId,
+            quantity: editingLine.quantity,
+          }}
+          onClose={() => setEditingLine(null)}
+          onAdd={(input) => {
+            onEditLine(editingLine.id, input);
+            setEditingLine(null);
+          }}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={confirmDelete}

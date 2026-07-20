@@ -18,6 +18,10 @@ export type WorkOrderMaterial = {
   diameter?: number;
   // Set when the line was picked from the materials catalog.
   variantId?: string;
+  // Material + size of the current variant — only for the edit dialog to
+  // pre-select the article (no price data).
+  variantMaterialId?: string;
+  variantSize?: string;
   // Selling price (verkoopprijs). Present for admin + client; stripped for
   // technicians. Cost/margin below are ADMIN-ONLY (canSeeMargin).
   unitPrice?: number;
@@ -103,8 +107,16 @@ export type ExtraWork = {
   quantity?: number;
   unit?: string;
   diameter?: number;
+  // Set when the item was picked from the catalog (null for free-text meerwerk).
+  variantId?: string;
+  // Material + size of the current variant — for the edit dialog's prefill.
+  variantMaterialId?: string;
+  variantSize?: string;
   unitPrice?: number;
   amount?: number;
+  // Admin-only (canSeeMargin), like task lines.
+  costPrice?: number;
+  margin?: number;
   photos: PhotoRef[];
   createdAt: string;
   done: boolean;
@@ -371,6 +383,12 @@ export function finishWorkOrder(
   });
 }
 
+// Undo a sign-off (admin-only): clears the signature and re-unlocks the
+// werkbon for editing.
+export function reopenWorkOrder(workOrderId: string): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/reopen`, {});
+}
+
 // --- Extra work (project mutations) ---------------------------------------
 
 export type NewExtraWork = {
@@ -387,6 +405,32 @@ export function reportExtraWork(
   input: NewExtraWork,
 ): Promise<unknown> {
   return api.post(`/work-orders/${workOrderId}/extra-work`, input);
+}
+
+// Report meerwerk picked from the materials catalog — only the variant + qty go
+// up; name/unit/price resolve server-side (technician can't inject a price).
+export function reportExtraWorkFromCatalog(
+  workOrderId: string,
+  input: { variantId: string; quantity: number },
+): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/extra-work/from-catalog`, input);
+}
+
+// Edit an existing meerwerk row. `variantId` re-points it at a catalog variant
+// (price re-resolves server-side); the free-text fields edit an uncatalogued
+// row. A technician's `unitPrice` is discarded server-side (admin-only).
+export function updateExtraWork(
+  workOrderId: string,
+  mwId: string,
+  patch: {
+    variantId?: string | null;
+    name?: string;
+    quantity?: number;
+    unit?: string;
+    unitPrice?: number;
+  },
+): Promise<unknown> {
+  return api.patch(`/work-orders/${workOrderId}/extra-work/${mwId}`, patch);
 }
 
 export function approveOffice(workOrderId: string, mwId: string): Promise<unknown> {

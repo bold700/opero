@@ -5,53 +5,41 @@ import Typography from "@mui/material/Typography";
 import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { STATUS_TONES } from "../../../theme/tokens";
-import { euro } from "../constants";
 import type { WorkOrderMaterial } from "../api";
 
 // ONE invoice line (opero-old's "Taak" row), kept deliberately QUIET:
-//   ☐ · description · [Open/Klaar] · qty unit · €total (margin for admin) · 🗑
-// Read-first: everything renders as plain text. Editing is on demand — click the
-// description to rename, click the quantity to change it. The article itself is
-// picked in the "Taak toevoegen" dialog; a wrong line is deleted and re-added
-// (no inline catalog dropdowns — the resolved name already says what it is).
-// Prices follow the 3-way rule: technician none · client sell · admin sell+margin.
+//   ☐ · description · [Open/Klaar] · qty unit · ✎ · 🗑
+// The description is READ-ONLY — it always shows the resolved catalog name, so
+// it can never drift from the article the line points at. To change the
+// article, use the edit (✎) button, which re-opens the catalog picker on this
+// line. Quantity is also inline-editable (click it). No prices in this table.
 export function TaskLineRow({
   material,
   canWrite,
-  showPrices,
-  showMargin,
   busy,
   onToggle,
+  onEdit,
   onDelete,
   onChangeQuantity,
-  onChangeLabel,
 }: {
   material: WorkOrderMaterial;
   canWrite: boolean;
-  showPrices: boolean;
-  showMargin: boolean;
   busy: boolean;
   onToggle: () => void;
+  // Re-open the catalog picker on this line (only for catalog-backed lines).
+  onEdit?: () => void;
   onDelete: () => void;
   onChangeQuantity: (quantity: number) => void;
-  onChangeLabel: (label: string) => void;
 }) {
   const { t } = useTranslation();
   const m = material;
-  const [editingLabel, setEditingLabel] = useState(false);
   const [editingQty, setEditingQty] = useState(false);
 
   const description = m.label?.trim() || m.name || t("workOrderDetail.line.unnamed");
-  const lineTotal = m.unitPrice != null ? m.quantity * m.unitPrice : null;
-
-  const commitLabel = (raw: string) => {
-    setEditingLabel(false);
-    const v = raw.trim();
-    if (v !== (m.label ?? "")) onChangeLabel(v);
-  };
 
   const commitQty = (raw: string) => {
     setEditingQty(false);
@@ -81,40 +69,21 @@ export function TaskLineRow({
         sx={{ p: 0.5, ml: -0.5 }}
       />
 
-      {/* Description — plain text; click to rename (canWrite). */}
-      {editingLabel && canWrite ? (
-        <TextField
-          variant="standard"
-          defaultValue={m.label ?? ""}
-          placeholder={m.name}
-          autoFocus
-          size="small"
-          sx={{ flex: 1, minWidth: 120 }}
-          onBlur={(e) => commitLabel(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            if (e.key === "Escape") setEditingLabel(false);
-          }}
-        />
-      ) : (
-        <Typography
-          variant="body2"
-          onClick={canWrite && !busy ? () => setEditingLabel(true) : undefined}
-          title={canWrite ? t("workOrderDetail.line.renameHint") : undefined}
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            cursor: canWrite ? "text" : "default",
-            color: m.done ? "text.secondary" : "text.primary",
-            textDecoration: m.done ? "line-through" : "none",
-          }}
-        >
-          {description}
-        </Typography>
-      )}
+      {/* Description — always the resolved catalog name; not editable. */}
+      <Typography
+        variant="body2"
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          color: m.done ? "text.secondary" : "text.primary",
+          textDecoration: m.done ? "line-through" : "none",
+        }}
+      >
+        {description}
+      </Typography>
 
       <StatusBadge
         label={m.done ? t("workOrderDetail.line.statusDone") : t("workOrderDetail.line.statusOpen")}
@@ -152,18 +121,18 @@ export function TaskLineRow({
         </Typography>
       )}
 
-      {/* Price (3-way): admin sell+margin · client sell · technician nothing. */}
-      {showPrices && lineTotal != null ? (
-        <Box sx={{ textAlign: "right", whiteSpace: "nowrap", minWidth: 64 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {euro(lineTotal)}
-          </Typography>
-          {showMargin && m.margin != null ? (
-            <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600, display: "block" }}>
-              {t("workOrderDetail.line.margin", { amount: euro(m.margin), pct: Math.round(m.marginPct ?? 0) })}
-            </Typography>
-          ) : null}
-        </Box>
+      {/* Edit re-opens the catalog picker on this line. Only catalog-backed
+          lines can be edited (a free-text line has no article to re-pick). */}
+      {canWrite && onEdit && m.variantId ? (
+        <IconButton
+          size="small"
+          aria-label={t("common.actions.edit")}
+          onClick={onEdit}
+          disabled={busy}
+          sx={{ p: 0.5 }}
+        >
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
       ) : null}
 
       {canWrite ? (

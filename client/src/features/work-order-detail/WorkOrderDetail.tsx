@@ -30,7 +30,10 @@ import {
   uploadTaskPhoto,
   deleteTaskPhoto,
   finishWorkOrder,
+  reopenWorkOrder,
   reportExtraWork,
+  reportExtraWorkFromCatalog,
+  updateExtraWork,
   approveOffice,
   approveClient,
   rejectExtraWork,
@@ -64,6 +67,7 @@ export function WorkOrderDetail() {
   const { user } = useAuth();
   const role = (user?.role ?? "technician") as "admin" | "technician" | "client";
   const showPrices = canSeePrices(role);
+  // Meerwerk's catalog picker + row can show admin margin, like task lines.
   const showMargin = canSeeMargin(role);
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
@@ -130,6 +134,9 @@ export function WorkOrderDetail() {
   }
 
   const canWrite = role === "admin" || role === "technician";
+  // Adding/removing a ZONE is office work — narrower than canWrite, which also
+  // covers a technician filling in an existing zone (see docs/roles-and-permissions.md).
+  const canManageZones = role === "admin";
   // Finished/locked is a property of THIS work order (signedAt), not the
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
@@ -173,6 +180,7 @@ export function WorkOrderDetail() {
           workOrder={wo}
           project={project}
           canFinish={role === "admin" || role === "technician"}
+          canReopen={role === "admin"}
           canExportQuote={role === "admin"}
           finished={finished}
           busy={busy}
@@ -182,6 +190,13 @@ export function WorkOrderDetail() {
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
           onFinish={() => setSignOpen(true)}
+          onReopen={() =>
+            run(async () => {
+              setWo(await reopenWorkOrder(wo.id));
+              await refreshProject();
+              setToast(t("workOrderDetail.reopenedToast"));
+            })
+          }
         />
 
         <Box sx={{ display: "flex", gap: SPACING.sectionGap, flexDirection: { xs: "column", lg: "row" }, alignItems: "flex-start" }}>
@@ -190,18 +205,17 @@ export function WorkOrderDetail() {
             <TasksPanel
               workOrder={wo}
               canWrite={canWrite && !finished}
-              showPrices={showPrices}
-              showMargin={showMargin}
+              canManageZones={canManageZones && !finished}
               busy={busy}
               onAddZone={() => run(async () => { await addTask(wo.id); await refreshWorkOrder(); })}
               onRenameZone={(taskId, description) => run(async () => { await updateTask(wo.id, taskId, { description }); await refreshWorkOrder(); })}
               onSetZoneNote={(taskId, note) => run(async () => { await updateTask(wo.id, taskId, { note }); await refreshWorkOrder(); })}
               onDeleteZone={(taskId) => run(async () => { await deleteTask(wo.id, taskId); await refreshWorkOrder(); })}
               onAddLine={(taskId, input) => run(async () => { await addMaterialFromCatalog(wo.id, taskId, input); await refreshWorkOrder(); })}
+              onEditLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, input); await refreshWorkOrder(); })}
               onDeleteLine={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
               onToggleLine={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
               onChangeLineQuantity={(m, quantity) => run(async () => { await updateMaterial(wo.id, m, { quantity }); await refreshWorkOrder(); })}
-              onChangeLineLabel={(m, label) => run(async () => { await updateMaterial(wo.id, m, { label }); await refreshWorkOrder(); })}
               onUploadPhoto={(taskId, kind, file) => run(async () => { setWo(await uploadTaskPhoto(wo.id, taskId, kind, file)); })}
               onDeletePhoto={(taskId, key) => run(async () => { setWo(await deleteTaskPhoto(wo.id, taskId, key)); })}
             />
@@ -210,8 +224,12 @@ export function WorkOrderDetail() {
               items={wo.extraWork}
               role={role}
               showPrices={showPrices}
+              showMargin={showMargin}
               busy={busy}
               onReport={handleReport}
+              onReportFromCatalog={(input) => run(async () => { await reportExtraWorkFromCatalog(wo.id, input); await refreshWorkOrder(); })}
+              onUpdate={(mw, input) => run(async () => { await updateExtraWork(wo.id, mw, input); await refreshWorkOrder(); })}
+              onUpdateFromCatalog={(mw, input) => run(async () => { await updateExtraWork(wo.id, mw, input); await refreshWorkOrder(); })}
               onApproveOffice={(mw) => run(async () => { await approveOffice(wo.id, mw); await refreshWorkOrder(); })}
               onApproveClient={(mw) => run(async () => { await approveClient(wo.id, mw); await refreshWorkOrder(); })}
               onReject={(mw) => run(async () => { await rejectExtraWork(wo.id, mw); await refreshWorkOrder(); })}

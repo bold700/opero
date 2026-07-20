@@ -24,25 +24,34 @@ import {
   formatPrice,
 } from "../../materials/constants";
 
-// "Taak toevoegen" — add one invoice line to a zone, opero-old style: choose a
-// standard article, an amount (Aantal), and a size (Ø). Only the chosen variant
-// id + quantity are submitted; name/unit/price resolve SERVER-side (a
-// technician's response has prices stripped, so the price shown here is display
-// only, never the source of truth). `showMargin` annotates the margin for admins.
+// "Taak toevoegen" — pick a standard article, an amount (Aantal), and a size
+// (Ø). Only the chosen variant id + quantity are submitted; name/unit/price
+// resolve SERVER-side (a technician's response has prices stripped, so the price
+// shown here is display only, never the source of truth). `showMargin` annotates
+// the margin for admins.
+//
+// `mode="edit"` with `initial` reuses the same picker to CHANGE an existing
+// line's article/quantity: the cascade opens pre-selected to the current
+// article (material → size → variant) so it can be re-pointed in place.
 export function AddTaskLineDialog({
   open,
   busy,
+  mode = "add",
+  initial,
   showMargin = false,
   onClose,
   onAdd,
 }: {
   open: boolean;
   busy: boolean;
+  mode?: "add" | "edit";
+  initial?: { materialId: string; size: string; variantId: string; quantity: number };
   showMargin?: boolean;
   onClose: () => void;
   onAdd: (input: { variantId: string; quantity: number }) => void;
 }) {
   const { t } = useTranslation();
+  const editing = mode === "edit";
 
   const { data: groups, loading: groupsLoading } = useApi(
     () => (open ? getMaterialGroups() : Promise.resolve(null)),
@@ -56,12 +65,17 @@ export function AddTaskLineDialog({
 
   useEffect(() => {
     if (open) {
-      setMaterialId("");
-      setSize("");
-      setVariantId("");
-      setQuantity("1");
+      // Edit mode seeds the cascade from the current line so it opens
+      // pre-selected; add mode starts blank.
+      setMaterialId(initial?.materialId ?? "");
+      setSize(initial?.size ?? "");
+      setVariantId(initial?.variantId ?? "");
+      setQuantity(initial?.quantity != null ? String(initial.quantity) : "1");
     }
-  }, [open]);
+    // `initial` is a fresh object per open; depend on the primitive fields so we
+    // don't reseed on every render while the dialog stays open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial?.materialId, initial?.size, initial?.variantId, initial?.quantity]);
 
   const { data: material, loading: materialLoading } = useApi(
     () => (materialId ? getMaterial(materialId) : Promise.resolve(null)),
@@ -121,14 +135,12 @@ export function AddTaskLineDialog({
     onAdd({ variantId, quantity: qty });
   };
 
+  const titleKey = editing ? "workOrderDetail.line.editTitle" : "workOrderDetail.line.addTitle";
+  const submitKey = editing ? "workOrderDetail.line.editSubmit" : "workOrderDetail.line.addSubmit";
+
   return (
-    <ResponsiveDialog
-      open={open}
-      onClose={onClose}
-      title={t("workOrderDetail.line.addTitle")}
-      stableHeight
-    >
-      <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrderDetail.line.addTitle")}</DialogTitle>
+    <ResponsiveDialog open={open} onClose={onClose} title={t(titleKey)} stableHeight>
+      <DialogTitle sx={{ fontWeight: 700 }}>{t(titleKey)}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
           {t("workOrderDetail.line.addSubtitle")}
@@ -197,7 +209,7 @@ export function AddTaskLineDialog({
       <DialogActions>
         <Button onClick={onClose}>{t("common.actions.cancel")}</Button>
         <Button variant="contained" onClick={submit} disabled={!canSubmit}>
-          {t("workOrderDetail.line.addSubmit")}
+          {t(submitKey)}
         </Button>
       </DialogActions>
     </ResponsiveDialog>

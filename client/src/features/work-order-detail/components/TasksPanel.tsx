@@ -11,35 +11,34 @@ import { ZoneCard } from "./ZoneCard";
 export function TasksPanel({
   workOrder,
   canWrite,
-  showPrices,
-  showMargin,
+  canManageZones,
   busy,
   onAddZone,
   onRenameZone,
   onSetZoneNote,
   onDeleteZone,
   onAddLine,
+  onEditLine,
   onDeleteLine,
   onToggleLine,
   onChangeLineQuantity,
-  onChangeLineLabel,
   onUploadPhoto,
   onDeletePhoto,
 }: {
   workOrder: WorkOrder;
   canWrite: boolean;
-  showPrices: boolean;
-  showMargin: boolean;
+  // Admin-only: adding/removing a zone. See ZoneCard's canManageZones.
+  canManageZones: boolean;
   busy: boolean;
   onAddZone: () => void;
   onRenameZone: (taskId: string, description: string) => void;
   onSetZoneNote: (taskId: string, note: string) => void;
   onDeleteZone: (taskId: string) => void;
   onAddLine: (taskId: string, input: { variantId: string; quantity: number }) => void;
+  onEditLine: (matId: string, input: { variantId: string; quantity: number }) => void;
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
   onChangeLineQuantity: (matId: string, quantity: number) => void;
-  onChangeLineLabel: (matId: string, label: string) => void;
   onUploadPhoto: (taskId: string, kind: "before" | "result", file: File) => void;
   onDeletePhoto: (taskId: string, key: string) => void;
 }) {
@@ -58,24 +57,23 @@ export function TasksPanel({
             key={task.id}
             task={task}
             canWrite={canWrite}
-            showPrices={showPrices}
-            showMargin={showMargin}
+            canManageZones={canManageZones}
             busy={busy}
             onRename={(desc) => onRenameZone(task.id, desc)}
             onSetNote={(note) => onSetZoneNote(task.id, note)}
             onDeleteZone={() => onDeleteZone(task.id)}
             onAddLine={(input) => onAddLine(task.id, input)}
+            onEditLine={onEditLine}
             onDeleteLine={onDeleteLine}
             onToggleLine={onToggleLine}
             onChangeLineQuantity={onChangeLineQuantity}
-            onChangeLineLabel={onChangeLineLabel}
             onUploadPhoto={(kind, file) => onUploadPhoto(task.id, kind, file)}
             onDeletePhoto={(key) => onDeletePhoto(task.id, key)}
           />
         ))
       )}
 
-      {canWrite ? (
+      {canManageZones ? (
         <Box>
           <Button variant="outlined" startIcon={<AddIcon />} onClick={onAddZone} disabled={busy}>
             {t("workOrderDetail.zone.add")}
