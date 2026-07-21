@@ -62,7 +62,6 @@ export type Organization = {
   bic: string;
   kvkNumber: string;
   website: string;
-  hidePricesFromTechnicians: boolean;
 };
 
 export type OrganizationInput = {
@@ -77,7 +76,6 @@ export type OrganizationInput = {
   bic?: string;
   kvkNumber?: string;
   website?: string;
-  hidePricesFromTechnicians?: boolean;
 };
 
 export function getOrganization(): Promise<Organization> {
@@ -86,4 +84,37 @@ export function getOrganization(): Promise<Organization> {
 
 export function updateOrganization(input: OrganizationInput): Promise<Organization> {
   return api.patch<Organization>("/organization", input);
+}
+
+// --- Pre-job checklist items (admin-configurable) -------------------------
+
+export type PrejobItem = {
+  id: string;
+  key: string;
+  label: string;
+  ordinal: number;
+  active: boolean;
+};
+
+export function getPrejobItems(): Promise<PrejobItem[]> {
+  return api.get<PrejobItem[]>("/prejob-items");
+}
+
+export function createPrejobItem(label: string): Promise<PrejobItem> {
+  return api.post<PrejobItem>("/prejob-items", { label });
+}
+
+export function updatePrejobItem(
+  id: string,
+  input: { label?: string; active?: boolean },
+): Promise<PrejobItem> {
+  return api.patch<PrejobItem>(`/prejob-items/${id}`, input);
+}
+
+export function reorderPrejobItems(orderedIds: string[]): Promise<PrejobItem[]> {
+  return api.post<PrejobItem[]>("/prejob-items/reorder", { orderedIds });
+}
+
+export function deletePrejobItem(id: string): Promise<void> {
+  return api.delete<void>(`/prejob-items/${id}`);
 }

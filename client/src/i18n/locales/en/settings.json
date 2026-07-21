@@ -14,6 +14,10 @@
       "title": "Company",
       "subtitle": "Company details and billing"
     },
+    "prejobChecklist": {
+      "title": "Pre-job check",
+      "subtitle": "Checklist items for work orders"
+    },
     "notifications": {
       "title": "Notifications",
       "subtitle": "When and how you get notifications"
@@ -26,6 +30,19 @@
       "title": "Security",
       "subtitle": "Password and two-factor authentication"
     }
+  },
+  "prejobChecklist": {
+    "itemsLabel": "Checklist items",
+    "help": "This is the default list. New work orders start from it; each work order can then be adjusted on its own.",
+    "empty": "No items yet. With no items a work order cannot be dispatched.",
+    "addPlaceholder": "New item…",
+    "add": "Add",
+    "remove": "Remove",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "saved": "Saved",
+    "saveError": "Could not save",
+    "loadError": "Could not load"
   },
   "profile": {
     "photo": "Profile photo",

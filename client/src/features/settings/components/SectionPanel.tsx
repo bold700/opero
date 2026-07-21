@@ -8,6 +8,7 @@ import { HAIRLINE } from "../../../theme/tokens";
 import { cardSx, type SectionId } from "../constants";
 import { ProfileForm } from "./ProfileForm";
 import { CompanyForm } from "./CompanyForm";
+import { PrejobChecklistForm } from "./PrejobChecklistForm";
 import { NotificationsForm } from "./NotificationsForm";
 import { PreferencesForm } from "./PreferencesForm";
 import { SecurityForm } from "./SecurityForm";
@@ -56,6 +57,7 @@ export function SectionPanel({
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         {active === "profile" && <ProfileForm />}
         {active === "company" && <CompanyForm />}
+        {active === "prejobChecklist" && <PrejobChecklistForm />}
         {active === "notifications" && <NotificationsForm />}
         {active === "preferences" && <PreferencesForm />}
         {active === "security" && <SecurityForm />}

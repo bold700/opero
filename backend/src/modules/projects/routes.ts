@@ -6,7 +6,6 @@ import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
-import { resolveHidePrices } from "../../lib/orgPricing.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { storeUpload, deleteStored } from "../../lib/attachUpload.js";
 import { uploadSingle } from "../../lib/upload.js";
@@ -27,13 +26,12 @@ import {
 // prices when the org allows it. Also prebuilds the photo key→url lookup so the
 // (synchronous) DTO can emit renderable urls.
 async function projectDtoFor(user: AuthUser, p: ProjectWithRelations) {
-  const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
   const photoKeys = [
     ...p.surveyPhotos,
     ...(p.handover?.photos ?? []),
   ];
   const urlOf = await buildUrlMap(photoKeys);
-  return projectDto(p, user.role as UserRole, hidePrices, urlOf);
+  return projectDto(p, user.role as UserRole, urlOf);
 }
 
 async function projectSummaryListFor(
@@ -43,8 +41,7 @@ async function projectSummaryListFor(
     workOrders?: { value: number }[];
   })[],
 ) {
-  const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
-  return rows.map((p) => projectSummaryDto(p, user.role as UserRole, hidePrices));
+  return rows.map((p) => projectSummaryDto(p, user.role as UserRole));
 }
 import { projectScopeWhere, canViewProject } from "./visibility.js";
 import {

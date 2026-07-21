@@ -19,21 +19,17 @@ let adminToken: string;
 let techToken: string;
 let outsiderToken: string;
 let workOrderId: string;
-let hidesPrices = true;
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
 beforeAll(async () => {
   // Reuse the shared org like the other work-order tests (creating a new one
   // would change what `organization.findFirst()` returns for parallel test
-  // files). hidePricesFromTechnicians defaults to true, which is what we want —
-  // so we assert on it rather than mutating the shared row (that would race).
+  // files). Technicians never see prices, so the tech PDF always differs.
   const org =
     (await prisma.organization.findFirst()) ??
     (await prisma.organization.create({ data: { name: "Test Org" } }));
   orgId = org.id;
-  // Only the price-diff assertion depends on prices being hidden from technicians.
-  hidesPrices = org.hidePricesFromTechnicians;
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
   await prisma.employee.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
@@ -157,10 +153,8 @@ describe("work-order PDF export", () => {
     // Both are valid PDFs...
     expect(adminPdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
     expect(techPdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
-    // ...and when the org hides prices from technicians, they differ (the admin's
-    // carries the price column + total, the technician's does not).
-    if (hidesPrices) {
-      expect(adminPdf.length).not.toBe(techPdf.length);
-    }
+    // ...and they differ: technicians NEVER see prices, so the admin's carries
+    // the price column + total and the technician's does not.
+    expect(adminPdf.length).not.toBe(techPdf.length);
   });
 });

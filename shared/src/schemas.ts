@@ -81,7 +81,6 @@ export const updateOrganizationSchema = z.object({
   bic: z.string().optional(),
   kvkNumber: z.string().optional(),
   website: z.string().optional(),
-  hidePricesFromTechnicians: z.boolean().optional(),
 });
 export type UpdateOrganizationRequest = z.infer<typeof updateOrganizationSchema>;
 
@@ -192,3 +191,34 @@ export const locationSchema = z.object({
   city: z.string().default(""),
 });
 export type LocationRequest = z.infer<typeof locationSchema>;
+
+// --- Pre-job checklist items (admin-configurable, per org) ----------------
+
+export const createPrejobItemSchema = z.object({
+  label: z.string().min(1),
+});
+export type CreatePrejobItemRequest = z.infer<typeof createPrejobItemSchema>;
+
+export const updatePrejobItemSchema = z.object({
+  label: z.string().min(1).optional(),
+  active: z.boolean().optional(),
+});
+export type UpdatePrejobItemRequest = z.infer<typeof updatePrejobItemSchema>;
+
+export const reorderPrejobItemsSchema = z.object({
+  orderedIds: z.array(z.string().min(1)),
+});
+export type ReorderPrejobItemsRequest = z.infer<typeof reorderPrejobItemsSchema>;
+
+// --- Per-werkbon pre-job checklist items (admin, on the werkbon) ----------
+
+export const addWorkOrderPrejobItemSchema = z.object({
+  label: z.string().min(1),
+});
+export type AddWorkOrderPrejobItemRequest = z.infer<typeof addWorkOrderPrejobItemSchema>;
+
+export const updateWorkOrderPrejobItemSchema = z.object({
+  done: z.boolean().optional(),
+  label: z.string().min(1).optional(),
+});
+export type UpdateWorkOrderPrejobItemRequest = z.infer<typeof updateWorkOrderPrejobItemSchema>;

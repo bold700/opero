@@ -2,20 +2,19 @@ import { Router } from "express";
 import type { Prisma } from "@prisma/client";
 import {
   type UserRole,
-  PREJOB_CHECK_ITEMS,
-  type PrejobCheckItem,
-  normalizePrejobCheck,
   canDispatch,
   canSeePrices,
+  addWorkOrderPrejobItemSchema,
+  updateWorkOrderPrejobItemSchema,
+  reorderPrejobItemsSchema,
 } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
-import { resolveHidePrices } from "../../lib/orgPricing.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
-import { storeUpload, deleteStored, storeSignature } from "../../lib/attachUpload.js";
+import { storeUpload, storeAttachment, deleteStored, storeSignature } from "../../lib/attachUpload.js";
 import { uploadSingle } from "../../lib/upload.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
@@ -35,7 +34,6 @@ import {
   addMaterialFromCatalogSchema,
   addMaterialSchema,
   createWorkOrderSchema,
-  prejobCheckSchema,
   removePhotoSchema,
   reorderTasksSchema,
   taskHoursSchema,
@@ -185,8 +183,7 @@ async function reloadWorkOrder(user: AuthUser, workOrderId: string) {
     include: workOrderInclude,
   });
   if (!wb) throw NotFound("Work order not found");
-  const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
-  return await workOrderDto(wb as WorkOrderWithRelations, user.role as UserRole, hidePrices);
+  return await workOrderDto(wb as WorkOrderWithRelations, user.role as UserRole);
 }
 
 // Load a task belonging to a workOrder, or 404.
@@ -388,8 +385,16 @@ workOrdersRouter.get(
     const org = await prisma.organization.findUniqueOrThrow({
       where: { id: user.orgId },
     });
-    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
-    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+    const showPrices = canSeePrices(user.role as UserRole);
+    // The PDF prints THIS werkbon's own checklist (its snapshotted items), in
+    // order, with their labels + done state — independent of the org template.
+    const woPrejobItems = [...(wb.prejobItems ?? [])].sort((a, b) => a.ordinal - b.ordinal);
+    const prejobLabels: Record<string, string> = {};
+    const prejobCheck: Record<string, boolean> = {};
+    for (const it of woPrejobItems) {
+      prejobLabels[it.key] = it.label;
+      prejobCheck[it.key] = it.done;
+    }
 
     const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
     const pdfData: WorkOrderPdfData = {
@@ -423,7 +428,9 @@ workOrdersRouter.get(
         beforePhotos: t.beforePhotos,
         resultPhotos: t.resultPhotos,
       })),
-      prejobCheck: normalizePrejobCheck(wb.prejobCheck) as Record<string, boolean>,
+      // This werkbon's own checklist (key → done) + labels, in order.
+      prejobCheck,
+      prejobLabels,
       prejobPhotos: wb.prejobPhotos,
       dispatchedAt: wb.dispatchedAt,
       signature: wb.signature,
@@ -598,6 +605,25 @@ workOrdersRouter.post(
         },
         include: workOrderInclude,
       });
+      // Snapshot the org's ACTIVE pre-job template into THIS werkbon's own item
+      // rows. From here the werkbon owns its checklist — editing the template
+      // later won't change it, and editing it won't touch the template.
+      const template = await tx.prejobCheckItem.findMany({
+        where: { orgId: project.orgId, active: true },
+        orderBy: { ordinal: "asc" },
+        select: { key: true, label: true },
+      });
+      if (template.length > 0) {
+        await tx.workOrderPrejobItem.createMany({
+          data: template.map((it, i) => ({
+            workOrderId: wb.id,
+            key: it.key,
+            label: it.label,
+            done: false,
+            ordinal: i,
+          })),
+        });
+      }
       // Seed the denormalized listStatus (e.g. "urgent" if the project already is).
       await recomputeWorkOrderStatus(tx, wb.id);
       await appendActivity(tx, user, project.id, "workOrder.created", {
@@ -608,10 +634,9 @@ workOrdersRouter.post(
       });
       return wb;
     });
-    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
-    res
-      .status(201)
-      .json(await workOrderDto(created as WorkOrderWithRelations, user.role as UserRole, hidePrices));
+    // Reload so the snapshotted pre-job items (created after `created` was
+    // loaded) are included in the response.
+    res.status(201).json(await reloadWorkOrder(user, created.id));
   }),
 );
 
@@ -647,6 +672,10 @@ workOrdersRouter.patch(
           // Full replace of the assigned crew when assigneeIds is provided.
           ...(input.assigneeIds !== undefined
             ? { assignees: { set: input.assigneeIds.map((id) => ({ id })) } }
+            : {}),
+          // Per-werkbon photo requirement for the dispatch gate.
+          ...(input.prejobPhotoRequired !== undefined
+            ? { prejobPhotoRequired: input.prejobPhotoRequired }
             : {}),
         },
       });
@@ -763,39 +792,192 @@ workOrdersRouter.delete(
   }),
 );
 
+// POST /work-orders/:id/attachments — upload a document (PDF or image) for the
+// whole job. admin or technician-assigned. multipart "file". Keeps the original
+// filename so the attachments list shows real names (unlike drawings).
+workOrdersRouter.post(
+  "/:id/attachments",
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWorkOrder(user, req.params.id);
+    const meta = await storeAttachment(user, req.file, req.params.id);
+    await prisma.$transaction(async (tx) => {
+      const row = await tx.workOrderAttachment.create({
+        data: {
+          workOrderId: req.params.id,
+          key: meta.key,
+          filename: meta.filename,
+          contentType: meta.contentType,
+          size: meta.size,
+          uploadedById: user.id,
+        },
+      });
+      await audit(tx, user, "workOrder.attachment.add", "workOrderAttachment", row.id, {
+        filename: meta.filename,
+      });
+    });
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/attachments/:attachmentId — remove an attachment.
+workOrdersRouter.delete(
+  "/:id/attachments/:attachmentId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWorkOrder(user, req.params.id);
+    // Scope the row to THIS work order so an id from another werkbon 404s.
+    const row = await prisma.workOrderAttachment.findFirst({
+      where: { id: req.params.attachmentId, workOrderId: req.params.id },
+    });
+    if (!row) throw NotFound("Attachment not found");
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrderAttachment.delete({ where: { id: row.id } });
+      await audit(tx, user, "workOrder.attachment.remove", "workOrderAttachment", row.id, {
+        filename: row.filename,
+      });
+    });
+    await deleteStored(row.key);
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
 // =========================================================================
 // PRE-JOB CHECK + DISPATCH GATE
 // A monteur may not be dispatched until the pre-job checklist is complete AND
 // at least one pre-job photo is attached.
 // =========================================================================
 
-// PATCH /work-orders/:id/prejob-check {key, done} — set one checklist item.
+// The pre-job checklist is PER WERKBON and admin-managed (technicians don't
+// create/configure werkbonnen — they fill in tasks/photos/signature). These
+// routes edit THIS werkbon's own items; they must not be editable once the
+// werkbon has been dispatched.
+
+// Slugify a label into a stable key base (lowercase, ascii-ish, underscores).
+function slugifyPrejob(label: string): string {
+  const base = label
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+  return base || "item";
+}
+
+// Load the werkbon (org-scoped) + assert it's not yet dispatched, or throw.
+async function requireEditablePrejob(user: AuthUser, workOrderId: string) {
+  const wb = await prisma.workOrder.findFirst({
+    where: { id: workOrderId, project: { orgId: user.orgId, deletedAt: null } },
+    select: { id: true, dispatchedAt: true },
+  });
+  if (!wb) throw NotFound("Work order not found");
+  if (wb.dispatchedAt) throw BadRequest("Work order is already dispatched");
+  return wb;
+}
+
+// PATCH /work-orders/:id/prejob-items/:itemId {done?, label?} — tick or rename
+// one item on this werkbon. admin only.
 workOrdersRouter.patch(
-  "/:id/prejob-check",
+  "/:id/prejob-items/:itemId",
+  requireRole("admin"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { key, done } = prejobCheckSchema.parse(req.body);
-    if (!(PREJOB_CHECK_ITEMS as readonly string[]).includes(key)) {
-      throw BadRequest("Unknown pre-job checklist item");
-    }
-    await requireWritableWorkOrder(user, req.params.id);
-    const wb = await prisma.workOrder.findUniqueOrThrow({
-      where: { id: req.params.id },
-      select: { prejobCheck: true, dispatchedAt: true },
+    const input = updateWorkOrderPrejobItemSchema.parse(req.body);
+    await requireEditablePrejob(user, req.params.id);
+    const item = await prisma.workOrderPrejobItem.findFirst({
+      where: { id: req.params.itemId, workOrderId: req.params.id },
     });
-    if (wb.dispatchedAt) throw BadRequest("Work order is already dispatched");
-    const next = normalizePrejobCheck(wb.prejobCheck);
-    if (done) next[key as PrejobCheckItem] = true;
-    else delete next[key as PrejobCheckItem];
+    if (!item) throw NotFound("Checklist item not found");
+    const data: { done?: boolean; label?: string } = {};
+    if (input.done !== undefined) data.done = input.done;
+    if (input.label !== undefined) {
+      const label = clampText(input.label).trim();
+      if (!label) throw BadRequest("Label required");
+      data.label = label;
+    }
     await prisma.$transaction(async (tx) => {
-      await tx.workOrder.update({
-        where: { id: req.params.id },
-        data: { prejobCheck: next },
+      await tx.workOrderPrejobItem.update({ where: { id: item.id }, data });
+      await audit(tx, user, "workOrder.prejob.itemUpdate", "workOrderPrejobItem", item.id, data);
+    });
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/prejob-items {label} — add a one-off item to THIS
+// werkbon (does not touch the org template). admin only.
+workOrdersRouter.post(
+  "/:id/prejob-items",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = addWorkOrderPrejobItemSchema.parse(req.body);
+    await requireEditablePrejob(user, req.params.id);
+    const label = clampText(input.label).trim();
+    if (!label) throw BadRequest("Label required");
+
+    const existing = await prisma.workOrderPrejobItem.findMany({
+      where: { workOrderId: req.params.id },
+      select: { key: true, ordinal: true },
+    });
+    const taken = new Set(existing.map((e) => e.key));
+    const slug = slugifyPrejob(label);
+    let key = slug;
+    let n = 2;
+    while (taken.has(key)) key = `${slug}_${n++}`;
+    const ordinal = existing.reduce((m, e) => Math.max(m, e.ordinal), -1) + 1;
+
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.workOrderPrejobItem.create({
+        data: { workOrderId: req.params.id, key, label, done: false, ordinal },
       });
-      await audit(tx, user, "workOrder.prejob.check", "workOrder", req.params.id, {
-        key,
-        done,
-      });
+      await audit(tx, user, "workOrder.prejob.itemAdd", "workOrderPrejobItem", created.id, { key, label });
+    });
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/prejob-items/reorder {orderedIds} — admin only.
+workOrdersRouter.post(
+  "/:id/prejob-items/reorder",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { orderedIds } = reorderPrejobItemsSchema.parse(req.body);
+    await requireEditablePrejob(user, req.params.id);
+    const owned = await prisma.workOrderPrejobItem.findMany({
+      where: { id: { in: orderedIds }, workOrderId: req.params.id },
+      select: { id: true },
+    });
+    const ownedIds = new Set(owned.map((o) => o.id));
+    await prisma.$transaction(async (tx) => {
+      let ordinal = 0;
+      for (const id of orderedIds) {
+        if (!ownedIds.has(id)) continue;
+        await tx.workOrderPrejobItem.update({ where: { id }, data: { ordinal: ordinal++ } });
+      }
+      await audit(tx, user, "workOrder.prejob.itemReorder", "workOrder", req.params.id, { orderedIds });
+    });
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/prejob-items/:itemId — remove a one-off/unwanted item
+// from THIS werkbon. Hard delete is fine (this is the werkbon's own pre-dispatch
+// instance; no cross-werkbon history to protect). admin only.
+workOrdersRouter.delete(
+  "/:id/prejob-items/:itemId",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireEditablePrejob(user, req.params.id);
+    const item = await prisma.workOrderPrejobItem.findFirst({
+      where: { id: req.params.itemId, workOrderId: req.params.id },
+    });
+    if (!item) throw NotFound("Checklist item not found");
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrderPrejobItem.delete({ where: { id: item.id } });
+      await audit(tx, user, "workOrder.prejob.itemRemove", "workOrderPrejobItem", item.id, { key: item.key });
     });
     res.json(await reloadWorkOrder(user, req.params.id));
   }),
@@ -864,11 +1046,21 @@ workOrdersRouter.post(
     const { project } = await requireWritableWorkOrder(user, req.params.id);
     const wb = await prisma.workOrder.findUniqueOrThrow({
       where: { id: req.params.id },
-      select: { prejobCheck: true, prejobPhotos: true, dispatchedAt: true, title: true, ordinal: true },
+      select: {
+        prejobPhotos: true,
+        prejobPhotoRequired: true,
+        dispatchedAt: true,
+        title: true,
+        ordinal: true,
+        prejobItems: { select: { key: true, done: true } },
+      },
     });
     if (wb.dispatchedAt) throw BadRequest("Work order is already dispatched");
-    if (!canDispatch(normalizePrejobCheck(wb.prejobCheck), wb.prejobPhotos.length)) {
-      throw BadRequest("Pre-job check incomplete: complete the checklist and add at least one photo");
+    const itemKeys = wb.prejobItems.map((i) => i.key);
+    const check: Record<string, boolean> = {};
+    for (const i of wb.prejobItems) if (i.done) check[i.key] = true;
+    if (!canDispatch(check, wb.prejobPhotos.length, itemKeys, wb.prejobPhotoRequired === true)) {
+      throw BadRequest("Pre-job check incomplete: complete the checklist and (if required) add a photo");
     }
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({

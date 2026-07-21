@@ -53,10 +53,16 @@
       "customer_informed": "Customer informed of the visit"
     },
     "photos": "Pre-job photos",
+    "photoRequired": "Photo required before dispatch",
+    "addItem": "Add",
+    "addItemPlaceholder": "New checklist item…",
+    "removeItem": "Remove",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
     "dispatch": "Dispatch technician",
     "dispatched": "Dispatched",
     "dispatchedToast": "Technician dispatched",
-    "gateHint": "Complete the checklist and add a photo to dispatch."
+    "gateHint": "Tick the checklist (and add a photo if required) to dispatch."
   },
   "activity": {
     "title": "Activity",
@@ -88,6 +94,12 @@
     "emptyCatalog": "No materials in the catalog yet. Add them under Materials first.",
     "margin": "margin {{amount}} ({{pct}}%)",
     "marginShort": "margin {{amount}}"
+  },
+  "attachments": {
+    "title": "Attachments",
+    "add": "Add file",
+    "empty": "No attachments yet.",
+    "deleteAria": "Delete attachment"
   },
   "extraWork": {
     "title": "Extra work",

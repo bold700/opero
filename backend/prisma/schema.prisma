@@ -181,10 +181,6 @@ model Organization {
   bic        String?
   kvkNumber  String?
   website    String?
-  // Org-wide privacy: when true, technicians do NOT see prices. Default true
-  // preserves today's behavior (technicians never saw prices); admins can flip
-  // it off to let technicians see amounts on work orders.
-  hidePricesFromTechnicians Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -197,6 +193,31 @@ model Organization {
   workTypes    WorkType[]
   materialOrders MaterialOrder[]
   auditLogs    AuditLog[]
+  prejobCheckItems PrejobCheckItem[]
+}
+
+// One configurable pre-job checklist item, per organization. The admin adds /
+// edits / reorders / (soft-)removes these in Settings; every work order's
+// "Controle vooraf" checklist is derived from the org's ACTIVE items.
+//
+// `key` is a stable slug generated once at creation — it keys the boolean map
+// stored on WorkOrder.prejobCheck, so renaming `label` never orphans the ticks
+// already recorded on existing work orders. `active=false` is a SOFT remove:
+// the item drops off new/open work orders and no longer counts toward
+// "complete", but historical booleans + PDFs are untouched.
+model PrejobCheckItem {
+  id        String   @id @default(uuid())
+  orgId     String
+  key       String // stable slug; keys WorkOrder.prejobCheck; never changes
+  label     String // display text (single label, shown as-is in every language)
+  ordinal   Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
+  @@index([orgId])
 }
 
 model User {
@@ -239,6 +260,7 @@ model User {
   activity          ProjectActivity[]
   auditLogs         AuditLog[]
   signedWorkOrders  WorkOrder[]      @relation("WorkOrderSignedBy")
+  uploadedAttachments WorkOrderAttachment[] @relation("WorkOrderAttachmentUploader")
 
   @@index([orgId])
   @@index([customerId])
@@ -692,11 +714,17 @@ model WorkOrder {
   signedAt           DateTime?
   signedById         String?
   // Pre-job check + dispatch gate. A monteur may not be dispatched until the
-  // pre-job checklist is complete AND at least one pre-job photo exists.
-  // `prejobCheck` is a small JSON map of checklist item key → boolean (done);
-  // `prejobPhotos` holds object keys. dispatchedAt set → the job has been sent out.
+  // pre-job checklist is complete AND (if required for this werkbon) a pre-job
+  // photo exists. The checklist ITEMS are per-werkbon (WorkOrderPrejobItem),
+  // snapshotted from the org template at creation and editable by the office on
+  // this werkbon only. `prejobCheck` (legacy JSON map) is retired — item `done`
+  // now lives on the item rows. `prejobPhotos` holds object keys.
+  // `prejobPhotoRequired`: null = not required (default); true = a photo gates
+  // dispatch. dispatchedAt set → the job has been sent out.
   prejobCheck        Json?
+  prejobPhotoRequired Boolean?
   prejobPhotos       String[]      @default([])
+  prejobItems        WorkOrderPrejobItem[]
   dispatchedAt       DateTime?
   dispatchedById     String?
   // Denormalized list status ("open" | "on_the_way" | "urgent" | "done"), derived
@@ -728,9 +756,52 @@ model WorkOrder {
   quote     Quote?
   invoice   Invoice?
   extraWork ExtraWork[]
+  // Uploaded documents (PDFs/images) for the whole job — quotes, floor plans,
+  // permits, supplier docs. Werkbon-level, not per-zone (see the attachments
+  // panel). Distinct from `drawings` (a separate, older key[] field).
+  attachments WorkOrderAttachment[]
 
   @@index([projectId])
   @@index([listStatus])
+}
+
+// One pre-job checklist item, PER WORK ORDER. Snapshotted from the org template
+// (PrejobCheckItem) when the work order is created, then editable by the office
+// on this work order only — so editing the template never mutates existing
+// werkbonnen, and editing one werkbon never touches the template or others.
+// `done` lives here (not a separate map), so it can't drift from the item set.
+// `key` is stable within the work order (keeps historical PDFs coherent).
+model WorkOrderPrejobItem {
+  id          String  @id @default(uuid())
+  workOrderId String
+  key         String
+  label       String
+  done        Boolean @default(false)
+  ordinal     Int     @default(0)
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([workOrderId, key])
+  @@index([workOrderId])
+}
+
+// A file attached to a work order (PDF or image). Unlike `drawings` (a bare
+// key[]), this keeps the original filename + size + content type + uploader,
+// so the attachments list can show real file names and open them.
+model WorkOrderAttachment {
+  id           String   @id @default(uuid())
+  workOrderId  String
+  key          String // storage object key (orgId/scope/entityId/uuid.ext)
+  filename     String // sanitized original name, for display
+  contentType  String
+  size         Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  workOrder  WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  uploadedBy User?     @relation("WorkOrderAttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([workOrderId])
 }
 
 model WorkOrderTask {

@@ -15,6 +15,7 @@ export type StorageScope =
   | "wo-task-before"
   | "wo-task-result"
   | "wo-drawing"
+  | "wo-attachment"
   | "wo-signature"
   | "wo-prejob"
   | "survey"

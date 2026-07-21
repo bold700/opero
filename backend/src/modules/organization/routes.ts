@@ -24,7 +24,6 @@ type Org = {
   bic: string | null;
   kvkNumber: string | null;
   website: string | null;
-  hidePricesFromTechnicians: boolean;
 };
 
 function orgDto(o: Org) {
@@ -41,7 +40,6 @@ function orgDto(o: Org) {
     bic: o.bic ?? "",
     kvkNumber: o.kvkNumber ?? "",
     website: o.website ?? "",
-    hidePricesFromTechnicians: o.hidePricesFromTechnicians,
   };
 }
 
@@ -80,8 +78,6 @@ organizationRouter.patch(
     if (input.bic !== undefined) data.bic = clampText(input.bic).trim() || null;
     if (input.kvkNumber !== undefined) data.kvkNumber = clampText(input.kvkNumber).trim() || null;
     if (input.website !== undefined) data.website = clampText(input.website).trim() || null;
-    if (input.hidePricesFromTechnicians !== undefined)
-      data.hidePricesFromTechnicians = input.hidePricesFromTechnicians;
 
     const updated = await prisma.$transaction(async (tx) => {
       const o = await tx.organization.update({

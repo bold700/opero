@@ -34,12 +34,18 @@ import {
   reportExtraWork,
   reportExtraWorkFromCatalog,
   updateExtraWork,
+  uploadAttachment,
+  deleteAttachment,
   approveOffice,
   approveClient,
   rejectExtraWork,
   uploadExtraWorkPhoto,
   deleteExtraWorkPhoto,
-  setPrejobCheck,
+  updatePrejobItem,
+  addPrejobItem,
+  reorderPrejobItems,
+  deletePrejobItem,
+  setPrejobPhotoRequired,
   uploadPrejobPhoto,
   deletePrejobPhoto,
   dispatchWorkOrder,
@@ -54,6 +60,7 @@ import { TasksPanel } from "./components/TasksPanel";
 import { PreJobPanel } from "./components/PreJobPanel";
 import { ProjectInfoPanel } from "./components/ProjectInfoPanel";
 import { ExtraWorkPanel } from "./components/ExtraWorkPanel";
+import { AttachmentsPanel } from "./components/AttachmentsPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
 import { SignOffDialog } from "./components/SignOffDialog";
 
@@ -66,8 +73,9 @@ export function WorkOrderDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const role = (user?.role ?? "technician") as "admin" | "technician" | "client";
+  // 3-way price rule across the whole werkbon (task lines + meerwerk):
+  // admin → price + margin, client → price only, technician → no price.
   const showPrices = canSeePrices(role);
-  // Meerwerk's catalog picker + row can show admin margin, like task lines.
   const showMargin = canSeeMargin(role);
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
@@ -206,6 +214,8 @@ export function WorkOrderDetail() {
               workOrder={wo}
               canWrite={canWrite && !finished}
               canManageZones={canManageZones && !finished}
+              showPrices={showPrices}
+              showMargin={showMargin}
               busy={busy}
               onAddZone={() => run(async () => { await addTask(wo.id); await refreshWorkOrder(); })}
               onRenameZone={(taskId, description) => run(async () => { await updateTask(wo.id, taskId, { description }); await refreshWorkOrder(); })}
@@ -236,6 +246,14 @@ export function WorkOrderDetail() {
               onUploadPhoto={(mw, file) => run(async () => { await uploadExtraWorkPhoto(wo.id, mw, file); await refreshWorkOrder(); })}
               onDeletePhoto={(mw, key) => run(async () => { await deleteExtraWorkPhoto(wo.id, mw, key); await refreshWorkOrder(); })}
             />
+
+            <AttachmentsPanel
+              attachments={wo.attachments}
+              canWrite={canWrite && !finished}
+              busy={busy}
+              onUpload={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file)); })}
+              onDelete={(attachmentId) => run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })}
+            />
           </Box>
 
           {/* Right / side: separate cards — Controle vooraf, Projectinfo, Activiteit. */}
@@ -244,7 +262,12 @@ export function WorkOrderDetail() {
               workOrder={wo}
               isAdmin={role === "admin"}
               busy={busy}
-              onToggleCheck={(key, done) => run(async () => { setWo(await setPrejobCheck(wo.id, key, done)); })}
+              onToggleCheck={(itemId, done) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { done })); })}
+              onRenameItem={(itemId, label) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { label })); })}
+              onAddItem={(label) => run(async () => { setWo(await addPrejobItem(wo.id, label)); })}
+              onRemoveItem={(itemId) => run(async () => { setWo(await deletePrejobItem(wo.id, itemId)); })}
+              onMoveItem={(orderedIds) => run(async () => { setWo(await reorderPrejobItems(wo.id, orderedIds)); })}
+              onSetPhotoRequired={(required) => run(async () => { setWo(await setPrejobPhotoRequired(wo.id, required)); })}
               onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
               onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
               onDispatch={() =>

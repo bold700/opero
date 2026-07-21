@@ -39,6 +39,9 @@ export type WorkOrderPdfData = {
     resultPhotos: string[];
   }[];
   prejobCheck: Record<string, boolean>;
+  // Org's current item labels (key → label). Falls back to a humanized key for
+  // any key not present (e.g. an item removed after this werkbon recorded it).
+  prejobLabels: Record<string, string>;
   prejobPhotos: string[]; // storage keys
   dispatchedAt?: Date | null;
   signature?: string | null; // storage key of the drawn signature PNG
@@ -57,15 +60,11 @@ const STATUS_NL: Record<string, string> = {
   urgent: "Spoed",
   done: "Afgerond",
 };
-const PREJOB_NL: Record<string, string> = {
-  address_confirmed: "Adres en toegang bevestigd",
-  materials_ready: "Benodigde materialen gereed",
-  safety_reviewed: "Risico's en veiligheid op locatie bekeken",
-  customer_informed: "Klant geïnformeerd over het bezoek",
-};
 const statusNl = (s: string) => STATUS_NL[s] ?? s;
-const prejobNl = (k: string) =>
-  PREJOB_NL[k] ?? k.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+// Label a checklist key: the org's configured label, else a humanized fallback
+// (for a key stored before the org's current items, e.g. a removed item).
+const prejobLabel = (k: string, labels: Record<string, string>) =>
+  labels[k] ?? k.replace(/[_-]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 
 // Fetch an image's bytes for embedding; returns null (and the caller skips it)
 // if the object is missing or unreadable — a missing photo must never break the
@@ -255,7 +254,7 @@ export async function buildWorkOrderPdf(
     ensureSpace(doc, 50);
     sectionTitle(doc, "Controle vooraf", LEFT, CONTENT_W);
     for (const k of checkKeys) {
-      line(`${data.prejobCheck[k] ? "[x]" : "[ ]"}  ${prejobNl(k)}`, { color: BODY });
+      line(`${data.prejobCheck[k] ? "[x]" : "[ ]"}  ${prejobLabel(k, data.prejobLabels)}`, { color: BODY });
     }
     if (data.dispatchedAt) line(`Verzonden: ${DATE(data.dispatchedAt)}`, { color: MUTED });
     const pj = data.prejobPhotos.map(img).filter((b): b is Buffer => b != null);

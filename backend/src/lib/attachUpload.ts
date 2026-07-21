@@ -20,6 +20,41 @@ export async function storeUpload(
   return key;
 }
 
+// Sanitize an uploaded file's original name for DISPLAY only (never used to
+// build the storage key — that stays a uuid). Strips any path, collapses
+// whitespace, caps the length, and falls back to a sane default.
+export function sanitizeFilename(raw: string | undefined, ext: string): string {
+  const base = (raw ?? "").split(/[\\/]/).pop() ?? "";
+  // Keep letters/digits/space and a few safe punctuation chars; collapse
+  // whitespace; cap length. Anything else (control chars, quotes, slashes) drops.
+  const cleaned = base
+    .replace(/[^\w .()+-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+  if (cleaned) return cleaned;
+  return `bestand.${ext}`;
+}
+
+// Store a work-order attachment (PDF or image) and return its metadata. Unlike
+// storeUpload (which returns only the key), this keeps the original filename +
+// size + content type so the attachments list can show and open real files.
+export async function storeAttachment(
+  user: AuthUser,
+  file: Express.Multer.File | undefined,
+  entityId: string,
+): Promise<{ key: string; filename: string; contentType: string; size: number }> {
+  const prepared = await prepareUpload(file, { allowPdf: true });
+  const key = buildObjectKey(user.orgId, "wo-attachment", entityId, prepared.ext);
+  await storage.put(key, prepared.buffer, prepared.contentType);
+  return {
+    key,
+    filename: sanitizeFilename(file?.originalname, prepared.ext),
+    contentType: prepared.contentType,
+    size: prepared.buffer.length,
+  };
+}
+
 // Store a drawn signature image (PNG). Separate from storeUpload so signatures
 // stay PNG (transparent strokes) rather than being flattened to JPEG.
 export async function storeSignature(

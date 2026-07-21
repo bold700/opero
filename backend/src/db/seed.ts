@@ -96,6 +96,17 @@ async function main() {
   });
   const orgId = org.id;
 
+  // Default pre-job checklist template (every org needs one — the werkbon
+  // snapshots it at creation). Not demo-gated. Keys match the historical list.
+  await prisma.prejobCheckItem.createMany({
+    data: [
+      { orgId, key: "address_confirmed", label: "Adres en toegang bevestigd", ordinal: 0 },
+      { orgId, key: "materials_ready", label: "Benodigde materialen gereed", ordinal: 1 },
+      { orgId, key: "safety_reviewed", label: "Risico's en veiligheid op locatie bekeken", ordinal: 2 },
+      { orgId, key: "customer_informed", label: "Klant geïnformeerd over het bezoek", ordinal: 3 },
+    ],
+  });
+
   // -----------------------------------------------------------------------
   // 3. Customers (keep mock ids as PK) — DEMO ONLY
   // -----------------------------------------------------------------------

@@ -12,6 +12,8 @@ export function TasksPanel({
   workOrder,
   canWrite,
   canManageZones,
+  showPrices,
+  showMargin,
   busy,
   onAddZone,
   onRenameZone,
@@ -29,6 +31,9 @@ export function TasksPanel({
   canWrite: boolean;
   // Admin-only: adding/removing a zone. See ZoneCard's canManageZones.
   canManageZones: boolean;
+  // 3-way price rule (admin: price+margin, client: price, technician: none).
+  showPrices: boolean;
+  showMargin: boolean;
   busy: boolean;
   onAddZone: () => void;
   onRenameZone: (taskId: string, description: string) => void;
@@ -58,6 +63,8 @@ export function TasksPanel({
             task={task}
             canWrite={canWrite}
             canManageZones={canManageZones}
+            showPrices={showPrices}
+            showMargin={showMargin}
             busy={busy}
             onRename={(desc) => onRenameZone(task.id, desc)}
             onSetNote={(note) => onSetZoneNote(task.id, note)}

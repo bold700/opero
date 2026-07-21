@@ -3,6 +3,7 @@ import BusinessOutlinedIcon from "@mui/icons-material/BusinessOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import TuneIcon from "@mui/icons-material/Tune";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
+import ChecklistRtlOutlinedIcon from "@mui/icons-material/ChecklistRtlOutlined";
 import type { SvgIconComponent } from "@mui/icons-material";
 
 // Settings (Instellingen) — local display data + style constants. Demo data;
@@ -22,12 +23,19 @@ export const fieldGrid = {
   gap: 2,
 } as const;
 
-export type SectionId = "profile" | "company" | "notifications" | "preferences" | "security";
+export type SectionId =
+  | "profile"
+  | "company"
+  | "prejobChecklist"
+  | "notifications"
+  | "preferences"
+  | "security";
 
 // Section list — labels are translated at the call site via t("settings.sections.<id>.*").
 export const SECTIONS: { id: SectionId; icon: SvgIconComponent; adminOnly?: boolean }[] = [
   { id: "profile", icon: PersonOutlineIcon },
   { id: "company", icon: BusinessOutlinedIcon, adminOnly: true },
+  { id: "prejobChecklist", icon: ChecklistRtlOutlinedIcon, adminOnly: true },
   { id: "notifications", icon: NotificationsNoneIcon },
   { id: "preferences", icon: TuneIcon },
   { id: "security", icon: LockOutlinedIcon },

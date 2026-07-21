@@ -67,16 +67,31 @@ export function getAssignableEmployees(): Promise<AssigneeOption[]> {
   return api.get<AssigneeOption[]>("/work-orders/assignable");
 }
 
+export type WorkOrderAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  url?: string;
+  createdAt: string;
+};
+
 export type WorkOrder = {
   id: string;
   projectId: string;
   title: string;
   drawings: PhotoRef[];
+  // Job-level uploaded documents (PDFs/images) — quotes, plans, permits.
+  attachments: WorkOrderAttachment[];
   approvedBySupervisor: boolean;
   ordinal: number;
-  // Pre-job check + dispatch gate.
+  // Pre-job check + dispatch gate. `prejobItems` = THIS werkbon's own items
+  // (snapshotted from the org template at creation, editable on the werkbon).
+  prejobItems: { id: string; key: string; label: string; done: boolean; ordinal: number }[];
   prejobCheck: Record<string, boolean>;
   prejobPhotos: PhotoRef[];
+  // Per-werkbon: does dispatch require a pre-job photo? (default false)
+  prejobPhotoRequired: boolean;
   prejobComplete: boolean;
   canDispatch: boolean;
   dispatchedAt?: string;
@@ -348,14 +363,46 @@ export function deleteDrawing(workOrderId: string, key: string): Promise<WorkOrd
   return api.delete<WorkOrder>(`/work-orders/${workOrderId}/drawings`, { photo: key });
 }
 
-// --- Pre-job check + dispatch ---------------------------------------------
+// --- Attachments (job-level PDFs / images) --------------------------------
 
-export function setPrejobCheck(
+export function uploadAttachment(workOrderId: string, file: Blob): Promise<WorkOrder> {
+  return api.upload<WorkOrder>(`/work-orders/${workOrderId}/attachments`, file);
+}
+
+export function deleteAttachment(workOrderId: string, attachmentId: string): Promise<WorkOrder> {
+  return api.delete<WorkOrder>(`/work-orders/${workOrderId}/attachments/${attachmentId}`);
+}
+
+// --- Pre-job checklist (per werkbon) + dispatch ---------------------------
+
+// Tick/untick or rename one of THIS werkbon's checklist items (admin only).
+export function updatePrejobItem(
   workOrderId: string,
-  key: string,
-  done: boolean,
+  itemId: string,
+  input: { done?: boolean; label?: string },
 ): Promise<WorkOrder> {
-  return api.patch<WorkOrder>(`/work-orders/${workOrderId}/prejob-check`, { key, done });
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}/prejob-items/${itemId}`, input);
+}
+
+// Add a one-off checklist item to THIS werkbon (admin only).
+export function addPrejobItem(workOrderId: string, label: string): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/prejob-items`, { label });
+}
+
+export function reorderPrejobItems(workOrderId: string, orderedIds: string[]): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/prejob-items/reorder`, { orderedIds });
+}
+
+export function deletePrejobItem(workOrderId: string, itemId: string): Promise<WorkOrder> {
+  return api.delete<WorkOrder>(`/work-orders/${workOrderId}/prejob-items/${itemId}`);
+}
+
+// Toggle the per-werkbon "require a pre-job photo" dispatch gate (admin only).
+export function setPrejobPhotoRequired(
+  workOrderId: string,
+  required: boolean,
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { prejobPhotoRequired: required });
 }
 
 export function uploadPrejobPhoto(workOrderId: string, file: Blob): Promise<WorkOrder> {

@@ -53,10 +53,16 @@
       "customer_informed": "Klant geïnformeerd over het bezoek"
     },
     "photos": "Foto's vooraf",
+    "photoRequired": "Foto verplicht voor verzenden",
+    "addItem": "Toevoegen",
+    "addItemPlaceholder": "Nieuw checklist-item…",
+    "removeItem": "Verwijderen",
+    "moveUp": "Omhoog",
+    "moveDown": "Omlaag",
     "dispatch": "Monteur op pad sturen",
     "dispatched": "Verzonden",
     "dispatchedToast": "Monteur op pad gestuurd",
-    "gateHint": "Vul de checklist in en voeg een foto toe om te verzenden."
+    "gateHint": "Vink de checklist af (en voeg een foto toe indien vereist) om te verzenden."
   },
   "activity": {
     "title": "Activiteit",
@@ -88,6 +94,12 @@
     "emptyCatalog": "Nog geen materialen in de catalogus. Voeg ze eerst toe onder Materialen.",
     "margin": "marge {{amount}} ({{pct}}%)",
     "marginShort": "marge {{amount}}"
+  },
+  "attachments": {
+    "title": "Bijlagen",
+    "add": "Bestand toevoegen",
+    "empty": "Nog geen bijlagen.",
+    "deleteAria": "Bijlage verwijderen"
   },
   "extraWork": {
     "title": "Meerwerk",

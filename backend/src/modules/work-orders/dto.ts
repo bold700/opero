@@ -1,9 +1,8 @@
-import type { ExtraWork, TaskMaterial, WorkOrder, WorkOrderTask } from "@prisma/client";
+import type { ExtraWork, TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem } from "@prisma/client";
 import {
   canSeePrices,
   canSeeMargin,
   type UserRole,
-  normalizePrejobCheck,
   isPrejobChecklistComplete,
   canDispatch,
 } from "@opero/shared";
@@ -39,6 +38,8 @@ type TaskWithRelations = WorkOrderTask & {
 export type WorkOrderWithRelations = WorkOrder & {
   tasks: TaskWithRelations[];
   extraWork?: ExtraWorkWithVariant[];
+  attachments?: WorkOrderAttachment[];
+  prejobItems?: WorkOrderPrejobItem[];
   signedBy?: { name: string } | null;
   assignees?: { id: string; name: string }[];
 };
@@ -160,37 +161,52 @@ async function extraWorkDto(m: ExtraWorkWithVariant, showPrices: boolean, showMa
   };
 }
 
-// Full nested workOrder DTO. Takes the requesting role + the org's hide-prices
-// flag so prices are stripped for technicians when the org enables that privacy
-// setting (admins/clients always see prices).
-export async function workOrderDto(
-  wb: WorkOrderWithRelations,
-  role: UserRole,
-  hidePrices: boolean,
-) {
-  const showPrices = canSeePrices(role, hidePrices);
+// Full nested workOrder DTO. Prices are stripped for technicians (always —
+// canSeePrices is absolute); admins/clients always see them.
+export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
+  const showPrices = canSeePrices(role);
   const showMargin = canSeeMargin(role);
   const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
-  const [drawings, signatureUrl, prejobPhotos, tasks, extraWork] = await Promise.all([
+  const [drawings, signatureUrl, prejobPhotos, tasks, extraWork, attachments] = await Promise.all([
     photoRefs(wb.drawings),
     photoUrl(wb.signature),
     photoRefs(wb.prejobPhotos),
     Promise.all(sortedTasks.map((t) => taskDto(t, showPrices, showMargin))),
     Promise.all((wb.extraWork ?? []).map((m) => extraWorkDto(m, showPrices, showMargin))),
+    Promise.all(
+      (wb.attachments ?? []).map(async (a) => ({
+        id: a.id,
+        filename: a.filename,
+        contentType: a.contentType,
+        size: a.size,
+        url: await photoUrl(a.key),
+        createdAt: a.createdAt.toISOString(),
+      })),
+    ),
   ]);
-  const prejobCheck = normalizePrejobCheck(wb.prejobCheck);
+  // Per-werkbon checklist: this werkbon's OWN items (with `done`), ordered.
+  const items = [...(wb.prejobItems ?? [])].sort((a, b) => a.ordinal - b.ordinal);
+  const prejobItemKeys = items.map((i) => i.key);
+  const prejobCheck: Record<string, boolean> = {};
+  for (const it of items) if (it.done) prejobCheck[it.key] = true;
+  const requirePhoto = wb.prejobPhotoRequired === true;
   return {
     id: wb.id,
     projectId: wb.projectId,
     title: wb.title,
     drawings,
+    attachments,
     approvedBySupervisor: wb.approvedBySupervisor,
     ordinal: wb.ordinal,
-    // Pre-job check + dispatch gate.
+    // Pre-job check + dispatch gate. `prejobItems` are THIS werkbon's items
+    // (key + label + done), editable on the werkbon; snapshotted from the org
+    // template at creation.
+    prejobItems: items.map((i) => ({ key: i.key, label: i.label, done: i.done, ordinal: i.ordinal, id: i.id })),
     prejobCheck,
     prejobPhotos,
-    prejobComplete: isPrejobChecklistComplete(prejobCheck),
-    canDispatch: canDispatch(prejobCheck, wb.prejobPhotos.length),
+    prejobPhotoRequired: requirePhoto,
+    prejobComplete: isPrejobChecklistComplete(prejobCheck, prejobItemKeys),
+    canDispatch: canDispatch(prejobCheck, wb.prejobPhotos.length, prejobItemKeys, requirePhoto),
     dispatchedAt: wb.dispatchedAt ? wb.dispatchedAt.toISOString() : undefined,
     // Per-work-order sign-off state. `signature` is the stored object key;
     // `signatureUrl` is the renderable URL. `signedByName` is the name typed at
@@ -226,6 +242,8 @@ export const workOrderInclude = {
     orderBy: { createdAt: "asc" },
     include: { variant: { select: { materialId: true, size: true } } },
   },
+  attachments: { orderBy: { createdAt: "asc" } },
+  prejobItems: { orderBy: { ordinal: "asc" } },
   signedBy: { select: { name: true } },
   assignees: { select: { id: true, name: true } },
 } as const;

@@ -112,53 +112,54 @@ describe("task photo upload", () => {
 });
 
 describe("pre-job dispatch gate", () => {
-  it("blocks dispatch until checklist complete AND a photo exists", async () => {
-    // empty → blocked
-    let r = await request(app)
-      .post(`/api/work-orders/${workOrderId}/dispatch`)
-      .set("authorization", `Bearer ${adminToken}`)
-      .send({});
+  it("blocks dispatch until the werkbon's checklist is complete AND (when required) a photo exists", async () => {
+    const authAdmin = { authorization: `Bearer ${adminToken}` };
+
+    // The werkbon snapshotted its own items from the org template at creation.
+    let wo = (await request(app).get(`/api/work-orders/${workOrderId}`).set(authAdmin)).body as {
+      prejobItems: { id: string; done: boolean }[];
+    };
+    expect(wo.prejobItems.length).toBeGreaterThan(0);
+
+    // empty/incomplete → blocked
+    let r = await request(app).post(`/api/work-orders/${workOrderId}/dispatch`).set(authAdmin).send({});
     expect(r.status).toBe(400);
 
-    // complete checklist
-    for (const key of [
-      "address_confirmed",
-      "materials_ready",
-      "safety_reviewed",
-      "customer_informed",
-    ]) {
+    // Turn ON the per-werkbon photo requirement so this test exercises the photo
+    // half of the gate (default is OFF).
+    await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(authAdmin)
+      .send({ prejobPhotoRequired: true })
+      .expect(200);
+
+    // Complete the checklist by ticking THIS werkbon's own items.
+    for (const item of wo.prejobItems) {
       await request(app)
-        .patch(`/api/work-orders/${workOrderId}/prejob-check`)
-        .set("authorization", `Bearer ${adminToken}`)
-        .send({ key, done: true });
+        .patch(`/api/work-orders/${workOrderId}/prejob-items/${item.id}`)
+        .set(authAdmin)
+        .send({ done: true })
+        .expect(200);
     }
-    // still blocked: no photo
-    r = await request(app)
-      .post(`/api/work-orders/${workOrderId}/dispatch`)
-      .set("authorization", `Bearer ${adminToken}`)
-      .send({});
+
+    // Checklist complete but photo required and none attached → still blocked.
+    r = await request(app).post(`/api/work-orders/${workOrderId}/dispatch`).set(authAdmin).send({});
     expect(r.status).toBe(400);
 
-    // add a pre-job photo
+    // Add a pre-job photo → gate satisfied.
     const up = await request(app)
       .post(`/api/work-orders/${workOrderId}/prejob-photos`)
-      .set("authorization", `Bearer ${adminToken}`)
+      .set(authAdmin)
       .attach("file", await pngBuffer(), "site.png");
     expect(up.status).toBe(201);
     expect(up.body.canDispatch).toBe(true);
 
-    // now dispatch succeeds, then is locked
-    const ok = await request(app)
-      .post(`/api/work-orders/${workOrderId}/dispatch`)
-      .set("authorization", `Bearer ${adminToken}`)
-      .send({});
+    // Dispatch succeeds, then is locked.
+    const ok = await request(app).post(`/api/work-orders/${workOrderId}/dispatch`).set(authAdmin).send({});
     expect(ok.status).toBe(200);
     expect(ok.body.dispatchedAt).toBeTruthy();
 
-    const again = await request(app)
-      .post(`/api/work-orders/${workOrderId}/dispatch`)
-      .set("authorization", `Bearer ${adminToken}`)
-      .send({});
+    const again = await request(app).post(`/api/work-orders/${workOrderId}/dispatch`).set(authAdmin).send({});
     expect(again.status).toBe(400);
   });
 });

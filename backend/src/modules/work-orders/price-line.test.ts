@@ -53,10 +53,6 @@ async function createCatalogVariant(org: string, suffix: string): Promise<string
 beforeAll(async () => {
   const org = await prisma.organization.findFirstOrThrow();
   orgId = org.id;
-  await prisma.organization.update({
-    where: { id: orgId },
-    data: { hidePricesFromTechnicians: true },
-  });
   const otherOrg = await prisma.organization.create({ data: { name: `${TAG}-other-org` } });
   otherOrgId = otherOrg.id;
 
@@ -232,7 +228,7 @@ describe("cost / margin visibility (3-way on the billable line)", () => {
       where: { id: workOrderId },
       include: workOrderInclude,
     });
-    const dto = await workOrderDto(wb as never, "client", false);
+    const dto = await workOrderDto(wb as never, "client");
     const line = dto.tasks
       .flatMap((t) => t.materials)
       .find((m) => m.variantId === ownVariantId && m.quantity === 3) as

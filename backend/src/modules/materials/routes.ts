@@ -5,7 +5,6 @@ import { asyncHandler } from "../../lib/asyncHandler.js";
 import { Conflict, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
-import { resolveHidePrices } from "../../lib/orgPricing.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import { canSeePrices, canSeeMargin, type UserRole } from "@opero/shared";
@@ -71,8 +70,7 @@ materialsRouter.get(
       where: { orgId: user.orgId },
       orderBy: { name: "asc" },
     });
-    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
-    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+    const showPrices = canSeePrices(user.role as UserRole);
     res.json(rows.map((a) => articleDto(a, showPrices)));
   }),
 );
@@ -562,9 +560,7 @@ materialsRouter.get(
         ...args,
       }),
     );
-
-    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
-    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+    const showPrices = canSeePrices(user.role as UserRole);
     const showMargin = canSeeMargin(user.role as UserRole);
     res.json({
       items: page.items.map((v) => variantSearchRowDto(v, showPrices, showMargin)),
@@ -793,8 +789,7 @@ materialsRouter.get(
       include: { variants: { orderBy: { ordinal: "asc" } } },
     });
     if (!material) throw NotFound("Material not found");
-    const hidePrices = await resolveHidePrices(user.role as UserRole, user.orgId);
-    const showPrices = canSeePrices(user.role as UserRole, hidePrices);
+    const showPrices = canSeePrices(user.role as UserRole);
     const showMargin = canSeeMargin(user.role as UserRole);
     res.json(materialDetailDto(material, showPrices, showMargin));
   }),

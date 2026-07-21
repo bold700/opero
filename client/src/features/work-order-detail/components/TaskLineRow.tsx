@@ -9,17 +9,25 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { STATUS_TONES } from "../../../theme/tokens";
+import { euro } from "../constants";
 import type { WorkOrderMaterial } from "../api";
 
 // ONE invoice line (opero-old's "Taak" row), kept deliberately QUIET:
-//   ☐ · description · [Open/Klaar] · qty unit · ✎ · 🗑
+//   ☐ · description · [Open/Klaar] · qty unit · €total · ✎ · 🗑
 // The description is READ-ONLY — it always shows the resolved catalog name, so
 // it can never drift from the article the line points at. To change the
 // article, use the edit (✎) button, which re-opens the catalog picker on this
-// line. Quantity is also inline-editable (click it). No prices in this table.
+// line. Quantity is also inline-editable (click it).
+//
+// PRICES ARE 3-WAY (client's rule): admin sees the price AND the margin, the
+// client sees the price only, the technician sees no price at all. The gates
+// come from canSeePrices/canSeeMargin on the page; the backend also strips the
+// fields per role, so this is presentation only.
 export function TaskLineRow({
   material,
   canWrite,
+  showPrices,
+  showMargin,
   busy,
   onToggle,
   onEdit,
@@ -28,6 +36,8 @@ export function TaskLineRow({
 }: {
   material: WorkOrderMaterial;
   canWrite: boolean;
+  showPrices: boolean;
+  showMargin: boolean;
   busy: boolean;
   onToggle: () => void;
   // Re-open the catalog picker on this line (only for catalog-backed lines).
@@ -40,6 +50,7 @@ export function TaskLineRow({
   const [editingQty, setEditingQty] = useState(false);
 
   const description = m.label?.trim() || m.name || t("workOrderDetail.line.unnamed");
+  const lineTotal = m.unitPrice != null ? m.quantity * m.unitPrice : null;
 
   const commitQty = (raw: string) => {
     setEditingQty(false);
@@ -120,6 +131,20 @@ export function TaskLineRow({
           {m.quantity} {m.unit}
         </Typography>
       )}
+
+      {/* Price (3-way): admin sell+margin · client sell · technician nothing. */}
+      {showPrices && lineTotal != null ? (
+        <Box sx={{ textAlign: "right", whiteSpace: "nowrap", minWidth: 64 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {euro(lineTotal)}
+          </Typography>
+          {showMargin && m.margin != null ? (
+            <Typography variant="caption" sx={{ color: "success.main", fontWeight: 600, display: "block" }}>
+              {t("workOrderDetail.line.margin", { amount: euro(m.margin), pct: Math.round(m.marginPct ?? 0) })}
+            </Typography>
+          ) : null}
+        </Box>
+      ) : null}
 
       {/* Edit re-opens the catalog picker on this line. Only catalog-backed
           lines can be edited (a free-text line has no article to re-pick). */}

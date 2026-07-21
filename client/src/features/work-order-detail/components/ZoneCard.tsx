@@ -12,6 +12,7 @@ import { PhotoGrid } from "../../../components/PhotoGrid";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { STATUS_TONES } from "../../../theme/tokens";
+import { euro } from "../constants";
 import type { WorkOrderMaterial, WorkOrderTask } from "../api";
 import { TaskLineRow } from "./TaskLineRow";
 import { AddTaskLineDialog } from "./AddTaskLineDialog";
@@ -29,6 +30,8 @@ export function ZoneCard({
   task,
   canWrite,
   canManageZones,
+  showPrices,
+  showMargin,
   busy,
   onRename,
   onSetNote,
@@ -47,6 +50,10 @@ export function ZoneCard({
   // canWrite, which also covers a technician filling in an existing zone's
   // fields (note, task lines, photos). See docs/roles-and-permissions.md.
   canManageZones: boolean;
+  // 3-way price rule: admin sees price + margin, client sees price, technician
+  // sees neither. Derived from canSeePrices/canSeeMargin on the page.
+  showPrices: boolean;
+  showMargin: boolean;
   busy: boolean;
   onRename: (description: string) => void;
   onSetNote: (note: string) => void;
@@ -68,6 +75,8 @@ export function ZoneCard({
   const namedLines = task.materials.filter(
     (m) => (m.name ?? "").trim() || (m.label ?? "").trim(),
   );
+  const zoneTotal = task.materials.reduce((s, m) => s + m.quantity * (m.unitPrice ?? 0), 0);
+  const zoneMargin = task.materials.reduce((s, m) => s + (m.margin ?? 0), 0);
 
   return (
     <Card>
@@ -128,14 +137,26 @@ export function ZoneCard({
           </Typography>
         ) : null}
 
-        {/* TAKEN — the invoice lines. No prices in this table. */}
+        {/* TAKEN — the invoice lines + zone total (price gated per role). */}
         <Box>
-          <Typography
-            variant="caption"
-            sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
-          >
-            {t("workOrderDetail.line.sectionTitle")}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+            >
+              {t("workOrderDetail.line.sectionTitle")}
+            </Typography>
+            {showPrices && zoneTotal > 0 ? (
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {euro(zoneTotal)}
+                {showMargin && zoneMargin > 0 ? (
+                  <Box component="span" sx={{ color: "success.main", fontWeight: 600 }}>
+                    {" "}· {t("workOrderDetail.line.marginTotal", { amount: euro(zoneMargin) })}
+                  </Box>
+                ) : null}
+              </Typography>
+            ) : null}
+          </Box>
 
           {(canWrite ? task.materials : namedLines).length === 0 ? (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -147,6 +168,8 @@ export function ZoneCard({
                 key={m.id}
                 material={m}
                 canWrite={canWrite}
+                showPrices={showPrices}
+                showMargin={showMargin}
                 busy={busy}
                 onToggle={() => onToggleLine(m.id)}
                 onEdit={() => setEditingLine(m)}
@@ -201,6 +224,7 @@ export function ZoneCard({
       <AddTaskLineDialog
         open={pickerOpen}
         busy={busy}
+        showMargin={showMargin}
         onClose={() => setPickerOpen(false)}
         onAdd={(input) => {
           onAddLine(input);
@@ -215,6 +239,7 @@ export function ZoneCard({
           open
           mode="edit"
           busy={busy}
+          showMargin={showMargin}
           initial={{
             materialId: editingLine.variantMaterialId,
             size: editingLine.variantSize,

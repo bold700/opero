@@ -14,6 +14,10 @@
       "title": "Bedrijf",
       "subtitle": "Bedrijfsgegevens en facturatie"
     },
+    "prejobChecklist": {
+      "title": "Controle vooraf",
+      "subtitle": "Checklist-items voor werkbonnen"
+    },
     "notifications": {
       "title": "Meldingen",
       "subtitle": "Wanneer en hoe je meldingen krijgt"
@@ -26,6 +30,19 @@
       "title": "Beveiliging",
       "subtitle": "Wachtwoord en tweestapsverificatie"
     }
+  },
+  "prejobChecklist": {
+    "itemsLabel": "Checklist-items",
+    "help": "Dit is de standaardlijst. Nieuwe werkbonnen beginnen hiermee; elke werkbon kan daarna apart worden aangepast.",
+    "empty": "Nog geen items. Zonder items kan een werkbon niet verzonden worden.",
+    "addPlaceholder": "Nieuw item…",
+    "add": "Toevoegen",
+    "remove": "Verwijderen",
+    "moveUp": "Omhoog",
+    "moveDown": "Omlaag",
+    "saved": "Opgeslagen",
+    "saveError": "Opslaan mislukt",
+    "loadError": "Laden mislukt"
   },
   "profile": {
     "photo": "Profielfoto",

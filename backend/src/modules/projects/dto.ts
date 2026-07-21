@@ -210,9 +210,8 @@ export function projectSummaryDto(
     workOrders?: { value: number }[];
   },
   role: UserRole,
-  hidePrices: boolean,
 ) {
-  const showPrices = canSeePrices(role, hidePrices);
+  const showPrices = canSeePrices(role);
   // Billing is per-werkbon: a project's value is the SUM of its werkbonnen's
   // values, derived on read (no stale denormalized column).
   const value = (p.workOrders ?? []).reduce((sum, w) => sum + w.value, 0);
@@ -238,10 +237,9 @@ export function projectSummaryDto(
 export function projectDto(
   p: ProjectWithRelations,
   role: UserRole,
-  hidePrices: boolean,
   urlOf: UrlOf,
 ) {
-  const showPrices = canSeePrices(role, hidePrices);
+  const showPrices = canSeePrices(role);
   // Project value = sum of its werkbonnen's values (per-werkbon billing).
   const value = (p.workOrders ?? []).reduce((sum, w) => sum + w.value, 0);
   return {

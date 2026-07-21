@@ -52,16 +52,12 @@ export function hasAnyAccess(section: Section, role: UserRole): boolean {
 
 // Whether the requesting role may see prices/financials.
 //
-// Admins and clients always see prices. Technicians see them only when the org
-// has NOT enabled the "hide prices from technicians" privacy setting. The flag
-// defaults to true (hide), preserving the historical technician behaviour, and
-// an admin can flip it off in Settings → Preferences.
-export function canSeePrices(
-  role: UserRole,
-  hidePricesFromTechnicians = true,
-): boolean {
-  if (role !== "technician") return true;
-  return !hidePricesFromTechnicians;
+// Admins and clients always see prices. Technicians NEVER do — this is an
+// absolute rule from the client, not a configurable preference: the monteur
+// sees the product and what to do, never what it costs or sells for. There is
+// deliberately no org setting to switch this on.
+export function canSeePrices(role: UserRole): boolean {
+  return role !== "technician";
 }
 
 // Whether the requesting role may see COST price + margin (the difference

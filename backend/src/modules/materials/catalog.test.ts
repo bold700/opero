@@ -48,10 +48,6 @@ async function createMaterial(org: string, suffix: string) {
 beforeAll(async () => {
   const org = await prisma.organization.findFirstOrThrow();
   orgId = org.id;
-  await prisma.organization.update({
-    where: { id: orgId },
-    data: { hidePricesFromTechnicians: true },
-  });
   const otherOrg = await prisma.organization.create({ data: { name: `${TAG}-other-org` } });
   otherOrgId = otherOrg.id;
 

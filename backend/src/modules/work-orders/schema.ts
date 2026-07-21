@@ -19,6 +19,8 @@ export const updateWorkOrderSchema = z.object({
   // The werkbon is the scheduled visit — its date(s) live here.
   plannedDate: z.string().nullable().optional(),
   plannedEndDate: z.string().nullable().optional(),
+  // Per-werkbon: does dispatch require a pre-job photo? (default: not required)
+  prejobPhotoRequired: z.boolean().optional(),
 });
 
 // PATCH /work-orders/:id/tasks/:taskId — task fields incl. per-zone work type +
@@ -46,13 +48,6 @@ export const taskHoursSchema = z.object({
 // DELETE /work-orders/:id/tasks/:taskId/photos — remove a specific photo.
 export const removePhotoSchema = z.object({
   photo: z.string().min(1),
-});
-
-// PATCH /work-orders/:id/prejob-check — set/toggle a checklist item.
-// key is validated against PREJOB_CHECK_ITEMS in the handler.
-export const prejobCheckSchema = z.object({
-  key: z.string().min(1),
-  done: z.boolean(),
 });
 
 // POST /work-orders/:id/tasks/:taskId/materials — add blank OR seeded line
