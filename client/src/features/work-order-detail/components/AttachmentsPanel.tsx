@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -10,6 +10,7 @@ import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { Card } from "../../../components/Card";
+import { FileViewer } from "../../../components/FileViewer";
 import { HAIRLINE } from "../../../theme/tokens";
 import type { WorkOrderAttachment } from "../api";
 
@@ -32,6 +33,8 @@ export function AttachmentsPanel({
 }) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
+  // Non-null → the in-app viewer is showing that attachment.
+  const [viewing, setViewing] = useState<WorkOrderAttachment | null>(null);
 
   const pick = () => inputRef.current?.click();
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,17 +102,28 @@ export function AttachmentsPanel({
             >
               <Icon fontSize="small" sx={{ color: "text.secondary", flexShrink: 0 }} />
               <Box sx={{ minWidth: 0, flex: 1 }}>
+                {/* Opens in the in-app viewer, not a new tab: on a phone,
+                    navigating away loses the monteur's place in the werkbon.
+                    Still a real <button> so it's keyboard- and SR-reachable. */}
                 <Link
-                  href={a.url}
-                  target="_blank"
-                  rel="noreferrer"
+                  component="button"
+                  type="button"
+                  onClick={() => setViewing(a)}
+                  disabled={!a.url}
                   underline="hover"
                   sx={{
                     display: "block",
+                    width: "100%",
+                    textAlign: "left",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                     fontWeight: 500,
+                    font: "inherit",
+                    border: "none",
+                    background: "none",
+                    p: 0,
+                    cursor: "pointer",
                   }}
                 >
                   {a.filename}
@@ -133,6 +147,21 @@ export function AttachmentsPanel({
           );
         })
       )}
+
+      {/* `url` is optional on the DTO (it's minted per-request from storage),
+          so only open the viewer once we actually have one. */}
+      <FileViewer
+        file={
+          viewing?.url
+            ? {
+                url: viewing.url,
+                contentType: viewing.contentType,
+                filename: viewing.filename,
+              }
+            : null
+        }
+        onClose={() => setViewing(null)}
+      />
     </Card>
   );
 }

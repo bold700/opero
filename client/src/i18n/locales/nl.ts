@@ -22,6 +22,7 @@ import search from "./nl/search.json";
 import notifications from "./nl/notifications.json";
 import users from "./nl/users.json";
 import timesheet from "./nl/timesheet.json";
+import viewer from "./nl/viewer.json";
 
 export const nl = {
   common,
@@ -45,4 +46,5 @@ export const nl = {
   notifications,
   users,
   timesheet,
+  viewer,
 };

@@ -94,14 +94,6 @@ enum IntakeStatus {
   completed
 }
 
-enum WorkOrderStatus {
-  planned
-  on_the_way
-  in_progress
-  blocked
-  completed
-}
-
 enum CatalogCategory {
   insulation
   material
@@ -194,6 +186,7 @@ model Organization {
   materialOrders MaterialOrder[]
   auditLogs    AuditLog[]
   prejobCheckItems PrejobCheckItem[]
+  employeeAbsences EmployeeAbsence[]
 }
 
 // One configurable pre-job checklist item, per organization. The admin adds /
@@ -418,7 +411,50 @@ model Employee {
   assignedTasks WorkOrderTask[] @relation("TaskAssignee")
   assignedWorkOrders WorkOrder[] @relation("WorkOrderAssignees")
 
+  absences EmployeeAbsence[]
+
   @@index([orgId])
+}
+
+// A dated period in which an employee is NOT available: holiday, sick leave,
+// training, unpaid leave.
+//
+// The pre-existing EmployeeStatus.on_leave is a permanent flag with no dates —
+// it can only say "not available, indefinitely", so it can't express "away
+// 3–17 August" and can't stop being true on its own. This model is the dated
+// version the client asked for: "allow vacation and absence periods to be
+// scheduled per employee, so employees are automatically not scheduled or
+// invoiced" (WOB Isolatie, 17-07-2026).
+//
+// startDate/endDate are inclusive plain "YYYY-MM-DD" days, matching
+// WorkOrder.plannedDate and PlanningItem.date — those are strings too, and
+// comparing days as strings avoids a timezone class of bug entirely (an
+// absence is a human day off, not an instant).
+model EmployeeAbsence {
+  id         String        @id @default(uuid())
+  orgId      String
+  employeeId String
+  kind       AbsenceKind   @default(vacation)
+  // Inclusive on BOTH ends: a single day off has startDate == endDate.
+  startDate  String
+  endDate    String
+  note       String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  // The overlap query is "this employee, endDate >= from AND startDate <= to".
+  @@index([employeeId, startDate, endDate])
+}
+
+enum AbsenceKind {
+  vacation
+  sick
+  training
+  other
 }
 
 // ---------------------------------------------------------------------------

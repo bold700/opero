@@ -26,6 +26,45 @@ export const createEmployeeSchema = z.object({
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();
 
+// --- Absence (vacation / sick / training) ----------------------------------
+
+export const absenceKindSchema = z.enum(["vacation", "sick", "training", "other"]);
+
+// Inclusive plain days. Kept as strings (not z.coerce.date()) on purpose: an
+// absence is a human day off, not an instant, and the DB columns are text —
+// see modules/employees/absence.ts.
+const isoDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a YYYY-MM-DD date");
+
+export const createAbsenceSchema = z
+  .object({
+    employeeId: z.string().min(1),
+    kind: absenceKindSchema.optional(),
+    startDate: isoDay,
+    endDate: isoDay,
+    note: z.string().optional(),
+  })
+  // String compare is a correct day compare for this format.
+  .refine((v) => v.startDate <= v.endDate, {
+    message: "endDate must not be before startDate",
+    path: ["endDate"],
+  });
+
+export const updateAbsenceSchema = z
+  .object({
+    kind: absenceKindSchema.optional(),
+    startDate: isoDay.optional(),
+    endDate: isoDay.optional(),
+    note: z.string().nullable().optional(),
+  })
+  // Only checkable when both ends are supplied; the route re-checks against the
+  // stored row for a partial patch.
+  .refine((v) => !v.startDate || !v.endDate || v.startDate <= v.endDate, {
+    message: "endDate must not be before startDate",
+    path: ["endDate"],
+  });
+
 export const toggleRoleSchema = z.object({
   role: teamRoleSchema,
 });

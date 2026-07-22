@@ -53,8 +53,34 @@
     "title": "Delete employee",
     "body": "Are you sure you want to delete \"{{name}}\"?"
   },
+  "absence": {
+    "action": "Absence",
+    "title": "Absence — {{name}}",
+    "subtitle": "Holiday, sick leave or training. The employee is not scheduled during these periods.",
+    "empty": "No absence recorded yet.",
+    "kindLabel": "Type",
+    "kind": {
+      "vacation": "Holiday",
+      "sick": "Sick",
+      "training": "Training",
+      "other": "Other"
+    },
+    "from": "From",
+    "to": "Until (inclusive)",
+    "note": "Note (optional)",
+    "add": "Add",
+    "rangeError": "End date is before the start date",
+    "loadError": "Could not load absences",
+    "saveError": "Save failed",
+    "deleteError": "Delete failed"
+  },
   "toast": {
     "created": "Employee created",
+    "createdInvited": "Employee created — invitation sent to {{email}}",
+    "inviteFailed": {
+      "email_taken": "Employee created, but this email address already has an account. Invite manually.",
+      "send_failed": "Employee created, but the invitation could not be sent. Retry via Invite."
+    },
     "updated": "Employee updated",
     "deleted": "Employee deleted",
     "saveError": "Save failed",

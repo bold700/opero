@@ -11,6 +11,7 @@ import { ZoneCard } from "./ZoneCard";
 export function TasksPanel({
   workOrder,
   canWrite,
+  canEditScope,
   canManageZones,
   showPrices,
   showMargin,
@@ -20,7 +21,9 @@ export function TasksPanel({
   onSetZoneNote,
   onDeleteZone,
   onAddLine,
+  onAddCustomLine,
   onEditLine,
+  onEditCustomLine,
   onDeleteLine,
   onToggleLine,
   onChangeLineQuantity,
@@ -28,7 +31,10 @@ export function TasksPanel({
   onDeletePhoto,
 }: {
   workOrder: WorkOrder;
+  // Register on-site facts (technicians included). See WorkOrderDetail.
   canWrite: boolean;
+  // Change what was sold: zone titles, line add/edit/delete. Office only.
+  canEditScope: boolean;
   // Admin-only: adding/removing a zone. See ZoneCard's canManageZones.
   canManageZones: boolean;
   // 3-way price rule (admin: price+margin, client: price, technician: none).
@@ -40,7 +46,15 @@ export function TasksPanel({
   onSetZoneNote: (taskId: string, note: string) => void;
   onDeleteZone: (taskId: string) => void;
   onAddLine: (taskId: string, input: { variantId: string; quantity: number }) => void;
+  onAddCustomLine: (
+    taskId: string,
+    input: { name: string; quantity: number; unit: string; unitPrice?: number },
+  ) => void;
   onEditLine: (matId: string, input: { variantId: string; quantity: number }) => void;
+  onEditCustomLine: (
+    matId: string,
+    input: { name: string; quantity: number; unit: string; unitPrice?: number },
+  ) => void;
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
   onChangeLineQuantity: (matId: string, quantity: number) => void;
@@ -62,6 +76,7 @@ export function TasksPanel({
             key={task.id}
             task={task}
             canWrite={canWrite}
+            canEditScope={canEditScope}
             canManageZones={canManageZones}
             showPrices={showPrices}
             showMargin={showMargin}
@@ -70,7 +85,9 @@ export function TasksPanel({
             onSetNote={(note) => onSetZoneNote(task.id, note)}
             onDeleteZone={() => onDeleteZone(task.id)}
             onAddLine={(input) => onAddLine(task.id, input)}
+            onAddCustomLine={(input) => onAddCustomLine(task.id, input)}
             onEditLine={onEditLine}
+            onEditCustomLine={onEditCustomLine}
             onDeleteLine={onDeleteLine}
             onToggleLine={onToggleLine}
             onChangeLineQuantity={onChangeLineQuantity}

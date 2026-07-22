@@ -8,6 +8,7 @@ import { audit } from "../../lib/audit.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
 import { projectScopeWhere } from "../projects/visibility.js";
+import { absencesInRange } from "../employees/absence.js";
 import {
   planningWorkOrderInclude,
   planningEntriesForWorkOrder,
@@ -263,6 +264,29 @@ planningRouter.post(
             where: { id: teamLeaderId, orgId: user.orgId },
           })
         : null;
+
+    // Don't schedule someone who is on holiday / off sick that day ("so
+    // employees are automatically not scheduled" — WOB Isolatie, 17-07-2026).
+    // Checked across the whole run (date → newEnd), not just the start day, so
+    // a multi-day job that runs into a holiday is caught too.
+    //
+    // Refusing outright rather than warning: the office picked this person
+    // explicitly, and silently scheduling them anyway is how a job ends up with
+    // nobody on site. The absence can be shortened or the leader changed.
+    if (teamLeaderId) {
+      const absent = await absencesInRange(
+        user.orgId,
+        date,
+        newEnd ?? date,
+        [teamLeaderId],
+      );
+      if (absent.length > 0) {
+        const a = absent[0];
+        throw BadRequest(
+          `${a.employee.name} is unavailable ${a.startDate} – ${a.endDate} (${a.kind})`,
+        );
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       const first = existing.planningItems[0];

@@ -27,7 +27,9 @@
     "noTime": "No time",
     "pickStartFirst": "Pick a start time first",
     "dateInPast": "Date can't be in the past",
-    "workOrder": "Work order"
+    "workOrder": "Work order",
+    "away": "away",
+    "leaderUnavailable": "This technician is away from {{from}} until {{to}}."
   },
   "remove": {
     "title": "Remove from planning",

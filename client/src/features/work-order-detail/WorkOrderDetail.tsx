@@ -24,6 +24,7 @@ import {
   deleteTask,
   toggleTask,
   addMaterialFromCatalog,
+  addCustomMaterial,
   updateMaterial,
   deleteMaterial,
   toggleMaterial,
@@ -141,10 +142,19 @@ export function WorkOrderDetail() {
     );
   }
 
+  // Two different kinds of "write", deliberately kept apart:
+  //   canWrite     — REGISTER what happened on site: tick lines done, set used
+  //                  quantities, notes, photos, report meerwerk. Technicians too.
+  //   canEditScope — change what was SOLD: line description/quantity/price,
+  //                  add or delete lines, zone title/work-type/assignee. Office
+  //                  only, because all of it moves the invoiced amount.
+  // The backend enforces the same split field-by-field (requireQuoteScopeEditor
+  // + the *_SCOPE_FIELDS lists in work-orders/routes.ts); this just keeps the UI
+  // from offering a technician buttons that would 403.
   const canWrite = role === "admin" || role === "technician";
-  // Adding/removing a ZONE is office work — narrower than canWrite, which also
-  // covers a technician filling in an existing zone (see docs/roles-and-permissions.md).
-  const canManageZones = role === "admin";
+  const canEditScope = role === "admin";
+  // Adding/removing a ZONE is office work — a subset of scope editing.
+  const canManageZones = canEditScope;
   // Finished/locked is a property of THIS work order (signedAt), not the
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
@@ -213,6 +223,7 @@ export function WorkOrderDetail() {
             <TasksPanel
               workOrder={wo}
               canWrite={canWrite && !finished}
+              canEditScope={canEditScope && !finished}
               canManageZones={canManageZones && !finished}
               showPrices={showPrices}
               showMargin={showMargin}
@@ -222,7 +233,11 @@ export function WorkOrderDetail() {
               onSetZoneNote={(taskId, note) => run(async () => { await updateTask(wo.id, taskId, { note }); await refreshWorkOrder(); })}
               onDeleteZone={(taskId) => run(async () => { await deleteTask(wo.id, taskId); await refreshWorkOrder(); })}
               onAddLine={(taskId, input) => run(async () => { await addMaterialFromCatalog(wo.id, taskId, input); await refreshWorkOrder(); })}
+              onAddCustomLine={(taskId, input) => run(async () => { await addCustomMaterial(wo.id, taskId, input); await refreshWorkOrder(); })}
               onEditLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, input); await refreshWorkOrder(); })}
+              // Editing a free-text line: clear any catalog link and write the
+              // typed fields. unitPrice omitted (non-admin) leaves it as-is.
+              onEditCustomLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, { variantId: null, name: input.name, label: input.name, quantity: input.quantity, unit: input.unit, ...(input.unitPrice !== undefined ? { unitPrice: input.unitPrice } : {}) }); await refreshWorkOrder(); })}
               onDeleteLine={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
               onToggleLine={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
               onChangeLineQuantity={(m, quantity) => run(async () => { await updateMaterial(wo.id, m, { quantity }); await refreshWorkOrder(); })}

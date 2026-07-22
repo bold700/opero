@@ -150,10 +150,53 @@ type MaterialDto = {
   marginPct?: number;
   variantId?: string;
   quantity: number;
+  usedQuantity?: number | null;
+  done?: boolean;
 };
 const materialsOf = (body: {
   tasks: { id: string; materials: MaterialDto[] }[];
 }): MaterialDto[] => body.tasks.find((t) => t.id === taskId)?.materials ?? [];
+
+// The zone (WorkOrderTask) itself splits the same way as its lines: the title
+// and work-type/assignee describe what was SOLD (office), while done/note
+// record what happened (technician).
+describe("zone scope vs registration", () => {
+  it("technician cannot rename a zone (403)", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}/tasks/${taskId}`)
+      .set(auth(technicianToken))
+      .send({ description: "renamed by monteur" });
+    expect(res.status).toBe(403);
+  });
+
+  it("technician cannot reassign a zone's day (403)", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}/tasks/${taskId}`)
+      .set(auth(technicianToken))
+      .send({ day: "2026-07-23" });
+    expect(res.status).toBe(403);
+  });
+
+  it("technician CAN set a zone's note and done flag", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}/tasks/${taskId}`)
+      .set(auth(technicianToken))
+      .send({ note: "gedaan, ruimte was krap" });
+    expect(res.status).toBe(200);
+    const task = res.body.tasks.find((t: { id: string }) => t.id === taskId);
+    expect(task.note).toBe("gedaan, ruimte was krap");
+  });
+
+  it("admin CAN rename a zone", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}/tasks/${taskId}`)
+      .set(auth(adminToken))
+      .send({ description: `${TAG} kelder` });
+    expect(res.status).toBe(200);
+    const task = res.body.tasks.find((t: { id: string }) => t.id === taskId);
+    expect(task.description).toBe(`${TAG} kelder`);
+  });
+});
 
 describe("materials from catalog", () => {
   it("admin adds a line — name/unit/price/diameter resolved server-side", async () => {
@@ -171,25 +214,55 @@ describe("materials from catalog", () => {
     expect(mat!.unitPrice).toBe(28.25);
   });
 
-  it("technician adds a line — price still set server-side, but stripped in their response", async () => {
+  // A technician may no longer add a line to the QUOTED scope at all: a new
+  // line raises the amount invoiced, which is office work. Their channel for
+  // "this job needed more than we sold" is meerwerk (/extra-work), which the
+  // office then prices and approves. (WOB Isolatie: "technicians only need to
+  // register additional work, they should not be able to change the original
+  // work from the quotation or work order".)
+  it("technician cannot add a line to the quoted scope (403)", async () => {
+    const before = await request(app)
+      .get(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken));
+    const countBefore = materialsOf(before.body).length;
+
     const res = await request(app)
       .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`)
       .set(auth(technicianToken))
       .send({ variantId: ownVariantId, quantity: 2 });
-    expect(res.status).toBe(201);
-    const techView = materialsOf(res.body).filter((m) => m.variantId === ownVariantId);
-    // Technician response: line present, price stripped.
-    expect(techView.length).toBeGreaterThanOrEqual(2);
-    for (const m of techView) expect(m.unitPrice).toBeUndefined();
+    expect(res.status).toBe(403);
 
-    // Admin view of the same work order: the technician-added line HAS a price.
-    const adminView = await request(app)
+    // Nothing was written.
+    const after = await request(app)
       .get(`/api/work-orders/${workOrderId}`)
       .set(auth(adminToken));
-    const line = materialsOf(adminView.body).find(
-      (m) => m.variantId === ownVariantId && m.quantity === 2,
-    );
-    expect(line?.unitPrice).toBe(28.25);
+    expect(materialsOf(after.body).length).toBe(countBefore);
+  });
+
+  it("technician cannot add a free-text line either (403)", async () => {
+    const res = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials`)
+      .set(auth(technicianToken))
+      .send({ name: "smuggled line", quantity: 1, unit: "stuk", unitPrice: 999 });
+    expect(res.status).toBe(403);
+  });
+
+  it("admin CAN add a free-text line, and prices it themselves", async () => {
+    const res = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials`)
+      .set(auth(adminToken))
+      .send({ name: `${TAG} misc sealant`, quantity: 2, unit: "stuk", unitPrice: 12.5 });
+    expect(res.status).toBe(201);
+    const line = materialsOf(res.body).find((m) => m.name === `${TAG} misc sealant`);
+    expect(line).toBeDefined();
+    // Free-text line → no catalog link (the DTO maps null to undefined).
+    expect(line!.variantId).toBeUndefined();
+    expect(line!.quantity).toBe(2);
+    expect(line!.unit).toBe("stuk");
+    expect(line!.unitPrice).toBe(12.5);
+    await request(app)
+      .delete(`/api/work-orders/${workOrderId}/materials/${line!.id}`)
+      .set(auth(adminToken));
   });
 
   it("rejects a variant from another org (404)", async () => {
@@ -338,7 +411,10 @@ describe("invoice-line editing (variant switch + derived zone status)", () => {
       .set(auth(adminToken));
   });
 
-  it("a technician cannot inject a price via variant switch (server owns it)", async () => {
+  // Scope fields on an existing line are admin-only now, so a technician can't
+  // repoint the variant OR send a price — the request is refused outright
+  // rather than silently having its price dropped.
+  it("a technician cannot repoint a line's variant or inject a price (403)", async () => {
     const added = await request(app)
       .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`)
       .set(auth(adminToken))
@@ -346,18 +422,74 @@ describe("invoice-line editing (variant switch + derived zone status)", () => {
     const created = materialsOf(added.body).find(
       (m) => m.variantId === ownVariantId && m.quantity === 1,
     )!;
-    // Technician sends a bogus unitPrice alongside a variant switch.
+
     const res = await request(app)
       .patch(`/api/work-orders/${workOrderId}/materials/${created.id}`)
       .set(auth(technicianToken))
       .send({ variantId: ownVariantId2, unitPrice: 1 });
-    expect(res.status).toBe(200);
-    // Admin re-reads: price is the VARIANT's, not the injected 1.
+    expect(res.status).toBe(403);
+
+    // Untouched: still the original variant at the original price.
     const adminView = await request(app)
       .get(`/api/work-orders/${workOrderId}`)
       .set(auth(adminToken));
     const line = materialsOf(adminView.body).find((m) => m.id === created.id);
-    expect(line!.unitPrice).toBe(40);
+    expect(line!.variantId).toBe(ownVariantId);
+    expect(line!.unitPrice).toBe(28.25);
+    await request(app)
+      .delete(`/api/work-orders/${workOrderId}/materials/${created.id}`)
+      .set(auth(adminToken));
+  });
+
+  // The other half of the same rule: a technician must still be able to
+  // REGISTER against a quoted line — tick it done, record what was used.
+  it("a technician CAN still register usage/done on a quoted line", async () => {
+    const added = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`)
+      .set(auth(adminToken))
+      .send({ variantId: ownVariantId, quantity: 5 });
+    const created = materialsOf(added.body).find(
+      (m) => m.variantId === ownVariantId && m.quantity === 5,
+    )!;
+
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}/materials/${created.id}`)
+      .set(auth(technicianToken))
+      .send({ usedQuantity: 4, onSite: true, done: true, note: "one left over" });
+    expect(res.status).toBe(200);
+
+    const adminView = await request(app)
+      .get(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken));
+    const line = materialsOf(adminView.body).find((m) => m.id === created.id);
+    expect(line!.usedQuantity).toBe(4);
+    expect(line!.done).toBe(true);
+    // The quoted quantity and price are unchanged by registration.
+    expect(line!.quantity).toBe(5);
+    expect(line!.unitPrice).toBe(28.25);
+    await request(app)
+      .delete(`/api/work-orders/${workOrderId}/materials/${created.id}`)
+      .set(auth(adminToken));
+  });
+
+  it("a technician cannot delete a quoted line (403)", async () => {
+    const added = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`)
+      .set(auth(adminToken))
+      .send({ variantId: ownVariantId, quantity: 7 });
+    const created = materialsOf(added.body).find(
+      (m) => m.variantId === ownVariantId && m.quantity === 7,
+    )!;
+
+    const res = await request(app)
+      .delete(`/api/work-orders/${workOrderId}/materials/${created.id}`)
+      .set(auth(technicianToken));
+    expect(res.status).toBe(403);
+
+    const adminView = await request(app)
+      .get(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken));
+    expect(materialsOf(adminView.body).some((m) => m.id === created.id)).toBe(true);
     await request(app)
       .delete(`/api/work-orders/${workOrderId}/materials/${created.id}`)
       .set(auth(adminToken));

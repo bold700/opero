@@ -304,15 +304,35 @@ export function addMaterialFromCatalog(
   );
 }
 
-// Update an invoice-line row inline: quantity, description (`label`), or switch
-// the catalog variant (`variantId` → name/unit/price/cost/diameter re-resolve
-// server-side; the client never sends a price). Omit a field to leave it.
+// Add a CUSTOM (free-text) line: description, quantity and unit typed by hand,
+// for miscellaneous material that isn't in the catalog. `unitPrice` is optional
+// — omit it to leave the line unpriced for the office to fill in later. The
+// route is admin-only server-side, so this is never reachable as a technician.
+export function addCustomMaterial(
+  workOrderId: string,
+  taskId: string,
+  input: { name: string; quantity: number; unit: string; unitPrice?: number },
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(
+    `/work-orders/${workOrderId}/tasks/${taskId}/materials`,
+    input,
+  );
+}
+
+// Update an invoice-line row inline: quantity, description (`label`/`name`),
+// unit, price, or switch the catalog variant (`variantId` → name/unit/price/
+// cost/diameter re-resolve server-side and any sent price is ignored). Omit a
+// field to leave it. name/unit/unitPrice are for FREE-TEXT lines, where there
+// is no variant to resolve from; the backend rejects them from non-admins.
 export function updateMaterial(
   workOrderId: string,
   matId: string,
   patch: {
     variantId?: string | null;
     label?: string | null;
+    name?: string;
+    unit?: string;
+    unitPrice?: number | null;
     quantity?: number;
     diameter?: number | null;
   },

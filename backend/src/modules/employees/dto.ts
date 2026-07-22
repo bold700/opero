@@ -1,4 +1,4 @@
-import type { Employee, TeamRole, User } from "@prisma/client";
+import type { Employee, EmployeeAbsence, TeamRole, User } from "@prisma/client";
 
 // DTO mapper — never return raw rows with internal columns to clients.
 
@@ -59,6 +59,22 @@ export function employeeListDto(e: EmployeeWithStats) {
     ...employeeDto(e),
     function: primaryRole(e.roles),
     workOrderCount,
+  };
+}
+
+// An absence period, always carrying the employee's name so the planning view
+// can render "Jan — vakantie 3–17 aug" without a second lookup.
+export function absenceDto(
+  a: EmployeeAbsence & { employee?: { id: string; name: string } },
+) {
+  return {
+    id: a.id,
+    employeeId: a.employeeId,
+    employeeName: a.employee?.name,
+    kind: a.kind,
+    startDate: a.startDate,
+    endDate: a.endDate,
+    note: a.note ?? undefined,
   };
 }
 

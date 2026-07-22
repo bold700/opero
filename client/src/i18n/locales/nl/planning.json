@@ -27,7 +27,9 @@
     "noTime": "Geen tijd",
     "pickStartFirst": "Kies eerst een starttijd",
     "dateInPast": "Datum mag niet in het verleden liggen",
-    "workOrder": "Werkbon"
+    "workOrder": "Werkbon",
+    "away": "afwezig",
+    "leaderUnavailable": "Deze monteur is afwezig van {{from}} tot en met {{to}}."
   },
   "remove": {
     "title": "Uit planning verwijderen",

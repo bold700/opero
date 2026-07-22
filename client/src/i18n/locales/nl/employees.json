@@ -53,8 +53,34 @@
     "title": "Medewerker verwijderen",
     "body": "Weet je zeker dat je \"{{name}}\" wilt verwijderen?"
   },
+  "absence": {
+    "action": "Afwezigheid",
+    "title": "Afwezigheid — {{name}}",
+    "subtitle": "Vakantie, ziekte of scholing. Tijdens deze periodes wordt de medewerker niet ingepland.",
+    "empty": "Nog geen afwezigheid vastgelegd.",
+    "kindLabel": "Soort",
+    "kind": {
+      "vacation": "Vakantie",
+      "sick": "Ziek",
+      "training": "Scholing",
+      "other": "Overig"
+    },
+    "from": "Van",
+    "to": "Tot en met",
+    "note": "Notitie (optioneel)",
+    "add": "Toevoegen",
+    "rangeError": "Einddatum ligt vóór de begindatum",
+    "loadError": "Kon afwezigheid niet laden",
+    "saveError": "Opslaan mislukt",
+    "deleteError": "Verwijderen mislukt"
+  },
   "toast": {
     "created": "Medewerker aangemaakt",
+    "createdInvited": "Medewerker aangemaakt — uitnodiging verstuurd naar {{email}}",
+    "inviteFailed": {
+      "email_taken": "Medewerker aangemaakt, maar dit e-mailadres heeft al een account. Nodig handmatig uit.",
+      "send_failed": "Medewerker aangemaakt, maar de uitnodiging kon niet worden verstuurd. Probeer het opnieuw via Uitnodigen."
+    },
     "updated": "Medewerker bijgewerkt",
     "deleted": "Medewerker verwijderd",
     "saveError": "Opslaan mislukt",

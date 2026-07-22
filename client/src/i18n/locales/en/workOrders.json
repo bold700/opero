@@ -14,6 +14,16 @@
     "urgent": "Urgent",
     "done": "Done"
   },
+  "filterBar": {
+    "toggle": "Filters",
+    "clear": "Clear",
+    "any": "All",
+    "customer": "Customer",
+    "assignee": "Technician",
+    "workType": "Work type",
+    "dateFrom": "Planned from",
+    "dateTo": "Planned until"
+  },
   "status": {
     "open": "Open",
     "onTheWay": "On the way",

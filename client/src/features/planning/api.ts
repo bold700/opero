@@ -78,7 +78,24 @@ export function getWorkOrdersForScheduling(): Promise<SchedulableWorkOrder[]> {
 }
 
 // Field staff for the team-leader dropdown in the schedule dialog.
-export type AssignableEmployee = { id: string; name: string };
-export function getAssignableEmployees(): Promise<AssignableEmployee[]> {
-  return api.get<AssignableEmployee[]>("/work-orders/assignable");
+//
+// Pass a date to get availability with it: anyone whose holiday/sick leave
+// covers that day comes back annotated `unavailable` instead of being dropped,
+// so the picker can grey them out with a reason. A missing name would read as
+// "no longer employed"; a greyed-out one reads as "away, pick someone else".
+export type AssignableEmployee = {
+  id: string;
+  name: string;
+  unavailable?: { kind: string; startDate: string; endDate: string };
+};
+
+export function getAssignableEmployees(opts?: {
+  date?: string;
+  endDate?: string;
+}): Promise<AssignableEmployee[]> {
+  const qs = new URLSearchParams();
+  if (opts?.date) qs.set("date", opts.date);
+  if (opts?.endDate) qs.set("endDate", opts.endDate);
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return api.get<AssignableEmployee[]>(`/work-orders/assignable${suffix}`);
 }

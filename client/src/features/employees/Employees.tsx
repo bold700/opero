@@ -26,6 +26,7 @@ import { EmployeesActions } from "./components/EmployeesActions";
 import { EmployeesKpis } from "./components/EmployeesKpis";
 import { EmployeesTable } from "./components/EmployeesTable";
 import { EmployeeDialog } from "./components/EmployeeDialog";
+import { AbsenceDialog } from "./components/AbsenceDialog";
 import { InviteDialog, type InviteFixedTarget } from "../users/components/InviteDialog";
 import { inviteUser, type InviteInput } from "../users/api";
 
@@ -69,6 +70,8 @@ export function Employees() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Non-null → the absence dialog is open for that employee.
+  const [absenceTarget, setAbsenceTarget] = useState<EmployeeRow | null>(null);
 
   // Invite flow — provision a login for this employee (person already known).
   const [inviteTarget, setInviteTarget] = useState<InviteFixedTarget | null>(null);
@@ -97,10 +100,24 @@ export function Employees() {
     setBusy(true);
     setFormError(null);
     try {
-      if (editing) await updateEmployee(editing.id, input);
-      else await createEmployee(input);
-      setDialogOpen(false);
-      setToast(t(editing ? "employees.toast.updated" : "employees.toast.created"));
+      if (editing) {
+        await updateEmployee(editing.id, input);
+        setDialogOpen(false);
+        setToast(t("employees.toast.updated"));
+      } else {
+        const created = await createEmployee(input);
+        setDialogOpen(false);
+        // Say what happened to the auto-invite, so "no account arrived" is
+        // never silent. Falls back to the plain created toast when the person
+        // has no email (nothing was attempted, and that's expected).
+        setToast(
+          created.invite?.invited
+            ? t("employees.toast.createdInvited", { email: created.email })
+            : created.invite && created.invite.reason !== "no_email"
+              ? t(`employees.toast.inviteFailed.${created.invite.reason}`)
+              : t("employees.toast.created"),
+        );
+      }
       refresh();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : t("employees.toast.saveError"));
@@ -188,11 +205,17 @@ export function Employees() {
           onEdit={openEdit}
           onDelete={setDeleting}
           onInvite={openInvite}
+          onAbsences={setAbsenceTarget}
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}
         />
       )}
+
+      <AbsenceDialog
+        employee={absenceTarget}
+        onClose={() => setAbsenceTarget(null)}
+      />
 
       <EmployeeDialog
         open={dialogOpen}

@@ -15,7 +15,7 @@ import {
   type Role,
   type TeamMember,
   type WorkOrderExecution,
-  type WorkOrderStatus,
+  type MockWorkOrderStatus,
 } from "./types";
 
 export const mockCustomers: Customer[] = [
@@ -283,7 +283,7 @@ type ProjectSeed = {
   nextStepKey: string;
   plannedDate?: string;
   materialRequirements: MaterialRequirement[];
-  workOrderStatus?: WorkOrderStatus;
+  workOrderStatus?: MockWorkOrderStatus;
   deliveryCompleteIds?: string[];
 };
 

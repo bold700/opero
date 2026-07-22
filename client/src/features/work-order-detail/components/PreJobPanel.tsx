@@ -124,7 +124,9 @@ export function PreJobPanel({
                       const v = e.target.value.trim();
                       if (v && v !== item.label) onRenameItem(item.id, v);
                     }}
-                    sx={{ flex: 1 }}
+                    // minWidth:0 or the input's intrinsic ~180px floor pushes
+                    // the three icon buttons off the right edge on a phone.
+                    sx={{ flex: 1, minWidth: 0 }}
                   />
                   <IconButton size="small" disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={t("workOrderDetail.prejob.moveUp")}>
                     <ArrowUpwardIcon fontSize="small" />

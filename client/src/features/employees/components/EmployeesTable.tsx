@@ -4,7 +4,9 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
+import Tooltip from "@mui/material/Tooltip";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
@@ -20,6 +22,7 @@ export function EmployeesTable({
   onEdit,
   onDelete,
   onInvite,
+  onAbsences,
   hasMore,
   loadingMore,
   onLoadMore,
@@ -29,6 +32,7 @@ export function EmployeesTable({
   onEdit: (e: EmployeeRow) => void;
   onDelete: (e: EmployeeRow) => void;
   onInvite: (e: EmployeeRow) => void;
+  onAbsences: (e: EmployeeRow) => void;
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
@@ -66,6 +70,17 @@ export function EmployeesTable({
   const actionsCell = (r: EmployeeRow) =>
     canManage ? (
       <Box sx={{ display: "inline-flex", gap: 0.5 }}>
+        {/* Absence periods (holiday/sick). Planning reads these to stop
+            offering someone who is away. */}
+        <Tooltip title={t("employees.absence.action")}>
+          <IconButton
+            size="small"
+            aria-label={t("employees.absence.action")}
+            onClick={() => onAbsences(r)}
+          >
+            <EventBusyOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(r)}>
           <EditOutlinedIcon fontSize="small" />
         </IconButton>

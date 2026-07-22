@@ -1,98 +1,113 @@
 # WOB Isolatie — client feedback (17-07-2026)
 
-Source: `WOB Isolatie (1).pdf`, dated 17-07-2026. Each item below is checked against
-the actual codebase as of this date, not taken at face value — see file:line
-evidence per item.
+Source: `WOB Isolatie (1).pdf`, dated 17-07-2026. Every item below was checked
+against the actual codebase, not taken at face value. Status as of 22-07-2026,
+after the implementation pass.
 
-## Already exists — no action needed
+## Done in this pass
 
-- **Reopen a closed werkbon** — `POST /work-orders/:id/reopen` (admin-only),
-  button in `DetailHeader.tsx`.
-- **Photo expand/lightbox on mobile** — `client/src/components/Lightbox.tsx` +
-  `PhotoGrid.tsx`, viewport-relative sizing, already wired to task photos.
-- **Technician sees own work orders only** — `canViewProject()`
-  (`backend/src/modules/projects/visibility.ts`) scopes list + detail to
-  assigned projects (teamLeader/projectLeader/installer). Admin sees all.
-- **Technicians have their own login** — separate `User`/`Employee` models,
-  invite-based provisioning (`backend/src/modules/users/routes.ts`).
-- **Work order overview filters** — status chips (Alle/Open/Onderweg/Spoed/Klaar)
-  + search by title/nummer/klant (`client/src/features/work-orders/`).
+1. **Comments field position** — the werkomschrijving sat directly under the
+   zone title, where the two fields read as one block. Moved BELOW the photo
+   upload and given a visible label (`ZoneCard.tsx`).
 
-## Real gaps — new work
+2. **Technicians can no longer change the quoted work.** This was the real gap:
+   `PATCH /tasks/:taskId`, `PATCH /materials/:matId` and `DELETE
+   /materials/:matId` had no role check at all, so any assigned monteur could
+   rewrite descriptions, change quantities/prices, or delete a quoted line —
+   all of which feed `recomputeQuoteAmount()` and move the invoice. Now split
+   FIELD BY FIELD (`work-orders/routes.ts`):
+   - technician → `done`, `note`, `usedQuantity`, `onSite` (registration)
+   - admin → + `description`, `day`, `workTypeId`, `assigneeId`, `name`,
+     `unit`, `quantity`, `unitPrice`, `diameter`, `label`, `variantId` (scope)
 
-1. **KVK database check on customer creation** — doesn't exist anywhere.
-   Needs an actual KVK API integration, not just a form field.
-2. **Silvasoft/Excel import for customers** — doesn't exist. Only CSV *export*
-   exists (Reports). Needs Silvasoft's export format before it's buildable.
-3. **PDF/file upload on werkbons** — currently image-only (JPEG/PNG/WebP,
-   re-encoded to JPEG) on task/prejob/meerwerk photo routes. `allowPdf` already
-   exists as a flag in the upload layer (`backend/src/lib/upload.ts`), used
-   today only by the separate "drawings" feature — extending it to the other
-   photo routes is small and low-risk.
-4. **Vacation/absence scheduling per employee** — only a static `on_leave`
-   status toggle exists (`EmployeeStatus` enum), no dates. "Automatically not
-   scheduled or invoiced" needs real date-range absence records that Planning
-   and invoicing both read — a bigger feature (new model + Planning
-   integration), not a toggle.
-5. **Status doesn't reach "Completed" reliably** — confirmed bug:
-   `deriveWorkOrderStatus()` (`backend/src/modules/work-orders/status.ts`)
-   never reads `signedAt`. A signed werkbon with zero tasks (or all tasks
-   later deleted) can stay "Open"/"Onderweg" forever and never surface under
-   the Klaar filter. Worth fixing independent of the rest of this list.
-6. **Materials edit affordance unclear** — partially addressed already
-   (description is read-only by design now, quantity is click-to-edit), but
-   there's no edit icon or visible hint that quantity is clickable. Small UI
-   polish.
-7. **Request intake automation** ("can this be partially automated") —
-   open-ended, no concrete ask in the doc. Needs the client to say what
-   "automated" means (auto-parse the email? auto-create a draft
-   customer/project?) before it's buildable.
+   Adding and deleting lines is admin-only (`requireQuoteScopeEditor`). The
+   monteur's channel for "this needed more than we sold" remains meerwerk,
+   which the office prices and approves. Mirrored in the UI by splitting
+   `canWrite` into `canWrite` / `canEditScope`.
 
-## Conflicts with decisions already made — need a client call, not a build
+3. **Custom / miscellaneous materials.** The backend already accepted free-text
+   lines but the client never called it — `AddTaskLineDialog` was catalog-only.
+   It now has a catalog/custom toggle: description + quantity + unit typed by
+   hand, price admin-only. This also gave free-text lines an edit path; the
+   pencil used to be hidden for them entirely.
 
-- **"Technicians should be able to add or edit materials"** (Technicians
-  section) directly contradicts **"Technicians only register additional work,
-  should not change the original work from quotation/work order"** (Features
-  section) *and* contradicts the client's own direct instruction earlier this
-  session ("technician shouldn't be able to add a task"). These can't all be
-  true simultaneously. Best read: "add/edit materials" refers to **meerwerk**,
-  not task lines — consistent with what's already built (technicians can
-  report meerwerk; they cannot add/delete zones or task lines). Flagging so
-  the wrong one doesn't get built.
-- **"Custom/miscellaneous materials, user enters description/price/quantity
-  themselves"** — this is the exact free-text-price hole already closed on
-  task lines this session. It is confirmed still open on **meerwerk**:
-  `addExtraWorkSchema` (`backend/src/modules/projects/schema.ts`) accepts a
-  client-supplied `unitPrice` with zero server-side resolution, reachable by
-  technicians via `POST /:id/extra-work`. Same bug, different door — this was
-  mid-plan when deprioritized in favor of other fixes this session.
-- **"Technicians should not be able to see prices"** — stated as absolute in
-  the doc, but the code has an admin-facing toggle
-  (`Organization.hidePricesFromTechnicians`, Settings → Preferences,
-  `shared/src/permissions.ts` `canSeePrices()`) that can turn technician price
-  visibility back on. If this is meant to be non-negotiable, the toggle
-  itself should probably be removed, not just defaulted to hidden.
+4. **Materials edit affordance.** Quantity was click-to-edit whose only hint was
+   a CSS cursor change — not discoverable, not keyboard-reachable. Now a real
+   focusable button with a dotted underline and hover state; edit/delete icons
+   are tooltipped.
 
-## Needs a decision, not a fix
+5. **Auto-create a login when an employee is created.** `POST /employees` only
+   created the Employee row. It now provisions an invited User and sends the
+   invite (`users/provisioning.ts`, shared with the manual invite flow).
+   Deliberately BEST-EFFORT — a taken email or a dead mail provider must not
+   fail the employee create — and the outcome is reported in the response so
+   the UI can say what happened. Always the `technician` role, never `admin`:
+   TeamRole is a job title, not an access level.
 
-- **"Technicians only register additional work"** — mostly true today, except
-  a technician can still `PATCH` a zone's `description`/`workTypeId`/
-  `assigneeId` directly via the API (`PATCH /work-orders/:id/tasks/:taskId`
-  is gated only by `requireWritableWorkOrder`, not `requireRole("admin")`).
-  The UI doesn't expose this as obviously off-limits either. Only worth
-  tightening if zone title/work-type is confirmed to be office-only, the same
-  as zone create/delete already is.
+6. **Work-order overview filters.** Was status chips + text search only. Added
+   customer, monteur, work type and a planned-date range, plus
+   `GET /work-orders/filter-options` for the dropdowns. Filters are ANDed as
+   separate where-fragments (never spread — see the `projectScopeWhere`
+   OR-clobber bug), and `customerId` is ignored for the `client` role so it
+   can't be used to widen visibility.
 
-## Suggested priority
+7. **Vacation / absence per employee.** New `EmployeeAbsence` model with
+   inclusive `YYYY-MM-DD` ranges and a kind (vacation/sick/training/other),
+   admin CRUD under `/employees/absences`, and a management dialog on the
+   Employees screen. Planning reads it: `/work-orders/assignable?date=`
+   annotates absent staff (they stay listed — a missing name reads as "no
+   longer employed"), and scheduling an absent team leader is refused with a
+   message naming the person and period. The "not invoiced" half needed no
+   subtraction (hours are logged per task, so absent days contribute nothing);
+   instead the timesheet now reports `absentHours` when hours WERE logged on an
+   absent day, since that means the two records disagree.
 
-Given what's already been tightened this session (zone create/delete
-admin-only, task-line free text removed, reopen added), the two gaps most
-consistent with that direction:
+8. **Dead status enum removed.** `enum WorkOrderStatus` in `schema.prisma` was
+   referenced by no model, and `shared/src/types.ts` mirrored it. Both declared
+   a `completed` value the runtime never produces — the live column is
+   `WorkOrder.listStatus` with `open | on_the_way | urgent | done`. This is
+   almost certainly why status looked "not linked correctly". The Prisma enum
+   is dropped; the shared type is renamed `MockWorkOrderStatus` (it is used
+   only by the mock fixtures) with a comment pointing at the real one.
 
-1. **#5 — status/Klaar bug.** A signed werkbon silently not showing as done is
-   a data-integrity issue, not a preference.
-2. **Meerwerk free-text-price hole.** Same class of bug already fixed on task
-   lines; leaving it open on meerwerk defeats the point of fixing task lines.
+## Already worked — verified, no change needed
 
-Everything else in this doc is new scope and should be scheduled separately
-from bug fixes.
+- **Status reaching "Completed"** — `deriveWorkOrderStatus()` returns `"done"`
+  on `signedAt` first, and `recomputeWorkOrderStatus` runs on every mutation
+  path. The reported symptom was the phantom `completed` enum above (#8).
+- **Reopen a closed werkbon** — `POST /work-orders/:id/reopen`, admin-only,
+  with a confirm dialog.
+- **PDF upload on werkbons** — `WorkOrderAttachment` + `AttachmentsPanel`,
+  PDF/JPEG/PNG/WebP. Office formats (docx/xlsx) are still rejected.
+- **Photo expand on mobile** — `Lightbox.tsx`, tap-to-expand, viewport-sized.
+  No pinch-zoom or swipe-between-photos yet.
+- **Technician sees only their own werkbons** — enforced in the backend
+  where-clause, 404 not 403.
+- **Technicians cannot see prices** — stripped server-side per role, not merely
+  hidden. The old `hidePricesFromTechnicians` org toggle was already dropped in
+  migration `20260720120000`, so this is now absolute as the client asked.
+- **Meerwerk free-text price** — already admin-gated on both create and update;
+  an earlier draft of this doc claimed otherwise.
+
+## Still open — needs input or is a separate project
+
+- **KVK database check** — no integration exists, and `Customer` has no KVK
+  field (the only `kvkNumber` is the org's own, on the settings form). Needs a
+  real KVK API subscription + credentials before it's buildable.
+- **Silvasoft import via Excel** — nothing exists, and no spreadsheet library is
+  installed. Blocked on a sample Silvasoft export to map the columns.
+- **Request intake automation** ("can this process be partially automated?") —
+  no inbound mail anywhere; the `Intake` model is a post-sale site survey, not
+  a request inbox. Underspecified as written: needs the client to say what
+  "automated" means (parse the email? create a draft customer/project for
+  review?) before it can be scoped.
+
+## Note on a contradiction in the source document
+
+The PDF asks for both "technicians only need to register additional work, they
+should not be able to change the original work" (Features) and "technicians
+should be able to add or edit materials" (Technicians). These cannot both hold
+for quoted task lines. Resolved as: technicians register usage and report
+meerwerk freely; changing the quoted scope is office work. This matches the
+client's separate instruction that a technician should not be able to add a
+task. Flagged here so the decision is visible and reversible.

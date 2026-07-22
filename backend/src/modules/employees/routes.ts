@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Prisma, TeamRole } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
-import { Forbidden, NotFound } from "../../lib/httpError.js";
+import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
@@ -11,8 +11,17 @@ import {
   createEmployeeSchema,
   updateEmployeeSchema,
   toggleRoleSchema,
+  createAbsenceSchema,
+  updateAbsenceSchema,
 } from "./schema.js";
-import { employeeDto, employeeListDto, employeeListInclude } from "./dto.js";
+import {
+  employeeDto,
+  employeeListDto,
+  employeeListInclude,
+  absenceDto,
+} from "./dto.js";
+import { autoInviteEmployee } from "../users/provisioning.js";
+import { absencesInRange, isIsoDay, todayIso } from "./absence.js";
 
 export const employeesRouter = Router();
 
@@ -120,6 +129,134 @@ employeesRouter.get(
   }),
 );
 
+// --- Absences (vacation / sick / training) ---------------------------------
+//
+// Dated unavailability per employee, so planning stops offering someone who is
+// away ("allow vacation and absence periods to be scheduled per employee, so
+// employees are automatically not scheduled or invoiced" — WOB Isolatie).
+//
+// These MUST precede "/:id", or Express matches "absences" as an employee id.
+
+// GET /employees/absences?from=&to=&employeeId= — admin only. Without a range,
+// returns everything from today onward (the useful default for planning).
+employeesRouter.get(
+  "/absences",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const from = isIsoDay(req.query.from) ? req.query.from : todayIso();
+    // Open-ended by default: a far-future bound keeps the query shape uniform
+    // without needing a separate "no upper bound" branch.
+    const to = isIsoDay(req.query.to) ? req.query.to : "9999-12-31";
+    const employeeId =
+      typeof req.query.employeeId === "string" ? req.query.employeeId : undefined;
+
+    const rows = await absencesInRange(
+      user.orgId,
+      from,
+      to,
+      employeeId ? [employeeId] : undefined,
+    );
+    res.json(rows.map(absenceDto));
+  }),
+);
+
+// POST /employees/absences — admin only.
+employeesRouter.post(
+  "/absences",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = createAbsenceSchema.parse(req.body);
+
+    const employee = await prisma.employee.findFirst({
+      where: { id: input.employeeId, orgId: user.orgId, deletedAt: null },
+    });
+    if (!employee) throw NotFound("Employee not found");
+
+    const created = await prisma.$transaction(async (tx) => {
+      const a = await tx.employeeAbsence.create({
+        data: {
+          orgId: user.orgId,
+          employeeId: input.employeeId,
+          kind: input.kind ?? "vacation",
+          startDate: input.startDate,
+          endDate: input.endDate,
+          note: input.note ? clampText(input.note) : null,
+        },
+        include: { employee: { select: { id: true, name: true } } },
+      });
+      await audit(tx, user, "employee.absence.create", "employeeAbsence", a.id, {
+        employeeId: input.employeeId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+      return a;
+    });
+    res.status(201).json(absenceDto(created));
+  }),
+);
+
+// PATCH /employees/absences/:absenceId — admin only.
+employeesRouter.patch(
+  "/absences/:absenceId",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = updateAbsenceSchema.parse(req.body);
+    const existing = await prisma.employeeAbsence.findFirst({
+      where: { id: req.params.absenceId, orgId: user.orgId },
+    });
+    if (!existing) throw NotFound("Absence not found");
+
+    // Re-check the ordering against the MERGED range: a patch that moves only
+    // one end can still invert the period.
+    const startDate = input.startDate ?? existing.startDate;
+    const endDate = input.endDate ?? existing.endDate;
+    if (startDate > endDate) throw BadRequest("endDate must not be before startDate");
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const a = await tx.employeeAbsence.update({
+        where: { id: existing.id },
+        data: {
+          kind: input.kind ?? undefined,
+          startDate,
+          endDate,
+          note:
+            input.note !== undefined
+              ? input.note === null
+                ? null
+                : clampText(input.note)
+              : undefined,
+        },
+        include: { employee: { select: { id: true, name: true } } },
+      });
+      await audit(tx, user, "employee.absence.update", "employeeAbsence", a.id, input);
+      return a;
+    });
+    res.json(absenceDto(updated));
+  }),
+);
+
+// DELETE /employees/absences/:absenceId — admin only. Hard delete: an absence
+// that was entered by mistake should leave no trace on the planning view.
+employeesRouter.delete(
+  "/absences/:absenceId",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const existing = await prisma.employeeAbsence.findFirst({
+      where: { id: req.params.absenceId, orgId: user.orgId },
+    });
+    if (!existing) throw NotFound("Absence not found");
+    await prisma.$transaction(async (tx) => {
+      await tx.employeeAbsence.delete({ where: { id: existing.id } });
+      await audit(tx, user, "employee.absence.delete", "employeeAbsence", existing.id);
+    });
+    res.status(204).end();
+  }),
+);
+
 // GET /employees/:id — admin only.
 employeesRouter.get(
   "/:id",
@@ -156,7 +293,21 @@ employeesRouter.post(
       await audit(tx, user, "employee.create", "employee", e.id, { name: e.name });
       return e;
     });
-    res.status(201).json(employeeDto(created));
+
+    // Auto-provision a login: "when an employee is created, an account should
+    // automatically be created for them" (WOB Isolatie, 17-07-2026). Only
+    // possible with an email address, and deliberately BEST-EFFORT — the
+    // employee record must not fail to save because the address is already
+    // taken or the mail provider is down. The outcome ships in the response so
+    // the UI can say what happened; the manual Invite action remains the retry.
+    //
+    // ALWAYS the technician role, never admin — even for office job titles.
+    // TeamRole is a job description ("Planner"), not an access level, and
+    // silently minting an admin login from one would be privilege escalation by
+    // typo. An admin promotes the account afterwards from the Access screen.
+    const invite = await autoInviteEmployee(user, created, "technician");
+
+    res.status(201).json({ ...employeeDto(created), invite });
   }),
 );
 
@@ -320,6 +471,44 @@ employeesRouter.get(
       }
     }
 
-    res.json({ employeeId, totalHours, entries });
+    // "…so employees are automatically not scheduled OR INVOICED" (WOB
+    // Isolatie, 17-07-2026). Hours are only ever logged against a task, so an
+    // absent day normally contributes nothing and drops out on its own — the
+    // invoicing half needs no subtraction.
+    //
+    // What it DOES need is a check that the two never contradict each other.
+    // Hours logged on a day the employee was recorded absent means one of the
+    // two is wrong (someone worked and the holiday wasn't cancelled, or the
+    // hours went onto the wrong person). Silently billing them is the bad
+    // outcome, so those entries are flagged and reported separately instead of
+    // being quietly folded into the total.
+    const absences = await absencesInRange(
+      user.orgId,
+      from ?? "0000-01-01",
+      to ?? "9999-12-31",
+      [employeeId],
+    );
+    const isAbsentOn = (day: string | null) =>
+      day != null && absences.some((a) => a.startDate <= day && day <= a.endDate);
+
+    const conflicting = entries.filter((e) => isAbsentOn(e.day));
+    const absentHours = conflicting.reduce((sum, e) => sum + e.hours, 0);
+
+    res.json({
+      employeeId,
+      totalHours,
+      entries,
+      // Days the employee was recorded absent, for the timesheet to show as
+      // non-working rows rather than gaps.
+      absences: absences.map((a) => ({
+        id: a.id,
+        kind: a.kind,
+        startDate: a.startDate,
+        endDate: a.endDate,
+      })),
+      // Non-zero means the timesheet and the absence calendar disagree.
+      absentHours,
+      conflictingEntries: conflicting,
+    });
   }),
 );

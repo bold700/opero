@@ -27,6 +27,7 @@ import {
   type WorkOrderWithRelations,
 } from "./dto.js";
 import { recomputeWorkOrderStatus } from "./status.js";
+import { absencesInRange, isIsoDay } from "../employees/absence.js";
 import { buildWorkOrderPdf, type WorkOrderPdfData } from "./pdf.js";
 import { buildQuotePdf, type QuotePdfData } from "./quote-pdf.js";
 import { buildMaterialLineName, parseDiameter, LINE_UNIT_LABELS } from "../materials/labels.js";
@@ -171,6 +172,28 @@ async function requireWritableWorkOrder(user: AuthUser, workOrderId: string) {
   return loaded;
 }
 
+// Guard for editing the QUOTED SCOPE (what was sold), as opposed to registering
+// what happened on site.
+//
+// A technician may register: usage, on-site/done flags, notes, photos, and
+// meerwerk (extra work) — see the /extra-work routes. They may NOT rewrite or
+// delete the work that came off the quotation, because every one of those
+// fields feeds recomputeQuoteAmount() and therefore moves the amount invoiced
+// to the customer. Scope is office work; the monteur's channel for "this job
+// needed more than we sold" is meerwerk, which the office then approves.
+//
+// Assignment is still required — admin-only is not enough on its own, the
+// work order must also be writable (not signed off).
+async function requireQuoteScopeEditor(user: AuthUser, workOrderId: string) {
+  const loaded = await requireWritableWorkOrder(user, workOrderId);
+  if (user.role !== "admin") {
+    throw Forbidden(
+      "Only the office can change the quoted work. Report extra work instead.",
+    );
+  }
+  return loaded;
+}
+
 // Reload + serialize a workOrder (role-aware DTO with price-stripping).
 async function reloadWorkOrder(user: AuthUser, workOrderId: string) {
   // Every mutating work-order route funnels through here on its way to the
@@ -287,18 +310,80 @@ workOrdersRouter.get(
       ];
     }
 
+    // Narrowing filters, so a werkbon can still be found months later ("improve
+    // the filters in the work order overview" — WOB Isolatie, 17-07-2026). All
+    // optional; each is ANDed onto the visibility filter below.
+    const customerId =
+      typeof req.query.customerId === "string" ? req.query.customerId : undefined;
+    const assigneeId =
+      typeof req.query.assigneeId === "string" ? req.query.assigneeId : undefined;
+    const workTypeId =
+      typeof req.query.workTypeId === "string" ? req.query.workTypeId : undefined;
+    // Date range on plannedDate, inclusive both ends. plannedDate is a plain
+    // "YYYY-MM-DD" STRING column, not a DateTime — that format sorts and
+    // compares lexicographically, so gte/lte on the raw string is correct and
+    // needs no timezone handling. Anything not in that shape is ignored rather
+    // than 400: a stale bookmark shouldn't error.
+    const isoDay = (v: unknown): string | undefined =>
+      typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined;
+    const dateFrom = isoDay(req.query.dateFrom);
+    const dateTo = isoDay(req.query.dateTo);
+
+    // Customer filter — NEVER for a client role. Their projectWhere.customerId
+    // is their identity, not a preference; honouring a customerId query param
+    // here would overwrite it and let them list another customer's work orders.
+    if (customerId && user.role !== "client") {
+      projectWhere.customerId = customerId;
+    }
+
     // Base visibility filter (shared by counts + the page query). Search matches
     // the same project fields the global search does (number/customer/city/title).
-    const baseWhere: Prisma.WorkOrderWhereInput = { project: projectWhere };
+    //
+    // Fragments are collected and ANDed — never spread onto one object, because
+    // two fragments that both use OR would clobber each other and silently widen
+    // visibility (the projectScopeWhere bug). Same reasoning here.
+    const filters: Prisma.WorkOrderWhereInput[] = [{ project: projectWhere }];
+
     if (search) {
       const ci = { contains: search, mode: "insensitive" as const };
-      baseWhere.OR = [
-        { title: ci },
-        { project: { is: { projectNumber: ci } } },
-        { project: { is: { customerName: ci } } },
-        { project: { is: { city: ci } } },
-      ];
+      filters.push({
+        OR: [
+          { title: ci },
+          { project: { is: { projectNumber: ci } } },
+          { project: { is: { customerName: ci } } },
+          { project: { is: { city: ci } } },
+        ],
+      });
     }
+
+    // Assignee matches either the werkbon's own assignees or a per-zone
+    // assignee, since a monteur can be attached at either level.
+    if (assigneeId) {
+      filters.push({
+        OR: [
+          { assignees: { some: { id: assigneeId } } },
+          { tasks: { some: { assigneeId } } },
+        ],
+      });
+    }
+
+    // Work type lives per ZONE (WorkOrderTask.workTypeId), not on the werkbon,
+    // so a werkbon matches when any of its zones does.
+    if (workTypeId) {
+      filters.push({ tasks: { some: { workTypeId } } });
+    }
+
+    if (dateFrom || dateTo) {
+      filters.push({
+        plannedDate: {
+          ...(dateFrom ? { gte: dateFrom } : {}),
+          ...(dateTo ? { lte: dateTo } : {}),
+        },
+      });
+    }
+
+    const baseWhere: Prisma.WorkOrderWhereInput =
+      filters.length === 1 ? filters[0] : { AND: filters };
 
     // Per-status counts across the whole scoped+searched set (not just the page).
     const grouped = await prisma.workOrder.groupBy({
@@ -335,9 +420,15 @@ workOrdersRouter.get(
   }),
 );
 
-// GET /work-orders/assignable — field staff {id, name} for per-task assignment.
-// Readable by admin + technician (the employees list is admin-only, but
-// technicians assign tasks on the detail screen). Must precede "/:id".
+// GET /work-orders/assignable?date=&endDate= — field staff {id, name} for
+// per-task assignment. Readable by admin + technician (the employees list is
+// admin-only, but technicians assign tasks on the detail screen). Must precede
+// "/:id".
+//
+// When a date (or range) is supplied, anyone with an absence overlapping it is
+// annotated `unavailable` with the reason. They are RETURNED, not removed: the
+// office needs to see that Jan exists and is on holiday, otherwise a missing
+// name reads as "no longer employed". The picker greys them out.
 workOrdersRouter.get(
   "/assignable",
   asyncHandler(async (req, res) => {
@@ -348,7 +439,90 @@ workOrdersRouter.get(
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
-    res.json(rows);
+
+    const from = isIsoDay(req.query.date) ? req.query.date : undefined;
+    if (!from) {
+      res.json(rows);
+      return;
+    }
+    const to = isIsoDay(req.query.endDate) ? req.query.endDate : from;
+
+    const absences = await absencesInRange(
+      user.orgId,
+      from,
+      to,
+      rows.map((r) => r.id),
+    );
+    const byEmployee = new Map(absences.map((a) => [a.employeeId, a]));
+    res.json(
+      rows.map((r) => {
+        const a = byEmployee.get(r.id);
+        return a
+          ? {
+              ...r,
+              unavailable: {
+                kind: a.kind,
+                startDate: a.startDate,
+                endDate: a.endDate,
+              },
+            }
+          : r;
+      }),
+    );
+  }),
+);
+
+// GET /work-orders/filter-options — the dropdown contents for the overview's
+// filter bar: customers, assignable staff, and work types. Must precede "/:id",
+// or Express matches this path as an id.
+//
+// Each list is scoped the same way the work-order list itself is, so the filter
+// menu can never hint at data the requester can't see: a technician only gets
+// customers/colleagues appearing on their own werkbons, and a client gets
+// nothing but their own customer.
+workOrdersRouter.get(
+  "/filter-options",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+
+    const projectWhere: Prisma.ProjectWhereInput = {
+      orgId: user.orgId,
+      deletedAt: null,
+    };
+    if (user.role === "client") {
+      projectWhere.customerId = user.customerId ?? "__none__";
+    } else if (user.role === "technician") {
+      const employeeId = user.employeeId ?? "__none__";
+      projectWhere.OR = [
+        { teamLeaderId: employeeId },
+        { projectLeaderId: employeeId },
+        { installers: { some: { id: employeeId } } },
+      ];
+    }
+
+    const [customers, assignees, workTypes] = await Promise.all([
+      prisma.customer.findMany({
+        where: { orgId: user.orgId, deletedAt: null, projects: { some: projectWhere } },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      // Assignable staff: only meaningful for someone who can see more than
+      // their own werkbons, so clients get an empty list.
+      user.role === "client"
+        ? Promise.resolve([])
+        : prisma.employee.findMany({
+            where: { orgId: user.orgId, deletedAt: null, status: "active" },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          }),
+      prisma.workType.findMany({
+        where: { orgId: user.orgId },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+    ]);
+
+    res.json({ customers, assignees, workTypes });
   }),
 );
 
@@ -1106,12 +1280,31 @@ workOrdersRouter.post(
 
 // PATCH /work-orders/:id/tasks/:taskId — update description/day/done/note plus
 // the per-zone work type + assignee (both validated against the org).
+//
+// FIELD-LEVEL role split (not a whole-route gate — a technician must still be
+// able to tick a zone done and leave a note):
+//   technician → done, note                     (registering what happened)
+//   admin      → + description, day, workTypeId, assigneeId  (the quoted scope)
+// Zone title/work-type/assignee define what was sold and who owes it; letting
+// a monteur rewrite them silently re-scopes the job. See requireQuoteScopeEditor.
+const TASK_SCOPE_FIELDS = ["description", "day", "workTypeId", "assigneeId"] as const;
+
 workOrdersRouter.patch(
   "/:id/tasks/:taskId",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateTaskSchema.parse(req.body);
     await requireWritableWorkOrder(user, req.params.id);
+
+    if (user.role !== "admin") {
+      const attempted = TASK_SCOPE_FIELDS.filter((f) => input[f] !== undefined);
+      if (attempted.length > 0) {
+        throw Forbidden(
+          `Only the office can change the quoted work (${attempted.join(", ")}). Report extra work instead.`,
+        );
+      }
+    }
+
     const task = await loadTask(req.params.id, req.params.taskId);
 
     // Validate FKs belong to the org (null clears; undefined leaves unchanged).
@@ -1433,13 +1626,20 @@ workOrdersRouter.delete(
 // TASK MATERIALS (shared line item)
 // =========================================================================
 
-// POST /work-orders/:id/tasks/:taskId/materials — add blank OR seeded line.
+// POST /work-orders/:id/tasks/:taskId/materials — add a CUSTOM (free-text) line:
+// description + quantity + unit typed by hand, for material that isn't in the
+// catalog. Admin-only, like every other quoted-scope write: a new line adds to
+// what the customer is invoiced. The monteur's equivalent is meerwerk.
+//
+// unitPrice is accepted here (admin-only by the route gate, so there is no
+// technician path to it) — the office is expected to price a miscellaneous line
+// themselves, since there is no variant to resolve it from.
 workOrdersRouter.post(
   "/:id/tasks/:taskId/materials",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = addMaterialSchema.parse(req.body);
-    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const { project } = await requireQuoteScopeEditor(user, req.params.id);
     const task = await loadTask(req.params.id, req.params.taskId);
     const wb = await prisma.workOrder.findUniqueOrThrow({
       where: { id: req.params.id },
@@ -1489,12 +1689,14 @@ workOrdersRouter.post(
 // the MaterialVariant: a technician's own API responses strip prices, so
 // client-side autofill would create priceless lines. The variant is org-scoped
 // via its parent material.
+// Admin-only for the same reason as the free-text variant above: a new catalog
+// line adds to the quoted amount.
 workOrdersRouter.post(
   "/:id/tasks/:taskId/materials/from-catalog",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = addMaterialFromCatalogSchema.parse(req.body);
-    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const { project } = await requireQuoteScopeEditor(user, req.params.id);
     const task = await loadTask(req.params.id, req.params.taskId);
     const wb = await prisma.workOrder.findUniqueOrThrow({
       where: { id: req.params.id },
@@ -1548,12 +1750,39 @@ workOrdersRouter.post(
 );
 
 // PATCH /work-orders/:id/materials/:matId — update a line item.
+//
+// FIELD-LEVEL role split, same rule as PATCH /tasks/:taskId:
+//   technician → usedQuantity, onSite, done, note   (what happened on site)
+//   admin      → + name, unit, quantity, unitPrice, diameter, label, variantId
+// The admin-only set is the invoice line itself: quantity and unitPrice feed
+// recomputeQuoteAmount() directly, and name/variant decide WHAT was billed. A
+// monteur who needs more material reports meerwerk; the office prices it.
+const MATERIAL_SCOPE_FIELDS = [
+  "name",
+  "unit",
+  "quantity",
+  "unitPrice",
+  "diameter",
+  "label",
+  "variantId",
+] as const;
+
 workOrdersRouter.patch(
   "/:id/materials/:matId",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateMaterialSchema.parse(req.body);
     const { project } = await requireWritableWorkOrder(user, req.params.id);
+
+    if (user.role !== "admin") {
+      const attempted = MATERIAL_SCOPE_FIELDS.filter((f) => input[f] !== undefined);
+      if (attempted.length > 0) {
+        throw Forbidden(
+          `Only the office can change the quoted line (${attempted.join(", ")}). Report extra work instead.`,
+        );
+      }
+    }
+
     const before = await loadMaterial(req.params.id, req.params.matId);
 
     // Repointing at a catalog variant: re-resolve name/unit/price/cost/diameter
@@ -1647,12 +1876,15 @@ workOrdersRouter.patch(
   }),
 );
 
-// DELETE /work-orders/:id/materials/:matId — remove a line item.
+// DELETE /work-orders/:id/materials/:matId — remove a line item. Admin-only:
+// deleting a quoted line silently reduces the invoice. A monteur who didn't
+// need the material sets usedQuantity 0 (or leaves it not-done) instead, which
+// records the fact without rewriting what was sold.
 workOrdersRouter.delete(
   "/:id/materials/:matId",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const { project } = await requireQuoteScopeEditor(user, req.params.id);
     const before = await loadMaterial(req.params.id, req.params.matId);
     await prisma.$transaction(async (tx) => {
       await tx.taskMaterial.delete({ where: { id: before.id } });

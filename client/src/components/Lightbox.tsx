@@ -1,10 +1,8 @@
-import Dialog from "@mui/material/Dialog";
-import Box from "@mui/material/Box";
-import IconButton from "@mui/material/IconButton";
-import CloseIcon from "@mui/icons-material/Close";
+import { FileViewer } from "./FileViewer";
 
-// Full-size photo viewer. Click a thumbnail → opens here. Click anywhere or the
-// close button to dismiss.
+// Full-size PHOTO viewer — the image-only case of FileViewer, kept as its own
+// name because that's what the photo grids ask for. Anything that also needs to
+// show PDFs (attachments) should use FileViewer directly.
 export function Lightbox({
   open,
   src,
@@ -15,41 +13,6 @@ export function Lightbox({
   onClose: () => void;
 }) {
   return (
-    <Dialog
-      open={open && src !== null}
-      onClose={onClose}
-      maxWidth="lg"
-      slotProps={{ paper: { sx: { bgcolor: "transparent", boxShadow: "none" } } }}
-    >
-      <Box sx={{ position: "relative" }} onClick={onClose}>
-        <IconButton
-          aria-label="close"
-          onClick={onClose}
-          sx={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            bgcolor: "rgba(0,0,0,0.55)",
-            color: "#fff",
-            "&:hover": { bgcolor: "rgba(0,0,0,0.75)" },
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-        {src ? (
-          <Box
-            component="img"
-            src={src}
-            alt=""
-            sx={{
-              display: "block",
-              maxWidth: "90vw",
-              maxHeight: "85vh",
-              borderRadius: 1,
-            }}
-          />
-        ) : null}
-      </Box>
-    </Dialog>
+    <FileViewer file={open && src ? { url: src } : null} onClose={onClose} />
   );
 }

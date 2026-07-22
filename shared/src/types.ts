@@ -30,7 +30,18 @@ export type MaterialReadiness =
 
 export type ProjectUrgency = "normal" | "urgent" | "blocked";
 
-export type WorkOrderStatus =
+// NOT the live work-order status. The running system stores
+// `WorkOrder.listStatus` with a DIFFERENT value set — open | on_the_way |
+// urgent | done — derived by deriveWorkOrderStatus() in
+// backend/src/modules/work-orders/status.ts, and typed for the client in
+// client/src/features/work-orders/api.ts. There is no "completed" at runtime;
+// the finished bucket is "done".
+//
+// This type belongs to the mock-data fixtures below and nothing else. It is
+// named MockWorkOrderStatus precisely so it can't be imported by mistake:
+// reading "completed" here and going looking for it in the API was the reason
+// work-order status appeared "not linked correctly" (WOB Isolatie, 17-07-2026).
+export type MockWorkOrderStatus =
   | "planned"
   | "on_the_way"
   | "in_progress"
@@ -309,7 +320,7 @@ export type WorkOrderExecution = {
   photos: string[];
   notes: string;
   customerSignature?: string;
-  status: WorkOrderStatus;
+  status: MockWorkOrderStatus;
 };
 
 export type DeliveryChecklist = {

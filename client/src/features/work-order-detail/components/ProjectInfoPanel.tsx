@@ -104,7 +104,17 @@ export function ProjectInfoPanel({
                 the start (end defaults to "same day"). End is optional, for
                 multi-day jobs. The live day-count sits muted underneath. */}
             <Field label={t("workOrderDetail.info.planning")}>
-              <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-end" }}>
+              {/* Two date inputs side by side: a `type="date"` has a wide
+                  intrinsic minimum (the dd-mm-yyyy mask plus the picker icon),
+                  so on a phone they can't both fit a row — stack them. */}
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                  gap: 1.5,
+                  alignItems: "flex-end",
+                }}
+              >
                 <TextField
                   type="date"
                   size="small"

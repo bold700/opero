@@ -14,6 +14,16 @@
     "urgent": "Spoed",
     "done": "Klaar"
   },
+  "filterBar": {
+    "toggle": "Filters",
+    "clear": "Wissen",
+    "any": "Alle",
+    "customer": "Klant",
+    "assignee": "Monteur",
+    "workType": "Type werk",
+    "dateFrom": "Gepland vanaf",
+    "dateTo": "Gepland tot en met"
+  },
   "status": {
     "open": "Open",
     "onTheWay": "Onderweg",

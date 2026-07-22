@@ -20,15 +20,17 @@ import { isZoneComplete } from "./zoneStatus";
 
 // One ZONE = one WorkOrderTask, kept visually QUIET. Layout:
 //   [zone title · status badge · delete]      ← one header line
-//   werkomschrijving (only line of helper text)
-//   type werk · monteur                        ← two compact selects
 //   TAKEN: the invoice-line rows + total       ← the core of the card
 //   photos (vooraf | resultaat side by side)
+//   werkomschrijving                           ← LAST, below the photos
+// The werkomschrijving sits at the bottom on purpose: directly under the title
+// it crowded the title field and the two got mistaken for each other.
 // Zone status is DERIVED from the lines (all named lines done → Klaar) — there
 // is no zone-level checkbox.
 export function ZoneCard({
   task,
   canWrite,
+  canEditScope,
   canManageZones,
   showPrices,
   showMargin,
@@ -37,7 +39,9 @@ export function ZoneCard({
   onSetNote,
   onDeleteZone,
   onAddLine,
+  onAddCustomLine,
   onEditLine,
+  onEditCustomLine,
   onDeleteLine,
   onToggleLine,
   onChangeLineQuantity,
@@ -45,10 +49,13 @@ export function ZoneCard({
   onDeletePhoto,
 }: {
   task: WorkOrderTask;
+  // Register what happened on site: tick lines, notes, photos. Technicians too.
   canWrite: boolean;
-  // Creating/deleting a ZONE is office work (admin-only) — narrower than
-  // canWrite, which also covers a technician filling in an existing zone's
-  // fields (note, task lines, photos). See docs/roles-and-permissions.md.
+  // Change what was SOLD: zone title, line add/edit/delete. Office only —
+  // all of it moves the invoiced amount. See WorkOrderDetail's canEditScope.
+  canEditScope: boolean;
+  // Creating/deleting a ZONE is office work (admin-only) — a subset of
+  // canEditScope. See docs/roles-and-permissions.md.
   canManageZones: boolean;
   // 3-way price rule: admin sees price + margin, client sees price, technician
   // sees neither. Derived from canSeePrices/canSeeMargin on the page.
@@ -59,7 +66,17 @@ export function ZoneCard({
   onSetNote: (note: string) => void;
   onDeleteZone: () => void;
   onAddLine: (input: { variantId: string; quantity: number }) => void;
+  onAddCustomLine: (input: {
+    name: string;
+    quantity: number;
+    unit: string;
+    unitPrice?: number;
+  }) => void;
   onEditLine: (matId: string, input: { variantId: string; quantity: number }) => void;
+  onEditCustomLine: (
+    matId: string,
+    input: { name: string; quantity: number; unit: string; unitPrice?: number },
+  ) => void;
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
   onChangeLineQuantity: (matId: string, quantity: number) => void;
@@ -79,11 +96,22 @@ export function ZoneCard({
   const zoneMargin = task.materials.reduce((s, m) => s + (m.margin ?? 0), 0);
 
   return (
-    <Card>
+    // Tighter padding on a phone. The shared Card's default p:3 costs 48px of
+    // horizontal space, which a 375px screen can't spare once the page padding
+    // is also taken — the task lines inside are the densest rows in the app.
+    // Scoped to ZoneCard rather than changed on Card itself, so this stays a
+    // fix for this screen and not an app-wide restyle.
+    <Card sx={{ p: { xs: 2, md: 3 } }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {/* Header: title · status · delete — ONE line. */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          {canWrite ? (
+        {/* Header: title · status · delete.
+            The title takes a whole line on a phone: `flex: 1` alone doesn't
+            shrink an <input> below its ~180px intrinsic min-content width, so
+            with the status badge ("Nog te doen", ~92px) and the delete button
+            the header needed ~326px and bled past the card. `minWidth: 0` lets
+            it shrink, and the wrap gives it a full line when it still can't. */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+          {/* Zone title is SCOPE — it names what was sold, so office-only. */}
+          {canEditScope ? (
             <TextField
               variant="standard"
               defaultValue={task.description}
@@ -93,10 +121,14 @@ export function ZoneCard({
                 if (v !== task.description) onRename(v);
               }}
               placeholder={t("workOrderDetail.zone.titlePlaceholder")}
-              sx={{ flex: 1, "& input": { fontWeight: 600, fontSize: 17 } }}
+              sx={{
+                flex: "1 1 60%",
+                minWidth: 0,
+                "& input": { fontWeight: 600, fontSize: 17 },
+              }}
             />
           ) : (
-            <Typography sx={{ flex: 1, fontWeight: 600, fontSize: 17 }}>
+            <Typography sx={{ flex: "1 1 60%", minWidth: 0, fontWeight: 600, fontSize: 17 }}>
               {task.description || t("workOrderDetail.zone.untitled")}
             </Typography>
           )}
@@ -115,27 +147,6 @@ export function ZoneCard({
             </IconButton>
           ) : null}
         </Box>
-
-        {/* Werkomschrijving — one quiet field, no shouting label. */}
-        {canWrite ? (
-          <TextField
-            defaultValue={task.note ?? ""}
-            key={`zn-${task.id}-${task.note ?? ""}`}
-            onBlur={(e) => {
-              const v = e.target.value;
-              if (v !== (task.note ?? "")) onSetNote(v);
-            }}
-            placeholder={t("workOrderDetail.zone.workDescriptionPlaceholder")}
-            size="small"
-            fullWidth
-            multiline
-            minRows={1}
-          />
-        ) : task.note ? (
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {task.note}
-          </Typography>
-        ) : null}
 
         {/* TAKEN — the invoice lines + zone total (price gated per role). */}
         <Box>
@@ -168,6 +179,7 @@ export function ZoneCard({
                 key={m.id}
                 material={m}
                 canWrite={canWrite}
+                canEditScope={canEditScope}
                 showPrices={showPrices}
                 showMargin={showMargin}
                 busy={busy}
@@ -179,7 +191,9 @@ export function ZoneCard({
             ))
           )}
 
-          {canWrite ? (
+          {/* Adding a line adds to the invoice → office only. A monteur who
+              needs more than was sold reports meerwerk instead. */}
+          {canEditScope ? (
             <Button
               size="small"
               startIcon={<AddIcon />}
@@ -219,39 +233,101 @@ export function ZoneCard({
             />
           </Box>
         </Box>
+
+        {/* Werkomschrijving — deliberately LAST, below the photos. It sat
+            directly under the zone title before, where the two fields read as
+            one block and got confused for each other (WOB Isolatie feedback,
+            17-07-2026). Labelled now, so its purpose is clear this far down. */}
+        {canWrite ? (
+          <TextField
+            label={t("workOrderDetail.zone.workDescriptionLabel")}
+            defaultValue={task.note ?? ""}
+            key={`zn-${task.id}-${task.note ?? ""}`}
+            onBlur={(e) => {
+              const v = e.target.value;
+              if (v !== (task.note ?? "")) onSetNote(v);
+            }}
+            placeholder={t("workOrderDetail.zone.workDescriptionPlaceholder")}
+            size="small"
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        ) : task.note ? (
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.25 }}>
+              {t("workOrderDetail.zone.workDescriptionLabel")}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              {task.note}
+            </Typography>
+          </Box>
+        ) : null}
       </Box>
 
       <AddTaskLineDialog
         open={pickerOpen}
         busy={busy}
         showMargin={showMargin}
+        canSetPrice={showPrices}
         onClose={() => setPickerOpen(false)}
         onAdd={(input) => {
           onAddLine(input);
           setPickerOpen(false);
         }}
+        onAddCustom={(input) => {
+          onAddCustomLine(input);
+          setPickerOpen(false);
+        }}
       />
 
-      {/* Edit an existing catalog line — the same picker, pre-selected to the
-          line's current article (only opened for lines that have a variantId). */}
-      {editingLine?.variantId && editingLine.variantMaterialId && editingLine.variantSize ? (
-        <AddTaskLineDialog
-          open
-          mode="edit"
-          busy={busy}
-          showMargin={showMargin}
-          initial={{
-            materialId: editingLine.variantMaterialId,
-            size: editingLine.variantSize,
-            variantId: editingLine.variantId,
-            quantity: editingLine.quantity,
-          }}
-          onClose={() => setEditingLine(null)}
-          onAdd={(input) => {
-            onEditLine(editingLine.id, input);
-            setEditingLine(null);
-          }}
-        />
+      {/* Edit an existing line — the same dialog, seeded from the line. A
+          catalog line (variantId + its material/size) opens with the cascade
+          pre-selected; anything else is free text and opens on the custom tab.
+          Both are handled: free-text lines used to have no edit path at all. */}
+      {editingLine ? (
+        (() => {
+          const isCatalogLine = Boolean(
+            editingLine.variantId &&
+              editingLine.variantMaterialId &&
+              editingLine.variantSize,
+          );
+          return (
+            <AddTaskLineDialog
+              open
+              mode="edit"
+              busy={busy}
+              showMargin={showMargin}
+              canSetPrice={showPrices}
+              initial={
+                isCatalogLine
+                  ? {
+                      materialId: editingLine.variantMaterialId!,
+                      size: editingLine.variantSize!,
+                      variantId: editingLine.variantId!,
+                      quantity: editingLine.quantity,
+                    }
+                  : {
+                      quantity: editingLine.quantity,
+                      custom: {
+                        name: editingLine.label?.trim() || editingLine.name || "",
+                        unit: editingLine.unit,
+                        unitPrice: editingLine.unitPrice ?? null,
+                      },
+                    }
+              }
+              onClose={() => setEditingLine(null)}
+              onAdd={(input) => {
+                onEditLine(editingLine.id, input);
+                setEditingLine(null);
+              }}
+              onAddCustom={(input) => {
+                onEditCustomLine(editingLine.id, input);
+                setEditingLine(null);
+              }}
+            />
+          );
+        })()
       ) : null}
 
       <ConfirmDialog

@@ -10,8 +10,12 @@ import { BadRequest, Conflict, NotFound } from "../../lib/httpError.js";
 import { audit } from "../../lib/audit.js";
 import { sendEmail } from "../../lib/email.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
-import { hashPassword } from "../../auth/service.js";
 import { issueInvite } from "../../auth/tokens.js";
+import {
+  createInvitedUser,
+  deliverInvite,
+  sendInviteEmail,
+} from "./provisioning.js";
 
 // User provisioning — admins create login accounts and invite people to activate
 // them. All admin-only, org-scoped. "Login" (User) is separate from the domain
@@ -44,23 +48,6 @@ function userDto(u: UserRow) {
     createdAt: u.createdAt.toISOString(),
     activatedAt: u.activatedAt ? u.activatedAt.toISOString() : undefined,
   };
-}
-
-// A password that can never match any input — invited users have no real
-// password until they activate. bcrypt of a random value.
-async function unusablePassword(): Promise<string> {
-  return hashPassword(randomBytes(32).toString("hex"));
-}
-
-async function sendInviteEmail(email: string, name: string, token: string) {
-  const url = `${env.APP_URL.replace(/\/$/, "")}/reset-password?token=${token}&invite=1`;
-  await sendEmail({
-    to: email,
-    subject: "Opero — je bent uitgenodigd / you've been invited",
-    text:
-      `Hallo ${name},\n\nJe hebt toegang gekregen tot Opero. Stel je wachtwoord in via deze link (verloopt over 7 dagen):\n${url}\n\n` +
-      `Hi ${name},\n\nYou've been given access to Opero. Set your password using this link (expires in 7 days):\n${url}`,
-  });
 }
 
 const ACCOUNT_STATUSES = ["invited", "active", "disabled"] as const;
@@ -195,26 +182,17 @@ usersRouter.post(
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw Conflict("A user with this email already exists");
 
-    const created = await prisma.$transaction(async (tx) => {
-      const u = await tx.user.create({
-        data: {
-          orgId: admin.orgId,
-          email,
-          name,
-          passwordHash: await unusablePassword(),
-          role,
-          status: "invited",
-          invitedById: admin.id,
-          employeeId: link.employeeId ?? null,
-          customerId: link.customerId ?? null,
-        },
-      });
-      await audit(tx, admin, "user.invite", "user", u.id, { email, role });
-      return u;
-    });
+    const created = await prisma.$transaction((tx) =>
+      createInvitedUser(tx, admin, {
+        email,
+        name,
+        role,
+        employeeId: link.employeeId,
+        customerId: link.customerId,
+      }),
+    );
 
-    const token = await issueInvite(created.id);
-    await sendInviteEmail(email, created.name, token);
+    await deliverInvite(created.id, email, created.name);
 
     res.status(201).json(userDto(created));
   }),

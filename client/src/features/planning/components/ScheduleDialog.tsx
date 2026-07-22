@@ -15,6 +15,7 @@ import type {
   AssignableEmployee,
   ScheduleInput,
 } from "../api";
+import { getAssignableEmployees } from "../api";
 import { useIsMobile } from "../../../lib/useIsMobile";
 
 // 24-hour time slots in 15-minute steps (00:00 … 23:45) — European clock, no
@@ -87,11 +88,47 @@ export function ScheduleDialog({
     ? TIME_SLOTS.filter((s) => s > startTime)
     : TIME_SLOTS;
 
+  // Availability for the chosen day. Refetched when the date changes, because
+  // "who is available" is a property of the DAY, not of the dialog opening —
+  // the `employees` prop is the undated list.
+  const [availability, setAvailability] = useState<AssignableEmployee[] | null>(null);
+  useEffect(() => {
+    if (!open || !date) {
+      setAvailability(null);
+      return;
+    }
+    let cancelled = false;
+    getAssignableEmployees({ date })
+      .then((rows) => {
+        if (!cancelled) setAvailability(rows);
+      })
+      // Availability is an enhancement: if the lookup fails, fall back to the
+      // plain list rather than blocking scheduling entirely. The backend
+      // refuses an absent leader regardless, so nothing slips through.
+      .catch(() => {
+        if (!cancelled) setAvailability(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, date]);
+
+  // Merge the annotation onto the prop list, so the options stay stable while
+  // availability is still loading.
+  const unavailableById = new Map(
+    (availability ?? []).filter((e) => e.unavailable).map((e) => [e.id, e.unavailable!]),
+  );
+
   // Can't schedule in the past.
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
   const dateInPast = Boolean(date) && date < today;
 
-  const canSubmit = Boolean(workOrderId && date) && !dateInPast && !busy;
+  // Picking someone who is away is refused by the backend, so block it here
+  // too rather than letting the office submit into a guaranteed error.
+  const leaderAbsence = teamLeaderId ? unavailableById.get(teamLeaderId) : undefined;
+
+  const canSubmit =
+    Boolean(workOrderId && date) && !dateInPast && !leaderAbsence && !busy;
 
   const submit = () =>
     onSubmit(workOrderId, {
@@ -146,14 +183,33 @@ export function ScheduleDialog({
             }}
           />
 
+          {/* Absent staff stay in the list, labelled with why — removing them
+              would read as "no longer employed". Picking one blocks submit. */}
           <SelectField
             label={t("planning.schedule.teamLeader")}
             value={teamLeaderId}
             onChange={setTeamLeaderId}
             disabled={busy}
+            error={Boolean(leaderAbsence)}
+            helperText={
+              leaderAbsence
+                ? t("planning.schedule.leaderUnavailable", {
+                    from: leaderAbsence.startDate,
+                    to: leaderAbsence.endDate,
+                  })
+                : undefined
+            }
             options={[
               { value: "", label: t("planning.schedule.unassigned") },
-              ...employees.map((e) => ({ value: e.id, label: e.name })),
+              ...employees.map((e) => {
+                const away = unavailableById.get(e.id);
+                return {
+                  value: e.id,
+                  label: away
+                    ? `${e.name} — ${t("planning.schedule.away")}`
+                    : e.name,
+                };
+              }),
             ]}
           />
 
