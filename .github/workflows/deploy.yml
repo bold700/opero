@@ -22,9 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` here on purpose — the action reads `packageManager` from
+      # package.json (pnpm@9.15.9). Pinning it in both places makes
+      # pnpm/action-setup fail outright with ERR_PNPM_BAD_PM_VERSION, so
+      # package.json stays the single source of truth.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
@@ -40,13 +42,14 @@ jobs:
         # niet in de Pages-export. Wordt in Phase 11 vervangen door echte deploys.
         run: pnpm --filter @opero/client build
 
-      # Pages serveert via een echte server (geen Jekyll), maar _next mappen
-      # negeert Jekyll standaard, dus zetten we de vlag voor de zekerheid.
-      - run: touch client/out/.nojekyll
+      # Vite writes to client/dist. This said client/out, which was the Next.js
+      # export directory — on a clean CI checkout that path doesn't exist, so
+      # the touch below failed and there was nothing to upload.
+      - run: touch client/dist/.nojekyll
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: client/out
+          path: client/dist
 
   deploy:
     needs: build
