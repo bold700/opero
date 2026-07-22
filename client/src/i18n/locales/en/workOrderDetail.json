@@ -140,6 +140,7 @@
     "deleteMessage": "The zone and all its tasks will be deleted. This cannot be undone.",
     "deleteConfirm": "Delete",
     "titleLabel": "Task",
+    "statusLabel": "Status",
     "titlePlaceholder": "E.g. Plant room",
     "untitled": "Zone",
     "workDescriptionLabel": "Work description",

@@ -9,7 +9,6 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import { Card } from "../../../components/Card";
@@ -20,10 +19,13 @@ import { humanize } from "../../../lib/labels";
 import { STATUS_TONES } from "../../../theme/tokens";
 import type { Project, WorkOrder } from "../api";
 
-// Detail header: back button, work-order title + number, customer/location,
-// stage + urgency badges, and the "afronden" (sign-off) / "heropenen" (reopen)
-// actions. Lean — job setup (team, planning, contact…) lives in the Projectinfo
-// sidebar.
+// Detail header — mirrors opero-old's project-detail header (the layout the
+// client prefers):
+//   [← back]  Title                              [export] [Werkbon afronden]
+//             customer · | · stage-badge
+// Compact title, a single meta line with a divider before the stage badge, and
+// the export icon + primary afronden/heropenen button. Adding a zone lives in
+// the task list ("Zone toevoegen"), not here. Job setup stays in the sidebar.
 export function DetailHeader({
   workOrder,
   project,
@@ -69,77 +71,65 @@ export function DetailHeader({
       <Box
         sx={{
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "center",
+          justifyContent: "space-between",
           gap: 1.5,
-          flexWrap: { xs: "wrap", md: "nowrap" },
+          flexWrap: "wrap",
         }}
       >
-        <IconButton aria-label={t("workOrderDetail.header.back")} onClick={onBack} sx={{ mt: -0.5, ml: -1 }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Box sx={{ flex: 1, minWidth: { xs: "60%", md: 0 } }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-            <Typography variant="h5" sx={{ fontWeight: 700 }}>
+        {/* Left: back · title · meta line (customer | stage). */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+          <IconButton aria-label={t("workOrderDetail.header.back")} onClick={onBack} sx={{ ml: -1 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
               {workOrder.title ||
                 t("workOrderDetail.header.defaultTitle", { n: workOrder.ordinal + 1 })}
             </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              {project.projectNumber}
-            </Typography>
-          </Box>
-          <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
-            {project.customerName} · {project.address}, {project.city}
-          </Typography>
-          <Box sx={{ display: "flex", gap: 1, mt: 1.25, flexWrap: "wrap", alignItems: "center" }}>
-            <StatusBadge
-              label={t(`workOrderDetail.stage.${project.stage}`, {
-                defaultValue: humanize(project.stage),
-              })}
-              tone={STATUS_TONES.open}
-            />
-            <StatusBadge label={t(`workOrderDetail.urgency.${urgency.key}`)} tone={urgency.tone} />
-            {finished ? (
-              <StatusBadge label={t("workOrderDetail.header.signed")} tone={STATUS_TONES.success} />
-            ) : null}
-            {finished && workOrder.signedByName ? (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25, flexWrap: "wrap" }}>
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {t("workOrderDetail.header.signedBy", { name: workOrder.signedByName })}
+                {project.customerName}
               </Typography>
-            ) : null}
+              <Typography variant="body2" sx={{ color: "text.disabled" }}>
+                |
+              </Typography>
+              <StatusBadge
+                label={t(`workOrderDetail.stage.${project.stage}`, {
+                  defaultValue: humanize(project.stage),
+                })}
+                tone={STATUS_TONES.open}
+              />
+              <StatusBadge label={t(`workOrderDetail.urgency.${urgency.key}`)} tone={urgency.tone} />
+              {finished ? (
+                <StatusBadge label={t("workOrderDetail.header.signed")} tone={STATUS_TONES.success} />
+              ) : null}
+              {finished && workOrder.signedByName ? (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {t("workOrderDetail.header.signedBy", { name: workOrder.signedByName })}
+                </Typography>
+              ) : null}
+            </Box>
           </Box>
         </Box>
 
-        <Box
-          sx={{
-            display: "flex",
-            gap: 1,
-            alignItems: "center",
-            flexShrink: 0,
-            flexDirection: { xs: "column", sm: "row" },
-            width: { xs: "100%", md: "auto" },
-          }}
-        >
-          {/* ONE export button. Technicians export the werkbon PDF directly
-              (the only document they may export). Admins get a small menu:
-              the customer-facing quote (offerte) or the werkbon job sheet. */}
+        {/* Right: icon actions (export, add-zone) then the primary button. */}
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexShrink: 0 }}>
+          {/* Export — ICON button like the old app. Technicians export the
+              werkbon PDF directly; admins get the offerte/werkbon menu. */}
           {canExportQuote ? (
             <>
-              <Button
-                variant="outlined"
-                startIcon={
-                  anyExporting ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    <PictureAsPdfOutlinedIcon />
-                  )
-                }
-                endIcon={<ArrowDropDownIcon />}
+              <IconButton
+                aria-label={t("workOrderDetail.header.export")}
                 onClick={(e) => setExportAnchor(e.currentTarget)}
                 disabled={anyExporting}
-                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
-                {t("workOrderDetail.header.export")}
-              </Button>
+                {anyExporting ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <PictureAsPdfOutlinedIcon />
+                )}
+              </IconButton>
               <Menu
                 anchorEl={exportAnchor}
                 open={exportAnchor !== null}
@@ -170,35 +160,26 @@ export function DetailHeader({
               </Menu>
             </>
           ) : (
-            <Button
-              variant="outlined"
-              startIcon={
-                exporting ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfOutlinedIcon />
-              }
+            <IconButton
+              aria-label={t("workOrderDetail.header.exportPdf")}
               onClick={onExportPdf}
               disabled={exporting}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
             >
-              {t("workOrderDetail.header.exportPdf")}
-            </Button>
+              {exporting ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : (
+                <PictureAsPdfOutlinedIcon />
+              )}
+            </IconButton>
           )}
+
           {canFinish && !finished ? (
-            <Button
-              variant="contained"
-              onClick={onFinish}
-              disabled={busy}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
-            >
+            <Button variant="contained" onClick={onFinish} disabled={busy}>
               {t("workOrderDetail.header.finish")}
             </Button>
           ) : null}
           {canReopen && finished ? (
-            <Button
-              variant="outlined"
-              onClick={() => setConfirmReopen(true)}
-              disabled={busy}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
-            >
+            <Button variant="outlined" onClick={() => setConfirmReopen(true)} disabled={busy}>
               {t("workOrderDetail.header.reopen")}
             </Button>
           ) : null}

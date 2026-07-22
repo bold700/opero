@@ -18,15 +18,14 @@ import { TaskLineRow } from "./TaskLineRow";
 import { AddTaskLineDialog } from "./AddTaskLineDialog";
 import { isZoneComplete } from "./zoneStatus";
 
-// One ZONE = one WorkOrderTask, kept visually QUIET. Layout:
-//   [zone title · status badge · delete]      ← one header line
-//   TAKEN: the invoice-line rows + total       ← the core of the card
-//   photos (vooraf | resultaat side by side)
-//   werkomschrijving                           ← LAST, below the photos
-// The werkomschrijving sits at the bottom on purpose: directly under the title
-// it crowded the title field and the two got mistaken for each other.
-// Zone status is DERIVED from the lines (all named lines done → Klaar) — there
-// is no zone-level checkbox.
+// One ZONE = one WorkOrderTask. Layout mirrors opero-old's project-detail
+// (the layout the client prefers):
+//   TAAK            → zone title
+//   STATUS          → derived badge (all named lines done → Klaar)
+//   WERKOMSCHRIJVING→ the zone note
+//   TAKEN           → the invoice-line rows + total
+//   FOTOS           → vooraf | resultaat side by side
+// Zone status is DERIVED from the lines — there is no zone-level checkbox.
 export function ZoneCard({
   task,
   canWrite,
@@ -35,6 +34,7 @@ export function ZoneCard({
   showPrices,
   showMargin,
   busy,
+  dragHandle,
   onRename,
   onSetNote,
   onDeleteZone,
@@ -62,6 +62,9 @@ export function ZoneCard({
   showPrices: boolean;
   showMargin: boolean;
   busy: boolean;
+  // The drag grip (top-left), supplied by SortableZone when reordering is on.
+  // Undefined when there's nothing to reorder (≤1 zone, or not office).
+  dragHandle?: React.ReactNode;
   onRename: (description: string) => void;
   onSetNote: (note: string) => void;
   onDeleteZone: () => void;
@@ -103,17 +106,38 @@ export function ZoneCard({
     // fix for this screen and not an app-wide restyle.
     <Card sx={{ p: { xs: 2, md: 3 } }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {/* Header: title · status · delete.
-            The title takes a whole line on a phone: `flex: 1` alone doesn't
-            shrink an <input> below its ~180px intrinsic min-content width, so
-            with the status badge ("Nog te doen", ~92px) and the delete button
-            the header needed ~326px and bled past the card. `minWidth: 0` lets
-            it shrink, and the wrap gives it a full line when it still can't. */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+        {/* Card top row — drag grip on the LEFT, delete on the RIGHT, on their
+            own line above the fields (matches the old layout). Rendered only
+            when there's something to do: the grip when reordering is on, the
+            trash for the office. */}
+        {dragHandle || canManageZones ? (
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: -0.5, mb: -1 }}>
+            <Box sx={{ display: "flex", alignItems: "center" }}>{dragHandle}</Box>
+            {canManageZones ? (
+              <IconButton
+                size="small"
+                aria-label={t("workOrderDetail.zone.deleteAria")}
+                onClick={() => setConfirmDelete(true)}
+                disabled={busy}
+                sx={{ mr: -0.5, color: "text.secondary", "&:hover": { color: "error.main" } }}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            ) : null}
+          </Box>
+        ) : null}
+
+        {/* TAAK — zone title. */}
+        <Box>
+          <Typography
+            variant="caption"
+            sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+          >
+            {t("workOrderDetail.zone.titleLabel")}
+          </Typography>
           {/* Zone title is SCOPE — it names what was sold, so office-only. */}
           {canEditScope ? (
             <TextField
-              variant="standard"
               defaultValue={task.description}
               key={`zt-${task.id}-${task.description}`}
               onBlur={(e) => {
@@ -121,32 +145,68 @@ export function ZoneCard({
                 if (v !== task.description) onRename(v);
               }}
               placeholder={t("workOrderDetail.zone.titlePlaceholder")}
-              sx={{
-                flex: "1 1 60%",
-                minWidth: 0,
-                "& input": { fontWeight: 600, fontSize: 17 },
-              }}
+              size="small"
+              fullWidth
+              sx={{ "& input": { fontWeight: 600 } }}
             />
           ) : (
-            <Typography sx={{ flex: "1 1 60%", minWidth: 0, fontWeight: 600, fontSize: 17 }}>
+            <Typography sx={{ fontWeight: 600, fontSize: 17 }}>
               {task.description || t("workOrderDetail.zone.untitled")}
             </Typography>
           )}
+        </Box>
+
+        {/* STATUS — derived badge, its own labelled block (matches old layout). */}
+        <Box>
+          <Typography
+            variant="caption"
+            sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+          >
+            {t("workOrderDetail.zone.statusLabel")}
+          </Typography>
           <StatusBadge
             label={complete ? t("workOrderDetail.zone.statusDone") : t("workOrderDetail.zone.statusTodo")}
             tone={complete ? STATUS_TONES.success : STATUS_TONES.neutral}
           />
-          {canManageZones ? (
-            <IconButton
-              size="small"
-              aria-label={t("workOrderDetail.zone.deleteAria")}
-              onClick={() => setConfirmDelete(true)}
-              disabled={busy}
-            >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          ) : null}
         </Box>
+
+        {/* WERKOMSCHRIJVING — the zone note. Second-from-top in the old layout,
+            directly under status and above TAKEN. */}
+        {canWrite ? (
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+            >
+              {t("workOrderDetail.zone.workDescriptionLabel")}
+            </Typography>
+            <TextField
+              defaultValue={task.note ?? ""}
+              key={`zn-${task.id}-${task.note ?? ""}`}
+              onBlur={(e) => {
+                const v = e.target.value;
+                if (v !== (task.note ?? "")) onSetNote(v);
+              }}
+              placeholder={t("workOrderDetail.zone.workDescriptionPlaceholder")}
+              size="small"
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Box>
+        ) : task.note ? (
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+            >
+              {t("workOrderDetail.zone.workDescriptionLabel")}
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              {task.note}
+            </Typography>
+          </Box>
+        ) : null}
 
         {/* TAKEN — the invoice lines + zone total (price gated per role). */}
         <Box>
@@ -206,8 +266,16 @@ export function ZoneCard({
           ) : null}
         </Box>
 
-        {/* Photos — vooraf | resultaat side by side. */}
-        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+        {/* FOTOS — vooraf | resultaat side by side, under a section label to
+            match the old layout. */}
+        <Box>
+          <Typography
+            variant="caption"
+            sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+          >
+            {t("workOrderDetail.photos.title")}
+          </Typography>
+          <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
           <Box sx={{ flex: 1, minWidth: 200 }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
               {t("workOrderDetail.photos.before")}
@@ -232,37 +300,8 @@ export function ZoneCard({
               onRemove={(key) => onDeletePhoto(key)}
             />
           </Box>
-        </Box>
-
-        {/* Werkomschrijving — deliberately LAST, below the photos. It sat
-            directly under the zone title before, where the two fields read as
-            one block and got confused for each other (WOB Isolatie feedback,
-            17-07-2026). Labelled now, so its purpose is clear this far down. */}
-        {canWrite ? (
-          <TextField
-            label={t("workOrderDetail.zone.workDescriptionLabel")}
-            defaultValue={task.note ?? ""}
-            key={`zn-${task.id}-${task.note ?? ""}`}
-            onBlur={(e) => {
-              const v = e.target.value;
-              if (v !== (task.note ?? "")) onSetNote(v);
-            }}
-            placeholder={t("workOrderDetail.zone.workDescriptionPlaceholder")}
-            size="small"
-            fullWidth
-            multiline
-            minRows={2}
-          />
-        ) : task.note ? (
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.25 }}>
-              {t("workOrderDetail.zone.workDescriptionLabel")}
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              {task.note}
-            </Typography>
           </Box>
-        ) : null}
+        </Box>
       </Box>
 
       <AddTaskLineDialog

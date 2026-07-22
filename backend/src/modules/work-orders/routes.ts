@@ -1374,12 +1374,14 @@ workOrdersRouter.delete(
 );
 
 // POST /work-orders/:id/tasks/reorder — move activeTaskId to overTaskId's slot.
+// Office-only: zone order is scope (it drives the werkbon/quote line order), and
+// the UI only shows the drag grip to admins — keep the endpoint in step.
 workOrdersRouter.post(
   "/:id/tasks/reorder",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = reorderTasksSchema.parse(req.body);
-    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const { project } = await requireQuoteScopeEditor(user, req.params.id);
     const tasks = await prisma.workOrderTask.findMany({
       where: { workOrderId: req.params.id },
       orderBy: { ordinal: "asc" },

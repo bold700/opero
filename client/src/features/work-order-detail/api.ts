@@ -284,6 +284,19 @@ export function deleteTask(workOrderId: string, taskId: string): Promise<WorkOrd
   return api.delete<WorkOrder>(`/work-orders/${workOrderId}/tasks/${taskId}`);
 }
 
+// Reorder zones by drag: move `activeTaskId` into `overTaskId`'s slot. The
+// backend renumbers every zone's ordinal in one transaction.
+export function reorderTasks(
+  workOrderId: string,
+  activeTaskId: string,
+  overTaskId: string,
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/tasks/reorder`, {
+    activeTaskId,
+    overTaskId,
+  });
+}
+
 export function toggleTask(workOrderId: string, taskId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/tasks/${taskId}/toggle`, {});
 }

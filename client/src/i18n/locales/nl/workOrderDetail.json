@@ -142,6 +142,7 @@
     "titleLabel": "Taak",
     "titlePlaceholder": "Bijv. Techniekruimte",
     "untitled": "Zone",
+    "statusLabel": "Status",
     "workDescriptionLabel": "Werkomschrijving",
     "workDescriptionPlaceholder": "Wat moet er in deze zone gebeuren?",
     "statusDone": "Klaar",

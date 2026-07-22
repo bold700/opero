@@ -106,13 +106,17 @@ export function ProjectInfoPanel({
             <Field label={t("workOrderDetail.info.planning")}>
               {/* Two date inputs side by side: a `type="date"` has a wide
                   intrinsic minimum (the dd-mm-yyyy mask plus the picker icon),
-                  so on a phone they can't both fit a row — stack them. */}
+                  so on a phone they can't both fit a row — stack them.
+                  `mt: 1` pushes the fields down off the "PLANNING" caption: the
+                  date fields' own floating labels (Startdatum/Einddatum) were
+                  colliding with it. */}
               <Box
                 sx={{
                   display: "grid",
                   gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
                   gap: 1.5,
                   alignItems: "flex-end",
+                  mt: 1,
                 }}
               >
                 <TextField

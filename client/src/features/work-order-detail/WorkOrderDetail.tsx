@@ -22,6 +22,7 @@ import {
   addTask,
   updateTask,
   deleteTask,
+  reorderTasks,
   toggleTask,
   addMaterialFromCatalog,
   addCustomMaterial,
@@ -229,6 +230,7 @@ export function WorkOrderDetail() {
               showMargin={showMargin}
               busy={busy}
               onAddZone={() => run(async () => { await addTask(wo.id); await refreshWorkOrder(); })}
+              onReorderZones={(activeTaskId, overTaskId) => run(async () => { setWo(await reorderTasks(wo.id, activeTaskId, overTaskId)); })}
               onRenameZone={(taskId, description) => run(async () => { await updateTask(wo.id, taskId, { description }); await refreshWorkOrder(); })}
               onSetZoneNote={(taskId, note) => run(async () => { await updateTask(wo.id, taskId, { note }); await refreshWorkOrder(); })}
               onDeleteZone={(taskId) => run(async () => { await deleteTask(wo.id, taskId); await refreshWorkOrder(); })}
