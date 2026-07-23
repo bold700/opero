@@ -35,8 +35,7 @@ export type CustomerInput = {
   notes?: string;
 };
 
-// Per-type totals across the whole (searched) set — powers the count pills.
-// Always present even when a type filter is active.
+// Whole-set totals for the count pills. Always present even with a filter on.
 export type CustomerCounts = { total: number; business: number; private: number };
 
 // One page of the customers list plus the counts.
@@ -66,4 +65,32 @@ export function updateCustomer(id: string, input: CustomerInput): Promise<Custom
 
 export function deleteCustomer(id: string): Promise<void> {
   return api.delete<void>(`/customers/${id}`);
+}
+
+// --- Silvasoft Excel import ------------------------------------------------
+
+export type ImportPreview = {
+  willCreate: number;
+  willUpdate: number;
+  skipped: { row: number; reason: "no_name"; raw: string }[];
+  unmappedColumns: string[];
+  sample: {
+    silvasoftId: string | null;
+    name: string;
+    city: string;
+    email: string;
+    type: "business" | "private";
+  }[];
+};
+
+export type ImportResult = { created: number; updated: number; skipped: number };
+
+// Dry run — reports what an import would do, writes nothing.
+export function previewSilvasoftImport(file: File): Promise<ImportPreview> {
+  return api.upload<ImportPreview>("/customers/import/preview", file);
+}
+
+// Commit — creates/updates customers from the same file.
+export function commitSilvasoftImport(file: File): Promise<ImportResult> {
+  return api.upload<ImportResult>("/customers/import/commit", file);
 }

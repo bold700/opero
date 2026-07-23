@@ -8,12 +8,14 @@ import {
 } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
-import { Forbidden, NotFound } from "../../lib/httpError.js";
+import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
+import { uploadSingle } from "../../lib/upload.js";
 import { contactPersonDto, customerDto, customerListDto, locationDto } from "./dto.js";
+import { parseSilvasoftCustomers, type ParsedCustomer } from "./silvasoftImport.js";
 
 export const customersRouter = Router();
 
@@ -170,6 +172,212 @@ customersRouter.post(
       return c;
     });
     res.status(201).json(customerDto(created));
+  }),
+);
+
+// --- Silvasoft Excel import ------------------------------------------------
+//
+// The client's customer list lives in Silvasoft (their accounting software).
+// Rather than retype it, they export it to .xlsx and upload it here. Two-step,
+// so nothing is written until they've seen what will happen:
+//   POST /customers/import/preview  → parse + report (no DB writes)
+//   POST /customers/import/commit   → parse + upsert in a transaction
+// Re-import matches on Silvasoft's "Nummer" (silvasoftId) per org, so uploading
+// the same file twice UPDATES rather than duplicates.
+
+// Turn a parsed row into the create/update payload, clamping text lengths.
+function silvasoftToData(c: ParsedCustomer, orgId: string) {
+  return {
+    orgId,
+    name: clampText(c.name),
+    type: c.type,
+    contactName: clampText(c.contactName),
+    email: clampText(c.email),
+    phone: clampText(c.phone),
+    address: clampText(c.address),
+    postalCode: clampText(c.postalCode),
+    city: clampText(c.city),
+    silvasoftId: c.silvasoftId,
+    kvkNumber: c.kvkNumber,
+    vatNumber: c.vatNumber,
+  };
+}
+
+// A stable key for de-duping a row that has NO Silvasoft number: name + address
+// + postcode, normalised (lowercased, whitespace-collapsed). Not perfect, but it
+// stops the common case — the same numberless customer being re-created on every
+// import (e.g. "Guts Installatietechniek B.v., Mijlstraat 20"). Silvasoft's own
+// export contains such rows.
+function fallbackKey(c: {
+  name: string;
+  address: string;
+  postalCode: string;
+}): string {
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  return `${norm(c.name)}|${norm(c.address)}|${norm(c.postalCode)}`;
+}
+
+// Classify each parsed row against what's already in the DB, so preview and
+// commit agree on the create/update split. A row matches an existing customer
+// by Silvasoft number when it has one; otherwise it falls back to name+address
+// so numberless rows don't duplicate on every re-import.
+async function classifySilvasoft(orgId: string, customers: ParsedCustomer[]) {
+  const numbered = customers.map((c) => c.silvasoftId).filter((v): v is string => Boolean(v));
+  const hasNumberless = customers.some((c) => !c.silvasoftId);
+
+  // Existing rows we might match: by number, or (for numberless imports) the
+  // whole org's customers so we can build fallback keys. Only pull the wider set
+  // when the file actually has numberless rows.
+  const existing = await prisma.customer.findMany({
+    where: {
+      orgId,
+      deletedAt: null,
+      ...(hasNumberless ? {} : { silvasoftId: { in: numbered } }),
+    },
+    select: { id: true, silvasoftId: true, name: true, address: true, postalCode: true },
+  });
+
+  const byNumber = new Map<string, string>();
+  const byFallback = new Map<string, string>();
+  for (const e of existing) {
+    if (e.silvasoftId) byNumber.set(e.silvasoftId, e.id);
+    // Build a fallback key for every existing row so a previously-imported
+    // numberless customer is found on the next import.
+    byFallback.set(fallbackKey(e), e.id);
+  }
+
+  const toCreate: ParsedCustomer[] = [];
+  const toUpdate: { id: string; parsed: ParsedCustomer }[] = [];
+  // Guard against the SAME file listing a customer twice. The real export does
+  // exactly this: one row with a number, one without, same company. We track
+  // the fallback key AND number of everything queued this run so the second
+  // mention collapses onto the first instead of creating a duplicate.
+  const seenFallback = new Set<string>();
+  const seenNumber = new Set<string>();
+
+  for (const c of customers) {
+    // 1. Existing DB match (number first, then name+address).
+    const dbMatch = c.silvasoftId
+      ? byNumber.get(c.silvasoftId)
+      : byFallback.get(fallbackKey(c));
+    if (dbMatch) {
+      toUpdate.push({ id: dbMatch, parsed: c });
+      continue;
+    }
+
+    // 2. Already seen earlier in THIS file (either by number or name+address).
+    const key = fallbackKey(c);
+    if ((c.silvasoftId && seenNumber.has(c.silvasoftId)) || seenFallback.has(key)) {
+      continue; // same customer twice in one file → import once
+    }
+
+    // 3. Genuinely new — queue it and remember both keys for later rows.
+    if (c.silvasoftId) seenNumber.add(c.silvasoftId);
+    seenFallback.add(key);
+    toCreate.push(c);
+  }
+  return { toCreate, toUpdate };
+}
+
+// POST /customers/import/preview — dry run. Returns counts + a sample, writes
+// nothing. Admin only.
+customersRouter.post(
+  "/import/preview",
+  requireRole("admin"),
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const file = req.file;
+    if (!file) throw BadRequest("No file uploaded");
+
+    let parsed;
+    try {
+      parsed = await parseSilvasoftCustomers(file.buffer);
+    } catch (e) {
+      throw BadRequest(e instanceof Error ? e.message : "Could not read the file");
+    }
+
+    const { toCreate, toUpdate } = await classifySilvasoft(user.orgId, parsed.customers);
+
+    res.json({
+      willCreate: toCreate.length,
+      willUpdate: toUpdate.length,
+      skipped: parsed.skipped,
+      unmappedColumns: parsed.unmappedColumns,
+      // A short sample so the office can eyeball the mapping before committing.
+      sample: parsed.customers.slice(0, 8).map((c) => ({
+        silvasoftId: c.silvasoftId,
+        name: c.name,
+        city: c.city,
+        email: c.email,
+        type: c.type,
+      })),
+    });
+  }),
+);
+
+// POST /customers/import/commit — parse + upsert. Admin only. All-or-nothing
+// in one transaction, so a mid-file failure never leaves a half-import.
+customersRouter.post(
+  "/import/commit",
+  requireRole("admin"),
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const file = req.file;
+    if (!file) throw BadRequest("No file uploaded");
+
+    let parsed;
+    try {
+      parsed = await parseSilvasoftCustomers(file.buffer);
+    } catch (e) {
+      throw BadRequest(e instanceof Error ? e.message : "Could not read the file");
+    }
+
+    const { toCreate, toUpdate } = await classifySilvasoft(user.orgId, parsed.customers);
+
+    await prisma.$transaction(async (tx) => {
+      for (const c of toCreate) {
+        const created = await tx.customer.create({ data: silvasoftToData(c, user.orgId) });
+        await audit(tx, user, "customer.import.create", "customer", created.id, {
+          name: created.name,
+          silvasoftId: c.silvasoftId,
+        });
+      }
+      for (const { id, parsed: c } of toUpdate) {
+        // Don't overwrite a field the export left blank with an empty string —
+        // keep whatever the office may have filled in since the last import.
+        const data = silvasoftToData(c, user.orgId);
+        await tx.customer.update({
+          where: { id },
+          data: {
+            name: data.name,
+            type: data.type,
+            ...(data.contactName ? { contactName: data.contactName } : {}),
+            ...(data.email ? { email: data.email } : {}),
+            ...(data.phone ? { phone: data.phone } : {}),
+            ...(data.address ? { address: data.address } : {}),
+            ...(data.postalCode ? { postalCode: data.postalCode } : {}),
+            ...(data.city ? { city: data.city } : {}),
+            ...(data.kvkNumber ? { kvkNumber: data.kvkNumber } : {}),
+            ...(data.vatNumber ? { vatNumber: data.vatNumber } : {}),
+            // If this row carries a Silvasoft number, stamp it — so a row first
+            // imported without one (matched by name+address) upgrades to the
+            // stronger number key for future imports. Never clears it.
+            ...(data.silvasoftId ? { silvasoftId: data.silvasoftId } : {}),
+          },
+        });
+        await audit(tx, user, "customer.import.update", "customer", id, {
+          silvasoftId: c.silvasoftId,
+        });
+      }
+    });
+
+    res.json({
+      created: toCreate.length,
+      updated: toUpdate.length,
+      skipped: parsed.skipped.length,
+    });
   }),
 );
 

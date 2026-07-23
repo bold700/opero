@@ -16,7 +16,22 @@
   },
   "actions": {
     "searchPlaceholder": "Search by name or city...",
-    "newCustomer": "New customer"
+    "newCustomer": "New customer",
+    "import": "Import"
+  },
+  "import": {
+    "title": "Import customers from Silvasoft",
+    "pickFile": "Choose Excel file",
+    "reading": "Reading file…",
+    "willCreate": "{{count}} new",
+    "willUpdate": "{{count}} updated",
+    "skipped": "{{count}} row(s) skipped (no name)",
+    "unmapped": "Unrecognised columns: {{cols}}",
+    "commit": "Import",
+    "done": "Import complete — {{created}} created, {{updated}} updated",
+    "previewError": "Could not read the file",
+    "commitError": "Import failed",
+    "skippedRow": "Row {{row}}: {{detail}}"
   },
   "table": {
     "name": "Name",

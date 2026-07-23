@@ -22,6 +22,8 @@ export function customerDto(c: Customer & { users?: LinkedUser[] }) {
     postalCode: c.postalCode,
     city: c.city,
     type: c.type,
+    kvkNumber: c.kvkNumber ?? undefined,
+    vatNumber: c.vatNumber ?? undefined,
     notes: c.notes ?? undefined,
     account: accountDto(c.users),
   };

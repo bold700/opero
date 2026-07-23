@@ -1,7 +1,16 @@
 <!doctype html>
-<html lang="nl">
+<!--
+  translate="no" + the "notranslate" meta below opt the app OUT of browser
+  auto-translation (Chrome offers to translate because lang is "nl"). The app is
+  already fully localized NL/EN through i18n, so machine translation on top is
+  both unwanted AND unsafe: it rewrites text nodes underneath React, which then
+  crashes on the next re-render ("removeChild: node is not a child of this
+  node"). Opting out fixes that class of crash across the whole app.
+-->
+<html lang="nl" translate="no">
   <head>
     <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"

@@ -94,8 +94,16 @@ after the implementation pass.
 - **KVK database check** — no integration exists, and `Customer` has no KVK
   field (the only `kvkNumber` is the org's own, on the settings form). Needs a
   real KVK API subscription + credentials before it's buildable.
-- **Silvasoft import via Excel** — nothing exists, and no spreadsheet library is
-  installed. Blocked on a sample Silvasoft export to map the columns.
+- ~~**Silvasoft import via Excel**~~ — **BUILT** (23-07-2026). Admin uploads a
+  Silvasoft "Export → Excel" customer file on the Customers screen; a preview
+  shows create/update/skipped counts before anything is written, then commit
+  upserts in one transaction. Re-import matches on Silvasoft's "Nummer"
+  (`Customer.silvasoftId`) so it updates rather than duplicates, and never
+  blanks a field the export left empty. KvK-nummer / BTW-nummer are captured
+  into `Customer.kvkNumber` / `vatNumber` (the KvK one feeds the still-pending
+  KVK-check feature). Parser: `backend/src/modules/customers/silvasoftImport.ts`;
+  verified against the client's real 75-row export (72 imported, 3 junk rows
+  skipped).
 - **Request intake automation** ("can this process be partially automated?") —
   no inbound mail anywhere; the `Intake` model is a post-sale site survey, not
   a request inbox. Underspecified as written: needs the client to say what

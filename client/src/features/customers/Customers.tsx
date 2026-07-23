@@ -23,6 +23,7 @@ import {
 } from "./api";
 import { FILTERS, type CustomerFilter } from "./constants";
 import { CustomersActions } from "./components/CustomersActions";
+import { ImportDialog } from "./components/ImportDialog";
 import { CustomersTable } from "./components/CustomersTable";
 import { CustomerDialog } from "./components/CustomerDialog";
 import { InviteDialog, type InviteFixedTarget } from "../users/components/InviteDialog";
@@ -62,6 +63,7 @@ export function Customers() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Invite flow — provision a portal login for this customer (person known).
   const [inviteTarget, setInviteTarget] = useState<InviteFixedTarget | null>(null);
@@ -151,6 +153,7 @@ export function Customers() {
           search={search}
           onSearch={setSearch}
           onCreate={openCreate}
+          onImport={() => setImportOpen(true)}
           canCreate={canManage}
         />
       }
@@ -210,6 +213,15 @@ export function Customers() {
         error={formError}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={(r) => {
+          setToast(t("customers.import.done", { created: r.created, updated: r.updated }));
+          refresh();
+        }}
       />
 
       <InviteDialog

@@ -16,7 +16,22 @@
   },
   "actions": {
     "searchPlaceholder": "Zoek op naam of stad...",
-    "newCustomer": "Nieuwe klant"
+    "newCustomer": "Nieuwe klant",
+    "import": "Importeren"
+  },
+  "import": {
+    "title": "Klanten importeren uit Silvasoft",
+    "pickFile": "Excel-bestand kiezen",
+    "reading": "Bestand lezen…",
+    "willCreate": "{{count}} nieuw",
+    "willUpdate": "{{count}} bijgewerkt",
+    "skipped": "{{count}} rij(en) overgeslagen (geen naam)",
+    "unmapped": "Niet-herkende kolommen: {{cols}}",
+    "commit": "Importeren",
+    "done": "Import klaar — {{created}} aangemaakt, {{updated}} bijgewerkt",
+    "previewError": "Kon het bestand niet lezen",
+    "commitError": "Importeren mislukt",
+    "skippedRow": "Rij {{row}}: {{detail}}"
   },
   "table": {
     "name": "Naam",

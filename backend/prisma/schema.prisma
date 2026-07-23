@@ -334,6 +334,15 @@ model Customer {
   postalCode  String
   city        String
   type        CustomerType @default(business)
+  // Silvasoft's own customer number ("Nummer" in the export). Set when a
+  // customer originated from a Silvasoft Excel import; a re-import matches on
+  // (orgId, silvasoftId) to update instead of duplicating. Null for customers
+  // created directly in Opero.
+  silvasoftId String?
+  // Registration numbers carried over from Silvasoft (KvK-nummer / BTW-nummer).
+  // KvK feeds the chamber-of-commerce lookup feature; both print on documents.
+  kvkNumber   String?
+  vatNumber   String?
   notes       String?
   deletedAt   DateTime?
   createdAt   DateTime  @default(now())
@@ -346,6 +355,9 @@ model Customer {
   users          User[]
 
   @@index([orgId])
+  // Dedupe target for re-import. Partial-unique isn't expressible here, so the
+  // import does a scoped findFirst; this index keeps that lookup fast.
+  @@index([orgId, silvasoftId])
 }
 
 model ContactPerson {
