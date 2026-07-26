@@ -108,7 +108,7 @@ export function MeerwerkApprovalPanel({
                 "&:last-of-type": { borderBottom: "none" },
               }}
             >
-              <Box sx={{ flex: 1, minWidth: 160 }}>
+              <Box sx={{ flex: 1, minWidth: { xs: "100%", sm: 160 } }}>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {m.label?.trim() || m.name || t("workOrderDetail.line.unnamed")}
                 </Typography>

@@ -286,7 +286,7 @@ export function ZoneCard({
             {t("workOrderDetail.photos.title")}
           </Typography>
           <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-          <Box sx={{ flex: 1, minWidth: 200 }}>
+          <Box sx={{ flex: 1, minWidth: { xs: "100%", sm: 200 } }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
               {t("workOrderDetail.photos.before")}
             </Typography>
@@ -303,7 +303,7 @@ export function ZoneCard({
               onRemove={(key) => onDeletePhoto(key)}
             />
           </Box>
-          <Box sx={{ flex: 1, minWidth: 200 }}>
+          <Box sx={{ flex: 1, minWidth: { xs: "100%", sm: 200 } }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
               {t("workOrderDetail.photos.result")}
             </Typography>

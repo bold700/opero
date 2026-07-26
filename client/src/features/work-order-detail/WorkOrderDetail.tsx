@@ -263,9 +263,35 @@ export function WorkOrderDetail() {
           }
         />
 
-        <Box sx={{ display: "flex", gap: SPACING.sectionGap, flexDirection: { xs: "column", lg: "row" }, alignItems: "flex-start" }}>
-          {/* Left / main: the werkbon body (zones + extra work). */}
-          <Box sx={{ flex: 3, minWidth: 0, display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
+        {/* Stacked below lg, two columns above.
+            `alignItems` is per-direction on purpose: it targets the CROSS axis,
+            so "flex-start" (which we want on desktop, to stop the columns
+            stretching to equal height) means "shrink to content WIDTH" once the
+            container is a column — that's what left a ragged gap on the right
+            and made the cards size to their content instead of the screen. */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: SPACING.sectionGap,
+            flexDirection: { xs: "column", lg: "row" },
+            alignItems: { xs: "stretch", lg: "flex-start" },
+          }}
+        >
+          {/* Left / main: the werkbon body (zones + extra work).
+              Same trap for `flex`: the shorthand sets flex-basis, which is the
+              MAIN axis — height while stacked. Only apply the 3:2 ratio at lg,
+              and pin width:100% below it so the column can never be sized by
+              its widest child. */}
+          <Box
+            sx={{
+              flex: { xs: "0 0 auto", lg: 3 },
+              width: { xs: "100%", lg: "auto" },
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: SPACING.sectionGap,
+            }}
+          >
             <TasksPanel
               workOrder={wo}
               canWrite={canWrite && !finished}
@@ -316,7 +342,17 @@ export function WorkOrderDetail() {
           </Box>
 
           {/* Right / side: separate cards — Controle vooraf, Projectinfo, Activiteit. */}
-          <Box sx={{ flex: 2, minWidth: 0, width: "100%", display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
+          {/* Same per-direction flex as the main column — see the note above. */}
+          <Box
+            sx={{
+              flex: { xs: "0 0 auto", lg: 2 },
+              width: "100%",
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: SPACING.sectionGap,
+            }}
+          >
             <PreJobPanel
               workOrder={wo}
               isAdmin={canEditQuoteScope(role)}

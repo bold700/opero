@@ -127,8 +127,20 @@ export function DetailHeader({
           </Box>
         </Box>
 
-        {/* Right: icon actions (export, add-zone) then the primary button. */}
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexShrink: 0 }}>
+        {/* Right: icon actions (export, add-zone) then the primary button.
+            Wraps and shrinks on narrow screens — at 320px these buttons are
+            wider than the card, and `flexShrink: 0` made them overflow it. */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            alignItems: "center",
+            flexWrap: "wrap",
+            rowGap: 1,
+            minWidth: 0,
+            flexShrink: { xs: 1, sm: 0 },
+          }}
+        >
           {/* Projectinfo — only below lg, where the sidebar has collapsed and the
               panel would otherwise sit ~3 screens down. Hidden by CSS (not
               unmounted) since it's a pure visibility toggle. */}
