@@ -32,6 +32,7 @@ export function SelectField({
   error,
   required,
   autoFocus,
+  nativeBelow = "sm",
 }: {
   label: ReactNode;
   value: string;
@@ -45,9 +46,16 @@ export function SelectField({
   error?: boolean;
   required?: boolean;
   autoFocus?: boolean;
+  /**
+   * Below which breakpoint to use the native picker. Defaults to "sm" (phones).
+   * Raise it to match a bottom sheet's own breakpoint: inside a sheet the MUI
+   * menu is clipped by the sheet's `overflow: hidden`, so anywhere the sheet
+   * renders, this must be native too.
+   */
+  nativeBelow?: "sm" | "md" | "lg";
 }) {
   const theme = useTheme();
-  const nativeSelect = useMediaQuery(theme.breakpoints.down("sm"));
+  const nativeSelect = useMediaQuery(theme.breakpoints.down(nativeBelow));
 
   return (
     <TextField

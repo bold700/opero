@@ -189,11 +189,24 @@ export function ResponsiveDialog({
                   flexShrink: 0,
                 }}
               />
-              {/* Menus inside the sheet portal into `sheetEl` (this Box), keeping
-                  them within vaul's content tree so they stay clickable. */}
-              <SheetContainerContext.Provider value={sheetEl}>
-                {children}
-              </SheetContainerContext.Provider>
+              {/* `data-vaul-no-drag` on the scrolling body, NOT the whole sheet:
+                  vaul's shouldDrag() walks up looking for a scrolled ancestor,
+                  but at scrollTop === 0 (i.e. every time the sheet opens) no
+                  branch matches and it falls through to "this is a drag" — so
+                  the first upward swipe moved the page behind instead of
+                  scrolling the sheet. The attribute is checked first and short-
+                  circuits that. The handle and title stay outside it, so
+                  swipe-down-to-dismiss still works. */}
+              <Box
+                data-vaul-no-drag
+                sx={{ display: "contents" }}
+              >
+                {/* Menus inside the sheet portal into `sheetEl`, keeping them
+                    within vaul's content tree so they stay clickable. */}
+                <SheetContainerContext.Provider value={sheetEl}>
+                  {children}
+                </SheetContainerContext.Provider>
+              </Box>
             </Box>
           </Vaul.Content>
         </Vaul.Portal>

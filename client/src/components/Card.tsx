@@ -12,7 +12,13 @@ export function Card({ children, sx, noPadding, ...rest }: PaperProps & { noPadd
         bgcolor: CARD_BG,
         borderRadius: `${RADIUS.card}px`,
         boxShadow: CARD_SHADOW,
-        ...(noPadding ? { overflow: "hidden" } : { p: 3 }),
+        // Both branches clip. A card must never be the thing that lets a child
+        // push the page sideways on a phone — if something inside can't shrink,
+        // clip it here rather than growing the whole layout. (Previously only
+        // the `noPadding` branch did this.)
+        overflow: "hidden",
+        minWidth: 0,
+        ...(noPadding ? null : { p: 3 }),
         ...sx,
       }}
     >

@@ -49,7 +49,12 @@ export function SortableRow({
     <Box
       ref={setNodeRef}
       sx={{
-        transform: CSS.Transform.toString(transform),
+        // Y-AXIS ONLY. These lists are vertical (verticalListSortingStrategy),
+        // but PointerSensor reports raw two-axis deltas, so CSS.Transform emits
+        // `translate3d(<x>px, …)` and the row tracks a drifting finger sideways.
+        // A transformed, positioned element adds to its ancestors' scrollable
+        // area, so that drift pans the whole page horizontally mid-drag.
+        transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : null),
         transition,
         // Lift the dragged row above its siblings while moving.
         zIndex: isDragging ? 1 : undefined,

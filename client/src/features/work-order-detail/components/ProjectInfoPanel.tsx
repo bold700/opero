@@ -9,7 +9,13 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import { Card } from "../../../components/Card";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { SelectField } from "../../../components/SelectField";
 import { useSheetMenuProps } from "../../../components/ResponsiveDialog";
+
+// Must match `sheetBelow` on the Projectinfo sheet (ProjectInfoSheet.tsx).
+// Anywhere the sheet renders, its `overflow: hidden` would clip an MUI menu —
+// so the selects have to fall back to the native picker over the same range.
+const SHEET_BREAKPOINT = "lg" as const;
 import { getCustomers, type CustomerOption } from "../../work-orders/create-api";
 import type {
   Project,
@@ -142,35 +148,29 @@ export function ProjectInfoPanel({
                 (and its werkbonnen, invoices and meerwerk approvals) into that
                 customer's portal, so it confirms before applying. */}
             <Field label={t("workOrderDetail.info.customer")}>
-              <TextField
-                select
-                size="small"
+              <SelectField
+                label=""
                 value={project.customerId}
-                onChange={(e) => setPendingCustomer(e.target.value)}
+                onChange={(v) => setPendingCustomer(v)}
                 disabled={busy}
-                slotProps={{ select: { MenuProps: { container: sheetMenu.container } } }}
-              >
-                {customers.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                nativeBelow={SHEET_BREAKPOINT}
+                options={customers.map((c) => ({ value: c.id, label: c.name }))}
+              />
             </Field>
 
             <Field label={t("workOrderDetail.info.urgency")}>
-              <TextField
-                select
-                size="small"
+              <SelectField
+                label=""
                 value={project.urgency}
-                onChange={(e) => onPatch({ urgency: e.target.value as ProjectSidebarPatch["urgency"] })}
+                onChange={(v) => onPatch({ urgency: v as ProjectSidebarPatch["urgency"] })}
                 disabled={busy}
-                slotProps={{ select: { MenuProps: { container: sheetMenu.container } } }}
-              >
-                <MenuItem value="normal">{t("workOrderDetail.urgency.normal")}</MenuItem>
-                <MenuItem value="urgent">{t("workOrderDetail.urgency.urgent")}</MenuItem>
-                <MenuItem value="blocked">{t("workOrderDetail.urgency.blocked")}</MenuItem>
-              </TextField>
+                nativeBelow={SHEET_BREAKPOINT}
+                options={[
+                  { value: "normal", label: t("workOrderDetail.urgency.normal") },
+                  { value: "urgent", label: t("workOrderDetail.urgency.urgent") },
+                  { value: "blocked", label: t("workOrderDetail.urgency.blocked") },
+                ]}
+              />
             </Field>
 
             {/* Planning — start is the primary field; a one-day job needs only
@@ -227,19 +227,17 @@ export function ProjectInfoPanel({
 
             {/* TEAM — project leader (project) + monteurs (werkbon). */}
             <Field label={t("workOrderDetail.info.projectLeader")}>
-              <TextField
-                select
-                size="small"
+              <SelectField
+                label=""
                 value={project.projectLeaderId ?? ""}
-                onChange={(e) => onPatch({ projectLeaderId: e.target.value || null })}
+                onChange={(v) => onPatch({ projectLeaderId: v || null })}
                 disabled={busy}
-                slotProps={{ select: { MenuProps: { container: sheetMenu.container } } }}
-              >
-                <MenuItem value="">{t("workOrderDetail.info.none")}</MenuItem>
-                {employees.map((e) => (
-                  <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>
-                ))}
-              </TextField>
+                nativeBelow={SHEET_BREAKPOINT}
+                options={[
+                  { value: "", label: t("workOrderDetail.info.none") },
+                  ...employees.map((e) => ({ value: e.id, label: e.name })),
+                ]}
+              />
             </Field>
 
             <Field label={t("workOrderDetail.info.monteurs")}>
@@ -253,7 +251,14 @@ export function ProjectInfoPanel({
                 value={employees.filter((a) => workOrder.assignees.some((s) => s.id === a.id))}
                 onChange={(_e, selected) => onAssignMonteurs(selected.map((s) => s.id))}
                 disabled={busy}
-                slotProps={{ popper: { container: sheetMenu.container } }}
+                // No native equivalent for a multi-select, so it keeps the
+                // portal — but the list must be bounded, or the sheet's
+                // `overflow: hidden` clips whatever hangs past the bottom and
+                // those options become unreachable.
+                slotProps={{
+                  popper: { container: sheetMenu.container },
+                  paper: { sx: { maxHeight: "40dvh" } },
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}

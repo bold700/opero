@@ -186,9 +186,16 @@ export function TaskLineRow({
       variant="body2"
       sx={{
         minWidth: 0,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
+        // Mobile WRAPS; desktop keeps the single-line ellipsis.
+        //
+        // `nowrap` + ellipsis only collapses once the box is already bounded —
+        // in a flex row of nowrap siblings it still reports its full intrinsic
+        // width and pushes the page sideways instead (measured: 55px of overflow
+        // on a 375px screen from this alone). Wrapping removes the floor.
+        overflow: { xs: "visible", sm: "hidden" },
+        textOverflow: { xs: "clip", sm: "ellipsis" },
+        whiteSpace: { xs: "normal", sm: "nowrap" },
+        overflowWrap: "anywhere",
         color: m.done ? "text.secondary" : "text.primary",
         textDecoration: m.done ? "line-through" : "none",
       }}
@@ -251,6 +258,12 @@ export function TaskLineRow({
             display: "flex",
             alignItems: "center",
             gap: 1,
+            // MUST wrap: every child here is whiteSpace:"nowrap" (status badge,
+            // meerwerk badges, quantity, price), so without this the row has an
+            // unshrinkable minimum that overflows a 375px screen — a meerwerk
+            // line measured 99px past the viewport.
+            flexWrap: "wrap",
+            rowGap: 0.5,
             // Indent so row 2 lines up under the description text: the small
             // checkbox box is ~30px, shifted -4px by ml, plus the 8px gap → the
             // description starts ~34px in. Match that here.
