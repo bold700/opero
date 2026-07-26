@@ -97,14 +97,6 @@ describe("office CANNOT manage logins at or above its own level", () => {
     expect(res.status).toBe(403);
   });
 
-  it("cannot invite an employee as office (a peer)", async () => {
-    const res = await request(app)
-      .post("/api/users/invite")
-      .set(auth(officeToken))
-      .send({ kind: "employee", employeeId: targetEmployeeId, role: "office" });
-    expect(res.status).toBe(403);
-  });
-
   it("cannot disable the owner's account", async () => {
     const res = await request(app)
       .post(`/api/users/${someUserId}/disable`)
@@ -188,6 +180,91 @@ describe("office CAN manage logins below its own level", () => {
 
     await prisma.user.deleteMany({ where: { customerId: cust.id } });
     await prisma.customer.delete({ where: { id: cust.id } });
+  });
+
+  it("promotes a technician to office, but not to admin", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} Promote`, phone: "", email: `${TAG}-promote@opero.test`,
+        roles: ["Technician"], status: "active",
+      },
+    });
+    const invited = await request(app)
+      .post("/api/users/invite")
+      .set(auth(officeToken))
+      .send({ kind: "employee", employeeId: emp.id, role: "technician" });
+    expect(invited.status).toBe(201);
+    const id = invited.body.id;
+
+    const up = await request(app)
+      .patch(`/api/users/${id}`)
+      .set(auth(officeToken))
+      .send({ role: "office" });
+    expect(up.status).toBe(200);
+    expect(up.body.role).toBe("office");
+
+    // Now a peer — office can no longer reach it at all.
+    const again = await request(app)
+      .patch(`/api/users/${id}`)
+      .set(auth(officeToken))
+      .send({ role: "technician" });
+    expect(again.status).toBe(403);
+  });
+
+  it("cannot promote anyone to admin", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} NoAdmin`, phone: "", email: `${TAG}-noadmin@opero.test`,
+        roles: ["Technician"], status: "active",
+      },
+    });
+    const invited = await request(app)
+      .post("/api/users/invite")
+      .set(auth(officeToken))
+      .send({ kind: "employee", employeeId: emp.id, role: "technician" });
+    expect(invited.status).toBe(201);
+
+    const res = await request(app)
+      .patch(`/api/users/${invited.body.id}`)
+      .set(auth(officeToken))
+      .send({ role: "admin" });
+    expect(res.status).toBe(403);
+
+    const after = await prisma.user.findUnique({ where: { id: invited.body.id } });
+    expect(after!.role).toBe("technician");
+  });
+
+  it("cannot change the owner's role", async () => {
+    const res = await request(app)
+      .patch(`/api/users/${someUserId}`)
+      .set(auth(officeToken))
+      .send({ role: "technician" });
+    expect(res.status).toBe(403);
+  });
+
+  // The asymmetry: granting your OWN level is onboarding, not escalation, so
+  // office may hire a peer — but offboarding one stays the owner's call, which
+  // the "cannot disable another office user" test above pins.
+  it("invites another office user (a peer) but cannot then revoke them", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} New Clerk`, phone: "", email: `${TAG}-newclerk@opero.test`,
+        roles: ["Administration"], status: "active",
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/users/invite")
+      .set(auth(officeToken))
+      .send({ kind: "employee", employeeId: emp.id, role: "office" });
+    expect(res.status).toBe(201);
+    expect(res.body.role).toBe("office");
+
+    // Created it, still can't take it away.
+    const revoke = await request(app)
+      .post(`/api/users/${res.body.id}/disable`)
+      .set(auth(officeToken));
+    expect(revoke.status).toBe(403);
   });
 
   it("resends, disables and re-enables a technician's login", async () => {

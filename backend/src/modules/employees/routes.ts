@@ -20,7 +20,12 @@ import {
   employeeListInclude,
   absenceDto,
 } from "./dto.js";
-import { canSeeAllProjects, canActOnAccount, type UserRole } from "@opero/shared";
+import {
+  canSeeAllProjects,
+  canActOnAccount,
+  canGrantRole,
+  type UserRole,
+} from "@opero/shared";
 import { autoInviteEmployee, revokeLoginsFor } from "../users/provisioning.js";
 import { accountInclude } from "../users/dto.js";
 import { absencesInRange, isIsoDay, todayIso } from "./absence.js";
@@ -289,6 +294,15 @@ employeesRouter.post(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createEmployeeSchema.parse(req.body);
+
+    // Authorize the requested access level BEFORE creating anything — a 403
+    // here must not leave an orphan employee record behind. Defaults to the
+    // safe floor rather than to the creator's own level.
+    const accessRole: UserRole = input.accessRole ?? "technician";
+    if (!canGrantRole(user.role as UserRole, accessRole)) {
+      throw Forbidden("You can't create an account at or above your own level");
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       const e = await tx.employee.create({
         data: {
@@ -311,11 +325,13 @@ employeesRouter.post(
     // taken or the mail provider is down. The outcome ships in the response so
     // the UI can say what happened; the manual Invite action remains the retry.
     //
-    // ALWAYS the technician role, never admin — even for office job titles.
-    // TeamRole is a job description ("Planner"), not an access level, and
-    // silently minting an admin login from one would be privilege escalation by
-    // typo. An admin promotes the account afterwards from the Access screen.
-    const invite = await autoInviteEmployee(user, created, "technician");
+    // The access level is CHOSEN, never inferred from the job title: TeamRole
+    // is a job description ("Planner"), and minting an admin login from one
+    // would be privilege escalation by typo. Absent an explicit choice it stays
+    // `technician`, the safe floor. Whatever is chosen, the caller must be
+    // allowed to grant it (checked above), and it can be corrected later via
+    // PATCH /users/:id.
+    const invite = await autoInviteEmployee(user, created, accessRole);
 
     res.status(201).json({ ...employeeDto(created), invite });
   }),

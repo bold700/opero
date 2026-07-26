@@ -52,7 +52,7 @@
       "invite": "Uitnodigen",
       "resend": "Uitnodiging opnieuw versturen",
       "needsEmail": "Voeg eerst een e-mailadres toe om deze persoon uit te nodigen.",
-      "role": "Rol",
+      "role": "Toegangsniveau",
       "email": "E-mail",
       "activatedAt": "Actief sinds",
       "disable": "Uitschakelen",
@@ -61,7 +61,9 @@
       "outranked": "Alleen een eigenaar kan dit account beheren.",
       "confirmDisableTitle": "Toegang uitschakelen?",
       "confirmDisableBody": "{{name}} kan daarna niet meer inloggen. Actieve sessies worden direct beëindigd. Je kunt de toegang later weer inschakelen."
-    }
+    },
+    "accessRole": "Toegangsniveau",
+    "accessRoleHint": "Bepaalt wat deze persoon in de app mag. Losstaand van de functie."
   },
   "delete": {
     "title": "Medewerker verwijderen",

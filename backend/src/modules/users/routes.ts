@@ -3,6 +3,7 @@ import {
   canActOnAccount,
   canGrantRole,
   inviteUserSchema,
+  updateUserRoleSchema,
   type UserRole,
 } from "@opero/shared";
 import { prisma } from "../../db/client.js";
@@ -145,6 +146,59 @@ usersRouter.post(
     await deliverInvite(created.id, email, created.name);
 
     res.status(201).json(userDto(created));
+  }),
+);
+
+// PATCH /users/:id — change an existing login's ACCESS LEVEL.
+//
+// Employee-create auto-invites as `technician` and invite-time role was
+// previously permanent, so any employee given an email became an un-promotable
+// technician with no way back. This is that way back.
+//
+// Takes effect immediately without touching sessions: requireAuth reloads the
+// user from the database on every request (auth/middleware.ts), so the role in
+// an already-issued JWT is never trusted.
+usersRouter.patch(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const admin = req.user!;
+    const { role } = updateUserRoleSchema.parse(req.body);
+
+    // Both ends of the move are guarded: `loadActionableUser` refuses a target
+    // at or above the actor's level, and `canGrantRole` refuses a destination
+    // above it. Office may therefore promote a technician to office, but can
+    // neither create nor reach an admin.
+    const user = await loadActionableUser(admin, req.params.id);
+    if (!canGrantRole(admin.role as UserRole, role)) {
+      throw Forbidden("You can't grant a role above your own level");
+    }
+
+    // Demoting yourself is the same last-owner lockout the disable route
+    // guards: the only admin turning themselves into office would leave the
+    // org with no one able to promote anyone back.
+    if (user.id === admin.id) throw BadRequest("You can't change your own role");
+
+    // `client` is structural, not a level — it pairs with customerId. Moving a
+    // customer login onto the staff ladder (or a staff login down to client)
+    // would leave a User whose role contradicts the record it links to.
+    if (user.role === "client") {
+      throw BadRequest("A customer login is always the client role");
+    }
+
+    if (user.role === role) {
+      res.json(userDto(user));
+      return;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({ where: { id: user.id }, data: { role } });
+      await audit(tx, admin, "user.role.change", "user", user.id, {
+        from: user.role,
+        to: role,
+      });
+      return u;
+    });
+    res.json(userDto(updated));
   }),
 );
 

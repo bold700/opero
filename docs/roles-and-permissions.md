@@ -83,12 +83,16 @@ Office**, but gated **per target, not at the door**. The one rule:
 > **You can never act on an account at or above your own level** — neither
 > creating one, nor revoking one.
 
-So Office invites, resends, disables and enables **technicians and clients**,
-and may never touch an **admin** or **another office user**. Office also cannot
-*grant* the admin role when inviting: minting an owner who could then disable
-them back would make the revoke restriction meaningless. Admin outranks
-everyone and acts on any account (the self-action guards stop the last owner
-locking themselves out).
+Creating is one notch looser than revoking: you may **grant your own level**,
+just never one above it. Onboarding a colleague as your equal isn't escalation;
+minting someone who outranks you is.
+
+So Office **invites and promotes** technicians, clients and other office users,
+but never an admin — while it may **resend / disable / enable** only for
+technicians and clients, never for an admin or another office user. The
+asymmetry is deliberate: office can hire a peer, but offboarding one stays the
+owner's call. Admin outranks everyone and acts on any account (the self-action
+guards stop the last owner locking themselves out).
 
 There is no separate "Access" screen any more: an account is managed from the
 record it belongs to, in the account panel inside the Werknemers / Klanten edit

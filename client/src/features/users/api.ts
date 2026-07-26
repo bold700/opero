@@ -43,6 +43,14 @@ export function inviteUser(input: InviteInput): Promise<UserAccount> {
   return api.post<UserAccount>("/users/invite", input);
 }
 
+// Change an existing login's ACCESS LEVEL. `client` is absent on purpose: it
+// pairs structurally with a Customer record, so it's not a level you move to.
+export type StaffRole = "admin" | "office" | "technician";
+
+export function updateUserRole(id: string, role: StaffRole): Promise<UserAccount> {
+  return api.patch<UserAccount>(`/users/${id}`, { role });
+}
+
 export function resendInvite(id: string): Promise<void> {
   return api.post<void>(`/users/${id}/resend-invite`);
 }

@@ -31,6 +31,7 @@
     "resent": "Uitnodiging opnieuw verstuurd naar {{name}}.",
     "disabled": "Toegang van {{name}} is uitgeschakeld.",
     "enabled": "Toegang van {{name}} is hersteld.",
-    "actionError": "Er ging iets mis. Probeer het opnieuw."
+    "actionError": "Er ging iets mis. Probeer het opnieuw.",
+    "roleChanged": "Toegangsniveau gewijzigd naar {{role}}."
   }
 }

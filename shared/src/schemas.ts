@@ -135,6 +135,19 @@ export const inviteUserSchema = z.discriminatedUnion("kind", [
 ]);
 export type InviteUserRequest = z.infer<typeof inviteUserSchema>;
 
+// Change an existing login's ACCESS LEVEL (not the Employee's job title — see
+// TeamRole, which grants nothing). Without this an account's role was fixed at
+// invite time forever: employee-create auto-invites as `technician`, so every
+// employee given an email became a permanently un-promotable technician.
+//
+// `client` is deliberately absent. It isn't a level you move to or from — it
+// pairs structurally with `customerId`, and a client login carrying an
+// `employeeId` would break the one-record-per-login invariant.
+export const updateUserRoleSchema = z.object({
+  role: z.enum(["admin", "office", "technician"]),
+});
+export type UpdateUserRoleRequest = z.infer<typeof updateUserRoleSchema>;
+
 export const enable2faSchema = z.object({ code: z.string().min(6).max(10) });
 export type Enable2faRequest = z.infer<typeof enable2faSchema>;
 

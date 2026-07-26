@@ -20,6 +20,9 @@ import { SelectField } from "../../../components/SelectField";
 import { useForm } from "../../../lib/useForm";
 import { required, email } from "../../../lib/validation";
 import { AccountSection } from "../../users/components/AccountSection";
+import { grantableRoles, type UserRole } from "@opero/shared";
+import { useAuth } from "../../../auth/AuthContext";
+import type { StaffRole } from "../../users/api";
 import {
   TEAM_ROLES,
   EMPLOYEE_STATUSES,
@@ -60,6 +63,7 @@ export function EmployeeDialog({
   onResend,
   onDisable,
   onEnable,
+  onChangeRole,
 }: {
   open: boolean;
   employee?: EmployeeRow | null;
@@ -80,6 +84,7 @@ export function EmployeeDialog({
   onResend: () => void;
   onDisable: () => void;
   onEnable: () => void;
+  onChangeRole: (role: StaffRole) => void;
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -90,6 +95,15 @@ export function EmployeeDialog({
   );
   // Roles aren't a plain string, so they live outside useForm.
   const [roles, setRoles] = useState<TeamRole[]>([]);
+  // The login's ACCESS LEVEL, create-only (an existing account changes level
+  // from the Account panel below). Separate from `roles` above: those are job
+  // titles and grant nothing.
+  const [accessRole, setAccessRole] = useState<StaffRole>("technician");
+  const { user } = useAuth();
+  // Only levels this actor may hand out — office never sees Beheerder.
+  const accessOptions = grantableRoles((user?.role ?? "client") as UserRole).filter(
+    (r): r is StaffRole => r !== "client",
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -104,6 +118,7 @@ export function EmployeeDialog({
         : EMPTY,
     );
     setRoles((employee?.roles as TeamRole[]) ?? []);
+    setAccessRole("technician");
   }, [open, employee, reset]);
 
   const err = (key: keyof Form) => {
@@ -121,6 +136,9 @@ export function EmployeeDialog({
       phone: values.phone,
       email: values.email.trim(),
       roles,
+      // Create-only, and only meaningful with an email (no email → no login is
+      // provisioned at all, so the backend ignores it).
+      ...(employee ? {} : { accessRole }),
       status: values.status as EmployeeStatus,
     });
   };
@@ -211,6 +229,25 @@ export function EmployeeDialog({
             }))}
           />
 
+          {/* Access level for the login created alongside a NEW employee. Only
+              shown on create (an existing account changes level in the panel
+              below) and only with an email — without one no login is
+              provisioned, so the choice would be a lie. Distinct from Functies
+              above: those are job titles and grant nothing. */}
+          {!employee && canManage && values.email.trim() ? (
+            <SelectField
+              label={t("employees.dialog.accessRole")}
+              value={accessRole}
+              onChange={(v) => setAccessRole(v as StaffRole)}
+              disabled={busy}
+              helperText={t("employees.dialog.accessRoleHint")}
+              options={accessOptions.map((r) => ({
+                value: r,
+                label: t(`users.roles.${r}`),
+              }))}
+            />
+          ) : null}
+
           {/* Login account — only for an existing employee, admins only. Reads
               the live email field so a just-typed address enables Uitnodigen
               (the invite is sent against the saved record). */}
@@ -225,6 +262,7 @@ export function EmployeeDialog({
               onResend={onResend}
               onDisable={onDisable}
               onEnable={onEnable}
+              onChangeRole={onChangeRole}
             />
           ) : null}
         </Box>

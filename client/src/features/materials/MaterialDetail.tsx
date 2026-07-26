@@ -192,16 +192,19 @@ export function MaterialDetail() {
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {material.name}
             </Typography>
+            {/* The product's SPEC — read-only facts about the thing you're
+                looking at, not controls. All one flat neutral tone: a coloured
+                pill here reads as "selected/clickable" (STATUS_TONES.open is
+                literally the active-filter-chip lavender), and there is nothing
+                to click.
+                No thickness badge: it's already in the name of every material
+                that has one ("AF/Armaflex AF/2 13 mm"), so repeating it a line
+                below the title just competed with the variant list's pipe-Ø
+                column — two different mm figures, read as a contradiction. */}
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              <StatusBadge label={t(CLASS_LABEL_KEYS[material.class])} tone={STATUS_TONES.open} />
+              <StatusBadge label={t(CLASS_LABEL_KEYS[material.class])} tone={STATUS_TONES.neutral} />
               {material.supplier ? (
                 <StatusBadge label={material.supplier} tone={STATUS_TONES.neutral} />
-              ) : null}
-              {material.thicknessMm != null ? (
-                <StatusBadge
-                  label={t("materials.detail.thickness", { mm: material.thicknessMm })}
-                  tone={STATUS_TONES.info}
-                />
               ) : null}
               {material.finish ? (
                 <StatusBadge label={t(FINISH_LABEL_KEYS[material.finish])} tone={STATUS_TONES.neutral} />

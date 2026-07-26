@@ -55,7 +55,6 @@
   },
   "detail": {
     "back": "Terug",
-    "thickness": "Isolatiedikte {{mm}} mm",
     "priceCount": "{{count}} prijzen",
     "deleteMaterial": "Materiaal verwijderen",
     "deleteMaterialTitle": "Materiaal verwijderen?",

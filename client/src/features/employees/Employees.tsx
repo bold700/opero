@@ -34,7 +34,9 @@ import {
   resendInvite,
   disableUser,
   enableUser,
+  updateUserRole,
   type InviteInput,
+  type StaffRole,
 } from "../users/api";
 
 const EMPTY_COUNTS: EmployeeCounts = {
@@ -221,6 +223,29 @@ export function Employees() {
     }
   };
 
+  // Change this employee's ACCESS LEVEL (not their job title — that's `roles`
+  // on the record itself). Unlike enable/disable this keeps the dialog open, so
+  // the `editing` snapshot is patched in place rather than going stale behind a
+  // list refresh.
+  const handleChangeRole = async (e: EmployeeRow, role: StaffRole) => {
+    if (!e.account) return;
+    setAccountBusy(true);
+    try {
+      const updated = await updateUserRole(e.account.userId, role);
+      setEditing((prev) =>
+        prev && prev.account
+          ? { ...prev, account: { ...prev.account, role: updated.role } }
+          : prev,
+      );
+      setToast(t("users.toast.roleChanged", { role: t(`users.roles.${updated.role}`) }));
+      refresh();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : t("users.toast.actionError"));
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleting) return;
     setBusy(true);
@@ -323,6 +348,7 @@ export function Employees() {
           setDisableTarget(editing);
         }}
         onEnable={() => editing && handleEnable(editing)}
+        onChangeRole={(role) => editing && handleChangeRole(editing, role)}
       />
 
       <InviteDialog

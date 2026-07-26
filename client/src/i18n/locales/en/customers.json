@@ -56,7 +56,7 @@
       "invite": "Invite",
       "resend": "Resend invitation",
       "needsEmail": "Add an email address first to invite this customer.",
-      "role": "Role",
+      "role": "Access level",
       "email": "Email",
       "activatedAt": "Active since",
       "disable": "Disable",

@@ -1,5 +1,5 @@
 import { api, type Page } from "../../lib/api/client";
-import type { LinkedAccount } from "../users/api";
+import type { LinkedAccount, StaffRole } from "../users/api";
 
 export type EmployeeStatus = "active" | "on_leave" | "inactive";
 
@@ -42,6 +42,11 @@ export type EmployeeInput = {
   email?: string;
   roles?: TeamRole[];
   status?: EmployeeStatus;
+  // ACCESS LEVEL for the login auto-created alongside a new employee — a
+  // different axis from `roles`, which are job titles that grant nothing.
+  // Create-only and only meaningful with an email; omitted → technician.
+  // Changing an existing account's level goes through updateUserRole().
+  accessRole?: StaffRole;
 };
 
 // Per-category totals across the whole (searched) set — powers the KPI cards.

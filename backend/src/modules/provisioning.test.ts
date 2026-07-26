@@ -356,4 +356,120 @@ describe("user provisioning", () => {
     await prisma.user.deleteMany({ where: { orgId: otherOrg.id } });
     await prisma.organization.delete({ where: { id: otherOrg.id } });
   });
+
+  // --- role change (PATCH /users/:id) --------------------------------------
+  //
+  // Before this existed, invite-time role was permanent: employee-create
+  // auto-invites as `technician`, so anyone created with an email was stuck
+  // there forever. THE point of the endpoint is that an admin can mint another
+  // admin, which was previously impossible from the UI at all.
+
+  it("promotes a technician's login to admin", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} Promote`, phone: "", email: `${TAG}-promote@opero.test`,
+        roles: ["Technician"], status: "active",
+      },
+    });
+    const invited = await request(app)
+      .post("/api/users/invite")
+      .set(auth(adminToken))
+      .send({ kind: "employee", employeeId: emp.id, role: "technician" });
+    expect(invited.status).toBe(201);
+
+    const res = await request(app)
+      .patch(`/api/users/${invited.body.id}`)
+      .set(auth(adminToken))
+      .send({ role: "admin" });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe("admin");
+
+    const after = await prisma.user.findUnique({ where: { id: invited.body.id } });
+    expect(after!.role).toBe("admin");
+  });
+
+  it("won't let an admin change their OWN role (last-owner lockout)", async () => {
+    const me = await prisma.user.findUnique({ where: { email: adminEmail } });
+    const res = await request(app)
+      .patch(`/api/users/${me!.id}`)
+      .set(auth(adminToken))
+      .send({ role: "office" });
+    expect(res.status).toBe(400);
+
+    const after = await prisma.user.findUnique({ where: { id: me!.id } });
+    expect(after!.role).toBe("admin");
+  });
+
+  it("won't change a customer login's role (client is structural)", async () => {
+    // The customer was already invited earlier in this file; reuse that login
+    // rather than inviting again (which would 409).
+    const clientUser = await prisma.user.findFirst({ where: { customerId } });
+    expect(clientUser).not.toBeNull();
+
+    const res = await request(app)
+      .patch(`/api/users/${clientUser!.id}`)
+      .set(auth(adminToken))
+      .send({ role: "office" });
+    expect(res.status).toBe(400);
+
+    const after = await prisma.user.findUnique({ where: { id: clientUser!.id } });
+    expect(after!.role).toBe("client");
+  });
+
+  it("rejects `client` as a role change target", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} NotClient`, phone: "", email: `${TAG}-notclient@opero.test`,
+        roles: ["Technician"], status: "active",
+      },
+    });
+    const invited = await request(app)
+      .post("/api/users/invite")
+      .set(auth(adminToken))
+      .send({ kind: "employee", employeeId: emp.id, role: "technician" });
+
+    const res = await request(app)
+      .patch(`/api/users/${invited.body.id}`)
+      .set(auth(adminToken))
+      .send({ role: "client" });
+    expect(res.status).toBe(400);
+  });
+
+  it("creates an employee with an explicit admin access level", async () => {
+    const res = await request(app)
+      .post("/api/employees")
+      .set(auth(adminToken))
+      .send({
+        name: `${TAG} New Owner`,
+        phone: "",
+        email: `${TAG}-newowner@opero.test`,
+        roles: ["Administration"],
+        accessRole: "admin",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.invite.invited).toBe(true);
+
+    const login = await prisma.user.findUnique({
+      where: { email: `${TAG}-newowner@opero.test` },
+    });
+    expect(login!.role).toBe("admin");
+  });
+
+  it("defaults employee-create to technician when no access level is given", async () => {
+    const res = await request(app)
+      .post("/api/employees")
+      .set(auth(adminToken))
+      .send({
+        name: `${TAG} Default`,
+        phone: "",
+        email: `${TAG}-default@opero.test`,
+        roles: ["Technician"],
+      });
+    expect(res.status).toBe(201);
+
+    const login = await prisma.user.findUnique({
+      where: { email: `${TAG}-default@opero.test` },
+    });
+    expect(login!.role).toBe("technician");
+  });
 });

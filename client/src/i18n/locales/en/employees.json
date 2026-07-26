@@ -52,7 +52,7 @@
       "invite": "Invite",
       "resend": "Resend invitation",
       "needsEmail": "Add an email address first to invite this person.",
-      "role": "Role",
+      "role": "Access level",
       "email": "Email",
       "activatedAt": "Active since",
       "disable": "Disable",
@@ -61,7 +61,9 @@
       "outranked": "Only an owner can manage this account.",
       "confirmDisableTitle": "Disable access?",
       "confirmDisableBody": "{{name}} will no longer be able to sign in. Active sessions end immediately. You can re-enable access later."
-    }
+    },
+    "accessRole": "Access level",
+    "accessRoleHint": "Controls what this person may do in the app. Separate from their function."
   },
   "delete": {
     "title": "Delete employee",

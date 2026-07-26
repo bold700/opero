@@ -167,13 +167,16 @@ export function canActOnAccount(actorRole: UserRole, targetRole: UserRole): bool
 }
 
 /**
- * May the actor create a login with `targetRole`? Same rule as acting on one —
- * you cannot mint someone at or above your own level. Without this, office
- * could invite an admin and have that admin disable them back, which would make
- * `canActOnAccount` pointless.
+ * May the actor create a login with `targetRole`, or move one to it?
+ *
+ * Looser than `canActOnAccount`: you may grant your OWN level, just not one
+ * above it. Onboarding a colleague as your equal isn't escalation — office
+ * hiring office is ordinary admin work — whereas minting someone who outranks
+ * you is. So office grants office and technician but never admin, and still
+ * can't revoke the peer it just created (that stays the owner's call).
  */
 export function canGrantRole(actorRole: UserRole, targetRole: UserRole): boolean {
-  return canActOnAccount(actorRole, targetRole);
+  return ACCOUNT_LEVEL[actorRole] >= ACCOUNT_LEVEL[targetRole];
 }
 
 /** The roles `actorRole` may pick from when inviting an employee. */

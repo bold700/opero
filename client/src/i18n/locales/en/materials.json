@@ -55,7 +55,6 @@
   },
   "detail": {
     "back": "Back",
-    "thickness": "Insulation {{mm}} mm",
     "priceCount": "{{count}} prices",
     "deleteMaterial": "Delete material",
     "deleteMaterialTitle": "Delete material?",

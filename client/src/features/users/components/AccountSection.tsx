@@ -4,11 +4,12 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
-import { canActOnAccount, type UserRole } from "@opero/shared";
+import { canActOnAccount, grantableRoles, type UserRole } from "@opero/shared";
 import { useAuth } from "../../../auth/AuthContext";
+import { SelectField } from "../../../components/SelectField";
 import { HAIRLINE, RADIUS } from "../../../theme/tokens";
 import { AccountStatusChip } from "./AccountStatusChip";
-import type { LinkedAccount } from "../api";
+import type { LinkedAccount, StaffRole } from "../api";
 
 // The login account for the record being edited, shown inside the customer /
 // employee dialog. This is the ONLY place access is managed — there is no
@@ -34,6 +35,7 @@ export function AccountSection({
   onResend,
   onDisable,
   onEnable,
+  onChangeRole,
 }: {
   account: LinkedAccount;
   email: string;
@@ -45,6 +47,8 @@ export function AccountSection({
   onResend: () => void;
   onDisable: () => void;
   onEnable: () => void;
+  /** Omitted where the level can't change (customers are always `client`). */
+  onChangeRole?: (role: StaffRole) => void;
 }) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -58,6 +62,23 @@ export function AccountSection({
   // not resend/disable/enable an admin or another office user. Note this is
   // about the ACCOUNT's role, not the person's job title.
   const outranked = !!account && !canActOnAccount(actorRole, account.role as UserRole);
+
+  // Levels the actor may move this account to. `client` is excluded because it
+  // isn't a level — it pairs with a Customer record — so a customer login shows
+  // its role read-only and never gets the picker.
+  const roleOptions = grantableRoles(actorRole).filter(
+    (r): r is StaffRole => r !== "client",
+  );
+
+  // Changing your OWN level is refused by the backend too: the only admin
+  // demoting themselves would leave nobody able to promote anyone back.
+  const canChangeRole =
+    !!account &&
+    !!onChangeRole &&
+    !outranked &&
+    !isSelf &&
+    account.role !== "client" &&
+    roleOptions.length > 1;
 
   // You can't revoke your own access — that would instantly log you out, and
   // it's the guard that stops the last admin locking the org out. The backend
@@ -150,7 +171,20 @@ export function AccountSection({
       {/* What this login actually is. Only meaningful once one exists. */}
       {account ? (
         <Box sx={{ display: "grid", gap: 0.25 }}>
-          <DetailRow label={t(`${labelKeys}.role`)} value={t(`users.roles.${account.role}`)} />
+          {canChangeRole ? (
+            <SelectField
+              label={t(`${labelKeys}.role`)}
+              value={account.role}
+              onChange={(v) => onChangeRole!(v as StaffRole)}
+              disabled={busy}
+              options={roleOptions.map((r) => ({
+                value: r,
+                label: t(`users.roles.${r}`),
+              }))}
+            />
+          ) : (
+            <DetailRow label={t(`${labelKeys}.role`)} value={t(`users.roles.${account.role}`)} />
+          )}
           <DetailRow label={t(`${labelKeys}.email`)} value={account.email} />
           {activatedAt ? (
             <DetailRow label={t(`${labelKeys}.activatedAt`)} value={activatedAt} />

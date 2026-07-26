@@ -22,9 +22,18 @@ export const createEmployeeSchema = z.object({
   email: z.string().optional(),
   roles: z.array(teamRoleSchema).optional(),
   status: z.enum(["active", "on_leave", "inactive"]).optional(),
+  // The ACCESS LEVEL for the login auto-created alongside this employee — a
+  // different axis from `roles` above, which are job titles that grant nothing.
+  // Omitted → `technician`, so existing callers are unaffected. The route still
+  // checks the caller may grant it; only used when an email is present.
+  accessRole: z.enum(["admin", "office", "technician"]).optional(),
 });
 
-export const updateEmployeeSchema = createEmployeeSchema.partial();
+// `accessRole` is create-only: it seeds the auto-invite. Changing an existing
+// login's level goes through PATCH /users/:id, which has the guards for it —
+// accepting it here would silently ignore it, which reads as "the role change
+// didn't stick".
+export const updateEmployeeSchema = createEmployeeSchema.omit({ accessRole: true }).partial();
 
 // --- Absence (vacation / sick / training) ----------------------------------
 
