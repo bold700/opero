@@ -101,6 +101,42 @@ describe("task photo upload", () => {
     expect(task2.beforePhotos).toHaveLength(0);
   });
 
+  // Regression: a result photo must land in resultPhotos and NOWHERE else.
+  // Reported symptom was a photo added to "resultaten" showing up under
+  // "vooraf"; this pins the two sets apart so a regression can't pass silently.
+  it("keeps result photos out of the before set", async () => {
+    const buf = await pngBuffer();
+    const up = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/photos/result`)
+      .set("authorization", `Bearer ${adminToken}`)
+      .attach("file", buf, "result.png");
+    expect(up.status).toBe(201);
+
+    const task = up.body.tasks.find((t: { id: string }) => t.id === taskId);
+    expect(task.resultPhotos).toHaveLength(1);
+    expect(task.beforePhotos).toHaveLength(0);
+
+    // ...and the reverse: a before photo doesn't leak into the result set.
+    const up2 = await request(app)
+      .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/photos/before`)
+      .set("authorization", `Bearer ${adminToken}`)
+      .attach("file", buf, "before.png");
+    expect(up2.status).toBe(201);
+
+    const task2 = up2.body.tasks.find((t: { id: string }) => t.id === taskId);
+    expect(task2.beforePhotos).toHaveLength(1);
+    expect(task2.resultPhotos).toHaveLength(1);
+    expect(task2.beforePhotos[0].key).not.toBe(task2.resultPhotos[0].key);
+
+    // Clean up both so later tests see a fresh task.
+    for (const ref of [...task2.beforePhotos, ...task2.resultPhotos]) {
+      await request(app)
+        .delete(`/api/work-orders/${workOrderId}/tasks/${taskId}/photos`)
+        .set("authorization", `Bearer ${adminToken}`)
+        .send({ photo: ref.key });
+    }
+  });
+
   it("rejects a non-image upload (magic-byte check)", async () => {
     const notImage = Buffer.from("this is definitely not an image");
     const res = await request(app)

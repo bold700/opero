@@ -14,7 +14,8 @@
     "all": "All",
     "technicians": "Technicians",
     "office": "Office",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "no_account": "No login"
   },
   "table": {
     "name": "Name",
@@ -22,9 +23,7 @@
     "workOrders": "Work orders",
     "status": "Status",
     "action": "Action",
-    "login": "Login",
-    "invite": "Invite",
-    "loginNeedsEmail": "Add an email address first to invite this person."
+    "account": "Account"
   },
   "status": {
     "active": "Active",
@@ -47,7 +46,21 @@
     "phone": "Phone",
     "email": "Email",
     "roles": "Roles",
-    "status": "Status"
+    "status": "Status",
+    "account": {
+      "title": "Account",
+      "invite": "Invite",
+      "resend": "Resend invitation",
+      "needsEmail": "Add an email address first to invite this person.",
+      "role": "Role",
+      "email": "Email",
+      "activatedAt": "Active since",
+      "disable": "Disable",
+      "enable": "Enable",
+      "selfDisableHint": "You can't disable your own access.",
+      "confirmDisableTitle": "Disable access?",
+      "confirmDisableBody": "{{name}} will no longer be able to sign in. Active sessions end immediately. You can re-enable access later."
+    }
   },
   "delete": {
     "title": "Delete employee",

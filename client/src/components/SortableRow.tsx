@@ -5,15 +5,19 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-// Makes one zone draggable-to-reorder. It owns the sortable transform on the
-// wrapper and hands a DRAG HANDLE down to the card via a render prop, so only
-// the handle (top-left grip) starts a drag — the rest of the card stays fully
-// interactive (typing in fields, tapping lines, etc.).
-export function SortableZone({
+// Makes one row (a zone card, a checklist item, …) draggable-to-reorder inside
+// a SortableContext. It owns the sortable transform on the wrapper and hands a
+// DRAG HANDLE down via a render prop, so only the handle (grip icon) starts a
+// drag — the rest of the row stays fully interactive (typing in fields, ticking
+// checkboxes, etc.).
+export function SortableRow({
   id,
+  ariaLabel,
   children,
 }: {
   id: string;
+  /** Accessible name for the grip (translated by the caller). */
+  ariaLabel: string;
   children: (dragHandle: ReactNode) => ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
@@ -23,9 +27,9 @@ export function SortableZone({
     <IconButton
       ref={setActivatorNodeRef}
       size="small"
-      aria-label="reorder"
+      aria-label={ariaLabel}
       // The grip is the ONLY drag activator. dnd-kit's listeners go here, not on
-      // the whole card, so a click inside the card never turns into a drag.
+      // the whole row, so a click inside the row never turns into a drag.
       {...attributes}
       {...listeners}
       sx={{
@@ -47,7 +51,7 @@ export function SortableZone({
       sx={{
         transform: CSS.Transform.toString(transform),
         transition,
-        // Lift the dragged card above its siblings while moving.
+        // Lift the dragged row above its siblings while moving.
         zIndex: isDragging ? 1 : undefined,
         opacity: isDragging ? 0.85 : 1,
         position: "relative",

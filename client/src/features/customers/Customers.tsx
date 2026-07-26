@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
@@ -8,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
-import { LAVENDER, RADIUS } from "../../theme/tokens";
+import { canSeeAllProjects, canManageAccounts } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -21,18 +20,29 @@ import {
   type CustomerCounts,
   type CustomerInput,
 } from "./api";
-import { FILTERS, type CustomerFilter } from "./constants";
+import { type CustomerFilter } from "./constants";
 import { CustomersActions } from "./components/CustomersActions";
+import { CustomerFilterBar } from "./components/CustomerFilterBar";
 import { ImportDialog } from "./components/ImportDialog";
 import { CustomersTable } from "./components/CustomersTable";
 import { CustomerDialog } from "./components/CustomerDialog";
 import { InviteDialog, type InviteFixedTarget } from "../users/components/InviteDialog";
-import { inviteUser, type InviteInput } from "../users/api";
+import {
+  inviteUser,
+  resendInvite,
+  disableUser,
+  enableUser,
+  type InviteInput,
+} from "../users/api";
 
 export function Customers() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const canManage = user?.role === "admin";
+  const role = user?.role ?? "client";
+  // The customer RECORD is office work; the customer's LOGIN is not — see the
+  // same split in Employees.tsx.
+  const canManage = canSeeAllProjects(role);
+  const canManageAccount = canManageAccounts(role);
 
   const [activeFilter, setActiveFilter] = useState<CustomerFilter>("all");
   const [search, setSearch] = useState("");
@@ -69,17 +79,15 @@ export function Customers() {
   const [inviteTarget, setInviteTarget] = useState<InviteFixedTarget | null>(null);
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [accountBusy, setAccountBusy] = useState(false);
+  // Non-null → confirming revocation of that customer's portal login.
+  const [disableTarget, setDisableTarget] = useState<Customer | null>(null);
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
   // Counts come from the first page response (whole-set totals); fall back to
   // zeros until the first page lands.
-  const pageCounts = meta?.counts ?? { total: 0, business: 0, private: 0 };
-  const counts = [
-    { key: "total", value: pageCounts.total },
-    { key: "business", value: pageCounts.business },
-    { key: "private", value: pageCounts.private },
-  ];
+  const counts = meta?.counts ?? { total: 0, business: 0, private: 0 };
 
   const openCreate = () => {
     setEditing(null);
@@ -130,6 +138,56 @@ export function Customers() {
     }
   };
 
+  // Re-send a pending invite from the customer dialog. The backend only accepts
+  // this for accounts still in "invited" (see users/routes.ts resend-invite).
+  const handleResend = async (c: Customer) => {
+    if (!c.account) return;
+    setAccountBusy(true);
+    try {
+      await resendInvite(c.account.userId);
+      setToast(t("users.toast.resent", { name: c.name }));
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("users.toast.actionError"));
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  // Revoke this customer's portal login. Unlike resend, this changes status —
+  // so it refreshes the list. The edit dialog was already closed by the hand-off
+  // to the confirm dialog, so there's no stale snapshot to re-sync.
+  const handleDisable = async () => {
+    if (!disableTarget?.account) return;
+    setAccountBusy(true);
+    try {
+      await disableUser(disableTarget.account.userId);
+      setDisableTarget(null);
+      setToast(t("users.toast.disabled", { name: disableTarget.name }));
+      refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("users.toast.actionError"));
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  // Restore access. Fired from inside the open dialog, so close it on success:
+  // `editing` holds a snapshot that the refresh would leave stale.
+  const handleEnable = async (c: Customer) => {
+    if (!c.account) return;
+    setAccountBusy(true);
+    try {
+      await enableUser(c.account.userId);
+      setDialogOpen(false);
+      setToast(t("users.toast.enabled", { name: c.name }));
+      refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("users.toast.actionError"));
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleting) return;
     setBusy(true);
@@ -158,33 +216,8 @@ export function Customers() {
         />
       }
     >
-      {/* Summary counts */}
-      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-        {counts.map((c) => (
-          <Box
-            key={c.key}
-            sx={{ px: 2, py: 1, borderRadius: `${RADIUS.control}px`, bgcolor: "#FFFFFF", border: "1px solid", borderColor: "divider", fontSize: 14, fontWeight: 600, color: "text.secondary" }}
-          >
-            {t(`customers.counts.${c.key}`)}: {c.value}
-          </Box>
-        ))}
-      </Box>
-
-      {/* Filter chips */}
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-        {FILTERS.map((f) => {
-          const active = f === activeFilter;
-          return (
-            <Chip
-              key={f}
-              label={t(`customers.filters.${f}`)}
-              onClick={() => setActiveFilter(f)}
-              variant={active ? "filled" : "outlined"}
-              sx={active ? { bgcolor: LAVENDER, color: "primary.main", fontWeight: 600 } : { color: "text.secondary" }}
-            />
-          );
-        })}
-      </Box>
+      {/* Filter chips, each with its count inline */}
+      <CustomerFilterBar active={activeFilter} counts={counts} onChange={setActiveFilter} />
 
       {/* Table */}
       {loading ? (
@@ -198,8 +231,6 @@ export function Customers() {
           customers={items}
           canManage={canManage}
           onEdit={openEdit}
-          onDelete={setDeleting}
-          onInvite={openInvite}
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}
@@ -211,8 +242,36 @@ export function Customers() {
         customer={editing}
         busy={busy}
         error={formError}
+        // Gates the AccountSection only — the LOGIN, not the record.
+        canManage={canManageAccount}
+        canDelete={canManage}
+        accountBusy={accountBusy}
+        // Vacuous here (a client login can't reach this screen), but the panel
+        // has one contract on both pages.
+        isSelf={editing?.account?.userId === user?.id}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
+        // Hand off to the invite dialog: close this one first so the two
+        // never stack.
+        onInvite={() => {
+          if (!editing) return;
+          setDialogOpen(false);
+          openInvite(editing);
+        }}
+        onResend={() => editing && handleResend(editing)}
+        // Same hand-off as invite/disable: close this dialog before opening the
+        // confirm so the two never stack.
+        onDelete={() => {
+          if (!editing) return;
+          setDialogOpen(false);
+          setDeleting(editing);
+        }}
+        onDisable={() => {
+          if (!editing) return;
+          setDialogOpen(false);
+          setDisableTarget(editing);
+        }}
+        onEnable={() => editing && handleEnable(editing)}
       />
 
       <ImportDialog
@@ -231,6 +290,22 @@ export function Customers() {
         error={inviteError}
         onClose={() => setInviteTarget(null)}
         onSubmit={handleInvite}
+      />
+
+      <ConfirmDialog
+        open={disableTarget !== null}
+        title={t("customers.dialog.account.confirmDisableTitle")}
+        body={
+          disableTarget
+            ? t("customers.dialog.account.confirmDisableBody", { name: disableTarget.name })
+            : undefined
+        }
+        busy={accountBusy}
+        destructive
+        // Not a delete — the account is kept, just revoked.
+        confirmLabel={t("customers.dialog.account.disable")}
+        onClose={() => setDisableTarget(null)}
+        onConfirm={handleDisable}
       />
 
       <ConfirmDialog

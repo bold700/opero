@@ -32,12 +32,15 @@ export function Dashboard() {
         </Box>
       ) : error ? (
         <Alert severity="error">{error}</Alert>
-      ) : data?.role === "admin" ? (
-        <AdminView data={data} />
       ) : data?.role === "technician" ? (
         <TechnicianView data={data} />
       ) : data?.role === "client" ? (
         <ClientView data={data} />
+      ) : data ? (
+        // `data.role` is the VIEW the server chose, not the user's role — office
+        // staff get the admin payload. Defaulting here rather than matching
+        // "admin" exactly means a new role can never render a blank page.
+        <AdminView data={data} />
       ) : null}
     </PageLayout>
   );

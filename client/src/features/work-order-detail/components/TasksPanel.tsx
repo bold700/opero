@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { WorkOrder } from "../api";
-import { SortableZone } from "./SortableZone";
+import { SortableRow } from "../../../components/SortableRow";
 import { ZoneCard } from "./ZoneCard";
 
 // The zones section of a werkbon: one ZoneCard per WorkOrderTask, each holding
@@ -61,15 +61,33 @@ export function TasksPanel({
   onRenameZone: (taskId: string, description: string) => void;
   onSetZoneNote: (taskId: string, note: string) => void;
   onDeleteZone: (taskId: string) => void;
-  onAddLine: (taskId: string, input: { variantId: string; quantity: number }) => void;
+  onAddLine: (
+    taskId: string,
+    input: { variantId: string; quantity: number; isExtraWork?: boolean },
+  ) => void;
   onAddCustomLine: (
     taskId: string,
-    input: { name: string; quantity: number; unit: string; unitPrice?: number },
+    input: {
+      name: string;
+      quantity: number;
+      unit: string;
+      unitPrice?: number;
+      isExtraWork?: boolean;
+    },
   ) => void;
-  onEditLine: (matId: string, input: { variantId: string; quantity: number }) => void;
+  onEditLine: (
+    matId: string,
+    input: { variantId: string; quantity: number; isExtraWork?: boolean },
+  ) => void;
   onEditCustomLine: (
     matId: string,
-    input: { name: string; quantity: number; unit: string; unitPrice?: number },
+    input: {
+      name: string;
+      quantity: number;
+      unit: string;
+      unitPrice?: number;
+      isExtraWork?: boolean;
+    },
   ) => void;
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
@@ -130,9 +148,9 @@ export function TasksPanel({
           <SortableContext items={tasks.map((zone) => zone.id)} strategy={verticalListSortingStrategy}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
               {tasks.map((task) => (
-                <SortableZone key={task.id} id={task.id}>
+                <SortableRow key={task.id} id={task.id} ariaLabel={t("workOrderDetail.zone.reorderAria")}>
                   {(dragHandle) => renderZone(task, dragHandle)}
-                </SortableZone>
+                </SortableRow>
               ))}
             </Box>
           </SortableContext>

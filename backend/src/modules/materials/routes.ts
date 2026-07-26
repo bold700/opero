@@ -7,7 +7,7 @@ import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
-import { canSeePrices, canSeeMargin, type UserRole } from "@opero/shared";
+import { canSeePrices, canSeeMargin, isStaff, type UserRole } from "@opero/shared";
 import {
   createArticleSchema,
   updateArticleSchema,
@@ -50,11 +50,11 @@ export const materialsRouter = Router();
 // All materials routes require auth.
 materialsRouter.use(requireAuth);
 
-// Spec matrix: Materials = admin full, technician limited (read — they register
-// usage), client none. Reads allow admin + technician; client → 403. Writes are
-// gated to admin via requireRole("admin").
-function assertCanRead(user: { role: string }) {
-  if (user.role === "admin" || user.role === "technician") return;
+// Spec matrix: Materials = admin/office full, technician limited (read — they
+// register usage), client none. Reads allow all staff; client → 403. Writes are
+// gated via requireRole("admin", "office").
+function assertCanRead(user: { role: UserRole }) {
+  if (isStaff(user.role)) return;
   throw Forbidden("Not available");
 }
 
@@ -78,7 +78,7 @@ materialsRouter.get(
 // POST /articles — admin only.
 materialsRouter.post(
   "/articles",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createArticleSchema.parse(req.body);
@@ -103,7 +103,7 @@ materialsRouter.post(
 // PATCH /articles/:id — admin only.
 materialsRouter.patch(
   "/articles/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateArticleSchema.parse(req.body);
@@ -136,7 +136,7 @@ materialsRouter.patch(
 // DELETE /articles/:id — admin only (hard delete; no soft-delete column).
 materialsRouter.delete(
   "/articles/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.article.findFirst({
@@ -171,7 +171,7 @@ materialsRouter.get(
 // (return the existing) if it already exists.
 materialsRouter.post(
   "/work-types",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createWorkTypeSchema.parse(req.body);
@@ -197,7 +197,7 @@ materialsRouter.post(
 // PATCH /work-types/:id — admin only, rename.
 materialsRouter.patch(
   "/work-types/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = renameWorkTypeSchema.parse(req.body);
@@ -220,7 +220,7 @@ materialsRouter.patch(
 // DELETE /work-types/:id — admin only.
 materialsRouter.delete(
   "/work-types/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.workType.findFirst({
@@ -255,7 +255,7 @@ materialsRouter.get(
 // POST /orders — admin only. Create MaterialOrder + nested items.
 materialsRouter.post(
   "/orders",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createMaterialOrderSchema.parse(req.body);
@@ -287,7 +287,7 @@ materialsRouter.post(
 // PATCH /orders/:id/receive — admin only. Set receivedAt = now.
 materialsRouter.patch(
   "/orders/:id/receive",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.materialOrder.findFirst({
@@ -456,7 +456,7 @@ materialsRouter.get(
 // `ordinal` are generated server-side; provenance is optional metadata.
 materialsRouter.post(
   "/",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createMaterialSchema.parse(req.body);
@@ -575,7 +575,7 @@ materialsRouter.get(
 // @@unique(size, component, thickness) constraint → 409.
 materialsRouter.patch(
   "/variants/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateVariantSchema.parse(req.body);
@@ -623,7 +623,7 @@ materialsRouter.patch(
 // line, unless ?force=true (the line keeps its snapshotted name/price).
 materialsRouter.delete(
   "/variants/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.materialVariant.findFirst({
@@ -653,7 +653,7 @@ materialsRouter.delete(
 // PATCH /:id — admin only. Update a material's editable fields (not key/orgId).
 materialsRouter.patch(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateMaterialSchema.parse(req.body);
@@ -706,7 +706,7 @@ materialsRouter.patch(
 // a werkbon line, unless ?force=true (task lines keep their snapshotted values).
 materialsRouter.delete(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.material.findFirst({
@@ -735,7 +735,7 @@ materialsRouter.delete(
 // @@unique(size, component, thickness) constraint → 409.
 materialsRouter.post(
   "/:id/variants",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createVariantSchema.parse(req.body);

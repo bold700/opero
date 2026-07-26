@@ -3,21 +3,21 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import AddIcon from "@mui/icons-material/Add";
 import { PageLayout } from "../../components/PageLayout";
+import { MaterialDetailActions } from "./components/MaterialDetailActions";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ResponsiveList } from "../../components/ResponsiveList";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { STATUS_TONES, SPACING } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
 import { useAuth } from "../../auth/AuthContext";
+import { canSeeAllProjects } from "@opero/shared";
 import {
   getMaterial,
   getMaterialMeta,
@@ -46,7 +46,7 @@ export function MaterialDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = canSeeAllProjects(user?.role ?? "client");
   const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
   const [material, setMaterial] = useState<MaterialDetailType | null>(null);
@@ -71,7 +71,20 @@ export function MaterialDetail() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const variants = material?.variants ?? [];
+  // Variant search. The whole variant set is already loaded with the material,
+  // so this filters in memory (no refetch) over the fields shown in the row:
+  // size, component label and thickness.
+  const [variantSearch, setVariantSearch] = useState("");
+  const allVariants = material?.variants ?? [];
+  const q = variantSearch.trim().toLowerCase();
+  const variants = q
+    ? allVariants.filter((v) =>
+        [v.size, t(COMPONENT_LABEL_KEYS[v.component]), v.thicknessMm != null ? `${v.thicknessMm} mm` : ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      )
+    : allVariants;
 
   if (loading) {
     return (
@@ -152,7 +165,17 @@ export function MaterialDetail() {
   };
 
   return (
-    <PageLayout title={t("materials.title")}>
+    <PageLayout
+      title={t("materials.title")}
+      actions={
+        <MaterialDetailActions
+          search={variantSearch}
+          onSearch={setVariantSearch}
+          canCreate={isAdmin}
+          onCreate={() => setVariantDialog({ open: true, variant: null })}
+        />
+      }
+    >
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
         {actionError ? <Alert severity="error" onClose={() => setActionError(null)}>{actionError}</Alert> : null}
 
@@ -220,7 +243,7 @@ export function MaterialDetail() {
         <ResponsiveList<MaterialVariant>
           items={variants}
           keyOf={(v) => v.id}
-          empty={t("materials.empty")}
+          empty={q ? t("materials.detail.noMatches") : t("materials.empty")}
           columns={[
             {
               header: t(SIZE_UNIT_LABEL_KEYS[material.sizeUnit]),
@@ -321,18 +344,6 @@ export function MaterialDetail() {
           )}
         />
 
-        {isAdmin ? (
-          <Box>
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setVariantDialog({ open: true, variant: null })}
-              disabled={busy}
-            >
-              {t("materials.variantForm.create")}
-            </Button>
-          </Box>
-        ) : null}
       </Box>
 
       {/* Dialogs (admin only) */}

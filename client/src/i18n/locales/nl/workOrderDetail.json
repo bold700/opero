@@ -34,12 +34,15 @@
     "defaultTitle": "Werkbon {{n}}",
     "export": "Exporteren",
     "exportMenuQuote": "Offerte (PDF)",
-    "exportMenuWorkOrder": "Werkbon (PDF)"
+    "exportMenuWorkOrder": "Werkbon (PDF)",
+    "delete": "Werkbon verwijderen",
+    "deleteTitle": "Werkbon verwijderen",
+    "deleteBody": "Weet je zeker dat je \"{{name}}\" wilt verwijderen? Alle zones, regels, foto's en facturatie van deze werkbon gaan mee. Dit kan niet ongedaan worden gemaakt."
   },
   "photos": {
     "title": "Foto's",
-    "before": "Vooraf",
-    "result": "Resultaat",
+    "before": "Vooraf (zone)",
+    "result": "Resultaat (zone)",
     "noTasks": "Voeg eerst een taak toe om foto's te koppelen.",
     "untitledZone": "Naamloze zone"
   },
@@ -52,17 +55,19 @@
       "safety_reviewed": "Risico's en veiligheid op locatie bekeken",
       "customer_informed": "Klant geïnformeerd over het bezoek"
     },
-    "photos": "Foto's vooraf",
+    "photos": "Foto's vooraf (werkbon)",
     "photoRequired": "Foto verplicht voor verzenden",
     "addItem": "Toevoegen",
     "addItemPlaceholder": "Nieuw checklist-item…",
     "removeItem": "Verwijderen",
-    "moveUp": "Omhoog",
-    "moveDown": "Omlaag",
     "dispatch": "Monteur op pad sturen",
     "dispatched": "Verzonden",
     "dispatchedToast": "Monteur op pad gestuurd",
-    "gateHint": "Vink de checklist af (en voeg een foto toe indien vereist) om te verzenden."
+    "gateHint": "Vink de checklist af (en voeg een foto toe indien vereist) om te verzenden.",
+    "addItemNew": "Nieuw checklist-item",
+    "addItemTitle": "Checklist-item toevoegen",
+    "addItemLabel": "Omschrijving",
+    "reorderAria": "Volgorde wijzigen"
   },
   "activity": {
     "title": "Activiteit",
@@ -103,16 +108,10 @@
   },
   "extraWork": {
     "title": "Meerwerk",
-    "report": "Meerwerk melden",
-    "pickArticle": "Kies artikel",
-    "freeText": "Vrije tekst",
-    "empty": "Geen meerwerk gemeld.",
     "descriptionPlaceholder": "Omschrijving meerwerk",
     "submit": "Melden",
-    "officeApproved": "Kantoor ✓",
     "officeApprove": "Kantoor goedkeuren",
     "reject": "Afwijzen",
-    "clientApproved": "Akkoord ✓",
     "clientApprove": "Akkoord geven"
   },
   "task": {
@@ -147,12 +146,13 @@
     "workDescriptionPlaceholder": "Wat moet er in deze zone gebeuren?",
     "statusDone": "Klaar",
     "statusTodo": "Nog te doen",
-    "empty": "Nog geen zones."
+    "empty": "Nog geen zones.",
+    "reorderAria": "Volgorde wijzigen"
   },
   "line": {
     "sectionTitle": "Taken",
     "empty": "Nog geen taken.",
-    "add": "Taak toevoegen",
+    "add": "Regel toevoegen",
     "delete": "Taak verwijderen",
     "descriptionPlaceholder": "Omschrijving",
     "statusOpen": "Open",
@@ -181,7 +181,10 @@
     "customPriceHelp": "Laat leeg als de prijs later door kantoor wordt bepaald.",
     "unitPiece": "stuk",
     "unitMetre": "meter",
-    "unitM2": "m2"
+    "unitM2": "m2",
+    "extraWork": "Meerwerk",
+    "isExtraWork": "Meerwerk",
+    "isExtraWorkHint": "Telt niet mee in de offerte. Komt pas op de factuur na akkoord van kantoor én klant."
   },
   "info": {
     "title": "Projectinfo",
@@ -205,6 +208,15 @@
     "description": "Omschrijving",
     "planning": "Planning",
     "endDateOptional": "Einddatum (optioneel)",
-    "sameDay": "zelfde dag"
+    "sameDay": "zelfde dag",
+    "workOrderTitle": "Werkbon",
+    "customer": "Klant",
+    "customerSwitchTitle": "Klant wijzigen",
+    "customerSwitchBody": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer."
+  },
+  "meerwerkApproval": {
+    "title": "Meerwerk — wacht op akkoord ({{count}})",
+    "officeHint": "Beoordeel het gemelde meerwerk. Na uw akkoord gaat het naar de klant.",
+    "clientHint": "Dit meerwerk is door kantoor goedgekeurd en wacht op uw akkoord."
   }
 }

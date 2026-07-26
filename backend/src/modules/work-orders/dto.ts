@@ -1,4 +1,4 @@
-import type { ExtraWork, TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem } from "@prisma/client";
+import type { TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem } from "@prisma/client";
 import {
   canSeePrices,
   canSeeMargin,
@@ -24,7 +24,6 @@ import { photoRefs, photoUrl } from "../../lib/photoUrls.js";
 // only; never any price data.
 type VariantRef = { variantMaterialId: string; variantSize: string } | null;
 type MaterialWithVariant = TaskMaterial & { variant: { materialId: string; size: string } | null };
-type ExtraWorkWithVariant = ExtraWork & { variant: { materialId: string; size: string } | null };
 
 // A task loaded with its materials + the per-zone work type / assignee names.
 type TaskWithRelations = WorkOrderTask & {
@@ -37,7 +36,6 @@ type TaskWithRelations = WorkOrderTask & {
 // signer (for the sign-off display).
 export type WorkOrderWithRelations = WorkOrder & {
   tasks: TaskWithRelations[];
-  extraWork?: ExtraWorkWithVariant[];
   attachments?: WorkOrderAttachment[];
   prejobItems?: WorkOrderPrejobItem[];
   signedBy?: { name: string } | null;
@@ -50,7 +48,7 @@ function variantRef(v: { materialId: string; size: string } | null | undefined):
   return v ? { variantMaterialId: v.materialId, variantSize: v.size } : null;
 }
 
-function materialDto(m: MaterialWithVariant, showPrices: boolean, showMargin: boolean) {
+async function materialDto(m: MaterialWithVariant, showPrices: boolean, showMargin: boolean) {
   // Margin (admin-only): per-line profit = (sell − cost) × qty, plus the % of
   // the selling total. Only when BOTH prices are known. Cost/margin are never
   // included for non-admins, even the raw costPrice.
@@ -91,14 +89,32 @@ function materialDto(m: MaterialWithVariant, showPrices: boolean, showMargin: bo
     done: m.done,
     note: m.note ?? undefined,
     ordinal: m.ordinal,
+    // --- Meerwerk ---------------------------------------------------------
+    // Only meaningful when isExtraWork; the approval flags decide whether this
+    // line reaches the invoice at all (see deriveTotals).
+    isExtraWork: m.isExtraWork,
+    ...(m.isExtraWork
+      ? {
+          approvedByOffice: m.approvedByOffice,
+          approvedByClient: m.approvedByClient,
+          rejected: m.rejected,
+          rejectedBy: m.rejectedBy ?? undefined,
+          photos: await photoRefs(m.photos),
+        }
+      : {}),
   };
 }
 
 async function taskDto(t: TaskWithRelations, showPrices: boolean, showMargin: boolean) {
   // Photo arrays hold object keys → resolve to {key, url} for the client.
-  const [beforePhotos, resultPhotos] = await Promise.all([
+  const [beforePhotos, resultPhotos, materials] = await Promise.all([
     photoRefs(t.beforePhotos),
     photoRefs(t.resultPhotos),
+    Promise.all(
+      [...t.materials]
+        .sort((a, b) => a.ordinal - b.ordinal)
+        .map((m) => materialDto(m, showPrices, showMargin)),
+    ),
   ]);
   return {
     id: t.id,
@@ -118,46 +134,7 @@ async function taskDto(t: TaskWithRelations, showPrices: boolean, showMargin: bo
     hours: t.hours ?? undefined,
     note: t.note ?? undefined,
     ordinal: t.ordinal,
-    materials: [...t.materials]
-      .sort((a, b) => a.ordinal - b.ordinal)
-      .map((m) => materialDto(m, showPrices, showMargin)),
-  };
-}
-
-// Meerwerk (extra work) line, per-WERKBON. Prices (unitPrice + amount) are
-// stripped for non-price roles, mirroring the task-material three-way rule.
-// Photos hold object keys → resolved to {key, url} for the client.
-async function extraWorkDto(m: ExtraWorkWithVariant, showPrices: boolean, showMargin: boolean) {
-  const photos = await photoRefs(m.photos);
-  // Cost/margin are admin-only, same as task lines. Never leak costPrice below.
-  const margin =
-    showMargin && m.unitPrice != null && m.costPrice != null && m.quantity != null
-      ? {
-          costPrice: m.costPrice,
-          margin: (m.unitPrice - m.costPrice) * m.quantity,
-        }
-      : {};
-  return {
-    id: m.id,
-    description: m.description,
-    label: m.label ?? undefined,
-    name: m.name ?? undefined,
-    quantity: m.quantity ?? undefined,
-    unit: m.unit ?? undefined,
-    diameter: m.diameter ?? undefined,
-    // A trace id only (no price) — safe for every role.
-    variantId: m.variantId ?? undefined,
-    // Material + size, so the edit dialog can pre-select the article.
-    ...(variantRef(m.variant) ?? {}),
-    ...(showPrices ? { unitPrice: m.unitPrice ?? undefined, amount: m.amount } : {}),
-    ...margin,
-    photos,
-    createdAt: m.createdAt,
-    done: m.done,
-    approvedByOffice: m.approvedByOffice,
-    approvedByClient: m.approvedByClient,
-    rejected: m.rejected,
-    rejectedBy: m.rejectedBy ?? undefined,
+    materials,
   };
 }
 
@@ -167,12 +144,11 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
   const showPrices = canSeePrices(role);
   const showMargin = canSeeMargin(role);
   const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
-  const [drawings, signatureUrl, prejobPhotos, tasks, extraWork, attachments] = await Promise.all([
+  const [drawings, signatureUrl, prejobPhotos, tasks, attachments] = await Promise.all([
     photoRefs(wb.drawings),
     photoUrl(wb.signature),
     photoRefs(wb.prejobPhotos),
     Promise.all(sortedTasks.map((t) => taskDto(t, showPrices, showMargin))),
-    Promise.all((wb.extraWork ?? []).map((m) => extraWorkDto(m, showPrices, showMargin))),
     Promise.all(
       (wb.attachments ?? []).map(async (a) => ({
         id: a.id,
@@ -222,7 +198,6 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     plannedEndDate: wb.plannedEndDate ?? undefined,
     tasks,
     // Meerwerk (extra work) is per-WERKBON; prices stripped for non-price roles.
-    extraWork,
   };
 }
 
@@ -237,10 +212,6 @@ export const workOrderInclude = {
       workType: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true } },
     },
-  },
-  extraWork: {
-    orderBy: { createdAt: "asc" },
-    include: { variant: { select: { materialId: true, size: true } } },
   },
   attachments: { orderBy: { createdAt: "asc" } },
   prejobItems: { orderBy: { ordinal: "asc" } },

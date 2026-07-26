@@ -2,12 +2,10 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
-import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
 import Tooltip from "@mui/material/Tooltip";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { AccountStatusChip } from "../../users/components/AccountStatusChip";
@@ -15,13 +13,13 @@ import type { EmployeeRow } from "../api";
 import { STATUS, ROLE_LABEL_KEY, initials } from "../constants";
 
 // The employees list: a table on desktop, a stack of cards on mobile (via
-// ResponsiveList). Edit/delete/invite row actions are admin only.
+// ResponsiveList). Row actions are the frequent ones only — absences and edit.
+// Deleting someone is rare and destructive, so it lives in the edit dialog
+// rather than one mis-tap away in a row you're scanning.
 export function EmployeesTable({
   rows,
   canManage,
   onEdit,
-  onDelete,
-  onInvite,
   onAbsences,
   hasMore,
   loadingMore,
@@ -30,8 +28,6 @@ export function EmployeesTable({
   rows: EmployeeRow[];
   canManage: boolean;
   onEdit: (e: EmployeeRow) => void;
-  onDelete: (e: EmployeeRow) => void;
-  onInvite: (e: EmployeeRow) => void;
   onAbsences: (e: EmployeeRow) => void;
   hasMore?: boolean;
   loadingMore?: boolean;
@@ -51,21 +47,9 @@ export function EmployeesTable({
     </Box>
   );
 
-  const loginCell = (r: EmployeeRow) =>
-    r.account ? (
-      <AccountStatusChip account={r.account} />
-    ) : canManage ? (
-      <Button
-        size="small"
-        onClick={() => onInvite(r)}
-        disabled={!r.email}
-        title={!r.email ? t("employees.table.loginNeedsEmail") : undefined}
-      >
-        {t("employees.table.invite")}
-      </Button>
-    ) : (
-      <AccountStatusChip account={null} />
-    );
+  // Pure status — inviting/resending lives in the edit dialog's account section,
+  // next to the rest of the employee's data.
+  const accountCell = (r: EmployeeRow) => <AccountStatusChip account={r.account} />;
 
   const actionsCell = (r: EmployeeRow) =>
     canManage ? (
@@ -84,9 +68,8 @@ export function EmployeesTable({
         <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(r)}>
           <EditOutlinedIcon fontSize="small" />
         </IconButton>
-        <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(r)}>
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
+        {/* No delete here on purpose: removing someone is rare and destructive,
+            so it doesn't belong in a row you scan. It lives in the edit dialog. */}
       </Box>
     ) : null;
 
@@ -103,7 +86,7 @@ export function EmployeesTable({
         { header: t("employees.table.function"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{fn(r)}</Box> },
         { header: t("employees.table.workOrders"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workOrderCount}</Box> },
         { header: t("employees.table.status"), cell: (r) => <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} /> },
-        { header: t("employees.table.login"), cell: loginCell },
+        { header: t("employees.table.account"), cell: accountCell },
         { header: t("employees.table.action"), align: "right", cell: actionsCell },
       ]}
       renderCard={(r) => (
@@ -122,7 +105,7 @@ export function EmployeesTable({
           {/* Status + login row */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
             <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
-            {loginCell(r)}
+            {accountCell(r)}
           </Box>
         </Box>
       )}

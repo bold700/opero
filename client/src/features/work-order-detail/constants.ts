@@ -13,9 +13,9 @@ export const URGENCY: Record<string, { key: string; tone: StatusTone }> = {
 // Extra-work approval state → badge. Returns a translation key suffix (resolve
 // via t("workOrderDetail.extraWorkStatus.<key>")) plus the badge tone.
 export function extraWorkBadge(m: {
-  rejected: boolean;
-  approvedByOffice: boolean;
-  approvedByClient: boolean;
+  rejected?: boolean;
+  approvedByOffice?: boolean;
+  approvedByClient?: boolean;
 }): { key: string; tone: StatusTone } {
   if (m.rejected) return { key: "rejected", tone: STATUS_TONES.danger };
   if (m.approvedByOffice && m.approvedByClient)

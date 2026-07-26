@@ -1,5 +1,6 @@
 import type { UserRole } from "@opero/shared";
 import WorkOrderIcon from "@mui/icons-material/Assignment";
+import ProjectIcon from "@mui/icons-material/FolderSpecial";
 import CustomerIcon from "@mui/icons-material/Groups";
 import EmployeeIcon from "@mui/icons-material/Badge";
 import PlanningIcon from "@mui/icons-material/CalendarMonth";
@@ -21,12 +22,17 @@ export type QuickCreateAction = {
   roles: UserRole[];
 };
 
+// Creating things is operational work: the owner and office staff both do it.
+const OFFICE: UserRole[] = ["admin", "office"];
+
 // Order matters — the headline action (new work order) comes first.
 export const QUICK_CREATE_ACTIONS: QuickCreateAction[] = [
-  { key: "workOrder", icon: WorkOrderIcon, route: "/work-orders?create=1", roles: ["admin"] },
-  { key: "planning", icon: PlanningIcon, route: "/planning?create=1", roles: ["admin"] },
-  { key: "customer", icon: CustomerIcon, route: "/customers?create=1", roles: ["admin"] },
-  { key: "employee", icon: EmployeeIcon, route: "/employees?create=1", roles: ["admin"] },
+  { key: "workOrder", icon: WorkOrderIcon, route: "/work-orders?create=1", roles: OFFICE },
+  // A project is the grouping above werkbonnen, so it sits next to it.
+  { key: "project", icon: ProjectIcon, route: "/projects?create=1", roles: OFFICE },
+  { key: "planning", icon: PlanningIcon, route: "/planning?create=1", roles: OFFICE },
+  { key: "customer", icon: CustomerIcon, route: "/customers?create=1", roles: OFFICE },
+  { key: "employee", icon: EmployeeIcon, route: "/employees?create=1", roles: OFFICE },
 ];
 
 export function quickCreateActionsForRole(role: UserRole): QuickCreateAction[] {

@@ -11,6 +11,7 @@ import { useApi } from "../../lib/api/useApi";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useAuth } from "../../auth/AuthContext";
+import { canSeeAllProjects } from "@opero/shared";
 import {
   getMaterialGroups,
   getSuppliers,
@@ -31,7 +32,7 @@ export function Materials() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = canSeeAllProjects(user?.role ?? "client");
   const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
   const [search, setSearch] = useState("");

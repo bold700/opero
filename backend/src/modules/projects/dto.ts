@@ -3,7 +3,6 @@ import type {
   DeliveryChecklistItem,
   Intake,
   Invoice,
-  ExtraWork,
   MaterialRequirement,
   Handover,
   HandoverItem,
@@ -116,27 +115,6 @@ function invoiceDto(inv: Invoice, showPrices: boolean) {
           laborAmount: inv.laborAmount,
         }
       : {}),
-  };
-}
-
-function extraWorkDto(m: ExtraWork, showPrices: boolean, urlOf: UrlOf) {
-  return {
-    id: m.id,
-    description: m.description,
-    label: m.label ?? undefined,
-    name: m.name ?? undefined,
-    quantity: m.quantity ?? undefined,
-    unit: m.unit ?? undefined,
-    diameter: m.diameter ?? undefined,
-    variantId: m.variantId ?? undefined,
-    ...(showPrices ? { unitPrice: m.unitPrice ?? undefined, amount: m.amount } : {}),
-    photos: refsFrom(m.photos, urlOf),
-    createdAt: m.createdAt,
-    done: m.done,
-    approvedByOffice: m.approvedByOffice,
-    approvedByClient: m.approvedByClient,
-    rejected: m.rejected,
-    rejectedBy: m.rejectedBy ?? undefined,
   };
 }
 

@@ -17,7 +17,6 @@ import { Materials } from "../features/materials/Materials";
 import { MaterialDetail } from "../features/materials/MaterialDetail";
 import { Reports } from "../features/reports/Reports";
 import { Timesheet } from "../features/timesheet/Timesheet";
-import { Users } from "../features/users/Users";
 import { Settings } from "../features/settings/Settings";
 import { Placeholder } from "../pages/Placeholder";
 
@@ -61,7 +60,10 @@ export const router = createBrowserRouter([
               { path: "/materials/:id", element: <MaterialDetail /> },
               { path: "/reports", element: <Reports /> },
               { path: "/timesheet", element: <Timesheet /> },
-              { path: "/users", element: <Users /> },
+              // No /users route: access is managed from Werknemers / Klanten.
+              // The route had to go, not just the nav entry — canAccessPath
+              // returns true for paths absent from NAV_ITEMS, so leaving it
+              // would have opened it to every role.
               { path: "/settings", element: <Settings /> },
             ],
           },

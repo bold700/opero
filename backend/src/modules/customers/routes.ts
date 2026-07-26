@@ -16,6 +16,9 @@ import { requireAuth, requireRole } from "../../auth/middleware.js";
 import { uploadSingle } from "../../lib/upload.js";
 import { contactPersonDto, customerDto, customerListDto, locationDto } from "./dto.js";
 import { parseSilvasoftCustomers, type ParsedCustomer } from "./silvasoftImport.js";
+import { revokeLoginsFor } from "../users/provisioning.js";
+import { accountInclude } from "../users/dto.js";
+import { canSeeAllProjects, type UserRole } from "@opero/shared";
 
 export const customersRouter = Router();
 
@@ -31,14 +34,15 @@ function deriveCustomerType(name: string): "business" | "private" {
 // All customer routes require auth.
 customersRouter.use(requireAuth);
 
-// A client may only touch their own linked customer. Admins: any. Technician: read
-// only (customer info on their own work order — handled in work-orders module;
-// here we keep customers admin/client-scoped for list/detail/manage).
+// A client may only touch their own linked customer. Office staff (admin +
+// office): any. Technician: read only (customer info on their own work order —
+// handled in the work-orders module; here we keep customers office/client-scoped
+// for list/detail/manage).
 function assertCanAccessCustomer(
-  user: { role: string; customerId: string | null },
+  user: { role: UserRole; customerId: string | null },
   customerId: string,
 ) {
-  if (user.role === "admin") return;
+  if (canSeeAllProjects(user.role)) return;
   if (user.role === "client" && user.customerId === customerId) return;
   throw Forbidden("Not allowed for this customer");
 }
@@ -104,7 +108,7 @@ customersRouter.get(
       prisma.customer.findMany({
         where: pageWhere,
         include: {
-          users: { select: { id: true, status: true } },
+          users: accountInclude,
           projects: {
             where: { deletedAt: null },
             select: {
@@ -138,7 +142,7 @@ customersRouter.get(
     assertCanAccessCustomer(user, req.params.id);
     const row = await prisma.customer.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-      include: { users: { select: { id: true, status: true } } },
+      include: { users: accountInclude },
     });
     if (!row) throw NotFound("Customer not found");
     res.json(customerDto(row));
@@ -148,7 +152,7 @@ customersRouter.get(
 // POST /customers — admin only.
 customersRouter.post(
   "/",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createCustomerSchema.parse(req.body);
@@ -283,7 +287,7 @@ async function classifySilvasoft(orgId: string, customers: ParsedCustomer[]) {
 // nothing. Admin only.
 customersRouter.post(
   "/import/preview",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   uploadSingle,
   asyncHandler(async (req, res) => {
     const user = req.user!;
@@ -320,7 +324,7 @@ customersRouter.post(
 // in one transaction, so a mid-file failure never leaves a half-import.
 customersRouter.post(
   "/import/commit",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   uploadSingle,
   asyncHandler(async (req, res) => {
     const user = req.user!;
@@ -409,6 +413,16 @@ customersRouter.patch(
           notes: input.notes !== undefined ? clampText(input.notes) : undefined,
         },
       });
+      // Project.customerName is a denormalized copy (set at project creation)
+      // that search, the work-order/project list filters, planning, the
+      // dashboard and BOTH PDFs read. Without this fan-out a rename left every
+      // existing project — and every reprinted document — showing the old name.
+      if (input.name !== undefined && c.name !== existing.name) {
+        await tx.project.updateMany({
+          where: { customerId: c.id },
+          data: { customerName: c.name },
+        });
+      }
       await audit(tx, user, "customer.update", "customer", c.id, input);
       return c;
     });
@@ -419,19 +433,33 @@ customersRouter.patch(
 // DELETE /customers/:id — admin only, soft delete.
 customersRouter.delete(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.customer.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
     });
     if (!existing) throw NotFound("Customer not found");
+    // Symmetrical with the employee guard. Only an admin reaches this route and
+    // customer logins are `client`, so this is unreachable today — it stays so
+    // the rule holds if that ever changes.
+    if (user.customerId === existing.id) {
+      throw BadRequest("You can't delete your own customer record");
+    }
     await prisma.$transaction(async (tx) => {
       await tx.customer.update({
         where: { id: existing.id },
         data: { deletedAt: new Date() },
       });
-      await audit(tx, user, "customer.delete", "customer", existing.id);
+      // A portal login left behind would be invisible (the record is filtered
+      // out of every list) AND still valid.
+      const accountsDisabled = await revokeLoginsFor(tx, {
+        kind: "customer",
+        customerId: existing.id,
+      });
+      await audit(tx, user, "customer.delete", "customer", existing.id, {
+        accountsDisabled,
+      });
     });
     res.status(204).end();
   }),
@@ -454,7 +482,7 @@ customersRouter.get(
 
 customersRouter.post(
   "/:id/contacts",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = contactPersonSchema.parse(req.body);
@@ -481,7 +509,7 @@ customersRouter.post(
 
 customersRouter.patch(
   "/:id/contacts/:contactId",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = contactPersonSchema.partial().parse(req.body);
@@ -508,7 +536,7 @@ customersRouter.patch(
 
 customersRouter.delete(
   "/:id/contacts/:contactId",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.contactPerson.findFirst({
@@ -540,7 +568,7 @@ customersRouter.get(
 
 customersRouter.post(
   "/:id/locations",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = locationSchema.parse(req.body);
@@ -567,7 +595,7 @@ customersRouter.post(
 
 customersRouter.patch(
   "/:id/locations/:locationId",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = locationSchema.partial().parse(req.body);
@@ -595,7 +623,7 @@ customersRouter.patch(
 
 customersRouter.delete(
   "/:id/locations/:locationId",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.location.findFirst({

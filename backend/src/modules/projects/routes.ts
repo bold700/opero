@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
-import { statusForStage, type UserRole } from "@opero/shared";
+import { statusForStage, canSeeAllProjects, type UserRole } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
@@ -213,7 +213,7 @@ projectsRouter.get(
 // POST / — admin only. Mirror store createProject.
 projectsRouter.post(
   "/",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createProjectSchema.parse(req.body);
@@ -346,7 +346,7 @@ projectsRouter.post(
 // PATCH /:id — header fields. admin only. Mirror updateProject date logic.
 projectsRouter.patch(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateProjectSchema.parse(req.body);
@@ -377,6 +377,37 @@ projectsRouter.patch(
       data.exclusions = clampText(input.exclusions);
     if (input.billingType !== undefined) data.billingType = input.billingType;
     if (input.urgency !== undefined) data.urgency = input.urgency;
+
+    // Switch the project to a different CUSTOMER. This moves the job — and all
+    // its werkbonnen, invoices and meerwerk approvals — out of the old
+    // customer's portal and into the new one's (the client role is scoped by
+    // project.customerId). Three things travel with it:
+    //   - customerName, the denormalized copy read by search/lists/PDFs;
+    //   - locationId, because a Location belongs to a customer and would
+    //     otherwise dangle on a project the customer no longer owns;
+    //   - NOT address/postalCode/city: the job SITE doesn't move just because
+    //     the billing customer was corrected.
+    let newCustomer: { id: string; name: string } | null = null;
+    if (input.customerId !== undefined && input.customerId !== existing.customerId) {
+      const found = await prisma.customer.findFirst({
+        where: { id: input.customerId, orgId: user.orgId, deletedAt: null },
+        select: { id: true, name: true },
+      });
+      // 404, not 400: a cross-org id must not reveal that the customer exists.
+      if (!found) throw NotFound("Customer not found");
+      newCustomer = found;
+      data.customer = { connect: { id: found.id } };
+      data.customerName = found.name;
+
+      // Keep the saved location only when the NEW customer owns it.
+      if (existing.locationId) {
+        const keeps = await prisma.location.findFirst({
+          where: { id: existing.locationId, customerId: found.id },
+          select: { id: true },
+        });
+        if (!keeps) data.location = { disconnect: true };
+      }
+    }
 
     // Team + work type (all project-level). Validate org membership first.
     if (input.projectLeaderId) {
@@ -418,6 +449,20 @@ projectsRouter.patch(
     const updated = await prisma.$transaction(async (tx) => {
       await tx.project.update({ where: { id: existing.id }, data });
       await audit(tx, user, "project.update", "project", existing.id, input);
+      // A customer switch changes WHO CAN SEE this job, so it gets its own
+      // audit entry (with both ids) and shows up in the project feed — an
+      // access change must never be silent.
+      if (newCustomer) {
+        await audit(tx, user, "project.customerChanged", "project", existing.id, {
+          from: existing.customerId,
+          fromName: existing.customerName,
+          to: newCustomer.id,
+          toName: newCustomer.name,
+        });
+        await appendActivity(tx, user, existing.id, "system", "project.customerChanged", {
+          params: { from: existing.customerName, to: newCustomer.name },
+        });
+      }
       return tx.project.findUniqueOrThrow({
         where: { id: existing.id },
         include: projectInclude,
@@ -431,7 +476,7 @@ projectsRouter.patch(
 // DELETE /:id — admin only, hard delete (FK cascade removes children).
 projectsRouter.delete(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await loadProjectForUser(user, req.params.id);
@@ -446,7 +491,7 @@ projectsRouter.delete(
 // POST /:id/archive — admin. archived true, stage done, status closing.
 projectsRouter.post(
   "/:id/archive",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await loadProjectForUser(user, req.params.id);
@@ -473,7 +518,7 @@ projectsRouter.post(
 // POST /:id/status — admin. {status}. status_change activity.
 projectsRouter.post(
   "/:id/status",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { status } = statusSchema.parse(req.body);
@@ -515,7 +560,7 @@ projectsRouter.post(
 // POST /:id/stage — admin. {stage} or {advance:true}. setStage semantics.
 projectsRouter.post(
   "/:id/stage",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const body = stageSchema_.parse(req.body);
@@ -557,7 +602,7 @@ projectsRouter.post(
 // POST /:id/materials/check — admin. Mirror moveToMaterialsCheck.
 projectsRouter.post(
   "/:id/materials/check",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.project.findFirst({
@@ -622,7 +667,7 @@ projectsRouter.post(
 // PATCH /:id/intake — admin. Update intake fields.
 projectsRouter.patch(
   "/:id/intake",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateIntakeSchema.parse(req.body);
@@ -679,7 +724,7 @@ projectsRouter.patch(
 // POST /:id/intake/complete — admin. Mirror completeIntake.
 projectsRouter.post(
   "/:id/intake/complete",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const data = completeIntakeSchema.parse(req.body);
@@ -770,7 +815,7 @@ async function reloadProject(user: AuthUser, projectId: string) {
 // POST /:id/urgency — admin. {urgency} + activity.
 projectsRouter.post(
   "/:id/urgency",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { urgency } = urgencyBodySchema.parse(req.body);
@@ -800,7 +845,7 @@ projectsRouter.post(
 // POST /:id/resolve-blocker — admin. {note?} + activity.
 projectsRouter.post(
   "/:id/resolve-blocker",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { note } = resolveBlockerSchema.parse(req.body);
@@ -842,7 +887,7 @@ projectsRouter.post(
 // POST /:id/team — admin. Set project leader / team leader / installers.
 projectsRouter.post(
   "/:id/team",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = teamSchema.parse(req.body);
@@ -986,7 +1031,7 @@ function assertHandoverWriter(
     installers?: { id: string }[];
   },
 ) {
-  if (user.role === "admin") return;
+  if (canSeeAllProjects(user.role)) return;
   if (user.role === "technician" && canViewProject(user, project)) return;
   throw Forbidden("Not allowed for this handover");
 }

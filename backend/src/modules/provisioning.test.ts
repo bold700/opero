@@ -186,15 +186,39 @@ describe("user provisioning", () => {
     expect(cust.body.account?.status).toBe("invited");
   });
 
-  it("GET /invitable lists people without a login, excludes the rest", async () => {
-    const res = await request(app).get("/api/users/invitable").set(auth(adminToken));
-    expect(res.status).toBe(200);
-    const list = res.body as { kind: string; id: string; email: string }[];
-    // The tech + client already have logins → excluded. The no-email employee
-    // has no email → excluded.
-    expect(list.find((p) => p.id === employeeId)).toBeUndefined();
-    expect(list.find((p) => p.id === customerId)).toBeUndefined();
-    expect(list.every((p) => p.email && p.email.length > 0)).toBe(true);
+  // GET /users/invitable is gone with the Toegang screen's person picker —
+  // invites now start from a record that is by definition already chosen. The
+  // rules it encoded are still enforced, just at the invite endpoint.
+  it("refuses a second login for someone who already has one", async () => {
+    const res = await request(app)
+      .post("/api/users/invite")
+      .set(auth(adminToken))
+      .send({ kind: "employee", employeeId, role: "technician" });
+    expect(res.status).toBe(409);
+
+    const cust = await request(app)
+      .post("/api/users/invite")
+      .set(auth(adminToken))
+      .send({ kind: "customer", customerId });
+    expect(cust.status).toBe(409);
+  });
+
+  it("refuses a login for someone with no email address", async () => {
+    const noEmail = await prisma.employee.create({
+      data: {
+        orgId,
+        name: `${TAG} Geen Email`,
+        phone: "",
+        email: null,
+        roles: ["Technician"],
+        status: "active",
+      },
+    });
+    const res = await request(app)
+      .post("/api/users/invite")
+      .set(auth(adminToken))
+      .send({ kind: "employee", employeeId: noEmail.id, role: "technician" });
+    expect(res.status).toBe(400);
   });
 
   it("resends an invite (invited only)", async () => {
@@ -280,10 +304,16 @@ describe("user provisioning", () => {
   });
 
   it("requires admin role for all provisioning endpoints", async () => {
-    // Log in as the (now active) technician and confirm 403.
+    // Log in as the (now active) technician and confirm 403. The whole
+    // usersRouter is admin-gated, so any endpoint on it proves the guard.
     const techLogin = await login(`${TAG}-tech@opero.test`, "tech-pass-123");
     const techToken = techLogin.body.accessToken;
-    const res = await request(app).get("/api/users").set(auth(techToken));
+    const self = await prisma.user.findUnique({
+      where: { email: `${TAG}-tech@opero.test` },
+    });
+    const res = await request(app)
+      .post(`/api/users/${self!.id}/disable`)
+      .set(auth(techToken));
     expect(res.status).toBe(403);
   });
 
@@ -305,10 +335,14 @@ describe("user provisioning", () => {
     const otherToken = (await login(`${TAG}-otheradmin@opero.test`, "pw-prov-123")).body
       .accessToken;
 
-    const list = await request(app).get("/api/users").set(auth(otherToken));
+    // Accounts are listed via the record they belong to, so org isolation is
+    // asserted there (the employees list embeds each employee's `account`).
+    const list = await request(app).get("/api/employees").set(auth(otherToken));
     expect(list.status).toBe(200);
-    const emails = (list.body.items as { email: string }[]).map((u) => u.email);
-    expect(emails).not.toContain(`${TAG}-tech@opero.test`);
+    const accountEmails = (list.body.items as { account: { email: string } | null }[])
+      .map((e) => e.account?.email)
+      .filter(Boolean);
+    expect(accountEmails).not.toContain(`${TAG}-tech@opero.test`);
 
     // And it can't disable a user from the first org (404, not 200).
     const techUser = await prisma.user.findUnique({

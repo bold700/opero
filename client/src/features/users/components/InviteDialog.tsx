@@ -1,33 +1,33 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import { ResponsiveDialog, useSheetMenuProps } from "../../../components/ResponsiveDialog";
+import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { SelectField } from "../../../components/SelectField";
-import TextField from "@mui/material/TextField";
-import Autocomplete from "@mui/material/Autocomplete";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { useApi } from "../../../lib/api/useApi";
-import { getInvitable, type InviteInput, type InvitablePerson } from "../api";
-import { useIsMobile } from "../../../lib/useIsMobile";
+import type { InviteInput } from "../api";
 
-// The invite dialog picks an EXISTING person (Employee or Customer) and
-// provisions a login for them. Email/name/role come from that record — there is
-// no free-typed email. Employees can be admin or technician; customers are
-// always the client role.
+// Provision a login for an EXISTING person (Employee or Customer). Email, name
+// and role come from that record — there is never a free-typed address.
+// Employees can be admin or technician; customers are always the client role.
 //
-// When launched from an Employee/Customer row the person is already known
-// (`fixed`), so the picker is skipped and only the role choice (employees) shows.
+// The person is ALWAYS known: this is launched from their row on Werknemers /
+// Klanten, which is the only place access is managed. (There used to be a
+// standalone Toegang screen with a person picker; with it gone, so is the
+// picker — and the GET /users/invitable endpoint that fed it.)
 export type InviteFixedTarget =
   | { kind: "employee"; id: string; name: string }
   | { kind: "customer"; id: string; name: string };
 
-const EMPLOYEE_ROLES = ["technician", "admin"] as const;
+// Ordered least → most privileged. `admin` is the OWNER: everything, including
+// provisioning logins and org settings. `office` is staff: the full operational
+// app, no account management.
+const EMPLOYEE_ROLES = ["technician", "office", "admin"] as const;
 type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
 
 export function InviteDialog({
@@ -39,59 +39,30 @@ export function InviteDialog({
   onSubmit,
 }: {
   open: boolean;
-  /** When set, the person is pre-chosen (from their row) and the picker is hidden. */
-  fixed?: InviteFixedTarget | null;
+  /** The pre-chosen person. Null only while the dialog is closed. */
+  fixed: InviteFixedTarget | null;
   busy: boolean;
   error: string | null;
   onClose: () => void;
   onSubmit: (input: InviteInput) => void;
 }) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
-  const sheetMenu = useSheetMenuProps();
-
-  // Only the standalone (Access-tab) flow needs the invitable list. Fetch only
-  // when the picker is actually shown (open + not a fixed target); don't key on
-  // `open` alone or closing the dialog would refetch and flash a stale state.
-  const needsPicker = open && !fixed;
-  const { data, loading } = useApi<InvitablePerson[]>(getInvitable, [needsPicker]);
-  // `data === null` means we haven't loaded yet — treat that as "still loading"
-  // so the "nobody to invite" message never shows before the fetch resolves.
-  const loaded = data !== null;
-  const people = useMemo(() => (needsPicker ? (data ?? []) : []), [needsPicker, data]);
-
-  const [selected, setSelected] = useState<InvitablePerson | null>(null);
   const [role, setRole] = useState<EmployeeRole>("technician");
 
   // Reset on (re)open.
   useEffect(() => {
     if (!open) return;
-    setSelected(null);
     setRole("technician");
   }, [open, fixed]);
 
-  // The chosen person's kind decides whether a role choice applies (employees).
-  const kind = fixed?.kind ?? selected?.kind;
-  const isEmployee = kind === "employee";
-  const displayName = fixed?.name ?? selected?.name ?? "";
-
-  const canSubmit =
-    !busy && (fixed ? true : selected !== null) && kind !== undefined;
+  const isEmployee = fixed?.kind === "employee";
 
   const handleSubmit = () => {
-    if (fixed) {
-      onSubmit(
-        fixed.kind === "employee"
-          ? { kind: "employee", employeeId: fixed.id, role }
-          : { kind: "customer", customerId: fixed.id },
-      );
-      return;
-    }
-    if (!selected) return;
+    if (!fixed) return;
     onSubmit(
-      selected.kind === "employee"
-        ? { kind: "employee", employeeId: selected.id, role }
-        : { kind: "customer", customerId: selected.id },
+      fixed.kind === "employee"
+        ? { kind: "employee", employeeId: fixed.id, role }
+        : { kind: "customer", customerId: fixed.id },
     );
   };
 
@@ -106,45 +77,10 @@ export function InviteDialog({
           {error ? <Alert severity="error">{error}</Alert> : null}
 
           {fixed ? (
-            // Person pre-chosen from their row — show who, no picker.
             <Alert severity="info" sx={{ py: 0.5 }}>
               {t("users.invite.linkedTo", { name: fixed.name })}
             </Alert>
-          ) : !needsPicker || loading || !loaded ? (
-            // Loading, or the dialog is closing — show a spinner, never the
-            // "nobody to invite" message before the list has actually loaded.
-            <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-              <CircularProgress size={24} />
-            </Box>
-          ) : people.length === 0 ? (
-            <Alert severity="info">{t("users.invite.noInvitable")}</Alert>
-          ) : (
-            <Autocomplete
-              options={people}
-              value={selected}
-              onChange={(_e, v) => setSelected(v)}
-              disabled={busy}
-              groupBy={(o) =>
-                o.kind === "employee" ? t("users.invite.employees") : t("users.invite.customers")
-              }
-              getOptionLabel={(o) => o.name}
-              isOptionEqualToValue={(a, b) => a.kind === b.kind && a.id === b.id}
-              renderOption={(props, o) => (
-                <Box component="li" {...props} key={`${o.kind}-${o.id}`}>
-                  <Box>
-                    <Typography sx={{ fontWeight: 600 }}>{o.name}</Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                      {o.email}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              renderInput={(params) => (
-                <TextField {...params} label={t("users.invite.pickPerson")} size="small" autoFocus={!isMobile} />
-              )}
-              slotProps={{ popper: { container: sheetMenu.container } }}
-            />
-          )}
+          ) : null}
 
           {/* Role only applies to employees (customers are always client). */}
           {isEmployee ? (
@@ -155,9 +91,9 @@ export function InviteDialog({
               disabled={busy}
               options={EMPLOYEE_ROLES.map((r) => ({ value: r, label: t(`users.roles.${r}`) }))}
             />
-          ) : kind === "customer" ? (
+          ) : fixed ? (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              {t("users.invite.clientRoleNote", { name: displayName })}
+              {t("users.invite.clientRoleNote", { name: fixed.name })}
             </Typography>
           ) : null}
         </Box>
@@ -169,7 +105,7 @@ export function InviteDialog({
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={!canSubmit}
+          disabled={busy || !fixed}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
           {t("users.invite.send")}

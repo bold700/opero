@@ -59,7 +59,9 @@
     "priceCount": "{{count}} prijzen",
     "deleteMaterial": "Materiaal verwijderen",
     "deleteMaterialTitle": "Materiaal verwijderen?",
-    "deleteMaterialMessage": "\"{{name}}\" en alle varianten worden verwijderd. Dit kan niet ongedaan worden gemaakt."
+    "deleteMaterialMessage": "\"{{name}}\" en alle varianten worden verwijderd. Dit kan niet ongedaan worden gemaakt.",
+    "searchPlaceholder": "Zoek op maat of type...",
+    "noMatches": "Geen varianten gevonden."
   },
   "unit": {
     "m": "meter",

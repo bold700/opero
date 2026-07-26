@@ -24,8 +24,16 @@ datasource db {
 // Enums (mirror types.ts string unions)
 // ---------------------------------------------------------------------------
 
+// Access level of a LOGIN. Distinct from TeamRole (the job title on an
+// Employee) — see the note on TeamRole below.
+//   admin      = the owner: everything, incl. provisioning logins + org config
+//   office     = office staff: the full operational app, but never logins or
+//                org config (a clerk must not be able to disable the owner)
+//   technician = field staff (monteur)
+//   client     = the customer's own portal login
 enum UserRole {
   admin
+  office
   technician
   client
 }
@@ -537,7 +545,6 @@ model MaterialVariant {
 
   material      Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
   taskMaterials TaskMaterial[]
-  extraWork     ExtraWork[]
 
   @@unique([materialId, size, component, thicknessMm])
   @@index([materialId])
@@ -800,10 +807,10 @@ model WorkOrder {
   assignees Employee[]     @relation("WorkOrderAssignees")
   planningItems PlanningItem[]
   tasks    WorkOrderTask[]
-  // Billing (per-werkbon) + extra work live on the werkbon.
+  // Billing lives on the werkbon. Extra work (meerwerk) is no longer a separate
+  // entity — it's a TaskMaterial line with `isExtraWork` set, inside a zone.
   quote     Quote?
   invoice   Invoice?
-  extraWork ExtraWork[]
   // Uploaded documents (PDFs/images) for the whole job — quotes, floor plans,
   // permits, supplier docs. Werkbon-level, not per-zone (see the attachments
   // panel). Distinct from `drawings` (a separate, older key[] field).
@@ -905,50 +912,38 @@ model TaskMaterial {
   // variant is ever removed.
   variantId    String?
 
+  // --- Meerwerk (extra work) ------------------------------------------------
+  // A line the customer did NOT originally buy. Same shape as any other line;
+  // the flag changes only WHEN it counts as money:
+  //   - never in the werkbon value / quote amount (that's the SOLD scope), and
+  //   - on the invoice only once BOTH office and client have approved it.
+  // See recomputeQuoteAmount() and deriveTotals(). Un-flagged lines ignore all
+  // of the approval columns below.
+  isExtraWork      Boolean              @default(false)
+  approvedByOffice Boolean              @default(false)
+  approvedByClient Boolean              @default(false)
+  rejected         Boolean              @default(false)
+  rejectedBy       ExtraWorkRejectedBy?
+  // Photo evidence for the extra work / blockage report (meerwerk only).
+  photos           String[]
+  createdAt        DateTime             @default(now())
+
   task    WorkOrderTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   variant MaterialVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
   @@index([taskId])
   @@index([variantId])
+  @@index([taskId, isExtraWork])
 }
 
 // ---------------------------------------------------------------------------
-// ExtraWork, handover, delivery checklist, project tasks
+// Handover, delivery checklist, project tasks
 // ---------------------------------------------------------------------------
-
-model ExtraWork {
-  id               String               @id @default(uuid())
-  workOrderId      String
-  description      String
-  label            String?
-  name             String?
-  quantity         Float?
-  unit             String?
-  diameter         Float?
-  unitPrice        Float?
-  // Cost price snapshot (inkoopprijs), set when the item was picked from the
-  // catalog. Admin-only; stripped from every non-admin DTO. Null for free-text
-  // meerwerk (which carries no price until an admin sets one).
-  costPrice        Float?
-  amount           Int                  @default(0)
-  photos           String[]
-  createdAt        String
-  done             Boolean              @default(false)
-  approvedByOffice Boolean              @default(false)
-  approvedByClient Boolean              @default(false)
-  rejected         Boolean              @default(false)
-  rejectedBy       ExtraWorkRejectedBy?
-  // Set when the item was picked from the materials catalog — traces it back
-  // to its variant. Null for free-text meerwerk; kept (SetNull) if the variant
-  // is ever removed.
-  variantId        String?
-
-  workOrder WorkOrder        @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  variant   MaterialVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-
-  @@index([workOrderId])
-  @@index([variantId])
-}
+//
+// Meerwerk used to be its own `ExtraWork` model here. It is now a TaskMaterial
+// line with `isExtraWork` set — same entity as any other priced line, so the
+// two can't drift apart. The ExtraWorkRejectedBy enum survives because those
+// approval columns moved onto TaskMaterial.
 
 model Handover {
   id          String   @id @default(uuid())

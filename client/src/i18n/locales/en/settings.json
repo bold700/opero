@@ -38,11 +38,10 @@
     "addPlaceholder": "New item…",
     "add": "Add",
     "remove": "Remove",
-    "moveUp": "Move up",
-    "moveDown": "Move down",
     "saved": "Saved",
     "saveError": "Could not save",
-    "loadError": "Could not load"
+    "loadError": "Could not load",
+    "reorderAria": "Reorder"
   },
   "profile": {
     "photo": "Profile photo",
@@ -60,6 +59,7 @@
     "role": "Role",
     "roles": {
       "admin": "Admin",
+      "office": "Office staff",
       "technician": "Technician",
       "client": "Client"
     },

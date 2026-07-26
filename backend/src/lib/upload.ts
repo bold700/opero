@@ -1,5 +1,6 @@
 import multer from "multer";
 import sharp from "sharp";
+import { MAX_IMAGE_BYTES, MAX_PDF_BYTES, MAX_IMAGE_DIMENSION } from "@opero/shared";
 import { BadRequest } from "./httpError.js";
 
 // Upload handling shared by every photo/signature/drawing route.
@@ -9,9 +10,7 @@ import { BadRequest } from "./httpError.js";
 //   sharp re-encode (strips EXIF/GPS, caps dimensions, normalizes format) → a
 //   clean Buffer + contentType + ext ready for storage.put().
 
-const MAX_IMAGE_BYTES = 12 * 1024 * 1024; // 12 MB raw upload
-const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB for drawings
-const MAX_IMAGE_DIMENSION = 2560; // px, longest side after normalization
+// Limits live in @opero/shared so the client can state them and pre-check.
 
 // multer in memory: we never touch disk before validation.
 export const uploadSingle = multer({

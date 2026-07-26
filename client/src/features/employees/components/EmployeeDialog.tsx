@@ -19,6 +19,7 @@ import { ResponsiveDialog, useSheetMenuProps } from "../../../components/Respons
 import { SelectField } from "../../../components/SelectField";
 import { useForm } from "../../../lib/useForm";
 import { required, email } from "../../../lib/validation";
+import { AccountSection } from "../../users/components/AccountSection";
 import {
   TEAM_ROLES,
   EMPLOYEE_STATUSES,
@@ -48,15 +49,37 @@ export function EmployeeDialog({
   employee,
   busy,
   error,
+  canManage,
+  canDelete,
+  accountBusy,
+  isSelf,
   onClose,
   onSubmit,
+  onDelete,
+  onInvite,
+  onResend,
+  onDisable,
+  onEnable,
 }: {
   open: boolean;
   employee?: EmployeeRow | null;
   busy: boolean;
   error: string | null;
+  canManage: boolean;
+  /**
+   * Deleting cascades into revoking this person's login, so you can't remove
+   * someone at or above your own level — office can't delete an admin.
+   */
+  canDelete: boolean;
+  accountBusy: boolean;
+  isSelf: boolean;
   onClose: () => void;
   onSubmit: (input: EmployeeInput) => void;
+  onDelete: () => void;
+  onInvite: () => void;
+  onResend: () => void;
+  onDisable: () => void;
+  onEnable: () => void;
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -187,9 +210,37 @@ export function EmployeeDialog({
               label: t(`employees.status.${s}`),
             }))}
           />
+
+          {/* Login account — only for an existing employee, admins only. Reads
+              the live email field so a just-typed address enables Uitnodigen
+              (the invite is sent against the saved record). */}
+          {employee && canManage ? (
+            <AccountSection
+              account={employee.account}
+              email={values.email}
+              busy={accountBusy}
+              labelKeys="employees.dialog.account"
+              isSelf={isSelf}
+              onInvite={onInvite}
+              onResend={onResend}
+              onDisable={onDisable}
+              onEnable={onEnable}
+            />
+          ) : null}
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
+        {/* Destructive action, pushed away from the confirming ones so it can't
+            be hit on the way to Opslaan. Only when editing, and only if this
+            person is one you're allowed to remove. */}
+        {employee && canDelete ? (
+          <>
+            <Button color="error" onClick={onDelete} disabled={busy}>
+              {t("common.actions.delete")}
+            </Button>
+            <Box sx={{ flex: 1 }} />
+          </>
+        ) : null}
         <Button onClick={onClose} disabled={busy}>
           {t("common.actions.cancel")}
         </Button>

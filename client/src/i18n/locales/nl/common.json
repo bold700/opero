@@ -25,6 +25,12 @@
   "misc": {
     "all": "Alle"
   },
+  "account": {
+    "none": "Nee",
+    "invited": "Uitgenodigd",
+    "active": "Ja",
+    "disabled": "Uitgeschakeld"
+  },
   "validation": {
     "required": "Verplicht veld",
     "email": "Ongeldig e-mailadres",

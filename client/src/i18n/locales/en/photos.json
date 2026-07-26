@@ -1,5 +1,10 @@
 {
   "add": "Add photo",
   "addDrawing": "Add drawing",
-  "empty": "No photos yet"
+  "empty": "No photos yet",
+  "addMultiple": "Add photos",
+  "limitHint": "JPG or PNG, max {{max}}",
+  "tooLarge": "{{name}} is too large (max {{max}})",
+  "uploadFailed": "{{name}} could not be uploaded",
+  "uploading": "Uploading…"
 }

@@ -1,10 +1,5 @@
 {
   "title": "Klanten",
-  "counts": {
-    "total": "Totaal",
-    "business": "Zakelijk",
-    "private": "Particulier"
-  },
   "filters": {
     "all": "Alle",
     "business": "Zakelijk",
@@ -42,9 +37,7 @@
     "action": "Actie",
     "viewAriaLabel": "bekijken",
     "empty": "Geen klanten gevonden.",
-    "login": "Login",
-    "invite": "Uitnodigen",
-    "loginNeedsEmail": "Voeg eerst een e-mailadres toe om deze klant uit te nodigen."
+    "account": "Account"
   },
   "dialog": {
     "newTitle": "Nieuwe klant",
@@ -57,7 +50,21 @@
     "address": "Adres",
     "postalCode": "Postcode",
     "city": "Plaats",
-    "notes": "Notities"
+    "notes": "Notities",
+    "account": {
+      "title": "Account",
+      "invite": "Uitnodigen",
+      "resend": "Uitnodiging opnieuw versturen",
+      "needsEmail": "Voeg eerst een e-mailadres toe om deze klant uit te nodigen.",
+      "role": "Rol",
+      "email": "E-mail",
+      "activatedAt": "Actief sinds",
+      "disable": "Uitschakelen",
+      "enable": "Inschakelen",
+      "selfDisableHint": "Je kunt je eigen toegang niet uitschakelen.",
+      "confirmDisableTitle": "Toegang uitschakelen?",
+      "confirmDisableBody": "{{name}} kan daarna niet meer inloggen op het klantportaal. Actieve sessies worden direct beëindigd. Je kunt de toegang later weer inschakelen."
+    }
   },
   "delete": {
     "title": "Klant verwijderen",

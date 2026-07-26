@@ -1,8 +1,8 @@
 {
-  "title": "Access",
-  "empty": "No accounts yet.",
+  "_comment": "Shared account namespace — there is no Access screen. These keys are used by the account panel and invite dialog embedded in Employees and Customers.",
   "roles": {
     "admin": "Administrator",
+    "office": "Office staff",
     "technician": "Technician",
     "client": "Client"
   },
@@ -12,34 +12,17 @@
     "disabled": "Disabled",
     "none": "No login"
   },
-  "filters": {
-    "all": "All",
-    "active": "Active",
-    "invited": "Invited",
-    "disabled": "Disabled"
-  },
-  "table": {
-    "name": "Name",
-    "role": "Role",
-    "status": "Status",
-    "action": "Action"
-  },
   "actions": {
     "resend": "Resend invite",
     "disable": "Disable",
     "enable": "Enable"
   },
   "invite": {
-    "new": "Invite user",
     "title": "Invite user",
     "subtitle": "They'll receive an email with a link to set their password and activate their account.",
     "linkedTo": "Login for {{name}}",
     "role": "Role",
     "send": "Send invite",
-    "pickPerson": "Who needs a login?",
-    "employees": "Employees",
-    "customers": "Customers",
-    "noInvitable": "Everyone with an email address already has a login.",
     "clientRoleNote": "{{name}} will get a client login for the customer portal."
   },
   "toast": {

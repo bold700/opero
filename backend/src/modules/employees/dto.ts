@@ -1,15 +1,12 @@
 import type { Employee, EmployeeAbsence, TeamRole, User } from "@prisma/client";
+import { accountDto, accountInclude } from "../users/dto.js";
 
 // DTO mapper — never return raw rows with internal columns to clients.
 
-// The login account (if any) linked to this domain record, so the UI can show
-// login status and offer invite/resend/disable. An employee has at most one.
-type LinkedUser = Pick<User, "id" | "status">;
-
-export function accountDto(users: LinkedUser[] | undefined) {
-  const u = users?.[0];
-  return u ? { userId: u.id, status: u.status } : null;
-}
+// The login account linked to this employee. Shared with the customers module
+// so both screens describe an account identically.
+export { accountDto };
+type LinkedUser = Pick<User, "id" | "email" | "role" | "status" | "activatedAt">;
 
 export function employeeDto(e: Employee & { users?: LinkedUser[] }) {
   return {
@@ -79,8 +76,8 @@ export function absenceDto(
 }
 
 export const employeeListInclude = {
-  // Only invited/active users link a login; disabled ones still show status.
-  users: { select: { id: true, status: true } },
+  // Ordered so `users[0]` in accountDto is deterministic.
+  users: accountInclude,
   _count: {
     select: {
       projectsAsLeader: true,

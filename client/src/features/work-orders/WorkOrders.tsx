@@ -7,6 +7,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthContext";
+import { canSeeAllProjects } from "@opero/shared";
 import { LAVENDER } from "../../theme/tokens";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
@@ -32,7 +33,7 @@ export function WorkOrders() {
   const { user } = useAuth();
   // Werkbon setup (customer + project) is an office task — admin only. Technicians
   // are assigned werkbons and fill them in on the detail screen; they don't create.
-  const canCreate = user?.role === "admin";
+  const canCreate = canSeeAllProjects(user?.role ?? "client");
 
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");

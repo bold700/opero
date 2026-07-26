@@ -27,7 +27,8 @@
     "intakeCompleted": "Intake afgerond",
     "intakeCompletedWithBlocker": "Intake afgerond met blokkade: {{blocker}}",
     "blockerResolved": "Blokkade afgehandeld: {{blocker}}",
-    "blockerResolvedWithNote": "Blokkade afgehandeld: {{blocker}} ({{note}})"
+    "blockerResolvedWithNote": "Blokkade afgehandeld: {{blocker}} ({{note}})",
+    "customerChanged": "Klant gewijzigd van {{from}} naar {{to}}"
   },
   "quote": {
     "sent": "Offerte verstuurd naar klant",

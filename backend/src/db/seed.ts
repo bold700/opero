@@ -58,7 +58,6 @@ async function main() {
     prisma.quote.deleteMany({}),
     prisma.intake.deleteMany({}),
     prisma.invoice.deleteMany({}),
-    prisma.extraWork.deleteMany({}),
     prisma.materialRequirement.deleteMany({}),
     prisma.planningItem.deleteMany({}),
     prisma.projectTask.deleteMany({}),
@@ -322,7 +321,43 @@ async function main() {
     ];
   }
 
-  function buildTaskCreate(t: WorkOrderTask, tIdx: number) {
+  // `meerwerk` (when given) is appended to this zone's lines as flagged
+  // TaskMaterials — extra work is an ordinary line with `isExtraWork` set.
+  function buildTaskCreate(
+    t: WorkOrderTask,
+    tIdx: number,
+    meerwerk: ExtraWorkItem[] = [],
+  ) {
+    const lines = (t.materials ?? []).map((mtl: TaskMaterial, mIdx: number) => ({
+      label: mtl.label ?? null,
+      name: mtl.name,
+      quantity: mtl.quantity,
+      usedQuantity: mtl.usedQuantity ?? null,
+      unit: mtl.unit,
+      diameter: mtl.diameter ?? null,
+      unitPrice: mtl.unitPrice ?? null,
+      onSite: mtl.onSite,
+      done: mtl.done ?? false,
+      note: mtl.note ?? null,
+      ordinal: mIdx,
+    }));
+    const extra = meerwerk.map((mw: ExtraWorkItem, i: number) => ({
+      label: mw.label ?? null,
+      name: mw.name ?? mw.description,
+      quantity: mw.quantity ?? 1,
+      unit: mw.unit ?? "stuk",
+      diameter: mw.diameter ?? null,
+      unitPrice: mw.unitPrice ?? null,
+      onSite: false,
+      done: mw.done ?? false,
+      photos: mw.photos,
+      ordinal: lines.length + i,
+      isExtraWork: true,
+      approvedByOffice: mw.approvedByOffice,
+      approvedByClient: mw.approvedByClient,
+      rejected: mw.rejected,
+      rejectedBy: (mw.rejectedBy as ExtraWorkRejectedBy | undefined) ?? null,
+    }));
     return {
       description: t.description,
       done: t.done,
@@ -334,21 +369,7 @@ async function main() {
       hours: t.hours ?? null,
       note: t.note ?? null,
       ordinal: tIdx,
-      materials: {
-        create: (t.materials ?? []).map((mtl: TaskMaterial, mIdx: number) => ({
-          label: mtl.label ?? null,
-          name: mtl.name,
-          quantity: mtl.quantity,
-          usedQuantity: mtl.usedQuantity ?? null,
-          unit: mtl.unit,
-          diameter: mtl.diameter ?? null,
-          unitPrice: mtl.unitPrice ?? null,
-          onSite: mtl.onSite,
-          done: mtl.done ?? false,
-          note: mtl.note ?? null,
-          ordinal: mIdx,
-        })),
-      },
+      materials: { create: [...lines, ...extra] },
     };
   }
 
@@ -427,7 +448,9 @@ async function main() {
 
         tasks: {
           create: (wb.tasks ?? []).map((t: WorkOrderTask, tIdx: number) =>
-            buildTaskCreate(t, tIdx),
+            // Meerwerk is defined once at project level in the mock; hang it off
+            // the primary werkbon's FIRST zone (it has to live in a zone now).
+            buildTaskCreate(t, tIdx, isPrimary && tIdx === 0 ? (p.extraWork ?? []) : []),
           ),
         },
 
@@ -486,26 +509,6 @@ async function main() {
         // mock defines them once, at project level).
         ...(isPrimary
           ? {
-              extraWork: {
-                create: (p.extraWork ?? []).map((mw: ExtraWorkItem) => ({
-                  description: mw.description,
-                  label: mw.label ?? null,
-                  name: mw.name ?? null,
-                  quantity: mw.quantity ?? null,
-                  unit: mw.unit ?? null,
-                  diameter: mw.diameter ?? null,
-                  unitPrice: mw.unitPrice ?? null,
-                  amount: mw.amount,
-                  photos: mw.photos,
-                  createdAt: mw.createdAt,
-                  done: mw.done ?? false,
-                  approvedByOffice: mw.approvedByOffice,
-                  approvedByClient: mw.approvedByClient,
-                  rejected: mw.rejected,
-                  rejectedBy:
-                    (mw.rejectedBy as ExtraWorkRejectedBy | undefined) ?? null,
-                })),
-              },
               planningItems: {
                 create: (p.planningItems ?? []).map((pi: PlanningItem) => ({
                   date: pi.date,
@@ -702,10 +705,29 @@ async function main() {
   // -----------------------------------------------------------------------
   const passwordHash = await bcrypt.hash("opero123", 12);
 
-  const technicianEmployee = seededTeam.find((tm) =>
-    tm.roles.includes("Technician"),
+  // THE INVARIANT: every login links to an Employee or a Customer. Access is
+  // managed from the Werknemers / Klanten screens, so an unlinked login would be
+  // invisible there — and impossible to revoke through the UI. Pinned by
+  // modules/users/invariant.test.ts.
+
+  // The admin login needs its own Employee record; there is no mock team member
+  // for "the office admin", so mint one. Administration puts them in the
+  // existing "office" filter bucket.
+  const adminEmployee = await prisma.employee.create({
+    data: {
+      orgId,
+      name: "Admin Demo",
+      phone: "",
+      email: "admin@opero.test",
+      roles: ["Administration"] as TeamRole[],
+      status: "active",
+    },
+  });
+
+  const technicianEmployeeId = validEmployeeId(
+    seededTeam.find((tm) => tm.roles.includes("Technician"))?.id,
   );
-  // Only link the client login to a customer when demo customers were seeded.
+  // Only seeded when demo customers were (the non-demo slice seeds none).
   const firstCustomerId = SEED_DEMO ? mockCustomers[0]?.id ?? null : null;
 
   await prisma.user.create({
@@ -716,30 +738,62 @@ async function main() {
       name: "Admin Demo",
       role: "admin",
       totpEnabled: false,
+      employeeId: adminEmployee.id,
+    },
+  });
+
+  // Office staff: the full operational app, but no login provisioning and no
+  // org settings. Gets its own Employee record so the invariant holds.
+  const officeEmployee = await prisma.employee.create({
+    data: {
+      orgId,
+      name: "Office Demo",
+      phone: "",
+      email: "office@opero.test",
+      roles: ["WorkPlanner"] as TeamRole[],
+      status: "active",
     },
   });
   await prisma.user.create({
     data: {
       orgId,
-      email: "technician@opero.test",
+      email: "office@opero.test",
       passwordHash,
-      name: "Technician Demo",
-      role: "technician",
+      name: "Office Demo",
+      role: "office",
       totpEnabled: false,
-      employeeId: validEmployeeId(technicianEmployee?.id),
+      employeeId: officeEmployee.id,
     },
   });
-  await prisma.user.create({
-    data: {
-      orgId,
-      email: "client@opero.test",
-      passwordHash,
-      name: "Client Demo",
-      role: "client",
-      totpEnabled: false,
-      customerId: firstCustomerId,
-    },
-  });
+
+  // The remaining two demo logins are only created when their domain record
+  // exists. Creating them unlinked would break the invariant on a clean slate.
+  if (technicianEmployeeId) {
+    await prisma.user.create({
+      data: {
+        orgId,
+        email: "technician@opero.test",
+        passwordHash,
+        name: "Technician Demo",
+        role: "technician",
+        totpEnabled: false,
+        employeeId: technicianEmployeeId,
+      },
+    });
+  }
+  if (firstCustomerId) {
+    await prisma.user.create({
+      data: {
+        orgId,
+        email: "client@opero.test",
+        passwordHash,
+        name: "Client Demo",
+        role: "client",
+        totpEnabled: false,
+        customerId: firstCustomerId,
+      },
+    });
+  }
 
   // -----------------------------------------------------------------------
   // 10. Summary

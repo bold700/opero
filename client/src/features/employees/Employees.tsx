@@ -8,6 +8,7 @@ import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
+import { canSeeAllProjects, canManageAccounts } from "@opero/shared";
 import { LAVENDER } from "../../theme/tokens";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
@@ -28,7 +29,13 @@ import { EmployeesTable } from "./components/EmployeesTable";
 import { EmployeeDialog } from "./components/EmployeeDialog";
 import { AbsenceDialog } from "./components/AbsenceDialog";
 import { InviteDialog, type InviteFixedTarget } from "../users/components/InviteDialog";
-import { inviteUser, type InviteInput } from "../users/api";
+import {
+  inviteUser,
+  resendInvite,
+  disableUser,
+  enableUser,
+  type InviteInput,
+} from "../users/api";
 
 const EMPTY_COUNTS: EmployeeCounts = {
   total: 0,
@@ -37,12 +44,25 @@ const EMPTY_COUNTS: EmployeeCounts = {
   inactive: 0,
   technicians: 0,
   office: 0,
+  no_account: 0,
 };
 
 export function Employees() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const canManage = user?.role === "admin";
+  const role = user?.role ?? "client";
+  // TWO different permissions, deliberately kept apart:
+  //   canManage        — the employee RECORD (create/edit). Office staff too.
+  //   canManageAccount — the LOGIN (invite/resend/disable). The owner only.
+  // Collapsing these back into one flag would hand office staff the ability to
+  // provision and revoke logins, which is the whole reason `office` exists.
+  const canManage = canSeeAllProjects(role);
+  const canManageAccount = canManageAccounts(role);
+  // Deleting revokes the target's login too, so the standard rule applies: you
+  // can't delete someone at or above your own level. Office removes technicians
+  // and other office staff; only an owner removes an owner.
+  const canDelete = (e: EmployeeRow) =>
+    canManage && (canManageAccounts(role) || e.account?.role !== "admin");
 
   const [activeFilter, setActiveFilter] = useState<EmployeeFilter>("all");
   const [search, setSearch] = useState("");
@@ -77,6 +97,9 @@ export function Employees() {
   const [inviteTarget, setInviteTarget] = useState<InviteFixedTarget | null>(null);
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [accountBusy, setAccountBusy] = useState(false);
+  // Non-null → confirming revocation of that employee's login.
+  const [disableTarget, setDisableTarget] = useState<EmployeeRow | null>(null);
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -146,6 +169,56 @@ export function Employees() {
     }
   };
 
+  // Re-send a pending invite from the employee dialog. The backend only accepts
+  // this for accounts still in "invited" (see users/routes.ts resend-invite).
+  const handleResend = async (e: EmployeeRow) => {
+    if (!e.account) return;
+    setAccountBusy(true);
+    try {
+      await resendInvite(e.account.userId);
+      setToast(t("users.toast.resent", { name: e.name }));
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : t("users.toast.actionError"));
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  // Revoke this employee's login. Unlike resend, this changes status — so it
+  // refreshes the list. The edit dialog was already closed by the hand-off to
+  // the confirm dialog, so there's no stale snapshot to re-sync.
+  const handleDisable = async () => {
+    if (!disableTarget?.account) return;
+    setAccountBusy(true);
+    try {
+      await disableUser(disableTarget.account.userId);
+      setDisableTarget(null);
+      setToast(t("users.toast.disabled", { name: disableTarget.name }));
+      refresh();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : t("users.toast.actionError"));
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  // Restore access. Fired from inside the open dialog, so close it on success:
+  // `editing` holds a snapshot that the refresh would leave stale.
+  const handleEnable = async (e: EmployeeRow) => {
+    if (!e.account) return;
+    setAccountBusy(true);
+    try {
+      await enableUser(e.account.userId);
+      setDialogOpen(false);
+      setToast(t("users.toast.enabled", { name: e.name }));
+      refresh();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : t("users.toast.actionError"));
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleting) return;
     setBusy(true);
@@ -203,8 +276,6 @@ export function Employees() {
           rows={items}
           canManage={canManage}
           onEdit={openEdit}
-          onDelete={setDeleting}
-          onInvite={openInvite}
           onAbsences={setAbsenceTarget}
           hasMore={hasMore}
           loadingMore={loadingMore}
@@ -222,8 +293,34 @@ export function Employees() {
         employee={editing}
         busy={busy}
         error={formError}
+        // Gates the AccountSection only — the LOGIN, not the record.
+        canManage={canManageAccount}
+        canDelete={editing ? canDelete(editing) : false}
+        accountBusy={accountBusy}
+        isSelf={editing?.account?.userId === user?.id}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
+        // Hand off to the invite dialog: close this one first so the two
+        // never stack.
+        onInvite={() => {
+          if (!editing) return;
+          setDialogOpen(false);
+          openInvite(editing);
+        }}
+        onResend={() => editing && handleResend(editing)}
+        // Same hand-off as invite/disable: close this dialog before opening the
+        // confirm so the two never stack.
+        onDelete={() => {
+          if (!editing) return;
+          setDialogOpen(false);
+          setDeleting(editing);
+        }}
+        onDisable={() => {
+          if (!editing) return;
+          setDialogOpen(false);
+          setDisableTarget(editing);
+        }}
+        onEnable={() => editing && handleEnable(editing)}
       />
 
       <InviteDialog
@@ -233,6 +330,22 @@ export function Employees() {
         error={inviteError}
         onClose={() => setInviteTarget(null)}
         onSubmit={handleInvite}
+      />
+
+      <ConfirmDialog
+        open={disableTarget !== null}
+        title={t("employees.dialog.account.confirmDisableTitle")}
+        body={
+          disableTarget
+            ? t("employees.dialog.account.confirmDisableBody", { name: disableTarget.name })
+            : undefined
+        }
+        busy={accountBusy}
+        destructive
+        // Not a delete — the account is kept, just revoked.
+        confirmLabel={t("employees.dialog.account.disable")}
+        onClose={() => setDisableTarget(null)}
+        onConfirm={handleDisable}
       />
 
       <ConfirmDialog

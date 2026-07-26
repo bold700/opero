@@ -59,7 +59,9 @@
     "priceCount": "{{count}} prices",
     "deleteMaterial": "Delete material",
     "deleteMaterialTitle": "Delete material?",
-    "deleteMaterialMessage": "\"{{name}}\" and all its variants will be deleted. This cannot be undone."
+    "deleteMaterialMessage": "\"{{name}}\" and all its variants will be deleted. This cannot be undone.",
+    "searchPlaceholder": "Search by size or type...",
+    "noMatches": "No variants found."
   },
   "unit": {
     "m": "metre",

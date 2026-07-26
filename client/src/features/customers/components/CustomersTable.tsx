@@ -1,10 +1,8 @@
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
-import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { useTranslation } from "react-i18next";
 import { ResponsiveList } from "../../../components/ResponsiveList";
 import { AccountStatusChip } from "../../users/components/AccountStatusChip";
@@ -13,13 +11,12 @@ import { avatarColor, initials, formatDate } from "../constants";
 import { TypeBadge } from "./TypeBadge";
 
 // The customers list: a table on desktop (md+), a stack of cards on mobile (xs–sm)
-// via ResponsiveList. Edit/delete/invite row actions are admin only.
+// via ResponsiveList. Row actions are the frequent ones only — deleting lives in
+// the edit dialog.
 export function CustomersTable({
   customers,
   canManage,
   onEdit,
-  onDelete,
-  onInvite,
   hasMore,
   loadingMore,
   onLoadMore,
@@ -27,8 +24,6 @@ export function CustomersTable({
   customers: Customer[];
   canManage: boolean;
   onEdit: (c: Customer) => void;
-  onDelete: (c: Customer) => void;
-  onInvite: (c: Customer) => void;
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
@@ -44,21 +39,9 @@ export function CustomersTable({
     </Box>
   );
 
-  const loginCell = (c: Customer) =>
-    c.account ? (
-      <AccountStatusChip account={c.account} />
-    ) : canManage ? (
-      <Button
-        size="small"
-        onClick={() => onInvite(c)}
-        disabled={!c.email}
-        title={!c.email ? t("customers.table.loginNeedsEmail") : undefined}
-      >
-        {t("customers.table.invite")}
-      </Button>
-    ) : (
-      <AccountStatusChip account={null} />
-    );
+  // Pure status — inviting/resending lives in the edit dialog's account section,
+  // next to the rest of the customer's data.
+  const accountCell = (c: Customer) => <AccountStatusChip account={c.account} />;
 
   const actionsCell = (c: Customer) =>
     canManage ? (
@@ -66,9 +49,8 @@ export function CustomersTable({
         <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(c)}>
           <EditOutlinedIcon fontSize="small" />
         </IconButton>
-        <IconButton size="small" aria-label={t("common.actions.delete")} onClick={() => onDelete(c)}>
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
+        {/* No delete here on purpose: rare and destructive, so it lives in the
+            edit dialog rather than one mis-tap away in a row you're scanning. */}
       </Box>
     ) : null;
 
@@ -86,7 +68,7 @@ export function CustomersTable({
         { header: t("customers.table.type"), cell: (c) => <TypeBadge type={c.type} /> },
         { header: t("customers.table.workOrders"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.workOrderCount}</Box> },
         { header: t("customers.table.lastContact"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</Box> },
-        { header: t("customers.table.login"), cell: loginCell },
+        { header: t("customers.table.account"), cell: accountCell },
         { header: t("customers.table.action"), align: "right", cell: actionsCell },
       ]}
       renderCard={(c) => (
@@ -107,7 +89,7 @@ export function CustomersTable({
           {/* Last contact + login row */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", color: "text.secondary", fontSize: 13 }}>
             <span>{t("customers.table.lastContact")}: {formatDate(c.lastContact)}</span>
-            {loginCell(c)}
+            {accountCell(c)}
           </Box>
         </Box>
       )}

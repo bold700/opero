@@ -29,3 +29,6 @@ export * from "./prejob";
 
 // Notifications bell — derived action-feed types + category→pref gating.
 export * from "./notifications";
+
+// Upload limits (image/PDF size caps) shared by the API guard + the client hint.
+export * from "./uploads";

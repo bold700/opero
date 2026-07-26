@@ -9,7 +9,7 @@ export const invoicesRouter = Router();
 
 // Invoices are admin-only (spec: Reports/finance = admin; invoice actions live
 // with Administration → admin in the 3-role model).
-invoicesRouter.use(requireAuth, requireRole("admin"));
+invoicesRouter.use(requireAuth, requireRole("admin", "office"));
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -47,24 +47,47 @@ function invoiceDto(inv: {
 async function loadInvoice(orgId: string, workOrderId: string) {
   const workOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, project: { orgId, deletedAt: null } },
-    include: { quote: true, invoice: true, extraWork: true, project: true },
+    include: {
+      quote: true,
+      invoice: true,
+      project: true,
+      // Meerwerk lines live on the zones now, so pull the werkbon's task
+      // materials and filter to the flagged ones in deriveTotals().
+      tasks: { include: { materials: true } },
+    },
   });
   if (!workOrder) throw NotFound("Work order not found");
   if (!workOrder.invoice) throw NotFound("Invoice not found");
   return workOrder;
 }
 
-// Compute invoice totals from the accepted quote + approved extra work
-// (mirrors the store's deriveInvoiceTotals intent in relational form).
-function deriveTotals(workOrder: {
+// Compute invoice totals from the accepted quote + approved extra work.
+//
+// The two amounts are DISJOINT and are summed into the invoice total by
+// invoiceDto(). `acceptedQuoteAmount` is the sold scope (WorkOrder.value, which
+// recomputeQuoteAmount() builds from non-meerwerk lines only); `extraWorkAmount`
+// is meerwerk that BOTH office and client have approved. A line can therefore
+// never be counted twice, and unapproved meerwerk is billed to nobody.
+type LineForTotals = {
+  quantity: number;
+  unitPrice: number | null;
+  isExtraWork: boolean;
+  approvedByOffice: boolean;
+  approvedByClient: boolean;
+  rejected: boolean;
+};
+
+export function deriveTotals(workOrder: {
   project: { value: number };
   quote: { amount: number; status: string } | null;
-  extraWork: { amount: number; approvedByOffice: boolean; approvedByClient: boolean; rejected: boolean }[];
+  tasks: { materials: LineForTotals[] }[];
 }) {
   const acceptedQuoteAmount = workOrder.quote?.amount ?? workOrder.project.value;
-  const extraWorkAmount = workOrder.extraWork
-    .filter((m) => m.approvedByOffice && m.approvedByClient && !m.rejected)
-    .reduce((sum, m) => sum + m.amount, 0);
+  const extraWorkAmount = workOrder.tasks
+    .flatMap((t) => t.materials)
+    .filter((m) => m.isExtraWork && m.approvedByOffice && m.approvedByClient && !m.rejected)
+    // Round per line, matching what the old persisted `amount` snapshot held.
+    .reduce((sum, m) => sum + Math.round(m.quantity * (m.unitPrice ?? 0)), 0);
   return {
     acceptedQuoteAmount,
     extraWorkAmount,

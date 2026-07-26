@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   categoryEnabled,
+  canApproveAsOffice,
+  isStaff,
   NOTIFICATIONS_LIMIT,
   DEFAULT_NOTIFICATION_PREFS,
   type NotificationItem,
@@ -48,32 +50,39 @@ notificationsRouter.get(
       const awaitingWhere =
         user.role === "client"
           ? { approvedByOffice: true, approvedByClient: false, rejected: false }
-          : { approvedByOffice: false, rejected: false }; // admin (office)
+          : { approvedByOffice: false, rejected: false }; // the office signs first
 
-      // Only admin + client act on extra-work approvals.
-      if (user.role === "admin" || user.role === "client") {
-        const extra = await prisma.extraWork.findMany({
+      // Only the office + the client act on extra-work approvals.
+      if (canApproveAsOffice(user.role) || user.role === "client") {
+        // Meerwerk is a flagged TaskMaterial line inside a zone now, so reach it
+        // through task → workOrder → project.
+        const extra = await prisma.taskMaterial.findMany({
           where: {
             ...awaitingWhere,
-            workOrder: { is: { project: { is: projectScopeWhere(user) } } },
+            isExtraWork: true,
+            task: { is: { workOrder: { is: { project: { is: projectScopeWhere(user) } } } } },
           },
-          orderBy: { id: "desc" },
+          orderBy: { createdAt: "desc" },
           take: NOTIFICATIONS_LIMIT,
           select: {
             id: true,
-            description: true,
+            label: true,
+            name: true,
             createdAt: true,
-            workOrderId: true,
-            workOrder: {
+            task: {
               select: {
-                id: true,
-                project: { select: { id: true, customerName: true } },
+                workOrder: {
+                  select: {
+                    id: true,
+                    project: { select: { id: true, customerName: true } },
+                  },
+                },
               },
             },
           },
         });
         for (const e of extra) {
-          const woId = e.workOrder.id;
+          const wo = e.task.workOrder;
           items.push({
             id: `extrawork:${e.id}`,
             category: "extraWorkApproval",
@@ -81,20 +90,19 @@ notificationsRouter.get(
               user.role === "client"
                 ? "notifications.extraWorkAwaitingClient"
                 : "notifications.extraWorkAwaitingOffice",
-            params: { description: e.description, customer: e.workOrder.project.customerName },
-            // ExtraWork.createdAt is a plain date string; normalize to ISO-ish.
+            params: {
+              description: e.label?.trim() || e.name || "—",
+              customer: wo.project.customerName,
+            },
             createdAt: toIso(e.createdAt),
-            route: woId ? `/work-orders/${woId}` : "/work-orders",
+            route: wo.id ? `/work-orders/${wo.id}` : "/work-orders",
           });
         }
       }
     }
 
-    // --- Urgent / blocked projects (admin + technician) -------------------
-    if (
-      categoryEnabled("urgentOnSite", prefs) &&
-      (user.role === "admin" || user.role === "technician")
-    ) {
+    // --- Urgent / blocked projects (staff, not clients) -------------------
+    if (categoryEnabled("urgentOnSite", prefs) && isStaff(user.role)) {
       const urgent = await prisma.project.findMany({
         where: {
           ...projectScopeWhere(user),
@@ -192,7 +200,7 @@ notificationsRouter.post(
 
 // ExtraWork.createdAt is stored as a date string (e.g. "2026-06-28"). Coerce to
 // a comparable ISO timestamp; fall back to now on anything unparseable.
-function toIso(value: string): string {
-  const d = new Date(value);
+function toIso(value: string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }

@@ -4,15 +4,20 @@ import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { Forbidden } from "../../lib/httpError.js";
 import { requireAuth } from "../../auth/middleware.js";
+import { canSeeAllProjects, type UserRole } from "@opero/shared";
 
 export const reportsRouter = Router();
 
 reportsRouter.use(requireAuth);
 
-// Reports is admin-only (company-wide finance/analytics). Technicians see only
-// their own timesheet via /employees/:id/timesheet.
-function requireAdmin(role: string) {
-  if (role !== "admin") throw Forbidden("Not available");
+// Reports is office work (company-wide finance/analytics) — the owner and
+// office staff. Technicians see only their own timesheet via
+// /employees/:id/timesheet; clients see nothing.
+//
+// Named requireStaff, not requireAdmin: a helper called "requireAdmin" that
+// also admits office would be a landmine for the next reader.
+function requireStaff(role: UserRole) {
+  if (!canSeeAllProjects(role)) throw Forbidden("Not available");
 }
 
 // --- Period handling ------------------------------------------------------
@@ -45,7 +50,7 @@ reportsRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    requireAdmin(user.role);
+    requireStaff(user.role);
     const { from, to } = resolvePeriod(periodSchema.parse(req.query));
     const orgWhere = { orgId: user.orgId, deletedAt: null };
 

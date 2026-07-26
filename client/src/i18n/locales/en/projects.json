@@ -27,7 +27,8 @@
     "name": "Project name",
     "workType": "Work type",
     "workTypeNone": "To be determined",
-    "description": "Description"
+    "description": "Description",
+    "customerSwitchWarning": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job."
   },
   "detail": {
     "notFound": "Project not found",

@@ -53,6 +53,7 @@ export type EmployeeCounts = {
   inactive: number;
   technicians: number;
   office: number;
+  no_account: number;
 };
 
 // One page of the employees list plus the counts.
@@ -63,7 +64,7 @@ export type EmployeePage = Page<EmployeeRow> & { counts: EmployeeCounts };
 export function getEmployeesPage(opts: {
   cursor?: string;
   search?: string;
-  filter?: "technicians" | "office" | "inactive";
+  filter?: "technicians" | "office" | "inactive" | "no_account";
 }): Promise<EmployeePage> {
   return api.getPage<EmployeeRow>("/employees", {
     cursor: opts.cursor,

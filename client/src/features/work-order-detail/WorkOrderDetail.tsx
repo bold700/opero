@@ -5,19 +5,27 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
-import { canSeePrices, canSeeMargin } from "@opero/shared";
+import {
+  canSeePrices,
+  canSeeMargin,
+  canEditQuoteScope,
+  isStaff,
+  type UserRole,
+} from "@opero/shared";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthContext";
 import { useApi } from "../../lib/api/useApi";
 import { SPACING } from "../../theme/tokens";
 import {
   getWorkOrder,
+  deleteWorkOrder,
   exportWorkOrderPdf,
   exportWorkOrderQuotePdf,
   getProject,
   getAssignableEmployees,
   setWorkOrderAssignees,
   setWorkOrderSchedule,
+  setWorkOrderTitle,
   updateProject,
   addTask,
   updateTask,
@@ -33,9 +41,6 @@ import {
   deleteTaskPhoto,
   finishWorkOrder,
   reopenWorkOrder,
-  reportExtraWork,
-  reportExtraWorkFromCatalog,
-  updateExtraWork,
   uploadAttachment,
   deleteAttachment,
   approveOffice,
@@ -53,7 +58,6 @@ import {
   dispatchWorkOrder,
   type WorkOrder,
   type Project,
-  type NewExtraWork,
   type AssigneeOption,
   type ProjectSidebarPatch,
 } from "./api";
@@ -61,7 +65,7 @@ import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
 import { PreJobPanel } from "./components/PreJobPanel";
 import { ProjectInfoPanel } from "./components/ProjectInfoPanel";
-import { ExtraWorkPanel } from "./components/ExtraWorkPanel";
+import { MeerwerkApprovalPanel } from "./components/MeerwerkApprovalPanel";
 import { AttachmentsPanel } from "./components/AttachmentsPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
 import { SignOffDialog } from "./components/SignOffDialog";
@@ -74,7 +78,9 @@ export function WorkOrderDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const role = (user?.role ?? "technician") as "admin" | "technician" | "client";
+  // Do NOT re-narrow this to a literal union: a cast would silently swallow any
+  // role not listed and drop it into the least-privileged branch below.
+  const role: UserRole = user?.role ?? "technician";
   // 3-way price rule across the whole werkbon (task lines + meerwerk):
   // admin → price + margin, client → price only, technician → no price.
   const showPrices = canSeePrices(role);
@@ -152,18 +158,20 @@ export function WorkOrderDetail() {
   // The backend enforces the same split field-by-field (requireQuoteScopeEditor
   // + the *_SCOPE_FIELDS lists in work-orders/routes.ts); this just keeps the UI
   // from offering a technician buttons that would 403.
-  const canWrite = role === "admin" || role === "technician";
-  const canEditScope = role === "admin";
+  const canWrite = isStaff(role);
+  const canEditScope = canEditQuoteScope(role);
   // Adding/removing a ZONE is office work — a subset of scope editing.
   const canManageZones = canEditScope;
   // Finished/locked is a property of THIS work order (signedAt), not the
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
 
-  const handleReport = (input: NewExtraWork) =>
+  // Delete the whole werkbon, then leave — the page we're on no longer exists.
+  // `replace` so Back doesn't return to a 404.
+  const handleDelete = () =>
     run(async () => {
-      await reportExtraWork(wo.id, input);
-      await refreshWorkOrder();
+      await deleteWorkOrder(wo.id);
+      navigate("/work-orders", { replace: true });
     });
 
   const handleExportPdf = async () => {
@@ -198,14 +206,16 @@ export function WorkOrderDetail() {
         <DetailHeader
           workOrder={wo}
           project={project}
-          canFinish={role === "admin" || role === "technician"}
-          canReopen={role === "admin"}
-          canExportQuote={role === "admin"}
+          canDelete={canEditQuoteScope(role)}
+          canFinish={isStaff(role)}
+          canReopen={canEditQuoteScope(role)}
+          canExportQuote={canEditQuoteScope(role)}
           finished={finished}
           busy={busy}
           exporting={exporting}
           exportingQuote={exportingQuote}
           onBack={() => navigate("/work-orders")}
+          onDelete={handleDelete}
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
           onFinish={() => setSignOpen(true)}
@@ -239,7 +249,7 @@ export function WorkOrderDetail() {
               onEditLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, input); await refreshWorkOrder(); })}
               // Editing a free-text line: clear any catalog link and write the
               // typed fields. unitPrice omitted (non-admin) leaves it as-is.
-              onEditCustomLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, { variantId: null, name: input.name, label: input.name, quantity: input.quantity, unit: input.unit, ...(input.unitPrice !== undefined ? { unitPrice: input.unitPrice } : {}) }); await refreshWorkOrder(); })}
+              onEditCustomLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, { variantId: null, name: input.name, label: input.name, quantity: input.quantity, unit: input.unit, ...(input.unitPrice !== undefined ? { unitPrice: input.unitPrice } : {}), ...(input.isExtraWork !== undefined ? { isExtraWork: input.isExtraWork } : {}) }); await refreshWorkOrder(); })}
               onDeleteLine={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
               onToggleLine={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
               onChangeLineQuantity={(m, quantity) => run(async () => { await updateMaterial(wo.id, m, { quantity }); await refreshWorkOrder(); })}
@@ -247,21 +257,18 @@ export function WorkOrderDetail() {
               onDeletePhoto={(taskId, key) => run(async () => { setWo(await deleteTaskPhoto(wo.id, taskId, key)); })}
             />
 
-            <ExtraWorkPanel
-              items={wo.extraWork}
+            {/* Meerwerk awaiting YOUR approval, gathered from every zone. The
+                lines themselves live inline in their zone; this is the action
+                surface (and the client's only one), so it renders only when
+                something is actually waiting. */}
+            <MeerwerkApprovalPanel
+              workOrder={wo}
               role={role}
               showPrices={showPrices}
-              showMargin={showMargin}
               busy={busy}
-              onReport={handleReport}
-              onReportFromCatalog={(input) => run(async () => { await reportExtraWorkFromCatalog(wo.id, input); await refreshWorkOrder(); })}
-              onUpdate={(mw, input) => run(async () => { await updateExtraWork(wo.id, mw, input); await refreshWorkOrder(); })}
-              onUpdateFromCatalog={(mw, input) => run(async () => { await updateExtraWork(wo.id, mw, input); await refreshWorkOrder(); })}
-              onApproveOffice={(mw) => run(async () => { await approveOffice(wo.id, mw); await refreshWorkOrder(); })}
-              onApproveClient={(mw) => run(async () => { await approveClient(wo.id, mw); await refreshWorkOrder(); })}
-              onReject={(mw) => run(async () => { await rejectExtraWork(wo.id, mw); await refreshWorkOrder(); })}
-              onUploadPhoto={(mw, file) => run(async () => { await uploadExtraWorkPhoto(wo.id, mw, file); await refreshWorkOrder(); })}
-              onDeletePhoto={(mw, key) => run(async () => { await deleteExtraWorkPhoto(wo.id, mw, key); await refreshWorkOrder(); })}
+              onApproveOffice={(matId) => run(async () => { await approveOffice(wo.id, matId); await refreshWorkOrder(); })}
+              onApproveClient={(matId) => run(async () => { await approveClient(wo.id, matId); await refreshWorkOrder(); })}
+              onReject={(matId) => run(async () => { await rejectExtraWork(wo.id, matId); await refreshWorkOrder(); })}
             />
 
             <AttachmentsPanel
@@ -277,7 +284,7 @@ export function WorkOrderDetail() {
           <Box sx={{ flex: 2, minWidth: 0, width: "100%", display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
             <PreJobPanel
               workOrder={wo}
-              isAdmin={role === "admin"}
+              isAdmin={canEditQuoteScope(role)}
               busy={busy}
               onToggleCheck={(itemId, done) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { done })); })}
               onRenameItem={(itemId, label) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { label })); })}
@@ -298,7 +305,7 @@ export function WorkOrderDetail() {
             <ProjectInfoPanel
               project={project}
               workOrder={wo}
-              canEdit={role === "admin"}
+              canEdit={canEditQuoteScope(role)}
               busy={busy}
               employees={assignees}
               onPatch={(patch: ProjectSidebarPatch) =>
@@ -308,6 +315,7 @@ export function WorkOrderDetail() {
               }
               onAssignMonteurs={(ids) => run(async () => { setWo(await setWorkOrderAssignees(wo.id, ids)); })}
               onSetSchedule={(patch) => run(async () => { setWo(await setWorkOrderSchedule(wo.id, patch)); })}
+              onSetTitle={(title) => run(async () => { setWo(await setWorkOrderTitle(wo.id, title)); })}
             />
 
             <ActivityPanel activity={project.activity} />

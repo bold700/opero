@@ -222,7 +222,7 @@ planningRouter.get(
 // shifting plannedEndDate. Adds a "scheduled" activity on the parent project.
 planningRouter.post(
   "/work-orders/:workOrderId/planning",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = schedulePlanningSchema.parse(req.body);
@@ -365,7 +365,7 @@ planningRouter.post(
 // duration. plannedEndDate = plannedDate + (days-1); days<=1 clears the end date.
 planningRouter.patch(
   "/work-orders/:workOrderId/planning/duration",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { days } = durationSchema.parse(req.body);
@@ -404,7 +404,7 @@ planningRouter.patch(
 // plannedDate/plannedEndDate and remove all PlanningItems for the werkbon.
 planningRouter.delete(
   "/work-orders/:workOrderId/planning",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await loadWorkOrderForUser(user, req.params.workOrderId);
@@ -439,7 +439,7 @@ planningRouter.delete(
 // exists, and logs a status_change activity on the project.
 planningRouter.post(
   "/work-orders/:workOrderId/planning/mark-planned",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await loadWorkOrderForUser(user, req.params.workOrderId);

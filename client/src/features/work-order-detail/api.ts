@@ -32,6 +32,16 @@ export type WorkOrderMaterial = {
   done: boolean;
   note?: string;
   ordinal: number;
+  // --- Meerwerk (extra work) ------------------------------------------------
+  // A line the customer didn't originally buy. It never counts toward the quote,
+  // and only reaches the invoice once BOTH office and client have approved it.
+  // The approval fields are only present when isExtraWork.
+  isExtraWork: boolean;
+  approvedByOffice?: boolean;
+  approvedByClient?: boolean;
+  rejected?: boolean;
+  rejectedBy?: "office" | "client";
+  photos?: PhotoRef[];
 };
 
 export type WorkOrderTask = {
@@ -105,41 +115,12 @@ export type WorkOrder = {
   // The werkbon is the scheduled visit — its own date(s), possibly multi-day.
   plannedDate?: string;
   plannedEndDate?: string;
-  // Extra work (meerwerk) is billed per-werkbon, so it lives on the werkbon.
-  extraWork: ExtraWork[];
   tasks: WorkOrderTask[];
 };
 
 // --- Project context (GET /projects/:id) ----------------------------------
-// We pull the parent project for the header (customer, status) plus the
-// extra-work + activity panels, which live on the project.
-
-export type ExtraWork = {
-  id: string;
-  description: string;
-  label?: string;
-  name?: string;
-  quantity?: number;
-  unit?: string;
-  diameter?: number;
-  // Set when the item was picked from the catalog (null for free-text meerwerk).
-  variantId?: string;
-  // Material + size of the current variant — for the edit dialog's prefill.
-  variantMaterialId?: string;
-  variantSize?: string;
-  unitPrice?: number;
-  amount?: number;
-  // Admin-only (canSeeMargin), like task lines.
-  costPrice?: number;
-  margin?: number;
-  photos: PhotoRef[];
-  createdAt: string;
-  done: boolean;
-  approvedByOffice: boolean;
-  approvedByClient: boolean;
-  rejected: boolean;
-  rejectedBy?: string;
-};
+// We pull the parent project for the header (customer, status) and the
+// activity panel, which live on the project.
 
 export type Activity = {
   id: string;
@@ -182,13 +163,15 @@ export type Project = {
   installerIds: string[];
   nextStepKey: string;
   value?: number;
-  extraWork: ExtraWork[];
   activity: Activity[];
 };
 
 // Fields the werkbon-detail project sidebar can edit (all project-level).
 export type ProjectSidebarPatch = {
   urgency?: "normal" | "urgent" | "blocked";
+  // Switch the job to another customer. This MOVES it between client portals
+  // (project.customerId gates client access), so confirm before sending.
+  customerId?: string;
   // NOTE: scheduling (plannedDate) is per-werkbon → setWorkOrderSchedule, not here.
   projectLeaderId?: string | null;
   installerIds?: string[];
@@ -208,6 +191,12 @@ export function updateProject(projectId: string, patch: ProjectSidebarPatch): Pr
 
 export function getWorkOrder(id: string): Promise<WorkOrder> {
   return api.get<WorkOrder>(`/work-orders/${id}`);
+}
+
+// Delete the whole werkbon (admin-only server-side). Cascades to its zones,
+// lines, photos and billing — the caller must confirm first.
+export function deleteWorkOrder(id: string): Promise<void> {
+  return api.delete<void>(`/work-orders/${id}`);
 }
 
 // Download the work order as a PDF. Fetches the blob (with auth) and triggers a
@@ -266,6 +255,12 @@ export function setWorkOrderSchedule(
   return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, patch);
 }
 
+// Rename the werkbon. An empty title is allowed — the header then falls back to
+// "Werkbon N" (its ordinal), so the werkbon is never left nameless.
+export function setWorkOrderTitle(workOrderId: string, title: string): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { title });
+}
+
 export function updateTask(
   workOrderId: string,
   taskId: string,
@@ -309,7 +304,7 @@ export function toggleTask(workOrderId: string, taskId: string): Promise<WorkOrd
 export function addMaterialFromCatalog(
   workOrderId: string,
   taskId: string,
-  input: { variantId: string; quantity: number },
+  input: { variantId: string; quantity: number; isExtraWork?: boolean },
 ): Promise<WorkOrder> {
   return api.post<WorkOrder>(
     `/work-orders/${workOrderId}/tasks/${taskId}/materials/from-catalog`,
@@ -324,7 +319,13 @@ export function addMaterialFromCatalog(
 export function addCustomMaterial(
   workOrderId: string,
   taskId: string,
-  input: { name: string; quantity: number; unit: string; unitPrice?: number },
+  input: {
+    name: string;
+    quantity: number;
+    unit: string;
+    unitPrice?: number;
+    isExtraWork?: boolean;
+  },
 ): Promise<WorkOrder> {
   return api.post<WorkOrder>(
     `/work-orders/${workOrderId}/tasks/${taskId}/materials`,
@@ -348,6 +349,7 @@ export function updateMaterial(
     unitPrice?: number | null;
     quantity?: number;
     diameter?: number | null;
+    isExtraWork?: boolean;
   },
 ): Promise<WorkOrder> {
   return api.patch<WorkOrder>(`/work-orders/${workOrderId}/materials/${matId}`, patch);
@@ -469,74 +471,37 @@ export function reopenWorkOrder(workOrderId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/reopen`, {});
 }
 
-// --- Extra work (project mutations) ---------------------------------------
+// --- Meerwerk (extra work) -------------------------------------------------
+//
+// Meerwerk is a TaskMaterial line with `isExtraWork` set, so CREATING and
+// EDITING it goes through the normal line endpoints (addTaskLine /
+// addCustomTaskLine / updateMaterial with `isExtraWork: true`). Only the
+// approval lifecycle and its photo evidence are meerwerk-specific.
 
-export type NewExtraWork = {
-  name: string;
-  quantity?: number;
-  unit?: string;
-  unitPrice?: number;
-  label?: string;
-};
-
-// Extra work (meerwerk) is per-WERKBON now — all these target the work order.
-export function reportExtraWork(
-  workOrderId: string,
-  input: NewExtraWork,
-): Promise<unknown> {
-  return api.post(`/work-orders/${workOrderId}/extra-work`, input);
+export function approveOffice(workOrderId: string, matId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/materials/${matId}/approve-office`, {});
 }
 
-// Report meerwerk picked from the materials catalog — only the variant + qty go
-// up; name/unit/price resolve server-side (technician can't inject a price).
-export function reportExtraWorkFromCatalog(
-  workOrderId: string,
-  input: { variantId: string; quantity: number },
-): Promise<unknown> {
-  return api.post(`/work-orders/${workOrderId}/extra-work/from-catalog`, input);
+export function approveClient(workOrderId: string, matId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/materials/${matId}/approve-client`, {});
 }
 
-// Edit an existing meerwerk row. `variantId` re-points it at a catalog variant
-// (price re-resolves server-side); the free-text fields edit an uncatalogued
-// row. A technician's `unitPrice` is discarded server-side (admin-only).
-export function updateExtraWork(
-  workOrderId: string,
-  mwId: string,
-  patch: {
-    variantId?: string | null;
-    name?: string;
-    quantity?: number;
-    unit?: string;
-    unitPrice?: number;
-  },
-): Promise<unknown> {
-  return api.patch(`/work-orders/${workOrderId}/extra-work/${mwId}`, patch);
-}
-
-export function approveOffice(workOrderId: string, mwId: string): Promise<unknown> {
-  return api.post(`/work-orders/${workOrderId}/extra-work/${mwId}/approve-office`, {});
-}
-
-export function approveClient(workOrderId: string, mwId: string): Promise<unknown> {
-  return api.post(`/work-orders/${workOrderId}/extra-work/${mwId}/approve-client`, {});
-}
-
-export function rejectExtraWork(workOrderId: string, mwId: string): Promise<unknown> {
-  return api.post(`/work-orders/${workOrderId}/extra-work/${mwId}/reject`, {});
+export function rejectExtraWork(workOrderId: string, matId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/materials/${matId}/reject`, {});
 }
 
 export function uploadExtraWorkPhoto(
   workOrderId: string,
-  mwId: string,
+  matId: string,
   file: Blob,
 ): Promise<unknown> {
-  return api.upload(`/work-orders/${workOrderId}/extra-work/${mwId}/photo`, file);
+  return api.upload(`/work-orders/${workOrderId}/materials/${matId}/photo`, file);
 }
 
 export function deleteExtraWorkPhoto(
   workOrderId: string,
-  mwId: string,
+  matId: string,
   key: string,
 ): Promise<unknown> {
-  return api.delete(`/work-orders/${workOrderId}/extra-work/${mwId}/photo`, { photo: key });
+  return api.delete(`/work-orders/${workOrderId}/materials/${matId}/photo`, { photo: key });
 }

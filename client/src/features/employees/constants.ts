@@ -9,7 +9,10 @@ export const STATUS: Record<EmployeeStatus, { labelKey: string; tone: StatusTone
 };
 
 // Stable filter values (English) → i18n label key. Translate at the call site.
-export const FILTERS = ["all", "technicians", "office", "inactive"] as const;
+// `no_account` answers "who did we forget to invite?" — the one access question
+// that was easier on the old Toegang screen. Account status itself is not a
+// filter dimension here: it's one column of six, and the list is search-first.
+export const FILTERS = ["all", "technicians", "office", "inactive", "no_account"] as const;
 export type EmployeeFilter = (typeof FILTERS)[number];
 
 export const FILTER_LABEL_KEY: Record<EmployeeFilter, string> = {
@@ -17,6 +20,7 @@ export const FILTER_LABEL_KEY: Record<EmployeeFilter, string> = {
   technicians: "employees.filters.technicians",
   office: "employees.filters.office",
   inactive: "employees.filters.inactive",
+  no_account: "employees.filters.no_account",
 };
 
 // English TeamRole value → i18n label key. Translate at the call site.

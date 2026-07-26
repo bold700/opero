@@ -25,6 +25,12 @@
   "misc": {
     "all": "All"
   },
+  "account": {
+    "none": "No",
+    "invited": "Invited",
+    "active": "Yes",
+    "disabled": "Disabled"
+  },
   "validation": {
     "required": "Required field",
     "email": "Invalid email address",

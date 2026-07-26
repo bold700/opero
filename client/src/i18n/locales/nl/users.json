@@ -1,8 +1,8 @@
 {
-  "title": "Toegang",
-  "empty": "Nog geen accounts.",
+  "_comment": "Shared account namespace — there is no Toegang screen. These keys are used by the account panel and invite dialog embedded in Werknemers and Klanten.",
   "roles": {
     "admin": "Beheerder",
+    "office": "Kantoormedewerker",
     "technician": "Monteur",
     "client": "Klant"
   },
@@ -12,34 +12,17 @@
     "disabled": "Uitgeschakeld",
     "none": "Geen login"
   },
-  "filters": {
-    "all": "Alle",
-    "active": "Actief",
-    "invited": "Uitgenodigd",
-    "disabled": "Uitgeschakeld"
-  },
-  "table": {
-    "name": "Naam",
-    "role": "Rol",
-    "status": "Status",
-    "action": "Actie"
-  },
   "actions": {
     "resend": "Uitnodiging opnieuw",
     "disable": "Uitschakelen",
     "enable": "Inschakelen"
   },
   "invite": {
-    "new": "Gebruiker uitnodigen",
     "title": "Gebruiker uitnodigen",
     "subtitle": "Ze ontvangen een e-mail met een link om hun wachtwoord in te stellen en hun account te activeren.",
     "linkedTo": "Login voor {{name}}",
     "role": "Rol",
     "send": "Uitnodiging versturen",
-    "pickPerson": "Wie heeft een login nodig?",
-    "employees": "Werknemers",
-    "customers": "Klanten",
-    "noInvitable": "Iedereen met een e-mailadres heeft al een login.",
     "clientRoleNote": "{{name}} krijgt een klant-login voor het klantportaal."
   },
   "toast": {

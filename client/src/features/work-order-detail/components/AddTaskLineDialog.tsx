@@ -10,6 +10,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { SelectField, type SelectOption } from "../../../components/SelectField";
 import { useApi } from "../../../lib/api/useApi";
@@ -51,6 +53,7 @@ export function AddTaskLineDialog({
   initial,
   showMargin = false,
   canSetPrice = false,
+  canFlagExtraWork = false,
   onClose,
   onAdd,
   onAddCustom,
@@ -65,19 +68,24 @@ export function AddTaskLineDialog({
     quantity: number;
     // Present for a free-text line → dialog opens on the custom tab.
     custom?: { name: string; unit: string; unitPrice: number | null };
+    isExtraWork?: boolean;
   };
   showMargin?: boolean;
   // Only an admin may type a price. Kept as a prop rather than read from the
   // role here so the dialog stays presentational.
   canSetPrice?: boolean;
+  // Only the office may classify a line as meerwerk (it moves money between the
+  // quote and the extra-work bucket). Omitted/false → the checkbox is hidden.
+  canFlagExtraWork?: boolean;
   onClose: () => void;
-  onAdd: (input: { variantId: string; quantity: number }) => void;
+  onAdd: (input: { variantId: string; quantity: number; isExtraWork?: boolean }) => void;
   // Omitted → the custom tab is not offered at all.
   onAddCustom?: (input: {
     name: string;
     quantity: number;
     unit: string;
     unitPrice?: number;
+    isExtraWork?: boolean;
   }) => void;
 }) {
   const { t } = useTranslation();
@@ -96,6 +104,7 @@ export function AddTaskLineDialog({
   const [customName, setCustomName] = useState("");
   const [customUnit, setCustomUnit] = useState("stuk");
   const [customPrice, setCustomPrice] = useState("");
+  const [isExtraWork, setIsExtraWork] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -111,6 +120,7 @@ export function AddTaskLineDialog({
       setCustomPrice(
         initial?.custom?.unitPrice != null ? String(initial.custom.unitPrice) : "",
       );
+      setIsExtraWork(initial?.isExtraWork ?? false);
     }
     // `initial` is a fresh object per open; depend on the primitive fields so we
     // don't reseed on every render while the dialog stays open.
@@ -124,6 +134,7 @@ export function AddTaskLineDialog({
     initial?.custom?.name,
     initial?.custom?.unit,
     initial?.custom?.unitPrice,
+    initial?.isExtraWork,
   ]);
 
   const { data: material, loading: materialLoading } = useApi(
@@ -201,10 +212,11 @@ export function AddTaskLineDialog({
         unit: customUnit.trim() || "stuk",
         // Only send a price when the user may set one AND typed one.
         ...(canSetPrice && priceNum !== null ? { unitPrice: priceNum } : {}),
+        ...(canFlagExtraWork ? { isExtraWork } : {}),
       });
       return;
     }
-    onAdd({ variantId, quantity: qty });
+    onAdd({ variantId, quantity: qty, ...(canFlagExtraWork ? { isExtraWork } : {}) });
   };
 
   // Units mirror the catalog's LINE_UNIT_LABELS (backend materials/labels.ts),
@@ -296,6 +308,9 @@ export function AddTaskLineDialog({
                 value={customUnit}
                 onChange={setCustomUnit}
                 options={unitOptions}
+                // Match the medium-height text fields beside it — SelectField
+                // defaults to small, which left the unit box visibly shorter.
+                size="medium"
                 fullWidth
               />
             </Box>
@@ -373,6 +388,28 @@ export function AddTaskLineDialog({
             ) : null}
           </Box>
         )}
+
+        {/* Meerwerk: work the customer didn't buy. Ticking it keeps the line out
+            of the quote and off the invoice until office AND client approve. */}
+        {canFlagExtraWork ? (
+          <Box sx={{ mt: 2 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isExtraWork}
+                  onChange={(e) => setIsExtraWork(e.target.checked)}
+                  disabled={busy}
+                />
+              }
+              label={t("workOrderDetail.line.isExtraWork")}
+            />
+            {isExtraWork ? (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", ml: 4 }}>
+                {t("workOrderDetail.line.isExtraWorkHint")}
+              </Typography>
+            ) : null}
+          </Box>
+        ) : null}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t("common.actions.cancel")}</Button>

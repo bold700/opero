@@ -14,7 +14,8 @@
     "all": "Alle",
     "technicians": "Monteurs",
     "office": "Kantoor",
-    "inactive": "Inactief"
+    "inactive": "Inactief",
+    "no_account": "Zonder login"
   },
   "table": {
     "name": "Naam",
@@ -22,9 +23,7 @@
     "workOrders": "Werkbonnen",
     "status": "Status",
     "action": "Actie",
-    "login": "Login",
-    "invite": "Uitnodigen",
-    "loginNeedsEmail": "Voeg eerst een e-mailadres toe om deze persoon uit te nodigen."
+    "account": "Account"
   },
   "status": {
     "active": "Actief",
@@ -47,7 +46,21 @@
     "phone": "Telefoon",
     "email": "E-mail",
     "roles": "Functies",
-    "status": "Status"
+    "status": "Status",
+    "account": {
+      "title": "Account",
+      "invite": "Uitnodigen",
+      "resend": "Uitnodiging opnieuw versturen",
+      "needsEmail": "Voeg eerst een e-mailadres toe om deze persoon uit te nodigen.",
+      "role": "Rol",
+      "email": "E-mail",
+      "activatedAt": "Actief sinds",
+      "disable": "Uitschakelen",
+      "enable": "Inschakelen",
+      "selfDisableHint": "Je kunt je eigen toegang niet uitschakelen.",
+      "confirmDisableTitle": "Toegang uitschakelen?",
+      "confirmDisableBody": "{{name}} kan daarna niet meer inloggen. Actieve sessies worden direct beëindigd. Je kunt de toegang later weer inschakelen."
+    }
   },
   "delete": {
     "title": "Medewerker verwijderen",

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -7,6 +8,8 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import { Card } from "../../../components/Card";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { getCustomers, type CustomerOption } from "../../work-orders/create-api";
 import type {
   Project,
   ProjectSidebarPatch,
@@ -52,6 +55,7 @@ export function ProjectInfoPanel({
   onPatch,
   onAssignMonteurs,
   onSetSchedule,
+  onSetTitle,
 }: {
   project: Project;
   workOrder: WorkOrder;
@@ -61,8 +65,20 @@ export function ProjectInfoPanel({
   onPatch: (patch: ProjectSidebarPatch) => void;
   onAssignMonteurs: (ids: string[]) => void;
   onSetSchedule: (patch: { plannedDate?: string | null; plannedEndDate?: string | null }) => void;
+  /** Rename the werkbon (werkbon-level, not project). */
+  onSetTitle: (title: string) => void;
 }) {
   const { t } = useTranslation();
+
+  // Customer options for the Klant switcher, loaded once for admins (the only
+  // role that can switch). `pendingCustomer` holds the picked id until the
+  // confirm is accepted — the select never applies straight away.
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [pendingCustomer, setPendingCustomer] = useState<string | null>(null);
+  useEffect(() => {
+    if (!canEdit) return;
+    getCustomers().then(setCustomers).catch(() => setCustomers([]));
+  }, [canEdit]);
 
   const zones = workOrder.tasks;
   const doneCount = zones.filter(isZoneComplete).length;
@@ -86,6 +102,44 @@ export function ProjectInfoPanel({
 
         {canEdit ? (
           <>
+            {/* The werkbon's own name. Werkbon-level (not project) — it names
+                THIS visit. Left empty the header falls back to "Werkbon N", so
+                clearing it is a valid choice, not a broken state. */}
+            <Field label={t("workOrderDetail.info.workOrderTitle")}>
+              <TextField
+                size="small"
+                defaultValue={workOrder.title}
+                key={`wt-${workOrder.id}-${workOrder.title}`}
+                placeholder={t("workOrderDetail.header.defaultTitle", {
+                  n: workOrder.ordinal + 1,
+                })}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v !== (workOrder.title ?? "")) onSetTitle(v);
+                }}
+                disabled={busy}
+              />
+            </Field>
+
+            {/* KLANT — which customer this job is for. Switching moves the job
+                (and its werkbonnen, invoices and meerwerk approvals) into that
+                customer's portal, so it confirms before applying. */}
+            <Field label={t("workOrderDetail.info.customer")}>
+              <TextField
+                select
+                size="small"
+                value={project.customerId}
+                onChange={(e) => setPendingCustomer(e.target.value)}
+                disabled={busy}
+              >
+                {customers.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Field>
+
             <Field label={t("workOrderDetail.info.urgency")}>
               <TextField
                 select
@@ -332,6 +386,24 @@ export function ProjectInfoPanel({
           </>
         )}
       </Box>
+
+      {/* Switching customer moves the job between client portals — not visible
+          from the select itself, so name both sides before applying. */}
+      <ConfirmDialog
+        open={pendingCustomer !== null}
+        title={t("workOrderDetail.info.customerSwitchTitle")}
+        body={t("workOrderDetail.info.customerSwitchBody", {
+          from: project.customerName,
+          to: customers.find((c) => c.id === pendingCustomer)?.name ?? "",
+        })}
+        busy={busy}
+        destructive
+        onClose={() => setPendingCustomer(null)}
+        onConfirm={() => {
+          if (pendingCustomer) onPatch({ customerId: pendingCustomer });
+          setPendingCustomer(null);
+        }}
+      />
     </Card>
   );
 }

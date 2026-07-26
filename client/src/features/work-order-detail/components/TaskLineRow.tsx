@@ -10,7 +10,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { STATUS_TONES } from "../../../theme/tokens";
-import { euro } from "../constants";
+import { euro, extraWorkBadge } from "../constants";
 import type { WorkOrderMaterial } from "../api";
 
 // ONE invoice line (opero-old's "Taak" row), kept deliberately QUIET:
@@ -74,6 +74,19 @@ export function TaskLineRow({
       tone={m.done ? STATUS_TONES.success : STATUS_TONES.neutral}
     />
   );
+
+  // Meerwerk marker + where it stands in the approval chain. Only meerwerk
+  // lines carry the approval flags, so this is the one visible difference
+  // between a sold line and an extra-work line.
+  const meerwerkBadges = m.isExtraWork ? (
+    <>
+      <StatusBadge label={t("workOrderDetail.line.extraWork")} tone={STATUS_TONES.open} />
+      <StatusBadge
+        label={t(`workOrderDetail.extraWorkStatus.${extraWorkBadge(m).key}`)}
+        tone={extraWorkBadge(m).tone}
+      />
+    </>
+  ) : null;
 
   const quantityCell =
     editingQty && canEditScope ? (
@@ -215,6 +228,7 @@ export function TaskLineRow({
         {checkbox}
         <Box sx={{ flex: 1, minWidth: 0 }}>{descriptionText}</Box>
         {statusBadge}
+        {meerwerkBadges}
         <Box sx={{ minWidth: 48, textAlign: "right" }}>{quantityCell}</Box>
         {priceCell ? <Box sx={{ minWidth: 72 }}>{priceCell}</Box> : null}
         {actionButtons}
@@ -245,6 +259,7 @@ export function TaskLineRow({
           }}
         >
           {statusBadge}
+          {meerwerkBadges}
           {quantityCell}
           {priceCell ? <Box sx={{ ml: "auto" }}>{priceCell}</Box> : null}
         </Box>

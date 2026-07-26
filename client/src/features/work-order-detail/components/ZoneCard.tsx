@@ -62,23 +62,33 @@ export function ZoneCard({
   showPrices: boolean;
   showMargin: boolean;
   busy: boolean;
-  // The drag grip (top-left), supplied by SortableZone when reordering is on.
+  // The drag grip (top-left), supplied by SortableRow when reordering is on.
   // Undefined when there's nothing to reorder (≤1 zone, or not office).
   dragHandle?: React.ReactNode;
   onRename: (description: string) => void;
   onSetNote: (note: string) => void;
   onDeleteZone: () => void;
-  onAddLine: (input: { variantId: string; quantity: number }) => void;
+  onAddLine: (input: { variantId: string; quantity: number; isExtraWork?: boolean }) => void;
   onAddCustomLine: (input: {
     name: string;
     quantity: number;
     unit: string;
     unitPrice?: number;
+    isExtraWork?: boolean;
   }) => void;
-  onEditLine: (matId: string, input: { variantId: string; quantity: number }) => void;
+  onEditLine: (
+    matId: string,
+    input: { variantId: string; quantity: number; isExtraWork?: boolean },
+  ) => void;
   onEditCustomLine: (
     matId: string,
-    input: { name: string; quantity: number; unit: string; unitPrice?: number },
+    input: {
+      name: string;
+      quantity: number;
+      unit: string;
+      unitPrice?: number;
+      isExtraWork?: boolean;
+    },
   ) => void;
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
@@ -281,6 +291,11 @@ export function ZoneCard({
               {t("workOrderDetail.photos.before")}
             </Typography>
             <PhotoGrid
+              // Stable key per phase: these two grids are same-type siblings, so
+              // without it React reconciles them POSITIONALLY and can carry one
+              // grid's internal state (its pending-upload tiles) into the other —
+              // a photo added to "resultaat" showing a spinner under "vooraf".
+              key="before"
               photos={task.beforePhotos}
               canEdit={canWrite}
               busy={busy}
@@ -293,6 +308,7 @@ export function ZoneCard({
               {t("workOrderDetail.photos.result")}
             </Typography>
             <PhotoGrid
+              key="result"
               photos={task.resultPhotos}
               canEdit={canWrite}
               busy={busy}
@@ -309,6 +325,7 @@ export function ZoneCard({
         busy={busy}
         showMargin={showMargin}
         canSetPrice={showPrices}
+        canFlagExtraWork={canEditScope}
         onClose={() => setPickerOpen(false)}
         onAdd={(input) => {
           onAddLine(input);
@@ -338,6 +355,7 @@ export function ZoneCard({
               busy={busy}
               showMargin={showMargin}
               canSetPrice={showPrices}
+              canFlagExtraWork={canEditScope}
               initial={
                 isCatalogLine
                   ? {
@@ -345,9 +363,11 @@ export function ZoneCard({
                       size: editingLine.variantSize!,
                       variantId: editingLine.variantId!,
                       quantity: editingLine.quantity,
+                      isExtraWork: editingLine.isExtraWork,
                     }
                   : {
                       quantity: editingLine.quantity,
+                      isExtraWork: editingLine.isExtraWork,
                       custom: {
                         name: editingLine.label?.trim() || editingLine.name || "",
                         unit: editingLine.unit,

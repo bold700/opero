@@ -20,7 +20,9 @@ import {
   employeeListInclude,
   absenceDto,
 } from "./dto.js";
-import { autoInviteEmployee } from "../users/provisioning.js";
+import { canSeeAllProjects } from "@opero/shared";
+import { autoInviteEmployee, revokeLoginsFor } from "../users/provisioning.js";
+import { accountInclude } from "../users/dto.js";
 import { absencesInRange, isIsoDay, todayIso } from "./absence.js";
 
 export const employeesRouter = Router();
@@ -35,7 +37,7 @@ employeesRouter.use(requireAuth);
 const OFFICE_ROLES: TeamRole[] = ["Administration", "Sales", "WorkPlanner", "Planner"];
 
 // The filter chips shown on the list (English, stable values).
-const EMPLOYEE_FILTERS = ["technicians", "office", "inactive"] as const;
+const EMPLOYEE_FILTERS = ["technicians", "office", "inactive", "no_account"] as const;
 type EmployeeFilter = (typeof EMPLOYEE_FILTERS)[number];
 
 // Translate a filter chip to a Prisma where-fragment, ANDed onto baseWhere.
@@ -47,6 +49,10 @@ function employeeFilterWhere(filter: EmployeeFilter): Prisma.EmployeeWhereInput 
       return { roles: { hasSome: OFFICE_ROLES } };
     case "inactive":
       return { status: "inactive" };
+    // "Who did we forget to invite?" — access is managed from this screen, so
+    // this is how an admin finds employees with no login at all.
+    case "no_account":
+      return { users: { none: {} } };
   }
 }
 
@@ -57,7 +63,7 @@ function employeeFilterWhere(filter: EmployeeFilter): Prisma.EmployeeWhereInput 
 // the WHOLE (org-scoped, searched) set so the pills stay accurate across pages.
 employeesRouter.get(
   "/",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const { limit, cursor, search } = parsePageParams(req);
@@ -81,7 +87,7 @@ employeesRouter.get(
     // Counts across the whole scoped+searched set (not just the page). Status
     // buckets come from a groupBy; the role-based buckets (technicians/office)
     // are separate counts since they filter the roles array, not status.
-    const [grouped, technicians, office] = await Promise.all([
+    const [grouped, technicians, office, noAccount] = await Promise.all([
       prisma.employee.groupBy({
         by: ["status"],
         where: baseWhere,
@@ -93,6 +99,9 @@ employeesRouter.get(
       prisma.employee.count({
         where: { AND: [baseWhere, employeeFilterWhere("office")] },
       }),
+      prisma.employee.count({
+        where: { AND: [baseWhere, employeeFilterWhere("no_account")] },
+      }),
     ]);
     const counts: Record<string, number> = {
       total: 0,
@@ -101,6 +110,7 @@ employeesRouter.get(
       inactive: 0,
       technicians,
       office,
+      no_account: noAccount,
     };
     for (const g of grouped) {
       counts[g.status] = g._count._all;
@@ -141,7 +151,7 @@ employeesRouter.get(
 // returns everything from today onward (the useful default for planning).
 employeesRouter.get(
   "/absences",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const from = isIsoDay(req.query.from) ? req.query.from : todayIso();
@@ -164,7 +174,7 @@ employeesRouter.get(
 // POST /employees/absences — admin only.
 employeesRouter.post(
   "/absences",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createAbsenceSchema.parse(req.body);
@@ -200,7 +210,7 @@ employeesRouter.post(
 // PATCH /employees/absences/:absenceId — admin only.
 employeesRouter.patch(
   "/absences/:absenceId",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateAbsenceSchema.parse(req.body);
@@ -242,7 +252,7 @@ employeesRouter.patch(
 // that was entered by mistake should leave no trace on the planning view.
 employeesRouter.delete(
   "/absences/:absenceId",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.employeeAbsence.findFirst({
@@ -260,12 +270,12 @@ employeesRouter.delete(
 // GET /employees/:id — admin only.
 employeesRouter.get(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const row = await prisma.employee.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-      include: { users: { select: { id: true, status: true } } },
+      include: { users: accountInclude },
     });
     if (!row) throw NotFound("Employee not found");
     res.json(employeeDto(row));
@@ -275,7 +285,7 @@ employeesRouter.get(
 // POST /employees — admin only. Mirrors store addTeamMember.
 employeesRouter.post(
   "/",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = createEmployeeSchema.parse(req.body);
@@ -314,7 +324,7 @@ employeesRouter.post(
 // PATCH /employees/:id — admin only. Mirrors store updateTeamMember.
 employeesRouter.patch(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateEmployeeSchema.parse(req.body);
@@ -345,7 +355,7 @@ employeesRouter.patch(
 // Mirrors store toggleTeamMemberRole: if present remove, else add.
 employeesRouter.post(
   "/:id/roles",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = toggleRoleSchema.parse(req.body);
@@ -372,22 +382,48 @@ employeesRouter.post(
   }),
 );
 
-// DELETE /employees/:id — admin only, soft delete. Mirrors store removeTeamMember.
+// DELETE /employees/:id — soft delete, office + admin.
+//
+// This cascades into revokeLoginsFor, so it is also a way to revoke access.
+// Hence the standard rule: you can never delete someone AT OR ABOVE your own
+// level. Office removes technicians and other office staff; only the owner
+// removes an owner. Without that, an office clerk could delete the owner's
+// employee record and lock the owner out of their own company.
 employeesRouter.delete(
   "/:id",
-  requireRole("admin"),
+  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.employee.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+      include: { users: { select: { role: true } } },
     });
     if (!existing) throw NotFound("Employee not found");
+    // Deleting an employee revokes their login, so deleting your OWN record
+    // would disable your own account — routing around the guard in
+    // POST /users/:id/disable that keeps the last admin from locking the org out.
+    if (user.employeeId === existing.id) {
+      throw BadRequest("You can't delete your own employee record");
+    }
+    // Office may not delete an owner. (An admin may — see the self-check above,
+    // which guarantees at least one active admin survives.)
+    if (user.role !== "admin" && existing.users.some((u) => u.role === "admin")) {
+      throw Forbidden("Only an administrator can remove another administrator");
+    }
     await prisma.$transaction(async (tx) => {
       await tx.employee.update({
         where: { id: existing.id },
         data: { deletedAt: new Date() },
       });
-      await audit(tx, user, "employee.delete", "employee", existing.id);
+      // The record disappears from every list (filtered by deletedAt), so a
+      // login left behind would be invisible AND still valid.
+      const accountsDisabled = await revokeLoginsFor(tx, {
+        kind: "employee",
+        employeeId: existing.id,
+      });
+      await audit(tx, user, "employee.delete", "employee", existing.id, {
+        accountsDisabled,
+      });
     });
     res.status(204).end();
   }),
@@ -408,8 +444,10 @@ employeesRouter.get(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const employeeId = req.params.id;
+    // The office runs payroll, so they see anyone's hours; a technician sees
+    // only their own.
     const canView =
-      user.role === "admin" ||
+      canSeeAllProjects(user.role) ||
       (user.role === "technician" && user.employeeId === employeeId);
     if (!canView) throw Forbidden("Not allowed for this timesheet");
 

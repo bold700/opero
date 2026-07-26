@@ -10,9 +10,21 @@ import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { GroupLabel } from "./GroupLabel";
+import { SortableRow } from "../../../components/SortableRow";
 import { HAIRLINE } from "../../../theme/tokens";
 import {
   getPrejobItems,
@@ -25,8 +37,8 @@ import {
 
 // Admin edits the org's pre-job checklist (Controle vooraf on every werkbon).
 // Only ACTIVE items are shown/managed here — removing an item is a soft remove
-// server-side, so history stays intact. Order = drag-free up/down buttons,
-// matching the app's other reorder UIs.
+// server-side, so history stays intact. Order = drag the grip, matching the
+// zones and the werkbon's own checklist.
 export function PrejobChecklistForm() {
   const { t } = useTranslation();
   const [items, setItems] = useState<PrejobItem[]>([]);
@@ -76,12 +88,18 @@ export function PrejobChecklistForm() {
     });
   };
 
-  const move = (index: number, dir: -1 | 1) => {
-    const next = [...items];
-    const target = index + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    void run(() => reorderPrejobItems(next.map((i) => i.id)));
+  // Drag-to-reorder — same dnd-kit setup as the werkbon checklist and zones.
+  const canDrag = !busy && items.length > 1;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = items.findIndex((i) => i.id === active.id);
+    const to = items.findIndex((i) => i.id === over.id);
+    if (from < 0 || to < 0) return;
+    void run(() => reorderPrejobItems(arrayMove(items, from, to).map((i) => i.id)));
   };
 
   if (loading) {
@@ -107,39 +125,49 @@ export function PrejobChecklistForm() {
         </Typography>
       ) : (
         <Box sx={{ mb: 2 }}>
-          {items.map((item, i) => (
-            <Box
-              key={item.id}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                py: 1,
-                borderBottom: `1px solid ${HAIRLINE}`,
-              }}
-            >
-              <TextField
-                variant="standard"
-                defaultValue={item.label}
-                key={`${item.id}-${item.label}`}
-                disabled={busy}
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && v !== item.label) void run(() => updatePrejobItem(item.id, { label: v }));
+          {(() => {
+            const renderItem = (item: PrejobItem, dragHandle?: React.ReactNode) => (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  py: 1,
+                  borderBottom: `1px solid ${HAIRLINE}`,
                 }}
-                sx={{ flex: 1 }}
-              />
-              <IconButton size="small" disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={t("settings.prejobChecklist.moveUp")}>
-                <ArrowUpwardIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" disabled={busy || i === items.length - 1} onClick={() => move(i, 1)} aria-label={t("settings.prejobChecklist.moveDown")}>
-                <ArrowDownwardIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="error" disabled={busy} onClick={() => void run(() => deletePrejobItem(item.id))} aria-label={t("settings.prejobChecklist.remove")}>
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          ))}
+              >
+                <TextField
+                  variant="standard"
+                  defaultValue={item.label}
+                  key={`${item.id}-${item.label}`}
+                  disabled={busy}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v && v !== item.label) void run(() => updatePrejobItem(item.id, { label: v }));
+                  }}
+                  sx={{ flex: 1 }}
+                />
+                {dragHandle ?? null}
+                <IconButton size="small" color="error" disabled={busy} onClick={() => void run(() => deletePrejobItem(item.id))} aria-label={t("settings.prejobChecklist.remove")}>
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            );
+
+            return canDrag ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  {items.map((item) => (
+                    <SortableRow key={item.id} id={item.id} ariaLabel={t("settings.prejobChecklist.reorderAria")}>
+                      {(dragHandle) => renderItem(item, dragHandle)}
+                    </SortableRow>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              items.map((item) => <Box key={item.id}>{renderItem(item)}</Box>)
+            );
+          })()}
         </Box>
       )}
 

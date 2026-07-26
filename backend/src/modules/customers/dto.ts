@@ -1,15 +1,11 @@
 import type { ContactPerson, Customer, Location, User } from "@prisma/client";
+import { accountDto } from "../users/dto.js";
 
 // DTO mappers — never return raw rows with internal columns to clients.
 
-// The login account (if any) linked to this customer, so the UI can show login
-// status and offer invite/resend/disable.
-type LinkedUser = Pick<User, "id" | "status">;
-
-function accountDto(users: LinkedUser[] | undefined) {
-  const u = users?.[0];
-  return u ? { userId: u.id, status: u.status } : null;
-}
+// The login account linked to this customer. Shared with the employees module
+// so both screens describe an account identically.
+type LinkedUser = Pick<User, "id" | "email" | "role" | "status" | "activatedAt">;
 
 export function customerDto(c: Customer & { users?: LinkedUser[] }) {
   return {

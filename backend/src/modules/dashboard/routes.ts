@@ -3,6 +3,7 @@ import type { ProjectStatus, Stage } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../auth/middleware.js";
+import { canSeeAllProjects } from "@opero/shared";
 import { projectScopeWhere } from "../projects/visibility.js";
 import {
   type AdminDashboard,
@@ -48,8 +49,12 @@ dashboardRouter.get(
   asyncHandler(async (req, res) => {
     const user = req.user!;
 
-    // ---------------------------------------------------------------- admin
-    if (user.role === "admin") {
+    // -------------------------------------------------------- admin + office
+    // Office staff run the same operational overview as the owner. NOTE the
+    // branches below are exhaustive-by-fallthrough: a role matching neither
+    // this nor the technician check falls to the client payload, so a new role
+    // must be added here explicitly or it gets the wrong dashboard.
+    if (canSeeAllProjects(user.role)) {
       const where = projectScopeWhere(user); // all org projects
       const { start, end } = isoWeekRange();
 

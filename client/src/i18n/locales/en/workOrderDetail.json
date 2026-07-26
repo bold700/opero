@@ -34,12 +34,15 @@
     "defaultTitle": "Work order {{n}}",
     "export": "Export",
     "exportMenuQuote": "Quote (PDF)",
-    "exportMenuWorkOrder": "Work order (PDF)"
+    "exportMenuWorkOrder": "Work order (PDF)",
+    "delete": "Delete work order",
+    "deleteTitle": "Delete work order",
+    "deleteBody": "Are you sure you want to delete \"{{name}}\"? All zones, lines, photos and billing for this work order go with it. This cannot be undone."
   },
   "photos": {
     "title": "Photos",
-    "before": "Before",
-    "result": "Result",
+    "before": "Before (zone)",
+    "result": "Result (zone)",
     "noTasks": "Add a task first to attach photos.",
     "untitledZone": "Untitled zone"
   },
@@ -52,17 +55,19 @@
       "safety_reviewed": "Site risks and safety reviewed",
       "customer_informed": "Customer informed of the visit"
     },
-    "photos": "Pre-job photos",
+    "photos": "Pre-job photos (work order)",
     "photoRequired": "Photo required before dispatch",
     "addItem": "Add",
     "addItemPlaceholder": "New checklist item…",
     "removeItem": "Remove",
-    "moveUp": "Move up",
-    "moveDown": "Move down",
     "dispatch": "Dispatch technician",
     "dispatched": "Dispatched",
     "dispatchedToast": "Technician dispatched",
-    "gateHint": "Tick the checklist (and add a photo if required) to dispatch."
+    "gateHint": "Tick the checklist (and add a photo if required) to dispatch.",
+    "addItemNew": "New checklist item",
+    "addItemTitle": "Add checklist item",
+    "addItemLabel": "Description",
+    "reorderAria": "Reorder"
   },
   "activity": {
     "title": "Activity",
@@ -103,16 +108,10 @@
   },
   "extraWork": {
     "title": "Extra work",
-    "report": "Report extra work",
-    "pickArticle": "Pick article",
-    "freeText": "Free text",
-    "empty": "No extra work reported.",
     "descriptionPlaceholder": "Extra work description",
     "submit": "Report",
-    "officeApproved": "Office ✓",
     "officeApprove": "Approve (office)",
     "reject": "Reject",
-    "clientApproved": "Agreed ✓",
     "clientApprove": "Give approval"
   },
   "task": {
@@ -147,12 +146,13 @@
     "workDescriptionPlaceholder": "What needs to happen in this zone?",
     "statusDone": "Done",
     "statusTodo": "To do",
-    "empty": "No zones yet."
+    "empty": "No zones yet.",
+    "reorderAria": "Reorder"
   },
   "line": {
     "sectionTitle": "Tasks",
     "empty": "No tasks yet.",
-    "add": "Add task",
+    "add": "Add line",
     "delete": "Delete task",
     "descriptionPlaceholder": "Description",
     "statusOpen": "Open",
@@ -181,7 +181,10 @@
     "customPriceHelp": "Leave empty if the office prices this later.",
     "unitPiece": "piece",
     "unitMetre": "metre",
-    "unitM2": "m2"
+    "unitM2": "m2",
+    "extraWork": "Extra work",
+    "isExtraWork": "Extra work",
+    "isExtraWorkHint": "Not counted in the quote. Only invoiced after both office and client approve."
   },
   "info": {
     "title": "Project info",
@@ -205,6 +208,15 @@
     "description": "Description",
     "planning": "Planning",
     "endDateOptional": "End date (optional)",
-    "sameDay": "same day"
+    "sameDay": "same day",
+    "workOrderTitle": "Work order",
+    "customer": "Customer",
+    "customerSwitchTitle": "Change customer",
+    "customerSwitchBody": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job."
+  },
+  "meerwerkApproval": {
+    "title": "Extra work — awaiting approval ({{count}})",
+    "officeHint": "Review the reported extra work. After your approval it goes to the client.",
+    "clientHint": "This extra work is approved by the office and is awaiting your approval."
   }
 }

@@ -28,6 +28,10 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 // PATCH /:id — header fields (mirror updateProject's patch shape).
 export const updateProjectSchema = z.object({
   name: z.string().optional(),
+  // Reassign the project to a different customer. This is an ACCESS change: the
+  // client portal is scoped by project.customerId, so the old customer's login
+  // loses this job and the new one gains it. Admin-only (the route gate).
+  customerId: z.string().optional(),
   description: z.string().optional(),
   address: z.string().optional(),
   postalCode: z.string().optional(),

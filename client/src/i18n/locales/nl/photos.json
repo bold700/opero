@@ -1,5 +1,10 @@
 {
   "add": "Foto toevoegen",
   "addDrawing": "Tekening toevoegen",
-  "empty": "Nog geen foto's"
+  "empty": "Nog geen foto's",
+  "addMultiple": "Foto's toevoegen",
+  "limitHint": "JPG of PNG, max {{max}}",
+  "tooLarge": "{{name}} is te groot (max {{max}})",
+  "uploadFailed": "{{name}} kon niet worden geüpload",
+  "uploading": "Uploaden…"
 }

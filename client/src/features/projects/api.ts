@@ -83,7 +83,15 @@ export function createProject(input: ProjectInput): Promise<{ id: string }> {
 
 export function updateProject(
   id: string,
-  patch: Partial<{ name: string; description: string; instructions: string; workTypeId: string | null }>,
+  patch: Partial<{
+    name: string;
+    description: string;
+    instructions: string;
+    workTypeId: string | null;
+    // Reassign the job to another customer. This MOVES it between client
+    // portals (project.customerId gates client access), so confirm first.
+    customerId: string;
+  }>,
 ): Promise<ProjectDetail> {
   return api.patch<ProjectDetail>(`/projects/${id}`, patch);
 }

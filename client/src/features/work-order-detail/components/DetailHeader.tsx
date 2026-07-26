@@ -11,6 +11,8 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import Tooltip from "@mui/material/Tooltip";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
@@ -29,6 +31,7 @@ import type { Project, WorkOrder } from "../api";
 export function DetailHeader({
   workOrder,
   project,
+  canDelete,
   canFinish,
   canReopen,
   canExportQuote,
@@ -37,6 +40,7 @@ export function DetailHeader({
   exporting,
   exportingQuote,
   onBack,
+  onDelete,
   onFinish,
   onReopen,
   onExportPdf,
@@ -44,6 +48,7 @@ export function DetailHeader({
 }: {
   workOrder: WorkOrder;
   project: Project;
+  canDelete: boolean;
   canFinish: boolean;
   /** Admin-only: undoes a sign-off (clears the customer signature). */
   canReopen: boolean;
@@ -54,6 +59,7 @@ export function DetailHeader({
   exporting: boolean;
   exportingQuote: boolean;
   onBack: () => void;
+  onDelete: () => void;
   onFinish: () => void;
   onReopen: () => void;
   onExportPdf: () => void;
@@ -64,6 +70,7 @@ export function DetailHeader({
   // Admin export menu (offerte / werkbon in one button).
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
   const [confirmReopen, setConfirmReopen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const anyExporting = exporting || exportingQuote;
 
   return (
@@ -173,6 +180,21 @@ export function DetailHeader({
             </IconButton>
           )}
 
+          {/* Delete the whole werkbon — admin only, and destructive, so it's a
+              quiet icon that turns red on hover and always confirms first. */}
+          {canDelete ? (
+            <Tooltip title={t("workOrderDetail.header.delete")}>
+              <IconButton
+                aria-label={t("workOrderDetail.header.delete")}
+                onClick={() => setConfirmDelete(true)}
+                disabled={busy}
+                sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
+              >
+                <DeleteOutlineIcon />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+
           {canFinish && !finished ? (
             <Button variant="contained" onClick={onFinish} disabled={busy}>
               {t("workOrderDetail.header.finish")}
@@ -197,6 +219,26 @@ export function DetailHeader({
         onConfirm={() => {
           onReopen();
           setConfirmReopen(false);
+        }}
+      />
+
+      {/* Deleting a werkbon takes its zones, lines, photos and billing with it,
+          so the body names the werkbon and spells out what goes. */}
+      <ConfirmDialog
+        open={confirmDelete}
+        title={t("workOrderDetail.header.deleteTitle")}
+        body={t("workOrderDetail.header.deleteBody", {
+          name:
+            workOrder.title ||
+            t("workOrderDetail.header.defaultTitle", { n: workOrder.ordinal + 1 }),
+        })}
+        confirmLabel={t("common.actions.delete")}
+        busy={busy}
+        destructive
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          onDelete();
+          setConfirmDelete(false);
         }}
       />
     </Card>

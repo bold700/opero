@@ -8,7 +8,6 @@ import EmployeesIcon from "@mui/icons-material/Badge";
 import MaterialsIcon from "@mui/icons-material/Inventory2";
 import ReportsIcon from "@mui/icons-material/Assessment";
 import TimesheetIcon from "@mui/icons-material/AccessTime";
-import UsersIcon from "@mui/icons-material/ManageAccounts";
 import SettingsIcon from "@mui/icons-material/Settings";
 import type { SvgIconComponent } from "@mui/icons-material";
 
@@ -24,28 +23,33 @@ export type NavItem = {
   roles: UserRole[];
 };
 
-const ALL: UserRole[] = ["admin", "technician", "client"];
+const ALL: UserRole[] = ["admin", "office", "technician", "client"];
+// The office: the owner + office staff. Everything operational is theirs; only
+// login provisioning and org config stay with the owner alone.
+const OFFICE: UserRole[] = ["admin", "office"];
 
 export const NAV_ITEMS: NavItem[] = [
   { path: "/", labelKey: "nav.dashboard", icon: DashboardIcon, roles: ALL },
   { path: "/work-orders", labelKey: "nav.workOrders", icon: WorkOrdersIcon, roles: ALL },
-  // Projects — the grouping layer above werkbonnen (admin office task).
-  { path: "/projects", labelKey: "nav.projects", icon: ProjectsIcon, roles: ["admin"] },
-  { path: "/planning", labelKey: "nav.planning", icon: PlanningIcon, roles: ["admin", "technician"] },
-  // Customers is the admin's customer DATABASE — not for clients. A client's own
+  // Projects — the grouping layer above werkbonnen (an office task).
+  { path: "/projects", labelKey: "nav.projects", icon: ProjectsIcon, roles: OFFICE },
+  { path: "/planning", labelKey: "nav.planning", icon: PlanningIcon, roles: [...OFFICE, "technician"] },
+  // Customers is the office's customer DATABASE — not for clients. A client's own
   // record is business data owned by the office (read-only to them); their
   // "manage own profile" is served by Settings (profile/security/notifications).
-  { path: "/customers", labelKey: "nav.customers", icon: CustomersIcon, roles: ["admin"] },
-  { path: "/employees", labelKey: "nav.employees", icon: EmployeesIcon, roles: ["admin"] },
-  // Materials — the supplier parts catalog (prices from the price lists). Admin
+  { path: "/customers", labelKey: "nav.customers", icon: CustomersIcon, roles: OFFICE },
+  { path: "/employees", labelKey: "nav.employees", icon: EmployeesIcon, roles: OFFICE },
+  // Materials — the supplier parts catalog (prices from the price lists). Office
   // full, technician limited (prices stripped per org setting), client none.
-  { path: "/materials", labelKey: "nav.materials", icon: MaterialsIcon, roles: ["admin", "technician"] },
-  { path: "/reports", labelKey: "nav.reports", icon: ReportsIcon, roles: ["admin"] },
+  { path: "/materials", labelKey: "nav.materials", icon: MaterialsIcon, roles: [...OFFICE, "technician"] },
+  { path: "/reports", labelKey: "nav.reports", icon: ReportsIcon, roles: OFFICE },
   // Own timesheet — the technician's "Reports = own hours" access (spec matrix).
   // Technician-only: admins see company-wide hours in Reports, not a personal
   // timesheet (and an admin login usually has no linked employee record anyway).
   { path: "/timesheet", labelKey: "nav.timesheet", icon: TimesheetIcon, roles: ["technician"] },
-  { path: "/users", labelKey: "nav.users", icon: UsersIcon, roles: ["admin"] },
+  // No "Toegang" entry: login accounts are managed from the record they belong
+  // to (Werknemers / Klanten), so a separate access screen listed the same
+  // people twice.
   { path: "/settings", labelKey: "nav.settings", icon: SettingsIcon, roles: ALL },
 ];
 

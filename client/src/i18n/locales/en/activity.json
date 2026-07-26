@@ -27,7 +27,8 @@
     "intakeCompleted": "Intake completed",
     "intakeCompletedWithBlocker": "Intake completed with blocker: {{blocker}}",
     "blockerResolved": "Blocker resolved: {{blocker}}",
-    "blockerResolvedWithNote": "Blocker resolved: {{blocker}} ({{note}})"
+    "blockerResolvedWithNote": "Blocker resolved: {{blocker}} ({{note}})",
+    "customerChanged": "Customer changed from {{from}} to {{to}}"
   },
   "quote": {
     "sent": "Quote sent to customer",

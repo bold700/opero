@@ -1,25 +1,25 @@
 import { Router } from "express";
-import type { Prisma } from "@prisma/client";
-import { randomBytes } from "node:crypto";
-import { inviteUserSchema } from "@opero/shared";
-import { parsePageParams, paginate } from "../../lib/pagination.js";
-import { env } from "../../env.js";
+import { inviteUserSchema, type UserRole } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Conflict, NotFound } from "../../lib/httpError.js";
 import { audit } from "../../lib/audit.js";
-import { sendEmail } from "../../lib/email.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import { issueInvite } from "../../auth/tokens.js";
 import {
   createInvitedUser,
   deliverInvite,
   sendInviteEmail,
+  type LinkTarget,
 } from "./provisioning.js";
 
 // User provisioning — admins create login accounts and invite people to activate
 // them. All admin-only, org-scoped. "Login" (User) is separate from the domain
-// records (Employee/Customer) but links to them via role-specific ids.
+// record (Employee/Customer) but ALWAYS links to one, so every account is
+// reachable from Werknemers / Klanten — the only screens that manage access.
+//
+// There is no list endpoint: these four act on one account at a time, and the
+// lists come from /employees and /customers, which embed each record's account.
 export const usersRouter = Router();
 
 usersRouter.use(requireAuth, requireRole("admin"));
@@ -50,91 +50,6 @@ function userDto(u: UserRow) {
   };
 }
 
-const ACCOUNT_STATUSES = ["invited", "active", "disabled"] as const;
-
-// GET /users?cursor=&limit=&search=&filter= — cursor-paginated, server-searched
-// (name/email) list of the org's login accounts. `filter` narrows to a single
-// account status (matching the screen's status chips). No count pills, so no
-// counts are returned.
-usersRouter.get(
-  "/",
-  asyncHandler(async (req, res) => {
-    const { limit, cursor, search } = parsePageParams(req);
-    const statusFilter =
-      typeof req.query.filter === "string" &&
-      (ACCOUNT_STATUSES as readonly string[]).includes(req.query.filter)
-        ? req.query.filter
-        : undefined;
-
-    // Base org scope + optional search over name/email.
-    const baseWhere: Prisma.UserWhereInput = { orgId: req.user!.orgId };
-    if (search) {
-      const ci = { contains: search, mode: "insensitive" as const };
-      baseWhere.OR = [{ name: ci }, { email: ci }];
-    }
-
-    // The page: apply the status filter on top of the base filter.
-    const pageWhere: Prisma.UserWhereInput = statusFilter
-      ? { AND: [baseWhere, { status: statusFilter as Prisma.UserWhereInput["status"] }] }
-      : baseWhere;
-
-    const page = await paginate({ limit, cursor, search }, (args) =>
-      prisma.user.findMany({
-        where: pageWhere,
-        orderBy: [{ status: "asc" }, { name: "asc" }, { id: "asc" }],
-        select: {
-          id: true, email: true, name: true, role: true, status: true,
-          employeeId: true, customerId: true, createdAt: true, activatedAt: true,
-        },
-        ...args,
-      }),
-    );
-
-    res.json({
-      items: page.items.map(userDto),
-      nextCursor: page.nextCursor,
-    });
-  }),
-);
-
-// GET /users/invitable — people who can be given a login: an Employee or
-// Customer that has an email and doesn't already have a login. Feeds the
-// invite picker so a login is always tied to a real person.
-usersRouter.get(
-  "/invitable",
-  asyncHandler(async (req, res) => {
-    const orgId = req.user!.orgId;
-    const [employees, customers] = await Promise.all([
-      prisma.employee.findMany({
-        where: { orgId, deletedAt: null, email: { not: null }, users: { none: {} } },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, email: true, roles: true },
-      }),
-      prisma.customer.findMany({
-        where: { orgId, deletedAt: null, email: { not: "" }, users: { none: {} } },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, contactName: true, email: true },
-      }),
-    ]);
-    res.json([
-      ...employees.map((e) => ({
-        kind: "employee" as const,
-        id: e.id,
-        name: e.name,
-        email: e.email!,
-        roles: e.roles,
-      })),
-      ...customers.map((c) => ({
-        kind: "customer" as const,
-        id: c.id,
-        name: c.name,
-        email: c.email,
-        contactName: c.contactName,
-      })),
-    ]);
-  }),
-);
-
 // POST /users/invite — provision a login for an EXISTING person (Employee or
 // Customer) and send the activation email. The email + name come from that
 // record; a login is never created for a free-typed address.
@@ -148,8 +63,8 @@ usersRouter.post(
     // must exist (org-scoped), have an email, and not already have a login.
     let email: string;
     let name: string;
-    let role: "admin" | "technician" | "client";
-    const link: { employeeId?: string; customerId?: string } = {};
+    let role: UserRole;
+    let link: LinkTarget;
 
     if (input.kind === "employee") {
       const emp = await prisma.employee.findFirst({
@@ -162,7 +77,7 @@ usersRouter.post(
       email = emp.email.trim().toLowerCase();
       name = emp.name;
       role = input.role;
-      link.employeeId = emp.id;
+      link = { kind: "employee", employeeId: emp.id };
     } else {
       const cust = await prisma.customer.findFirst({
         where: { id: input.customerId, orgId: admin.orgId, deletedAt: null },
@@ -175,7 +90,7 @@ usersRouter.post(
       // Prefer the contact person for the login name; fall back to company name.
       name = cust.contactName || cust.name;
       role = "client";
-      link.customerId = cust.id;
+      link = { kind: "customer", customerId: cust.id };
     }
 
     // Email is the unique login id — reject if it already exists (any org).
@@ -183,13 +98,7 @@ usersRouter.post(
     if (existing) throw Conflict("A user with this email already exists");
 
     const created = await prisma.$transaction((tx) =>
-      createInvitedUser(tx, admin, {
-        email,
-        name,
-        role,
-        employeeId: link.employeeId,
-        customerId: link.customerId,
-      }),
+      createInvitedUser(tx, admin, { email, name, role, link }),
     );
 
     await deliverInvite(created.id, email, created.name);

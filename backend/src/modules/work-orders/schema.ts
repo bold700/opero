@@ -60,6 +60,10 @@ export const addMaterialSchema = z
     unitPrice: z.number().optional(),
     diameter: z.number().optional(),
     label: z.string().optional(),
+    // Meerwerk: work the customer didn't buy. Changes who may add the line
+    // (technicians may report meerwerk, not sold scope) and when it counts as
+    // money (only after office + client approval).
+    isExtraWork: z.boolean().optional(),
   })
   .optional();
 
@@ -69,6 +73,12 @@ export const addMaterialSchema = z
 export const addMaterialFromCatalogSchema = z.object({
   variantId: z.string().min(1),
   quantity: z.number().positive().optional(),
+  isExtraWork: z.boolean().optional(),
+});
+
+// POST /work-orders/:id/materials/:matId/reject — who rejected the meerwerk.
+export const rejectMeerwerkSchema = z.object({
+  by: z.enum(["office", "client"]).optional(),
 });
 
 // PATCH /work-orders/:id/materials/:matId — mirror updateTaskMaterial patch.
@@ -88,6 +98,7 @@ export const updateMaterialSchema = z.object({
   onSite: z.boolean().optional(),
   done: z.boolean().optional(),
   note: z.string().nullable().optional(),
+  isExtraWork: z.boolean().optional(),
 });
 
 // POST /work-orders/:id/materials/:matId/usage — mirror setMaterialUsage.

@@ -27,7 +27,8 @@
     "name": "Projectnaam",
     "workType": "Werksoort",
     "workTypeNone": "Nog te bepalen",
-    "description": "Omschrijving"
+    "description": "Omschrijving",
+    "customerSwitchWarning": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer."
   },
   "detail": {
     "notFound": "Project niet gevonden",

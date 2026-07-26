@@ -33,7 +33,13 @@ export function ProjectFormDialog({
   error: string | null;
   onClose: () => void;
   onCreate: (input: ProjectInput) => void;
-  onUpdate: (patch: { name?: string; description?: string; instructions?: string; workTypeId?: string | null }) => void;
+  onUpdate: (patch: {
+    name?: string;
+    description?: string;
+    instructions?: string;
+    workTypeId?: string | null;
+    customerId?: string;
+  }) => void;
 }) {
   const { t } = useTranslation();
   const editing = Boolean(project);
@@ -69,6 +75,10 @@ export function ProjectFormDialog({
         instructions: instructions.trim(),
         // null clears the work type; undefined leaves it (but we always send it).
         workTypeId: workTypeId || null,
+        // Only send the customer when it actually changed — the backend treats
+        // a switch as an access change (audit + activity entry), so an
+        // unchanged id shouldn't look like one.
+        ...(customerId && customerId !== project?.customerId ? { customerId } : {}),
       });
     } else {
       onCreate({
@@ -94,22 +104,28 @@ export function ProjectFormDialog({
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
 
-          {editing ? (
-            <TextField
-              label={t("projects.form.customer")}
-              value={project?.customerName ?? ""}
-              disabled
-              size="small"
-            />
-          ) : (
-            <SelectField
-              label={t("projects.form.customer")}
-              value={customerId}
-              onChange={setCustomerId}
-              disabled={busy}
-              options={customers.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          )}
+          {/* The customer is switchable, including when editing: picking the
+              wrong one is an ordinary mistake and the job shouldn't have to be
+              recreated to fix it. Switching MOVES the job between client
+              portals (project.customerId gates client access), so the caller
+              confirms — see ProjectInfoPanel / the projects page. */}
+          <SelectField
+            label={t("projects.form.customer")}
+            value={customerId}
+            onChange={setCustomerId}
+            disabled={busy}
+            options={customers.map((c) => ({ value: c.id, label: c.name }))}
+          />
+          {/* Switching moves the job between client portals, which isn't
+              visible from the field itself — say so before it's saved. */}
+          {editing && customerId && customerId !== project?.customerId ? (
+            <Alert severity="warning">
+              {t("projects.form.customerSwitchWarning", {
+                from: project?.customerName ?? "",
+                to: customers.find((c) => c.id === customerId)?.name ?? "",
+              })}
+            </Alert>
+          ) : null}
 
           <TextField
             label={t("projects.form.name")}

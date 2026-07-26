@@ -135,7 +135,13 @@ describe("work-order PDF export", () => {
     expect(res.status).toBe(404);
   });
 
-  it("the technician's price-stripped PDF differs from the admin's (prices omitted)", async () => {
+  // The werkbon carries NO prices for ANY role — it records what was done on
+  // site, not what it costs (the money lives on the offerte + invoice). So the
+  // admin's copy and the technician's are byte-identical: there is no price
+  // column, no line total and no grand total to differ over. This assertion is
+  // deliberately the inverse of the old one, which asserted they DID differ
+  // back when admins got a priced werkbon.
+  it("is byte-identical for admin and technician (no prices for anyone)", async () => {
     const get = async (token: string) => {
       const res = await request(app)
         .get(`/api/work-orders/${workOrderId}/pdf`)
@@ -153,8 +159,11 @@ describe("work-order PDF export", () => {
     // Both are valid PDFs...
     expect(adminPdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
     expect(techPdf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
-    // ...and they differ: technicians NEVER see prices, so the admin's carries
-    // the price column + total and the technician's does not.
-    expect(adminPdf.length).not.toBe(techPdf.length);
+    // ...and they're the same size: neither contains pricing. (Length is a
+    // proxy for "same content" here — a price column would add bytes.)
+    expect(adminPdf.length).toBe(techPdf.length);
+    // Belt and braces: no euro sign anywhere in the admin's copy. This is the
+    // assertion that actually fails if prices ever leak back onto the werkbon.
+    expect(adminPdf.toString("latin1")).not.toContain("€");
   });
 });

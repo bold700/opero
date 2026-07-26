@@ -1,10 +1,5 @@
 {
   "title": "Customers",
-  "counts": {
-    "total": "Total",
-    "business": "Business",
-    "private": "Private"
-  },
   "filters": {
     "all": "All",
     "business": "Business",
@@ -42,9 +37,7 @@
     "action": "Action",
     "viewAriaLabel": "view",
     "empty": "No customers found.",
-    "login": "Login",
-    "invite": "Invite",
-    "loginNeedsEmail": "Add an email address first to invite this customer."
+    "account": "Account"
   },
   "dialog": {
     "newTitle": "New customer",
@@ -57,7 +50,21 @@
     "address": "Address",
     "postalCode": "Postal code",
     "city": "City",
-    "notes": "Notes"
+    "notes": "Notes",
+    "account": {
+      "title": "Account",
+      "invite": "Invite",
+      "resend": "Resend invitation",
+      "needsEmail": "Add an email address first to invite this customer.",
+      "role": "Role",
+      "email": "Email",
+      "activatedAt": "Active since",
+      "disable": "Disable",
+      "enable": "Enable",
+      "selfDisableHint": "You can't disable your own access.",
+      "confirmDisableTitle": "Disable access?",
+      "confirmDisableBody": "{{name}} will no longer be able to sign in to the customer portal. Active sessions end immediately. You can re-enable access later."
+    }
   },
   "delete": {
     "title": "Delete customer",

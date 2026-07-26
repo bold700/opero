@@ -38,11 +38,10 @@
     "addPlaceholder": "Nieuw item…",
     "add": "Toevoegen",
     "remove": "Verwijderen",
-    "moveUp": "Omhoog",
-    "moveDown": "Omlaag",
     "saved": "Opgeslagen",
     "saveError": "Opslaan mislukt",
-    "loadError": "Laden mislukt"
+    "loadError": "Laden mislukt",
+    "reorderAria": "Volgorde wijzigen"
   },
   "profile": {
     "photo": "Profielfoto",
@@ -60,6 +59,7 @@
     "role": "Functie",
     "roles": {
       "admin": "Admin",
+      "office": "Kantoormedewerker",
       "technician": "Monteur",
       "client": "Klant"
     },

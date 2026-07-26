@@ -25,6 +25,12 @@ export async function requireAuth(
     }
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) throw Unauthorized("User no longer exists");
+    // Access tokens are stateless JWTs (JWT_ACCESS_TTL, default 15m), so
+    // revoking sessions is NOT enough to lock someone out — the token they
+    // already hold keeps working until it expires. Re-check the account state
+    // on every request so disabling (or a not-yet-activated invite) takes
+    // effect immediately.
+    if (user.status !== "active") throw Unauthorized("Account is not active");
     req.user = await toAuthUser(user);
     next();
   } catch (err) {

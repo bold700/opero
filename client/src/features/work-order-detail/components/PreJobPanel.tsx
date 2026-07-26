@@ -11,12 +11,25 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import { Card } from "../../../components/Card";
 import { PhotoGrid } from "../../../components/PhotoGrid";
+import { AddChecklistItemDialog } from "./AddChecklistItemDialog";
+import { SortableRow } from "../../../components/SortableRow";
 import { HAIRLINE } from "../../../theme/tokens";
 import type { WorkOrder } from "../api";
 
@@ -53,24 +66,26 @@ export function PreJobPanel({
   onDispatch: () => void;
 }) {
   const { t } = useTranslation();
-  const [newLabel, setNewLabel] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const dispatched = Boolean(workOrder.dispatchedAt);
   const editable = isAdmin && !dispatched;
   const items = [...workOrder.prejobItems].sort((a, b) => a.ordinal - b.ordinal);
 
-  const move = (index: number, dir: -1 | 1) => {
-    const next = [...items];
-    const target = index + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    onMoveItem(next.map((i) => i.id));
-  };
-
-  const add = () => {
-    const label = newLabel.trim();
-    if (!label) return;
-    onAddItem(label);
-    setNewLabel("");
+  // Drag-to-reorder — the same dnd-kit setup as the zones (TasksPanel): a
+  // pointer sensor with a small distance threshold so taps/clicks inside the
+  // row never start a drag, and only the grip handle activates one.
+  const canDrag = editable && !busy && items.length > 1;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const from = items.findIndex((i) => i.id === active.id);
+    const to = items.findIndex((i) => i.id === over.id);
+    if (from < 0 || to < 0) return;
+    // Same payload the arrows used to send: the full ordered id list.
+    onMoveItem(arrayMove(items, from, to).map((i) => i.id));
   };
 
   return (
@@ -103,66 +118,72 @@ export function PreJobPanel({
           {t("workOrderDetail.prejob.description")}
         </Typography>
 
-        {/* Checklist — editable inline for admin (pre-dispatch). */}
+        {/* Checklist — editable inline for admin (pre-dispatch). Reorder by
+            dragging the grip (same interaction as the zones), not arrows. */}
         <Box>
-          {items.map((item, i) => (
-            <Box key={item.id} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Checkbox
-                checked={item.done}
-                disabled={!editable || busy}
-                onChange={(e) => onToggleCheck(item.id, e.target.checked)}
-                sx={{ p: { xs: 1.25, md: 1 } }}
-              />
-              {editable ? (
-                <>
-                  <TextField
-                    variant="standard"
-                    defaultValue={item.label}
-                    key={`${item.id}-${item.label}`}
-                    disabled={busy}
-                    onBlur={(e) => {
-                      const v = e.target.value.trim();
-                      if (v && v !== item.label) onRenameItem(item.id, v);
-                    }}
-                    // minWidth:0 or the input's intrinsic ~180px floor pushes
-                    // the three icon buttons off the right edge on a phone.
-                    sx={{ flex: 1, minWidth: 0 }}
-                  />
-                  <IconButton size="small" disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label={t("workOrderDetail.prejob.moveUp")}>
-                    <ArrowUpwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" disabled={busy || i === items.length - 1} onClick={() => move(i, 1)} aria-label={t("workOrderDetail.prejob.moveDown")}>
-                    <ArrowDownwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" color="error" disabled={busy} onClick={() => onRemoveItem(item.id)} aria-label={t("workOrderDetail.prejob.removeItem")}>
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </>
-              ) : (
-                <Typography variant="body2" sx={{ flex: 1, py: 1 }}>
-                  {item.label}
-                </Typography>
-              )}
-            </Box>
-          ))}
+          {(() => {
+            const renderItem = (item: (typeof items)[number], dragHandle?: React.ReactNode) => (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Checkbox
+                  checked={item.done}
+                  disabled={!editable || busy}
+                  onChange={(e) => onToggleCheck(item.id, e.target.checked)}
+                  sx={{ p: { xs: 1.25, md: 1 } }}
+                />
+                {editable ? (
+                  <>
+                    <TextField
+                      variant="standard"
+                      defaultValue={item.label}
+                      key={`${item.id}-${item.label}`}
+                      disabled={busy}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== item.label) onRenameItem(item.id, v);
+                      }}
+                      // minWidth:0 or the input's intrinsic ~180px floor pushes
+                      // the icon buttons off the right edge on a phone.
+                      sx={{ flex: 1, minWidth: 0 }}
+                    />
+                    {dragHandle ?? null}
+                    <IconButton size="small" color="error" disabled={busy} onClick={() => onRemoveItem(item.id)} aria-label={t("workOrderDetail.prejob.removeItem")}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </>
+                ) : (
+                  <Typography variant="body2" sx={{ flex: 1, py: 1 }}>
+                    {item.label}
+                  </Typography>
+                )}
+              </Box>
+            );
+
+            return canDrag ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  {items.map((item) => (
+                    <SortableRow key={item.id} id={item.id} ariaLabel={t("workOrderDetail.prejob.reorderAria")}>
+                      {(dragHandle) => renderItem(item, dragHandle)}
+                    </SortableRow>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            ) : (
+              items.map((item) => <Box key={item.id}>{renderItem(item)}</Box>)
+            );
+          })()}
 
           {editable ? (
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1 }}>
-              <TextField
-                size="small"
-                placeholder={t("workOrderDetail.prejob.addItemPlaceholder")}
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") add();
-                }}
-                disabled={busy}
-                sx={{ flex: 1 }}
-              />
-              <Button variant="outlined" startIcon={<AddIcon />} onClick={add} disabled={busy || !newLabel.trim()}>
-                {t("workOrderDetail.prejob.addItem")}
-              </Button>
-            </Box>
+            // Same flow as "Taak toevoegen": a button opens a dialog to type the
+            // item, rather than an always-present inline field in the card.
+            <Button
+              startIcon={<AddIcon />}
+              onClick={() => setAddOpen(true)}
+              disabled={busy}
+              sx={{ mt: 1, ml: -0.5 }}
+            >
+              {t("workOrderDetail.prejob.addItemNew")}
+            </Button>
           ) : null}
         </Box>
 
@@ -218,6 +239,13 @@ export function PreJobPanel({
           </Typography>
         ) : null}
       </Box>
+
+      <AddChecklistItemDialog
+        open={addOpen}
+        busy={busy}
+        onClose={() => setAddOpen(false)}
+        onAdd={onAddItem}
+      />
     </Card>
   );
 }

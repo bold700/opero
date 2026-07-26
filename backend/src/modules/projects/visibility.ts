@@ -1,19 +1,24 @@
 import type { Prisma } from "@prisma/client";
+import { canSeeAllProjects } from "@opero/shared";
 import type { AuthUser } from "../../auth/types.js";
 
-// Port of `getVisibleProjectsForProfile` (client/src/lib/roles.ts) for the
-// 3-role auth model (admin / technician / client). Returns a Prisma `where`
-// fragment that is combined with orgId + deletedAt:null on every list/detail
-// query, so visibility is enforced uniformly at the data layer.
+// Returns a Prisma `where` fragment that is combined with orgId +
+// deletedAt:null on every list/detail query, so visibility is enforced
+// uniformly at the data layer.
 //
-// - admin:      every project in the org.
-// - client:     only projects of their linked customer (customerId match).
-// - technician: only projects where their employee is teamLeaderId OR
-//               projectLeaderId OR one of the installers (m:n).
+// - admin/office: every project in the org.
+// - client:       only projects of their linked customer (customerId match).
+// - technician:   only projects where their employee is teamLeaderId OR
+//                 projectLeaderId OR one of the installers (m:n).
+//
+// The office check MUST come first and be explicit. The final branch is a
+// fallthrough, so anyone not named above silently lands in the technician
+// "assigned only" case — and an office user has no assignments, so they'd get
+// an empty app with HTTP 200 and no error anywhere.
 export function visibleProjectsWhere(
   user: AuthUser,
 ): Prisma.ProjectWhereInput {
-  if (user.role === "admin") return {};
+  if (canSeeAllProjects(user.role)) return {};
 
   if (user.role === "client") {
     // `__none__` makes the filter match nothing if the user has no customer.
@@ -62,7 +67,7 @@ export function canViewProject(
     installers?: { id: string }[];
   },
 ): boolean {
-  if (user.role === "admin") return true;
+  if (canSeeAllProjects(user.role)) return true;
   if (user.role === "client") return project.customerId === user.customerId;
   // technician
   const employeeId = user.employeeId;

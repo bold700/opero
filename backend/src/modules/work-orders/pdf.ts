@@ -4,7 +4,7 @@ import { storage } from "../../lib/storage/index.js";
 
 // Programmatic work-order (werkbon) PDF via pdfkit — no headless browser (per the
 // project rule). Streams a document with the org header, customer/site block,
-// tasks + their materials (prices only when `showPrices`), pre-job checklist,
+// tasks + their materials (NO prices — see below), pre-job checklist,
 // embedded photos, and the sign-off block with the drawn signature image.
 
 // The shape the builder needs — a subset assembled by the route from the prisma
@@ -33,7 +33,14 @@ export type WorkOrderPdfData = {
       name: string;
       quantity: number;
       unit: string;
-      unitPrice?: number | null; // omitted/ignored when !showPrices
+      // No unitPrice — the werkbon carries no money (see buildWorkOrderPdf).
+      // Meerwerk is still MARKED, with whether it's been agreed: on site it
+      // matters that a line is extra work and whether it's signed off, even
+      // though the amount isn't shown here.
+      isExtraWork?: boolean;
+      approvedByOffice?: boolean;
+      approvedByClient?: boolean;
+      rejected?: boolean;
     }[];
     beforePhotos: string[]; // storage keys
     resultPhotos: string[];
@@ -49,7 +56,6 @@ export type WorkOrderPdfData = {
   signedAt?: Date | null;
 };
 
-const EURO = (n: number) => `€ ${n.toLocaleString("nl-NL", { minimumFractionDigits: 2 })}`;
 const DATE = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
 
 // The werkbon is always a Dutch customer document, so labels are Dutch here
@@ -81,10 +87,13 @@ async function safeRead(key: string): Promise<Buffer | null> {
 // the document has been fully written.
 export async function buildWorkOrderPdf(
   data: WorkOrderPdfData,
-  opts: { showPrices: boolean; org: Organization },
+  opts: { org: Organization },
   out: NodeJS.WritableStream,
 ): Promise<void> {
-  const { showPrices, org } = opts;
+  const { org } = opts;
+  // The WERKBON CARRIES NO PRICES — for any role. It's the record of what was
+  // done on site (quantities, photos, signature); the money lives on the
+  // offerte (quote-pdf.ts) and the invoice.
   const doc = new PDFDocument({ size: "A4", margin: 48 });
   doc.pipe(out);
 
@@ -180,7 +189,6 @@ export async function buildWorkOrderPdf(
   sectionTitle(doc, "Taken", LEFT, CONTENT_W);
   if (data.tasks.length === 0) line("Geen taken.", { color: MUTED });
 
-  let grandTotal = 0;
   data.tasks.forEach((task, i) => {
     ensureSpace(doc, 70);
     line(`${i + 1}. ${task.description || "—"}${task.done ? "  (afgerond)" : ""}`, {
@@ -194,11 +202,8 @@ export async function buildWorkOrderPdf(
       doc.moveDown(0.35);
       // Column x positions (absolute) for this task's material table.
       const cName = LEFT + 14;
-      const cQty = showPrices ? LEFT + CONTENT_W * 0.5 : LEFT + CONTENT_W * 0.72;
-      const wQty = showPrices ? CONTENT_W * 0.16 : CONTENT_W * 0.28;
-      const cPrice = LEFT + CONTENT_W * 0.66;
-      const cTotal = LEFT + CONTENT_W * 0.83;
-      const wPrice = CONTENT_W * 0.17;
+      const cQty = LEFT + CONTENT_W * 0.72;
+      const wQty = CONTENT_W * 0.28;
 
       // Column header row (Dutch).
       ensureSpace(doc, 16);
@@ -206,10 +211,6 @@ export async function buildWorkOrderPdf(
       doc.fillColor(MUTED).fontSize(8).font("Helvetica-Bold");
       doc.text("Materiaal", cName, hy, { width: (cQty - cName) - 6 });
       doc.text("Aantal", cQty, hy, { width: wQty, align: "right" });
-      if (showPrices) {
-        doc.text("Prijs", cPrice, hy, { width: wPrice, align: "right" });
-        doc.text("Totaal", cTotal, hy, { width: LEFT + CONTENT_W - cTotal, align: "right" });
-      }
       doc.y = hy + 13;
       doc.strokeColor("#E5E7EB").lineWidth(0.5).moveTo(cName, doc.y).lineTo(LEFT + CONTENT_W, doc.y).stroke();
       doc.y += 4;
@@ -217,18 +218,17 @@ export async function buildWorkOrderPdf(
       task.materials.forEach((m) => {
         ensureSpace(doc, 16);
         const qty = `${m.quantity} ${m.unit}`.trim();
-        const lineTotal = showPrices && m.unitPrice != null ? m.quantity * m.unitPrice : null;
-        if (lineTotal != null) grandTotal += lineTotal;
+        // Meerwerk is marked, with whether it's been agreed by BOTH sides —
+        // useful on site even though no amount is printed.
+        const agreed =
+          m.approvedByOffice === true && m.approvedByClient === true && m.rejected !== true;
+        const label = m.isExtraWork
+          ? `${m.name}  (meerwerk${agreed ? "" : " — nog niet akkoord"})`
+          : m.name;
         const y = doc.y;
         doc.fillColor(BODY).fontSize(9).font("Helvetica");
-        doc.text(m.name, cName, y, { width: (cQty - cName) - 6, lineBreak: false, ellipsis: true });
+        doc.text(label, cName, y, { width: (cQty - cName) - 6, lineBreak: false, ellipsis: true });
         doc.text(qty, cQty, y, { width: wQty, align: "right" });
-        if (showPrices) {
-          doc.text(m.unitPrice != null ? EURO(m.unitPrice) : "—", cPrice, y, { width: wPrice, align: "right" });
-          doc.text(lineTotal != null ? EURO(lineTotal) : "—", cTotal, y, {
-            width: LEFT + CONTENT_W - cTotal, align: "right",
-          });
-        }
         doc.y = y + 14; // advance one row; restores the single-column cursor
       });
     }
@@ -239,14 +239,7 @@ export async function buildWorkOrderPdf(
     doc.moveDown(0.7);
   });
 
-  if (showPrices && grandTotal > 0) {
-    ensureSpace(doc, 34);
-    hr(doc, LEFT, CONTENT_W);
-    doc.moveDown(0.3);
-    doc.fillColor(INK).fontSize(11).font("Helvetica-Bold")
-      .text(`Totaal: ${EURO(grandTotal)}`, LEFT, doc.y, flow({ align: "right" }));
-    doc.moveDown(0.6);
-  }
+  // No totals block: the werkbon states what was done, not what it costs.
 
   // --- Pre-job checklist --------------------------------------------------
   const checkKeys = Object.keys(data.prejobCheck);
