@@ -13,7 +13,7 @@ import type { AuthUser } from "../../auth/types.js";
 // and the automatic one (creating an Employee with an email address).
 //
 // "Login" (User) stays a separate record from the domain person (Employee /
-// Customer) — see docs/roles-and-permissions.md. This module owns the bit both
+// Customer) — see shared/src/permissions.ts. This module owns the bit both
 // callers need: create the User row, issue an invite token, send the email.
 
 // A password that can never match any input — invited users have no real

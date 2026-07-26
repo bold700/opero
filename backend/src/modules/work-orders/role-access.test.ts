@@ -6,7 +6,7 @@ const { prisma } = await import("../../db/client.js");
 const { hashPassword } = await import("../../auth/service.js");
 const { signAccessToken } = await import("../../auth/tokens.js");
 
-// Role-access rules for the werkbon flow, per docs/roles-and-permissions.md:
+// Role-access rules for the werkbon flow, per shared/src/permissions.ts:
 //   - Technicians do NOT create werkbons (office/admin task) → POST /work-orders 403.
 //   - Technicians do NOT get the customers list → GET /customers 403.
 //   - Technicians see ONLY their own timesheet → GET /employees/:self/timesheet 200,

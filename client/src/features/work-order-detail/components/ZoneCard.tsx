@@ -55,7 +55,7 @@ export function ZoneCard({
   // all of it moves the invoiced amount. See WorkOrderDetail's canEditScope.
   canEditScope: boolean;
   // Creating/deleting a ZONE is office work (admin-only) — a subset of
-  // canEditScope. See docs/roles-and-permissions.md.
+  // canEditScope. See shared/src/permissions.ts.
   canManageZones: boolean;
   // 3-way price rule: admin sees price + margin, client sees price, technician
   // sees neither. Derived from canSeePrices/canSeeMargin on the page.

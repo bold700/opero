@@ -752,7 +752,7 @@ workOrdersRouter.get(
 // POST /work-orders {projectId, title?} — create. Admin only: setting up a
 // werkbon (customer + project context) is an office task. Technicians are
 // ASSIGNED werkbons and fill them in (tasks/photos/signature) via the write
-// endpoints below — they don't create. See docs/roles-and-permissions.md.
+// endpoints below — they don't create. See shared/src/permissions.ts.
 workOrdersRouter.post(
   "/",
   requireRole("admin", "office"),
@@ -1271,7 +1271,7 @@ workOrdersRouter.post(
 // POST /work-orders/:id/tasks — add a blank task (zone). admin-only: creating/
 // removing zones is office work, not something a technician does in the field
 // (they fill in tasks, add photos, capture signatures, and report meerwerk —
-// see docs/roles-and-permissions.md).
+// see shared/src/permissions.ts).
 workOrdersRouter.post(
   "/:id/tasks",
   requireRole("admin", "office"),

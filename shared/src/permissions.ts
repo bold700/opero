@@ -1,6 +1,6 @@
-// The Roles & Permissions matrix, encoded cell-for-cell from the authoritative
-// spec at docs/roles-and-permissions.md. THAT DOC IS THE SOURCE OF TRUTH — if
-// this table disagrees with it, this table is the bug.
+// The Roles & Permissions matrix. THIS FILE IS THE SOURCE OF TRUTH: the guards
+// in the backend and the gating in the client all read the predicates below, so
+// a rule that isn't expressed here isn't enforced anywhere.
 //
 // Roles: admin = THE OWNER (full everywhere, incl. org config and any account),
 // office/kantoormedewerker (the full operational app, incl. inviting staff and
@@ -16,7 +16,8 @@
 // login.
 //
 // NOTE: "limited" is coarse — it doesn't distinguish read vs write, nor HOW the
-// access is delivered. See the per-cell notes in the doc. Two that matter here:
+// access is delivered; the predicates below are what actually decide. Two cells
+// that are easy to misread:
 //   - customers/technician = "limited" means "customer info ON their own work
 //     order" (name/address embedded in the werkbon payload) — NOT the Customers
 //     list/section. The backend correctly keeps GET /customers admin+client only.
@@ -38,7 +39,7 @@ export type Section =
 
 export type Access = "full" | "limited" | "none";
 
-// Mirrors docs/roles-and-permissions.md cell-for-cell.
+// The matrix itself. `limited` is coarse — see the per-cell notes above.
 export const PERMISSION_MATRIX: Record<Section, Record<UserRole, Access>> = {
   dashboard:   { admin: "full", office: "full", technician: "limited", client: "limited" },
   work_orders: { admin: "full", office: "full", technician: "limited", client: "limited" },
