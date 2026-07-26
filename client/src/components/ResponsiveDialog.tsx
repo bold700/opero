@@ -64,6 +64,7 @@ export function ResponsiveDialog({
   maxWidth = "sm",
   title,
   stableHeight = false,
+  sheetBelow = "sm",
 }: {
   open: boolean;
   /** Backdrop click / Escape / swipe-down. Pass `undefined` to lock (e.g. busy) —
@@ -80,9 +81,19 @@ export function ResponsiveDialog({
    *  of resizing it — vaul re-animates its position on every content-height change,
    *  which reads as "jumpy". Leave false for simple forms (they size to content). */
   stableHeight?: boolean;
+  /**
+   * Below which breakpoint this renders as a bottom sheet instead of a centered
+   * dialog. Defaults to "sm" (phones) — the right answer for ordinary forms.
+   *
+   * Raise it when the SURROUNDING page has already collapsed to one column at a
+   * wider breakpoint: a sheet is the fix for "this content is now buried three
+   * screens down", and that problem starts wherever the sidebar disappears, not
+   * at 600px. See the werkbon Projectinfo sheet (its layout splits at lg).
+   */
+  sheetBelow?: "sm" | "md" | "lg";
 }) {
   const theme = useTheme();
-  const mobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const mobile = useMediaQuery(theme.breakpoints.down(sheetBelow));
   // The sheet content node — MUI menus inside portal here so they stay clickable.
   const [sheetEl, setSheetEl] = useState<HTMLElement | null>(null);
 
@@ -114,6 +125,17 @@ export function ResponsiveDialog({
             // which collides with repositionInputs and leaves the sheet stuck
             // half-open at the bottom. The user taps a field when they're ready.
             onOpenAutoFocus={(e) => e.preventDefault()}
+            // A MUI Select/Autocomplete menu renders its own full-screen
+            // backdrop, and even when the menu portals INTO this sheet that
+            // backdrop sits outside Vaul.Content — so picking an option reads as
+            // an outside press and dismisses the whole sheet. Ignore any press
+            // that started inside a MUI popover; the menu closes itself.
+            onPointerDownOutside={(e) => {
+              const target = e.target as HTMLElement | null;
+              if (target?.closest(".MuiPopover-root, .MuiModal-root, .MuiAutocomplete-popper")) {
+                e.preventDefault();
+              }
+            }}
             style={{
               position: "fixed",
               left: 0,

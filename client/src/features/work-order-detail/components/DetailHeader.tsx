@@ -12,6 +12,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Tooltip from "@mui/material/Tooltip";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
@@ -45,6 +46,7 @@ export function DetailHeader({
   onReopen,
   onExportPdf,
   onExportQuotePdf,
+  onOpenInfo,
 }: {
   workOrder: WorkOrder;
   project: Project;
@@ -64,6 +66,11 @@ export function DetailHeader({
   onReopen: () => void;
   onExportPdf: () => void;
   onExportQuotePdf: () => void;
+  /**
+   * Opens the Projectinfo sheet. Only passed where the layout has collapsed to
+   * one column and the panel isn't on screen; omit it and no icon renders.
+   */
+  onOpenInfo?: () => void;
 }) {
   const { t } = useTranslation();
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
@@ -122,6 +129,21 @@ export function DetailHeader({
 
         {/* Right: icon actions (export, add-zone) then the primary button. */}
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexShrink: 0 }}>
+          {/* Projectinfo — only below lg, where the sidebar has collapsed and the
+              panel would otherwise sit ~3 screens down. Hidden by CSS (not
+              unmounted) since it's a pure visibility toggle. */}
+          {onOpenInfo ? (
+            <Tooltip title={t("workOrderDetail.header.info")}>
+              <IconButton
+                aria-label={t("workOrderDetail.header.info")}
+                onClick={onOpenInfo}
+                sx={{ display: { xs: "inline-flex", lg: "none" } }}
+              >
+                <InfoOutlinedIcon />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+
           {/* Export — ICON button like the old app. Technicians export the
               werkbon PDF directly; admins get the offerte/werkbon menu. */}
           {canExportQuote ? (

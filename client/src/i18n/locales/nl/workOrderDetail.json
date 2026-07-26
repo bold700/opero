@@ -24,6 +24,7 @@
   },
   "header": {
     "back": "terug",
+    "info": "Projectinfo",
     "signed": "Ondertekend",
     "signedBy": "door {{name}}",
     "finish": "Werkbon afronden",

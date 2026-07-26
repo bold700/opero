@@ -24,6 +24,7 @@
   },
   "header": {
     "back": "back",
+    "info": "Project info",
     "signed": "Signed",
     "signedBy": "by {{name}}",
     "finish": "Complete work order",

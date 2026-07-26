@@ -5,6 +5,8 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import {
   canSeePrices,
   canSeeMargin,
@@ -65,6 +67,7 @@ import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
 import { PreJobPanel } from "./components/PreJobPanel";
 import { ProjectInfoPanel } from "./components/ProjectInfoPanel";
+import { ProjectInfoSheet } from "./components/ProjectInfoSheet";
 import { MeerwerkApprovalPanel } from "./components/MeerwerkApprovalPanel";
 import { AttachmentsPanel } from "./components/AttachmentsPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
@@ -85,6 +88,14 @@ export function WorkOrderDetail() {
   // admin → price + margin, client → price only, technician → no price.
   const showPrices = canSeePrices(role);
   const showMargin = canSeeMargin(role);
+
+  // Below lg the two-column layout collapses, so Projectinfo moves into a sheet
+  // reachable from the header. Matches the breakpoint of the layout itself
+  // (see the flexDirection below), NOT the usual sm "mobile" — on a tablet the
+  // sidebar is already gone and the panel is just as buried.
+  const theme = useTheme();
+  const infoInSheet = useMediaQuery(theme.breakpoints.down("lg"));
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -166,6 +177,28 @@ export function WorkOrderDetail() {
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
 
+  // One definition, two possible homes — the sidebar or the sheet — so the two
+  // can't drift. Rendered in exactly ONE of them: the panel has uncontrolled
+  // defaultValue/onBlur inputs and fetches customers on mount, so two mounted
+  // copies would double that request and let the fields desync.
+  const projectInfoProps = {
+    project,
+    workOrder: wo,
+    canEdit: canEditScope,
+    busy,
+    employees: assignees,
+    onPatch: (patch: ProjectSidebarPatch) =>
+      run(async () => {
+        setProject(await updateProject(project.id, patch));
+      }),
+    onAssignMonteurs: (ids: string[]) =>
+      run(async () => { setWo(await setWorkOrderAssignees(wo.id, ids)); }),
+    onSetSchedule: (patch: { plannedDate?: string | null; plannedEndDate?: string | null }) =>
+      run(async () => { setWo(await setWorkOrderSchedule(wo.id, patch)); }),
+    onSetTitle: (title: string) =>
+      run(async () => { setWo(await setWorkOrderTitle(wo.id, title)); }),
+  };
+
   // Delete the whole werkbon, then leave — the page we're on no longer exists.
   // `replace` so Back doesn't return to a 404.
   const handleDelete = () =>
@@ -215,6 +248,8 @@ export function WorkOrderDetail() {
           exporting={exporting}
           exportingQuote={exportingQuote}
           onBack={() => navigate("/work-orders")}
+          // Only where the panel isn't on screen; the icon hides itself at lg+.
+          onOpenInfo={infoInSheet ? () => setInfoOpen(true) : undefined}
           onDelete={handleDelete}
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
@@ -302,26 +337,22 @@ export function WorkOrderDetail() {
               }
             />
 
-            <ProjectInfoPanel
-              project={project}
-              workOrder={wo}
-              canEdit={canEditQuoteScope(role)}
-              busy={busy}
-              employees={assignees}
-              onPatch={(patch: ProjectSidebarPatch) =>
-                run(async () => {
-                  setProject(await updateProject(project.id, patch));
-                })
-              }
-              onAssignMonteurs={(ids) => run(async () => { setWo(await setWorkOrderAssignees(wo.id, ids)); })}
-              onSetSchedule={(patch) => run(async () => { setWo(await setWorkOrderSchedule(wo.id, patch)); })}
-              onSetTitle={(title) => run(async () => { setWo(await setWorkOrderTitle(wo.id, title)); })}
-            />
+            {/* Below lg this lives in a sheet behind the header's info icon —
+                inline it would sit ~3 screens down, past the whole werkbon. */}
+            {infoInSheet ? null : <ProjectInfoPanel {...projectInfoProps} />}
 
             <ActivityPanel activity={project.activity} />
           </Box>
         </Box>
       </Box>
+
+      {infoInSheet ? (
+        <ProjectInfoSheet
+          open={infoOpen}
+          onClose={() => setInfoOpen(false)}
+          {...projectInfoProps}
+        />
+      ) : null}
 
       <SignOffDialog
         open={signOpen}

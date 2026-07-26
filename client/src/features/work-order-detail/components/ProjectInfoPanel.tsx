@@ -9,6 +9,7 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import { Card } from "../../../components/Card";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { useSheetMenuProps } from "../../../components/ResponsiveDialog";
 import { getCustomers, type CustomerOption } from "../../work-orders/create-api";
 import type {
   Project,
@@ -56,6 +57,7 @@ export function ProjectInfoPanel({
   onAssignMonteurs,
   onSetSchedule,
   onSetTitle,
+  bare = false,
 }: {
   project: Project;
   workOrder: WorkOrder;
@@ -67,8 +69,18 @@ export function ProjectInfoPanel({
   onSetSchedule: (patch: { plannedDate?: string | null; plannedEndDate?: string | null }) => void;
   /** Rename the werkbon (werkbon-level, not project). */
   onSetTitle: (title: string) => void;
+  /**
+   * Drop the Card chrome and the heading — for when this is already inside a
+   * container that supplies both (the mobile Projectinfo sheet). Otherwise the
+   * sheet shows a card inside a sheet, with the title twice.
+   */
+  bare?: boolean;
 }) {
   const { t } = useTranslation();
+  // Inside a bottom sheet, MUI menus must portal into the sheet's own subtree or
+  // vaul blocks their pointer events and they open but can't be clicked. Returns
+  // undefined outside a sheet, so this is a no-op on desktop.
+  const sheetMenu = useSheetMenuProps();
 
   // Customer options for the Klant switcher, loaded once for admins (the only
   // role that can switch). `pendingCustomer` holds the picked id until the
@@ -86,12 +98,17 @@ export function ProjectInfoPanel({
   const days = durationDays(workOrder.plannedDate, workOrder.plannedEndDate);
   const leaderName = employees.find((e) => e.id === project.projectLeaderId)?.name;
 
+  // In a sheet the surrounding chrome already supplies the card and the title.
+  const Shell = bare ? Box : Card;
+
   return (
-    <Card>
+    <Shell>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {t("workOrderDetail.info.title")}
-        </Typography>
+        {bare ? null : (
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {t("workOrderDetail.info.title")}
+          </Typography>
+        )}
 
         {/* Progress — derived from this werkbon's zones. */}
         <Field label={t("workOrderDetail.info.progress")}>
@@ -131,6 +148,7 @@ export function ProjectInfoPanel({
                 value={project.customerId}
                 onChange={(e) => setPendingCustomer(e.target.value)}
                 disabled={busy}
+                slotProps={{ select: { MenuProps: { container: sheetMenu.container } } }}
               >
                 {customers.map((c) => (
                   <MenuItem key={c.id} value={c.id}>
@@ -147,6 +165,7 @@ export function ProjectInfoPanel({
                 value={project.urgency}
                 onChange={(e) => onPatch({ urgency: e.target.value as ProjectSidebarPatch["urgency"] })}
                 disabled={busy}
+                slotProps={{ select: { MenuProps: { container: sheetMenu.container } } }}
               >
                 <MenuItem value="normal">{t("workOrderDetail.urgency.normal")}</MenuItem>
                 <MenuItem value="urgent">{t("workOrderDetail.urgency.urgent")}</MenuItem>
@@ -214,6 +233,7 @@ export function ProjectInfoPanel({
                 value={project.projectLeaderId ?? ""}
                 onChange={(e) => onPatch({ projectLeaderId: e.target.value || null })}
                 disabled={busy}
+                slotProps={{ select: { MenuProps: { container: sheetMenu.container } } }}
               >
                 <MenuItem value="">{t("workOrderDetail.info.none")}</MenuItem>
                 {employees.map((e) => (
@@ -233,6 +253,7 @@ export function ProjectInfoPanel({
                 value={employees.filter((a) => workOrder.assignees.some((s) => s.id === a.id))}
                 onChange={(_e, selected) => onAssignMonteurs(selected.map((s) => s.id))}
                 disabled={busy}
+                slotProps={{ popper: { container: sheetMenu.container } }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -404,6 +425,6 @@ export function ProjectInfoPanel({
           setPendingCustomer(null);
         }}
       />
-    </Card>
+    </Shell>
   );
 }
