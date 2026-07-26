@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Opero
 
-## Getting Started
+Werkbon management application — work orders, planning, customers, and materials
+for an insulation company.
 
-First, run the development server:
+## Stack
+
+Monorepo managed with pnpm workspaces:
+
+- `client/` — Vite + React + MUI + React Router (installable PWA)
+- `backend/` — Express + Prisma + Postgres
+- `shared/` — `@opero/shared`: shared types, zod schemas, and domain logic
+
+Requires Node >= 22 and pnpm 9.
+
+## Setup
+
+Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create the local Postgres container (once):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+docker run --name opero-postgres -e POSTGRES_USER=opero -e POSTGRES_PASSWORD=opero_dev_pw -e POSTGRES_DB=opero -p 5433:5432 -d postgres:16
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy the backend environment file and adjust as needed:
 
-## Learn More
+```bash
+cp backend/.env.example backend/.env
+```
 
-To learn more about Next.js, take a look at the following resources:
+Apply migrations and seed the database:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm db:migrate && pnpm db:seed
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Development
 
-## Deploy on Vercel
+```bash
+pnpm dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Starts the API and client together; the Postgres container is started
+automatically. The client runs on http://localhost:3000 and the API on
+http://localhost:8787.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Run API and client together |
+| `pnpm dev:client` | Run the client only |
+| `pnpm dev:backend` | Run the API only |
+| `pnpm build` | Build all workspaces |
+| `pnpm typecheck` | Type-check all workspaces |
+| `pnpm lint` | Lint all workspaces |
+| `pnpm db:migrate` | Create and apply a migration (dev) |
+| `pnpm db:deploy` | Apply pending migrations (production) |
+| `pnpm db:generate` | Regenerate the Prisma client |
+| `pnpm db:seed` | Seed the database |
+
+## Tests
+
+```bash
+pnpm --filter @opero/backend test
+```
+
+## Configuration
+
+Backend configuration lives in `backend/.env` — see `backend/.env.example` for
+the full list, including database connection, JWT settings, CORS origins,
+S3-compatible object storage, and transactional email.
+
+The client reads `VITE_API_URL` to locate the API, defaulting to
+`http://localhost:8787/api` in development.
