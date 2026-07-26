@@ -62,6 +62,7 @@
       "disable": "Uitschakelen",
       "enable": "Inschakelen",
       "selfDisableHint": "Je kunt je eigen toegang niet uitschakelen.",
+      "outranked": "Alleen een eigenaar kan dit account beheren.",
       "confirmDisableTitle": "Toegang uitschakelen?",
       "confirmDisableBody": "{{name}} kan daarna niet meer inloggen op het klantportaal. Actieve sessies worden direct beëindigd. Je kunt de toegang later weer inschakelen."
     }

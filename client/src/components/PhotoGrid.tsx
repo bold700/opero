@@ -59,8 +59,14 @@ export function PhotoGrid({
   const [pending, setPending] = useState<Pending[]>([]);
 
   const maxLabel = formatMaxBytes(MAX_IMAGE_BYTES);
-  // Busy while the parent is working OR while our own queue is draining.
-  const uploading = Boolean(busy) || pending.some((p) => !p.error);
+  // THIS grid is uploading only when ITS OWN queue is draining. `busy` is the
+  // work-order page's single shared mutation flag, so folding it in here made
+  // every photo section on the page spin whenever any one of them (or any other
+  // mutation) ran — you'd add one photo and watch five spinners.
+  const uploading = pending.some((p) => !p.error);
+  // The parent being busy still blocks NEW uploads (one mutation at a time),
+  // it just doesn't claim this grid is the one doing the work.
+  const disabled = uploading || Boolean(busy);
   // Drives which add-affordance shows (dashed tile vs compact button). Both are
   // rendered in fixed slots so this never changes the element tree's SHAPE.
   const isEmpty = photos.length + pending.length === 0;
@@ -209,14 +215,14 @@ export function PhotoGrid({
         {canEdit && onAdd && !isEmpty ? (
           <Box
             role="button"
-            onClick={uploading ? undefined : pick}
+            onClick={disabled ? undefined : pick}
             sx={{
               ...tileSx,
               border: `1.5px dashed`,
               borderColor: "divider",
               color: "text.secondary",
-              cursor: uploading ? "default" : "pointer",
-              "&:hover": { bgcolor: uploading ? "transparent" : "action.hover" },
+              cursor: disabled ? "default" : "pointer",
+              "&:hover": { bgcolor: disabled ? "transparent" : "action.hover" },
             }}
           >
             <AddPhotoAlternateOutlinedIcon />
@@ -238,7 +244,7 @@ export function PhotoGrid({
             )
           }
           onClick={pick}
-          disabled={uploading}
+          disabled={disabled}
         >
           {uploading ? t("photos.uploading") : (addLabel ?? t("photos.add"))}
         </Button>

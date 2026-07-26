@@ -20,7 +20,7 @@ import {
   employeeListInclude,
   absenceDto,
 } from "./dto.js";
-import { canSeeAllProjects } from "@opero/shared";
+import { canSeeAllProjects, canActOnAccount, type UserRole } from "@opero/shared";
 import { autoInviteEmployee, revokeLoginsFor } from "../users/provisioning.js";
 import { accountInclude } from "../users/dto.js";
 import { absencesInRange, isIsoDay, todayIso } from "./absence.js";
@@ -386,9 +386,9 @@ employeesRouter.post(
 //
 // This cascades into revokeLoginsFor, so it is also a way to revoke access.
 // Hence the standard rule: you can never delete someone AT OR ABOVE your own
-// level. Office removes technicians and other office staff; only the owner
-// removes an owner. Without that, an office clerk could delete the owner's
-// employee record and lock the owner out of their own company.
+// level. Office removes technicians and employees with no login; only the owner
+// removes an owner or an office user. Without that, an office clerk could delete
+// the owner's employee record and lock the owner out of their own company.
 employeesRouter.delete(
   "/:id",
   requireRole("admin", "office"),
@@ -405,10 +405,14 @@ employeesRouter.delete(
     if (user.employeeId === existing.id) {
       throw BadRequest("You can't delete your own employee record");
     }
-    // Office may not delete an owner. (An admin may — see the self-check above,
-    // which guarantees at least one active admin survives.)
-    if (user.role !== "admin" && existing.users.some((u) => u.role === "admin")) {
-      throw Forbidden("Only an administrator can remove another administrator");
+    // You can never delete someone at or above your own level, so office may
+    // remove neither an owner nor another office user. An employee with no
+    // login has nothing to outrank and is removable by anyone who gets here.
+    // (An admin outranks everyone — the self-check above guarantees at least
+    // one active admin survives.) Same predicate as the account guards in
+    // users/routes.ts, since delete is the other way to revoke access.
+    if (existing.users.some((u) => !canActOnAccount(user.role as UserRole, u.role))) {
+      throw Forbidden("You can't remove someone at or above your own level");
     }
     await prisma.$transaction(async (tx) => {
       await tx.employee.update({

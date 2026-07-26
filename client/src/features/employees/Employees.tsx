@@ -8,7 +8,7 @@ import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects, canManageAccounts } from "@opero/shared";
+import { canSeeAllProjects, canManageAccounts, canActOnAccount } from "@opero/shared";
 import { LAVENDER } from "../../theme/tokens";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
@@ -53,16 +53,18 @@ export function Employees() {
   const role = user?.role ?? "client";
   // TWO different permissions, deliberately kept apart:
   //   canManage        — the employee RECORD (create/edit). Office staff too.
-  //   canManageAccount — the LOGIN (invite/resend/disable). The owner only.
-  // Collapsing these back into one flag would hand office staff the ability to
-  // provision and revoke logins, which is the whole reason `office` exists.
+  //   canManageAccount — whether the LOGIN panel shows at all. Admin + office;
+  //                      WHICH accounts it can act on is per-target, decided
+  //                      inside AccountSection by canActOnAccount.
   const canManage = canSeeAllProjects(role);
   const canManageAccount = canManageAccounts(role);
-  // Deleting revokes the target's login too, so the standard rule applies: you
-  // can't delete someone at or above your own level. Office removes technicians
-  // and other office staff; only an owner removes an owner.
+  // Deleting revokes the target's login too, so the same level rule applies:
+  // you can't delete someone at or above your own level. Office removes
+  // technicians and employees with no login; only an owner removes an owner.
+  // An employee with no login has nothing to outrank, so anyone managing
+  // records may delete them.
   const canDelete = (e: EmployeeRow) =>
-    canManage && (canManageAccounts(role) || e.account?.role !== "admin");
+    canManage && (!e.account || canActOnAccount(role, e.account.role));
 
   const [activeFilter, setActiveFilter] = useState<EmployeeFilter>("all");
   const [search, setSearch] = useState("");

@@ -2,15 +2,18 @@
 // spec at docs/roles-and-permissions.md. THAT DOC IS THE SOURCE OF TRUTH — if
 // this table disagrees with it, this table is the bug.
 //
-// Roles: admin = THE OWNER (full everywhere, incl. logins + org config),
-// office/kantoormedewerker (the full operational app, but never logins or org
-// config), technician/monteur (LIMITED field access), client/klant (LIMITED
+// Roles: admin = THE OWNER (full everywhere, incl. org config and any account),
+// office/kantoormedewerker (the full operational app, incl. inviting staff and
+// customers, but never org config and never an account at or above its own
+// level), technician/monteur (LIMITED field access), client/klant (LIMITED
 // own-data / NONE).
 //
-// admin vs office is a horizontal split, not a rank: office does the work, the
-// owner decides who gets in and how the company is configured. Before `office`
-// existed, one `admin` flag guarded all 68 endpoints — the same bit that let you
-// edit a material price also let you revoke another admin's login.
+// Office does the whole operational job, the owner's exceptions being org
+// configuration and anything touching a peer-or-above account. Account access
+// is therefore LEVEL-based, not a flat admin bit: see canActOnAccount below.
+// Before `office` existed, one `admin` flag guarded all 68 endpoints — the same
+// bit that let you edit a material price also let you revoke another admin's
+// login.
 //
 // NOTE: "limited" is coarse — it doesn't distinguish read vs write, nor HOW the
 // access is delivered. See the per-cell notes in the doc. Two that matter here:
@@ -51,8 +54,10 @@ export const PERMISSION_MATRIX: Record<Section, Record<UserRole, Access>> = {
   // Office gets their own profile/security/notifications, but not the company
   // settings or the pre-job checklist template.
   settings:    { admin: "full", office: "limited", technician: "limited", client: "limited" },
-  // Access / user provisioning — the OWNER only (not in the original spec table).
-  users:       { admin: "full", office: "none", technician: "none", client: "none" },
+  // Access / user provisioning (not in the original spec table). Office manages
+  // logins too, but only for levels BELOW it — never an admin or another office
+  // user, and it can't mint an admin. Hence "limited". See canActOnAccount.
+  users:       { admin: "full", office: "limited", technician: "none", client: "none" },
 };
 
 export function accessFor(section: Section, role: UserRole): Access {
@@ -117,11 +122,65 @@ export function canApproveAsOffice(role: UserRole): boolean {
 }
 
 /**
- * May provision/revoke logins. THE OWNER ONLY — this is the line `office` must
- * never cross, and the reason the role exists.
+ * May provision/revoke logins at all — i.e. sees the account panel inside the
+ * Werknemers / Klanten dialog. Office does the same operational job as the
+ * owner, inviting staff and customers included; what office may NOT do is act
+ * on an account at or above its own level (see `canActOnAccount`).
  */
 export function canManageAccounts(role: UserRole): boolean {
-  return role === "admin";
+  return role === "admin" || role === "office";
+}
+
+// Account management is level-based, not a flat admin gate. One rule covers it:
+//
+//   YOU CAN NEVER ACT ON AN ACCOUNT AT OR ABOVE YOUR OWN LEVEL.
+//
+// It is the same rule that already governs deleting an employee who holds a
+// login (employees/routes.ts) — account actions are just the other way to
+// revoke access, so they must not be a way around it. Concretely: office
+// invites, resends, disables and enables technicians and clients, but never
+// touches an admin or another office user, and never mints an admin. Admin is
+// above everyone, so an admin acts on anyone (the self-action guards in
+// users/routes.ts keep the last owner from locking themselves out).
+const ACCOUNT_LEVEL: Record<UserRole, number> = {
+  admin: 3,
+  office: 2,
+  technician: 1,
+  client: 1,
+};
+
+/**
+ * May the actor act on (disable / enable / resend for) an account holding
+ * `targetRole`?
+ *
+ * Strictly above for everyone EXCEPT admin, so office may not disable another
+ * office user — that's what stops two clerks revoking each other. The owner is
+ * the documented exception: an admin acts on other admins, because otherwise a
+ * two-owner company could never remove a departing owner and the role would be
+ * irrevocable. What keeps that safe is the separate self-action guard (you can
+ * never disable or delete yourself), which guarantees the acting admin survives
+ * and the org is never locked out.
+ */
+export function canActOnAccount(actorRole: UserRole, targetRole: UserRole): boolean {
+  if (actorRole === "admin") return true;
+  return ACCOUNT_LEVEL[actorRole] > ACCOUNT_LEVEL[targetRole];
+}
+
+/**
+ * May the actor create a login with `targetRole`? Same rule as acting on one —
+ * you cannot mint someone at or above your own level. Without this, office
+ * could invite an admin and have that admin disable them back, which would make
+ * `canActOnAccount` pointless.
+ */
+export function canGrantRole(actorRole: UserRole, targetRole: UserRole): boolean {
+  return canActOnAccount(actorRole, targetRole);
+}
+
+/** The roles `actorRole` may pick from when inviting an employee. */
+export function grantableRoles(actorRole: UserRole): UserRole[] {
+  return (["admin", "office", "technician"] as const).filter((r) =>
+    canGrantRole(actorRole, r),
+  );
 }
 
 /** May change company settings and org-wide templates. The owner only. */

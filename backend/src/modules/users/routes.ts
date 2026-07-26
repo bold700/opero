@@ -1,8 +1,13 @@
 import { Router } from "express";
-import { inviteUserSchema, type UserRole } from "@opero/shared";
+import {
+  canActOnAccount,
+  canGrantRole,
+  inviteUserSchema,
+  type UserRole,
+} from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
-import { BadRequest, Conflict, NotFound } from "../../lib/httpError.js";
+import { BadRequest, Conflict, Forbidden, NotFound } from "../../lib/httpError.js";
 import { audit } from "../../lib/audit.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import { issueInvite } from "../../auth/tokens.js";
@@ -13,16 +18,23 @@ import {
   type LinkTarget,
 } from "./provisioning.js";
 
-// User provisioning — admins create login accounts and invite people to activate
-// them. All admin-only, org-scoped. "Login" (User) is separate from the domain
-// record (Employee/Customer) but ALWAYS links to one, so every account is
-// reachable from Werknemers / Klanten — the only screens that manage access.
+// User provisioning — the office creates login accounts and invites people to
+// activate them. Org-scoped. "Login" (User) is separate from the domain record
+// (Employee/Customer) but ALWAYS links to one, so every account is reachable
+// from Werknemers / Klanten — the only screens that manage access.
+//
+// Admin AND office, gated per-target rather than at the door: the rule is that
+// you can never act on an account at or above your own level, so office invites
+// and revokes technicians and clients but never an admin or another office
+// user. That mirrors the guard on deleting an employee who holds a login
+// (employees/routes.ts) — an account action is the other way to revoke access,
+// so it must not be a way around that rule. See canActOnAccount in @opero/shared.
 //
 // There is no list endpoint: these four act on one account at a time, and the
 // lists come from /employees and /customers, which embed each record's account.
 export const usersRouter = Router();
 
-usersRouter.use(requireAuth, requireRole("admin"));
+usersRouter.use(requireAuth, requireRole("admin", "office"));
 
 type UserRow = {
   id: string;
@@ -50,6 +62,22 @@ function userDto(u: UserRow) {
   };
 }
 
+// Load the target account and apply the level rule. Every route that acts on an
+// existing account goes through here, so the guard can't be forgotten on one of
+// them. 404 for a wrong/foreign id, 403 for a real account the actor outranks —
+// deliberately distinct, since the id came from a list the actor can already see.
+async function loadActionableUser(
+  actor: { id: string; orgId: string; role: UserRole },
+  id: string,
+) {
+  const user = await prisma.user.findFirst({ where: { id, orgId: actor.orgId } });
+  if (!user) throw NotFound("User not found");
+  if (!canActOnAccount(actor.role, user.role as UserRole)) {
+    throw Forbidden("You can't manage an account at or above your own level");
+  }
+  return user;
+}
+
 // POST /users/invite — provision a login for an EXISTING person (Employee or
 // Customer) and send the activation email. The email + name come from that
 // record; a login is never created for a free-typed address.
@@ -58,6 +86,19 @@ usersRouter.post(
   asyncHandler(async (req, res) => {
     const admin = req.user!;
     const input = inviteUserSchema.parse(req.body);
+
+    // Authorization FIRST, before any lookup or data-shape validation. The role
+    // being granted is known from the request alone, and checking it here means
+    // an office user asking for an admin login gets a flat 403 — never a 404 or
+    // a "this employee has no email" that would confirm the record exists and
+    // hint the request was otherwise acceptable.
+    //
+    // A customer login is always `client`, which is below everyone who can
+    // reach this route, so only the employee branch can fail this.
+    const requestedRole: UserRole = input.kind === "employee" ? input.role : "client";
+    if (!canGrantRole(admin.role as UserRole, requestedRole)) {
+      throw Forbidden("You can't create an account at or above your own level");
+    }
 
     // Resolve the linked person → derive email, name, role. Guard: the record
     // must exist (org-scoped), have an email, and not already have a login.
@@ -112,10 +153,7 @@ usersRouter.post(
   "/:id/resend-invite",
   asyncHandler(async (req, res) => {
     const admin = req.user!;
-    const user = await prisma.user.findFirst({
-      where: { id: req.params.id, orgId: admin.orgId },
-    });
-    if (!user) throw NotFound("User not found");
+    const user = await loadActionableUser(admin, req.params.id);
     if (user.status !== "invited") throw BadRequest("This user is already active");
     const token = await issueInvite(user.id);
     await sendInviteEmail(user.email, user.name, token);
@@ -129,10 +167,7 @@ usersRouter.post(
   "/:id/disable",
   asyncHandler(async (req, res) => {
     const admin = req.user!;
-    const user = await prisma.user.findFirst({
-      where: { id: req.params.id, orgId: admin.orgId },
-    });
-    if (!user) throw NotFound("User not found");
+    const user = await loadActionableUser(admin, req.params.id);
     // An admin can't disable their own account — that would instantly revoke
     // their own session. Removing your own access isn't a self-service action.
     // (This also prevents the last admin locking the org out: an admin can only
@@ -158,10 +193,7 @@ usersRouter.post(
   "/:id/enable",
   asyncHandler(async (req, res) => {
     const admin = req.user!;
-    const user = await prisma.user.findFirst({
-      where: { id: req.params.id, orgId: admin.orgId },
-    });
-    if (!user) throw NotFound("User not found");
+    const user = await loadActionableUser(admin, req.params.id);
     if (user.status !== "disabled") {
       res.json(userDto(user));
       return;

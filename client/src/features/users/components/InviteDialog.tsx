@@ -10,6 +10,8 @@ import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
+import { grantableRoles, type UserRole } from "@opero/shared";
+import { useAuth } from "../../../auth/AuthContext";
 import type { InviteInput } from "../api";
 
 // Provision a login for an EXISTING person (Employee or Customer). Email, name
@@ -25,10 +27,13 @@ export type InviteFixedTarget =
   | { kind: "customer"; id: string; name: string };
 
 // Ordered least → most privileged. `admin` is the OWNER: everything, including
-// provisioning logins and org settings. `office` is staff: the full operational
-// app, no account management.
-const EMPLOYEE_ROLES = ["technician", "office", "admin"] as const;
-type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
+// org settings and acting on any account. `office` is staff: the full
+// operational app, and accounts only BELOW their own level.
+//
+// Which of these the signed-in user may actually hand out is a level question,
+// so the options come from grantableRoles() — office never sees `admin`, since
+// minting an owner would be a way around the guard on disabling one.
+type EmployeeRole = "admin" | "office" | "technician";
 
 export function InviteDialog({
   open,
@@ -47,7 +52,14 @@ export function InviteDialog({
   onSubmit: (input: InviteInput) => void;
 }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [role, setRole] = useState<EmployeeRole>("technician");
+
+  // Least → most privileged, capped at what this actor may grant. Never empty
+  // for anyone who can open this dialog: office can always grant `technician`.
+  const roleOptions = grantableRoles((user?.role ?? "client") as UserRole)
+    .filter((r): r is EmployeeRole => r !== "client")
+    .reverse();
 
   // Reset on (re)open.
   useEffect(() => {
@@ -89,7 +101,7 @@ export function InviteDialog({
               value={role}
               onChange={(v) => setRole(v as EmployeeRole)}
               disabled={busy}
-              options={EMPLOYEE_ROLES.map((r) => ({ value: r, label: t(`users.roles.${r}`) }))}
+              options={roleOptions.map((r) => ({ value: r, label: t(`users.roles.${r}`) }))}
             />
           ) : fixed ? (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>

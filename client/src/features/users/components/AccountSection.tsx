@@ -4,6 +4,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
+import { canActOnAccount, type UserRole } from "@opero/shared";
+import { useAuth } from "../../../auth/AuthContext";
 import { HAIRLINE, RADIUS } from "../../../theme/tokens";
 import { AccountStatusChip } from "./AccountStatusChip";
 import type { LinkedAccount } from "../api";
@@ -12,6 +14,12 @@ import type { LinkedAccount } from "../api";
 // employee dialog. This is the ONLY place access is managed — there is no
 // separate Toegang screen — so it covers the whole lifecycle: invite, resend,
 // disable, enable.
+//
+// Open to admin AND office, but per-target: you can't act on an account at or
+// above your own level, so office manages technicians and clients while an
+// admin or another office user is shown read-only. The backend enforces the
+// same rule (users/routes.ts) — this only keeps the UI from offering a button
+// that would 403.
 //
 // `labelKeys` lets each feature supply its own copy namespace
 // ("customers.dialog.account" / "employees.dialog.account") so the
@@ -39,10 +47,17 @@ export function AccountSection({
   onEnable: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  const actorRole = (user?.role ?? "client") as UserRole;
 
   // No email → nothing to send an invite to. Explain why the button is off
   // rather than leaving a dead control.
   const canInvite = email.trim().length > 0;
+
+  // An existing account at or above the actor's level is read-only: office may
+  // not resend/disable/enable an admin or another office user. Note this is
+  // about the ACCOUNT's role, not the person's job title.
+  const outranked = !!account && !canActOnAccount(actorRole, account.role as UserRole);
 
   // You can't revoke your own access — that would instantly log you out, and
   // it's the guard that stops the last admin locking the org out. The backend
@@ -70,6 +85,15 @@ export function AccountSection({
   };
 
   const actions = () => {
+    // Say WHY there are no buttons — silence here is what made the missing
+    // panel read as a broken feature before.
+    if (outranked) {
+      return (
+        <Typography variant="caption" color="text.secondary">
+          {t(`${labelKeys}.outranked`)}
+        </Typography>
+      );
+    }
     if (!account) {
       const button = (
         <Box component="span">

@@ -62,6 +62,7 @@
       "disable": "Disable",
       "enable": "Enable",
       "selfDisableHint": "You can't disable your own access.",
+      "outranked": "Only an owner can manage this account.",
       "confirmDisableTitle": "Disable access?",
       "confirmDisableBody": "{{name}} will no longer be able to sign in to the customer portal. Active sessions end immediately. You can re-enable access later."
     }

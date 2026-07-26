@@ -8,13 +8,15 @@ const { signAccessToken } = await import("../../auth/tokens.js");
 
 // THE OFFICE BOUNDARY.
 //
-// `admin` is the OWNER; `office` is staff. Office gets the full operational app
-// but must never touch the two things that decide who gets in and how the
-// company is configured — plus employee DELETE, which cascades into revoking a
-// login and would otherwise let a clerk disable the owner.
+// `admin` is the OWNER; `office` is staff. Office gets the full operational
+// app, INCLUDING inviting technicians and customers — what it must never touch
+// is org configuration, and any account at or above its own level. That last
+// rule covers employee DELETE too, since deleting cascades into revoking the
+// linked login and would otherwise be the way around the account guards.
 //
-// Every check here is a `role === "admin"` comparison that stays valid
-// TypeScript forever, so nothing but a test will catch a regression.
+// The boundary is per-target (canActOnAccount), not a blanket router gate, so
+// both halves need asserting: re-locking the router to admin-only would still
+// satisfy every "CANNOT" test here. The "CAN" blocks are what catch that.
 
 const TAG = "office-role-test";
 let orgId: string;
@@ -81,34 +83,143 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("office CANNOT manage logins", () => {
-  it("cannot invite", async () => {
+// Office manages logins, but only DOWNWARD. `someUserId` is the OWNER's login,
+// so every action against it must 403 — the level rule, not a blanket router
+// gate. That distinction is the whole point: a regression that re-locks the
+// router would still pass these, so the "CAN invite" block below is what
+// catches it.
+describe("office CANNOT manage logins at or above its own level", () => {
+  it("cannot invite an employee as admin (would mint an owner)", async () => {
     const res = await request(app)
       .post("/api/users/invite")
       .set(auth(officeToken))
-      .send({ kind: "employee", employeeId: targetEmployeeId, role: "technician" });
+      .send({ kind: "employee", employeeId: targetEmployeeId, role: "admin" });
     expect(res.status).toBe(403);
   });
 
-  it("cannot disable an account", async () => {
+  it("cannot invite an employee as office (a peer)", async () => {
+    const res = await request(app)
+      .post("/api/users/invite")
+      .set(auth(officeToken))
+      .send({ kind: "employee", employeeId: targetEmployeeId, role: "office" });
+    expect(res.status).toBe(403);
+  });
+
+  it("cannot disable the owner's account", async () => {
     const res = await request(app)
       .post(`/api/users/${someUserId}/disable`)
       .set(auth(officeToken));
     expect(res.status).toBe(403);
   });
 
-  it("cannot enable an account", async () => {
+  it("cannot enable the owner's account", async () => {
     const res = await request(app)
       .post(`/api/users/${someUserId}/enable`)
       .set(auth(officeToken));
     expect(res.status).toBe(403);
   });
 
-  it("cannot resend an invite", async () => {
+  it("cannot resend the owner's invite", async () => {
     const res = await request(app)
       .post(`/api/users/${someUserId}/resend-invite`)
       .set(auth(officeToken));
     expect(res.status).toBe(403);
+  });
+
+  it("cannot disable another office user (a peer)", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} Peer Login`, phone: "", email: `${TAG}-peerlogin@opero.test`,
+        roles: ["Administration"], status: "active",
+      },
+    });
+    const peer = await prisma.user.create({
+      data: {
+        orgId, email: `${TAG}-peerlogin@opero.test`, passwordHash: await hashPassword("x"),
+        name: "Peer Login", role: "office", status: "active", employeeId: emp.id,
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/users/${peer.id}/disable`)
+      .set(auth(officeToken));
+    expect(res.status).toBe(403);
+
+    const after = await prisma.user.findUnique({ where: { id: peer.id } });
+    expect(after!.status).toBe("active");
+  });
+});
+
+describe("office CAN manage logins below its own level", () => {
+  it("invites a technician", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} Invitee`, phone: "", email: `${TAG}-invitee@opero.test`,
+        roles: ["Technician"], status: "active",
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/users/invite")
+      .set(auth(officeToken))
+      .send({ kind: "employee", employeeId: emp.id, role: "technician" });
+    expect(res.status).toBe(201);
+    expect(res.body.role).toBe("technician");
+    expect(res.body.status).toBe("invited");
+  });
+
+  // The reason this whole change exists: office could not give a client a
+  // portal login, and the account panel was hidden with no explanation.
+  it("invites a customer as a client login", async () => {
+    const cust = await prisma.customer.create({
+      data: {
+        orgId, name: `${TAG} Klant Login`, contactName: "C",
+        email: `${TAG}-klant@opero.test`, phone: "", address: "",
+        postalCode: "", city: "",
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/users/invite")
+      .set(auth(officeToken))
+      .send({ kind: "customer", customerId: cust.id });
+    expect(res.status).toBe(201);
+    expect(res.body.role).toBe("client");
+
+    await prisma.user.deleteMany({ where: { customerId: cust.id } });
+    await prisma.customer.delete({ where: { id: cust.id } });
+  });
+
+  it("resends, disables and re-enables a technician's login", async () => {
+    const emp = await prisma.employee.create({
+      data: {
+        orgId, name: `${TAG} Cycle`, phone: "", email: `${TAG}-cycle@opero.test`,
+        roles: ["Technician"], status: "active",
+      },
+    });
+    const invited = await request(app)
+      .post("/api/users/invite")
+      .set(auth(officeToken))
+      .send({ kind: "employee", employeeId: emp.id, role: "technician" });
+    expect(invited.status).toBe(201);
+    const id = invited.body.id;
+
+    const resent = await request(app)
+      .post(`/api/users/${id}/resend-invite`)
+      .set(auth(officeToken));
+    expect(resent.status).toBe(204);
+
+    const disabled = await request(app)
+      .post(`/api/users/${id}/disable`)
+      .set(auth(officeToken));
+    expect(disabled.status).toBe(200);
+    expect(disabled.body.status).toBe("disabled");
+
+    const enabled = await request(app)
+      .post(`/api/users/${id}/enable`)
+      .set(auth(officeToken));
+    expect(enabled.status).toBe(200);
+    expect(enabled.body.status).toBe("active");
   });
 });
 
@@ -188,14 +299,17 @@ describe("office CAN run the operational app", () => {
     expect(after!.status).toBe("disabled");
   });
 
-  it("deletes another office user (a peer)", async () => {
+  // Delete revokes the linked login, so it obeys the same level rule as the
+  // account routes — otherwise it would be the way around them. A peer's
+  // record is therefore off-limits, and the login must survive the attempt.
+  it("cannot delete another office user (a peer)", async () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Peer`, phone: "", email: `${TAG}-peer@opero.test`,
         roles: ["Administration"], status: "active",
       },
     });
-    await prisma.user.create({
+    const peer = await prisma.user.create({
       data: {
         orgId, email: `${TAG}-peer@opero.test`, passwordHash: await hashPassword("x"),
         name: "Peer", role: "office", status: "active", employeeId: emp.id,
@@ -205,7 +319,10 @@ describe("office CAN run the operational app", () => {
     const res = await request(app)
       .delete(`/api/employees/${emp.id}`)
       .set(auth(officeToken));
-    expect(res.status).toBe(204);
+    expect(res.status).toBe(403);
+
+    const after = await prisma.user.findUnique({ where: { id: peer.id } });
+    expect(after!.status).toBe("active");
   });
 
   it("creates and edits an employee record", async () => {
