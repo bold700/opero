@@ -130,7 +130,7 @@ export function ResetPassword() {
   };
 
   return (
-    <Box sx={{ minHeight: "100dvh", display: "flex", flexDirection: { xs: "column", md: "row" } }}>
+    <Box sx={{ height: "100dvh", overflowY: "auto", display: "flex", flexDirection: { xs: "column", md: "row" } }}>
       <BrandPanel />
       <AuthPanel title={t(`${ns}.title`)} subtitle={t(`${ns}.subtitle`)}>
         {body()}

@@ -118,14 +118,27 @@
    themselves — the app renders a single inner scroll region (see AppShell). This
    is what keeps the header + bottom nav pinned and stops the "page starts in the
    middle / zoomed-in" bug, which was caused by horizontal overflow forcing the
-   browser to shrink-fit a too-wide page. */
+   browser to shrink-fit a too-wide page.
+
+   `overflow: hidden` (BOTH axes, not just x) + `height` (not min-height) makes
+   the document structurally unscrollable. This matters on mobile: every library
+   scroll-lock (MUI Modal, vaul, react-remove-scroll) targets document.body, but
+   with only `overflow-x: hidden` the document's overflow-y computes to `auto`
+   (CSS spec), so it stays a scroll container — and iOS Safari gives it real
+   scroll range whenever the keyboard is up or it scrolls to reveal a focused
+   input. That's what made the background page scroll behind open bottom sheets.
+   `overscroll-behavior: none` additionally kills rubber-band panning (and
+   accidental pull-to-refresh) at the document level. Pages that CAN outgrow the
+   viewport (the auth screens, outside AppShell) own their scroll internally. */
 html,
 body {
   margin: 0;
   padding: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden; /* never allow horizontal scroll — kills the zoom-to-fit */
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--background);
 }
 
@@ -149,16 +162,15 @@ html {
 }
 
 body {
-  min-height: 100dvh;
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
 #root {
-  min-height: 100dvh;
+  height: 100%;
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 button,

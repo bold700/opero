@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import Dialog from "@mui/material/Dialog";
 import Box from "@mui/material/Box";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -97,6 +97,20 @@ export function ResponsiveDialog({
   // The sheet content node — MUI menus inside portal here so they stay clickable.
   const [sheetEl, setSheetEl] = useState<HTMLElement | null>(null);
 
+  // Pin the document at 0 while the sheet is open. iOS Safari scrolls the
+  // DOCUMENT (not an inner scroller) to center a focused input, and leaves the
+  // page pannable while the keyboard is up — that's the "background page scrolls
+  // behind the sheet" bug. vaul has its own countermeasure, but it tears it down
+  // on every pointerdown inside the sheet (its isDragging gate), i.e. exactly
+  // while the user is touching. The document is never meant to scroll in this
+  // app, so resetting unconditionally is safe and can't fight a real scroll.
+  useEffect(() => {
+    if (!mobile || !open) return;
+    const reset = () => window.scrollTo(0, 0);
+    window.addEventListener("scroll", reset);
+    return () => window.removeEventListener("scroll", reset);
+  }, [mobile, open]);
+
   if (mobile) {
     return (
       <Vaul.Root
@@ -171,7 +185,14 @@ export function ResponsiveDialog({
                 overflow: "hidden",
                 pb: "env(safe-area-inset-bottom)",
                 // DialogContent scrolls; DialogActions stay pinned at the bottom.
-                "& .MuiDialogContent-root": { flex: 1, minHeight: 0, overflowY: "auto" },
+                // overscrollBehavior: a scroll that hits the top/bottom of the
+                // sheet body must die there, never chain to the page behind.
+                "& .MuiDialogContent-root": {
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: "auto",
+                  overscrollBehavior: "contain",
+                },
                 "& .MuiDialogActions-root": { flexShrink: 0 },
               }}
             >
