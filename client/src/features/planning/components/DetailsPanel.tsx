@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
-import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
@@ -13,6 +12,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutlined";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import { BottomSheet } from "../../../components/BottomSheet";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { STATUS_TONES, SPACING, TAP_TARGET } from "../../../theme/tokens";
 import { humanize } from "../../../lib/labels";
@@ -124,29 +124,33 @@ export function DetailsPanel(props: {
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   if (isMobile) {
     return (
-      <Drawer
-        anchor="bottom"
+      <BottomSheet
         open
         onClose={props.onClose}
-        slotProps={{
-          paper: {
-            sx: {
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              maxHeight: "85dvh",
-              p: SPACING.pagePadding,
-              pt: 2.5,
-            },
-          },
-        }}
+        title={t("planning.details")}
+        scrollableContent
+        maxHeight="85dvh"
       >
-        <DetailsBody {...props} />
-      </Drawer>
+        {/* The body scrolls internally on small phones (the sheet is capped);
+            the sheet itself drags from the handle. */}
+        <Box
+          sx={{
+            overflowY: "auto",
+            minHeight: 0,
+            overscrollBehavior: "contain",
+            p: SPACING.pagePadding,
+            pt: 1.5,
+          }}
+        >
+          <DetailsBody {...props} />
+        </Box>
+      </BottomSheet>
     );
   }
 

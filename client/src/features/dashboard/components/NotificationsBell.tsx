@@ -7,7 +7,6 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
-import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
@@ -21,6 +20,7 @@ import {
   type NotificationItem,
   type NotificationsResponse,
 } from "../../../lib/api/notifications";
+import { BottomSheet } from "../../../components/BottomSheet";
 import { CARD_SHADOW, HAIRLINE, LAVENDER, RADIUS } from "../../../theme/tokens";
 
 const EMPTY: NotificationsResponse = { items: [], unreadCount: 0, seenAt: null };
@@ -161,31 +161,23 @@ export function NotificationsBell() {
     </Box>
   );
 
-  // Mobile: a bottom sheet, full width, so it can never be clipped by the header.
+  // Mobile: a draggable bottom sheet, full width, so it can never be clipped by
+  // the header. The list scrolls internally (scrollableContent), so the sheet
+  // itself drags from the handle/header.
   if (isMobile) {
     return (
       <>
         {bell}
-        <Drawer
-          anchor="bottom"
+        <BottomSheet
           open={open}
           onClose={() => setOpen(false)}
-          slotProps={{
-            paper: {
-              sx: {
-                borderTopLeftRadius: `${RADIUS.card}px`,
-                borderTopRightRadius: `${RADIUS.card}px`,
-                maxHeight: "80dvh",
-                display: "flex",
-                flexDirection: "column",
-                pb: "env(safe-area-inset-bottom)",
-              },
-            },
-          }}
+          title={t("notifications.title")}
+          header={header}
+          scrollableContent
+          maxHeight="80dvh"
         >
-          {header}
           <NotificationsList data={data} loading={loading} onGo={go} />
-        </Drawer>
+        </BottomSheet>
       </>
     );
   }

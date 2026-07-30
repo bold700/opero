@@ -7,11 +7,11 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import type { UserRole } from "@opero/shared";
 import { quickCreateActionsForRole, type QuickCreateAction } from "./quickCreate";
+import { BottomSheet } from "../components/BottomSheet";
 import { CARD_SHADOW, LAVENDER, RADIUS, TAP_TARGET } from "../theme/tokens";
 
 // The quick-create menu opened by the "+" FAB. Controlled by the parent
@@ -68,28 +68,11 @@ export function QuickCreateMenu({
     </Typography>
   );
 
-  // ── Mobile: bottom sheet ──
+  // ── Mobile: draggable bottom sheet ──
   if (isMobile) {
     return (
-      <Drawer
-        anchor="bottom"
-        open={open}
-        onClose={onClose}
-        slotProps={{
-          paper: {
-            sx: {
-              borderTopLeftRadius: `${RADIUS.card}px`,
-              borderTopRightRadius: `${RADIUS.card}px`,
-              pb: "env(safe-area-inset-bottom)",
-            },
-          },
-        }}
-      >
-        {/* grab handle */}
-        <Box sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
-          <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: "divider" }} />
-        </Box>
-        <Box sx={{ px: 2.5, pt: 1.5, pb: 0.5 }}>{heading}</Box>
+      <BottomSheet open={open} onClose={onClose} title={t("quickCreate.heading")}>
+        <Box sx={{ px: 2.5, pt: 1, pb: 0.5 }}>{heading}</Box>
         <Box sx={{ px: 1.5, pb: 2 }}>
           {actions.map((action) => {
             const Icon = action.icon;
@@ -119,7 +102,7 @@ export function QuickCreateMenu({
             );
           })}
         </Box>
-      </Drawer>
+      </BottomSheet>
     );
   }
 

@@ -5,7 +5,6 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Fab from "@mui/material/Fab";
-import Drawer from "@mui/material/Drawer";
 import BottomNavigation from "@mui/material/BottomNavigation";
 import BottomNavigationAction from "@mui/material/BottomNavigationAction";
 import AddIcon from "@mui/icons-material/Add";
@@ -14,6 +13,7 @@ import { useAuth } from "../auth/AuthContext";
 import { navItemsForRole, type NavItem } from "./navigation";
 import { QuickCreateMenu } from "./QuickCreateMenu";
 import { quickCreateActionsForRole } from "./quickCreate";
+import { BottomSheet } from "../components/BottomSheet";
 import { OfflineBanner } from "../components/OfflineBanner";
 
 const RAIL_WIDTH = 96;
@@ -285,27 +285,10 @@ function BottomNav({ items }: { items: NavItem[] }) {
         </BottomNavigation>
       </Paper>
 
-      {/* Overflow destinations — a bottom sheet, consistent with the app's other
-          mobile overlays (quick-create, notifications). */}
-      <Drawer
-        anchor="bottom"
-        open={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        slotProps={{
-          paper: {
-            sx: {
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              pb: "env(safe-area-inset-bottom)",
-            },
-          },
-        }}
-      >
-        {/* grab handle */}
-        <Box sx={{ display: "flex", justifyContent: "center", pt: 1 }}>
-          <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: "divider" }} />
-        </Box>
-        <Box sx={{ px: 1.5, pt: 1.5, pb: 2 }}>
+      {/* Overflow destinations — a draggable bottom sheet, consistent with the
+          app's other mobile overlays (quick-create, notifications). */}
+      <BottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title={t("nav.more")}>
+        <Box sx={{ px: 1.5, pt: 1, pb: 2 }}>
           {overflow.map((item) => {
             const Icon = item.icon;
             const active = activePath(item);
@@ -338,7 +321,7 @@ function BottomNav({ items }: { items: NavItem[] }) {
             );
           })}
         </Box>
-      </Drawer>
+      </BottomSheet>
     </Box>
   );
 }
