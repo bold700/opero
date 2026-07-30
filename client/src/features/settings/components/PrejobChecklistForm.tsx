@@ -25,7 +25,6 @@ import {
 } from "@dnd-kit/sortable";
 import { GroupLabel } from "./GroupLabel";
 import { SortableRow } from "../../../components/SortableRow";
-import { HAIRLINE } from "../../../theme/tokens";
 import {
   getPrejobItems,
   createPrejobItem,
@@ -132,12 +131,10 @@ export function PrejobChecklistForm() {
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
-                  py: 1,
-                  borderBottom: `1px solid ${HAIRLINE}`,
                 }}
               >
                 <TextField
-                  variant="standard"
+                  size="small"
                   defaultValue={item.label}
                   key={`${item.id}-${item.label}`}
                   disabled={busy}
@@ -157,15 +154,21 @@ export function PrejobChecklistForm() {
             return canDrag ? (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                  {items.map((item) => (
-                    <SortableRow key={item.id} id={item.id} ariaLabel={t("settings.prejobChecklist.reorderAria")}>
-                      {(dragHandle) => renderItem(item, dragHandle)}
-                    </SortableRow>
-                  ))}
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    {items.map((item) => (
+                      <SortableRow key={item.id} id={item.id} ariaLabel={t("settings.prejobChecklist.reorderAria")}>
+                        {(dragHandle) => renderItem(item, dragHandle)}
+                      </SortableRow>
+                    ))}
+                  </Box>
                 </SortableContext>
               </DndContext>
             ) : (
-              items.map((item) => <Box key={item.id}>{renderItem(item)}</Box>)
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                {items.map((item) => (
+                  <Box key={item.id}>{renderItem(item)}</Box>
+                ))}
+              </Box>
             );
           })()}
         </Box>

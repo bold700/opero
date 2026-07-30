@@ -35,7 +35,6 @@ export function SortableRow({
       sx={{
         cursor: "grab",
         color: "text.disabled",
-        ml: -0.5,
         touchAction: "none", // let dnd-kit own the touch gesture on the grip
         "&:active": { cursor: "grabbing" },
         "&:hover": { color: "text.secondary" },

@@ -123,17 +123,20 @@ export function PreJobPanel({
         <Box>
           {(() => {
             const renderItem = (item: (typeof items)[number], dragHandle?: React.ReactNode) => (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Checkbox
                   checked={item.done}
                   disabled={!editable || busy}
                   onChange={(e) => onToggleCheck(item.id, e.target.checked)}
-                  sx={{ p: { xs: 1.25, md: 1 } }}
+                  // Tight padding: the outlined field beside it needs the
+                  // horizontal room on a phone. The row's own height still
+                  // keeps the control at a comfortable tap size.
+                  sx={{ p: 0.5 }}
                 />
                 {editable ? (
                   <>
                     <TextField
-                      variant="standard"
+                      size="small"
                       defaultValue={item.label}
                       key={`${item.id}-${item.label}`}
                       disabled={busy}
@@ -161,15 +164,21 @@ export function PreJobPanel({
             return canDrag ? (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                  {items.map((item) => (
-                    <SortableRow key={item.id} id={item.id} ariaLabel={t("workOrderDetail.prejob.reorderAria")}>
-                      {(dragHandle) => renderItem(item, dragHandle)}
-                    </SortableRow>
-                  ))}
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    {items.map((item) => (
+                      <SortableRow key={item.id} id={item.id} ariaLabel={t("workOrderDetail.prejob.reorderAria")}>
+                        {(dragHandle) => renderItem(item, dragHandle)}
+                      </SortableRow>
+                    ))}
+                  </Box>
                 </SortableContext>
               </DndContext>
             ) : (
-              items.map((item) => <Box key={item.id}>{renderItem(item)}</Box>)
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                {items.map((item) => (
+                  <Box key={item.id}>{renderItem(item)}</Box>
+                ))}
+              </Box>
             );
           })()}
 

@@ -39,15 +39,23 @@ export function MeerwerkApprovalPanel({
   // never signs it off.
   if (role === "technician") return null;
 
+  const isOffice = canApproveAsOffice(role);
+
+  // Which of the two signatures a line is waiting for. The actions come from
+  // this stage, NOT from the viewer's role: the office owns the first signature
+  // AND may give the second on the client's behalf (clients approve by phone and
+  // never log in, which used to leave the line unbillable forever). A client
+  // still only ever sees their own stage.
+  const stageOf = (m: WorkOrderMaterial) =>
+    m.approvedByOffice ? "awaiting_client" : "awaiting_office";
+
   const lines: { zone: string; m: WorkOrderMaterial }[] = [];
   for (const task of workOrder.tasks) {
     for (const m of task.materials) {
       if (!m.isExtraWork || m.rejected) continue;
-      // "Waiting on me" differs by role: the office signs first, then the
-      // client. Office staff must land in the OFFICE branch — treating them as
-      // the client would leave them waiting on an approval they owe.
-      const waiting = canApproveAsOffice(role)
-        ? !m.approvedByOffice
+      // The office acts on both stages; the client only on the second one.
+      const waiting = isOffice
+        ? !m.approvedByOffice || !m.approvedByClient
         : m.approvedByOffice && !m.approvedByClient;
       if (waiting) lines.push({ zone: task.description, m });
     }
@@ -84,16 +92,18 @@ export function MeerwerkApprovalPanel({
       </Box>
 
       <Box sx={{ px: { xs: 2, md: 3 }, py: 1.5 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {t(
-            canApproveAsOffice(role)
-              ? "workOrderDetail.meerwerkApproval.officeHint"
-              : "workOrderDetail.meerwerkApproval.clientHint",
-          )}
-        </Typography>
+        {/* Staff get no hint: every row already carries a Wacht op kantoor /
+            Wacht op klant badge, and they know their own process. The client is
+            the one who needs telling why this is in front of them. */}
+        {!isOffice ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t("workOrderDetail.meerwerkApproval.clientHint")}
+          </Typography>
+        ) : null}
 
         {lines.map(({ zone, m }) => {
           const badge = extraWorkBadge(m);
+          const stage = stageOf(m);
           const lineTotal = m.unitPrice != null ? m.quantity * m.unitPrice : null;
           return (
             <Box
@@ -126,28 +136,21 @@ export function MeerwerkApprovalPanel({
                 </Typography>
               ) : null}
               <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                {canApproveAsOffice(role) ? (
-                  <>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => onApproveOffice(m.id)}
-                      disabled={busy}
-                      sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
-                    >
-                      {t("workOrderDetail.extraWork.officeApprove")}
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      onClick={() => onReject(m.id)}
-                      disabled={busy}
-                      sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
-                    >
-                      {t("workOrderDetail.extraWork.reject")}
-                    </Button>
-                  </>
-                ) : (
+                {/* Stage 1 (office signature) vs stage 2 (client's). The office
+                    can act on either; a client only ever reaches stage 2. */}
+                {isOffice && stage === "awaiting_office" ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => onApproveOffice(m.id)}
+                    disabled={busy}
+                    sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
+                  >
+                    {t("workOrderDetail.extraWork.officeApprove")}
+                  </Button>
+                ) : null}
+
+                {stage === "awaiting_client" ? (
                   <Button
                     size="small"
                     variant="contained"
@@ -155,9 +158,27 @@ export function MeerwerkApprovalPanel({
                     disabled={busy}
                     sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
                   >
-                    {t("workOrderDetail.extraWork.clientApprove")}
+                    {/* Same action, honest label: the office is recording an
+                        agreement the client gave off-app, not giving its own. */}
+                    {t(
+                      isOffice
+                        ? "workOrderDetail.extraWork.recordClientApproval"
+                        : "workOrderDetail.extraWork.clientApprove",
+                    )}
                   </Button>
-                )}
+                ) : null}
+
+                {isOffice ? (
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => onReject(m.id)}
+                    disabled={busy}
+                    sx={{ minHeight: { xs: TAP_TARGET, sm: "auto" } }}
+                  >
+                    {t("workOrderDetail.extraWork.reject")}
+                  </Button>
+                ) : null}
               </Box>
             </Box>
           );

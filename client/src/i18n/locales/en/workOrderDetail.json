@@ -113,7 +113,8 @@
     "submit": "Report",
     "officeApprove": "Approve (office)",
     "reject": "Reject",
-    "clientApprove": "Give approval"
+    "clientApprove": "Give approval",
+    "recordClientApproval": "Record client approval"
   },
   "task": {
     "delete": "delete"
@@ -217,7 +218,6 @@
   },
   "meerwerkApproval": {
     "title": "Extra work — awaiting approval ({{count}})",
-    "officeHint": "Review the reported extra work. After your approval it goes to the client.",
     "clientHint": "This extra work is approved by the office and is awaiting your approval."
   }
 }

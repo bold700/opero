@@ -17,6 +17,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { ResponsiveDialog, useSheetMenuProps } from "../../../components/ResponsiveDialog";
 import { SelectField } from "../../../components/SelectField";
+import { CheckboxGroupField } from "../../../components/CheckboxGroupField";
 import { useForm } from "../../../lib/useForm";
 import { required, email } from "../../../lib/validation";
 import { AccountSection } from "../../users/components/AccountSection";
@@ -188,34 +189,51 @@ export function EmployeeDialog({
             />
           </Box>
 
-          {/* Roles — multi-select with chips */}
-          <FormControl size="small" disabled={busy}>
-            <InputLabel id="employee-roles-label">
-              {t("employees.dialog.roles")}
-            </InputLabel>
-            <Select
-              labelId="employee-roles-label"
-              multiple
-              value={roles}
-              onChange={(e) => setRoles(e.target.value as TeamRole[])}
+          {/* Roles. On mobile this is an INLINE checkbox list: inside the bottom
+              sheet a Select's popover is clipped by the sheet's
+              `overflow: hidden` and mis-anchored, so it renders as a flat panel
+              over the form. Desktop keeps the compact chip Select. */}
+          {isMobile ? (
+            <CheckboxGroupField<TeamRole>
               label={t("employees.dialog.roles")}
-              MenuProps={{ container: sheetMenu.container }}
-              renderValue={(selected) => (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {(selected as TeamRole[]).map((r) => (
-                    <Chip key={r} size="small" label={t(ROLE_LABEL_KEY[r] ?? r)} />
-                  ))}
-                </Box>
-              )}
-            >
-              {TEAM_ROLES.map((r) => (
-                <MenuItem key={r} value={r}>
-                  <Checkbox checked={roles.includes(r)} size="small" />
-                  <ListItemText primary={t(ROLE_LABEL_KEY[r] ?? r)} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              value={roles}
+              onChange={setRoles}
+              disabled={busy}
+              columns={2}
+              options={TEAM_ROLES.map((r) => ({
+                value: r,
+                label: t(ROLE_LABEL_KEY[r] ?? r),
+              }))}
+            />
+          ) : (
+            <FormControl size="small" disabled={busy}>
+              <InputLabel id="employee-roles-label">
+                {t("employees.dialog.roles")}
+              </InputLabel>
+              <Select
+                labelId="employee-roles-label"
+                multiple
+                value={roles}
+                onChange={(e) => setRoles(e.target.value as TeamRole[])}
+                label={t("employees.dialog.roles")}
+                MenuProps={{ container: sheetMenu.container }}
+                renderValue={(selected) => (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                    {(selected as TeamRole[]).map((r) => (
+                      <Chip key={r} size="small" label={t(ROLE_LABEL_KEY[r] ?? r)} />
+                    ))}
+                  </Box>
+                )}
+              >
+                {TEAM_ROLES.map((r) => (
+                  <MenuItem key={r} value={r}>
+                    <Checkbox checked={roles.includes(r)} size="small" />
+                    <ListItemText primary={t(ROLE_LABEL_KEY[r] ?? r)} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           {/* Status */}
           <SelectField

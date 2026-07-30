@@ -113,7 +113,8 @@
     "submit": "Melden",
     "officeApprove": "Kantoor goedkeuren",
     "reject": "Afwijzen",
-    "clientApprove": "Akkoord geven"
+    "clientApprove": "Akkoord geven",
+    "recordClientApproval": "Akkoord klant vastleggen"
   },
   "task": {
     "delete": "verwijderen"
@@ -217,7 +218,6 @@
   },
   "meerwerkApproval": {
     "title": "Meerwerk — wacht op akkoord ({{count}})",
-    "officeHint": "Beoordeel het gemelde meerwerk. Na uw akkoord gaat het naar de klant.",
     "clientHint": "Dit meerwerk is door kantoor goedgekeurd en wacht op uw akkoord."
   }
 }
