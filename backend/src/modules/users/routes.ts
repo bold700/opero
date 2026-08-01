@@ -143,7 +143,10 @@ usersRouter.post(
       createInvitedUser(tx, admin, { email, name, role, link }),
     );
 
-    await deliverInvite(created.id, email, created.name);
+    await deliverInvite(created.id, email, created.name, {
+      orgId: admin.orgId,
+      invitedById: admin.id,
+    });
 
     res.status(201).json(userDto(created));
   }),
@@ -210,7 +213,12 @@ usersRouter.post(
     const user = await loadActionableUser(admin, req.params.id);
     if (user.status !== "invited") throw BadRequest("This user is already active");
     const token = await issueInvite(user.id);
-    await sendInviteEmail(user.email, user.name, token);
+    // Attribute the resend to whoever originally invited them when that is
+    // still on record, so a resend doesn't rewrite who the invitation came from.
+    await sendInviteEmail(user.email, user.name, token, {
+      orgId: admin.orgId,
+      invitedById: user.invitedById ?? admin.id,
+    });
     await audit(prisma, admin, "user.invite.resend", "user", user.id);
     res.status(204).end();
   }),

@@ -36,17 +36,14 @@ export type EmployeeRow = {
 };
 
 // Editable fields (the create/update schema).
+// No access level here: an employee record carries no login. Access is granted
+// separately via inviteUser(), which is where the role is chosen.
 export type EmployeeInput = {
   name: string;
   phone?: string;
   email?: string;
   roles?: TeamRole[];
   status?: EmployeeStatus;
-  // ACCESS LEVEL for the login auto-created alongside a new employee — a
-  // different axis from `roles`, which are job titles that grant nothing.
-  // Create-only and only meaningful with an email; omitted → technician.
-  // Changing an existing account's level goes through updateUserRole().
-  accessRole?: StaffRole;
 };
 
 // Per-category totals across the whole (searched) set — powers the KPI cards.
@@ -78,18 +75,11 @@ export function getEmployeesPage(opts: {
   }) as Promise<EmployeePage>;
 }
 
-// Creating an employee also auto-provisions a login for them when they have an
-// email address, so the response carries the outcome of that attempt. It is
-// best-effort by design (see backend users/provisioning.ts): the employee is
-// saved either way, and `invite` says whether the account went out.
-export type AutoInviteResult =
-  | { invited: true; userId: string }
-  | { invited: false; reason: "no_email" | "email_taken" | "send_failed" };
-
-export function createEmployee(
-  input: EmployeeInput,
-): Promise<EmployeeRow & { invite?: AutoInviteResult }> {
-  return api.post<EmployeeRow & { invite?: AutoInviteResult }>("/employees", input);
+// Creates the employee record only — no login, no email. Giving this person
+// access is a separate, deliberate step: inviteUser() behind the Uitnodigen
+// button on the saved employee.
+export function createEmployee(input: EmployeeInput): Promise<EmployeeRow> {
+  return api.post<EmployeeRow>("/employees", input);
 }
 
 export function updateEmployee(

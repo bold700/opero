@@ -20,13 +20,8 @@ import {
   employeeListInclude,
   absenceDto,
 } from "./dto.js";
-import {
-  isOffice,
-  canActOnAccount,
-  canGrantRole,
-  type UserRole,
-} from "@opero/shared";
-import { autoInviteEmployee, revokeLoginsFor } from "../users/provisioning.js";
+import { isOffice, canActOnAccount, type UserRole } from "@opero/shared";
+import { revokeLoginsFor } from "../users/provisioning.js";
 import { accountInclude } from "../users/dto.js";
 import { absencesInRange, isIsoDay, todayIso } from "./absence.js";
 
@@ -295,14 +290,6 @@ employeesRouter.post(
     const user = req.user!;
     const input = createEmployeeSchema.parse(req.body);
 
-    // Authorize the requested access level BEFORE creating anything — a 403
-    // here must not leave an orphan employee record behind. Defaults to the
-    // safe floor rather than to the creator's own level.
-    const accessRole: UserRole = input.accessRole ?? "technician";
-    if (!canGrantRole(user.role as UserRole, accessRole)) {
-      throw Forbidden("You can't create an account at or above your own level");
-    }
-
     const created = await prisma.$transaction(async (tx) => {
       const e = await tx.employee.create({
         data: {
@@ -318,22 +305,13 @@ employeesRouter.post(
       return e;
     });
 
-    // Auto-provision a login: "when an employee is created, an account should
-    // automatically be created for them" (WOB Isolatie, 17-07-2026). Only
-    // possible with an email address, and deliberately BEST-EFFORT — the
-    // employee record must not fail to save because the address is already
-    // taken or the mail provider is down. The outcome ships in the response so
-    // the UI can say what happened; the manual Invite action remains the retry.
-    //
-    // The access level is CHOSEN, never inferred from the job title: TeamRole
-    // is a job description ("Planner"), and minting an admin login from one
-    // would be privilege escalation by typo. Absent an explicit choice it stays
-    // `technician`, the safe floor. Whatever is chosen, the caller must be
-    // allowed to grant it (checked above), and it can be corrected later via
-    // PATCH /users/:id.
-    const invite = await autoInviteEmployee(user, created, accessRole);
-
-    res.status(201).json({ ...employeeDto(created), invite });
+    // Creating an employee creates an employee — nothing else. An email address
+    // here is a CONTACT field, not a login and not consent to email the person.
+    // This route used to auto-provision a login and fire an invite mail the
+    // moment an address was typed, which meant saving a record silently mailed
+    // a stranger. Granting access is a deliberate act: the Invite button on the
+    // employee (office + admin, role chosen there) is the one and only path.
+    res.status(201).json(employeeDto(created));
   }),
 );
 

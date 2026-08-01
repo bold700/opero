@@ -4,23 +4,22 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
-import Link from "@mui/material/Link";
 import Alert from "@mui/material/Alert";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
 import { BrandPanel } from "./components/BrandPanel";
 import { AuthPanel } from "./components/AuthPanel";
 import { SetPasswordForm } from "./components/SetPasswordForm";
-import { resetPassword } from "../../lib/api/auth";
+import { acceptInvite } from "../../lib/api/auth";
 import { ApiError } from "../../lib/api/client";
 
-// Set a new password from the emailed reset link (?token=...). On success all
-// sessions were revoked server-side; the user logs in fresh.
+// Accept an invitation (?token=… from the invite email): choose a first
+// password, which activates the account.
 //
-// Resets only. Accepting an invitation is /accept-invite, which has its own
-// page and endpoint — this page used to serve both via an `?invite=1` flag that
-// swapped the copy, which is why invitation emails linked people to a
-// "reset your password" URL for an account they had never used.
-export function ResetPassword() {
+// This is its own page and its own endpoint rather than a flag on the reset
+// page. Someone opening it has never seen the product, so the framing is
+// "welcome, set up your account" — and a dead link here means "ask for a new
+// invitation", not "request a password reset" for an account that isn't active.
+export function AcceptInvite() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
@@ -33,37 +32,28 @@ export function ResetPassword() {
     setBusy(true);
     setError(null);
     try {
-      await resetPassword(token, password);
+      await acceptInvite(token, password);
       setDone(true);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 400) {
-        setError(t("auth.reset.invalidLink"));
-      } else {
-        setError(t("auth.reset.error"));
-      }
+      // 400 covers every dead-link case the server won't distinguish between
+      // (unknown, expired, already used) — deliberately, so this page can't be
+      // used to probe which invitations exist.
+      setError(
+        e instanceof ApiError && e.status === 400
+          ? t("auth.invite.invalidLink")
+          : t("auth.invite.error"),
+      );
     } finally {
       setBusy(false);
     }
   };
 
-  const requestNewLink = (
-    <Link
-      component={RouterLink}
-      to="/forgot-password"
-      underline="hover"
-      sx={{ color: "primary.main", fontWeight: 500 }}
-    >
-      {t("auth.reset.requestNew")}
-    </Link>
-  );
-
   const body = () => {
-    // No token in the URL → the link is malformed.
     if (!token) {
       return (
         <Stack spacing={2}>
-          <Alert severity="error">{t("auth.reset.invalidLink")}</Alert>
-          {requestNewLink}
+          <Alert severity="error">{t("auth.invite.invalidLink")}</Alert>
+          <Alert severity="info">{t("auth.invite.expiredHelp")}</Alert>
         </Stack>
       );
     }
@@ -71,7 +61,7 @@ export function ResetPassword() {
       return (
         <Stack spacing={2}>
           <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
-            {t("auth.reset.done")}
+            {t("auth.invite.done")}
           </Alert>
           <Button component={RouterLink} to="/login" variant="contained">
             {t("auth.reset.goToLogin")}
@@ -82,15 +72,17 @@ export function ResetPassword() {
     return (
       <Stack spacing={2}>
         {error ? (
-          <Alert severity="error">
-            {error}
-            {error === t("auth.reset.invalidLink") ? <> {requestNewLink}</> : null}
-          </Alert>
+          <Stack spacing={1}>
+            <Alert severity="error">{error}</Alert>
+            {error === t("auth.invite.invalidLink") ? (
+              <Alert severity="info">{t("auth.invite.expiredHelp")}</Alert>
+            ) : null}
+          </Stack>
         ) : null}
         <SetPasswordForm
-          passwordLabel={t("auth.reset.newPassword")}
-          confirmLabel={t("auth.reset.confirmPassword")}
-          submitLabel={t("auth.reset.submit")}
+          passwordLabel={t("auth.invite.newPassword")}
+          confirmLabel={t("auth.invite.confirmPassword")}
+          submitLabel={t("auth.invite.submit")}
           busy={busy}
           onSubmit={(password) => void submit(password)}
         />
@@ -108,7 +100,7 @@ export function ResetPassword() {
       }}
     >
       <BrandPanel />
-      <AuthPanel title={t("auth.reset.title")} subtitle={t("auth.reset.subtitle")}>
+      <AuthPanel title={t("auth.invite.title")} subtitle={t("auth.invite.subtitle")}>
         {body()}
       </AuthPanel>
     </Box>

@@ -10,10 +10,12 @@ const envSchema = z.object({
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
   PORT: z.coerce.number().int().positive().default(8787),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
-  // Public origin of the WEB app (the client). Used to build user-facing links,
-  // e.g. the password-reset URL emailed to users. Set to the deployed web origin
-  // in production.
-  APP_URL: z.string().default("http://localhost:3000"),
+  // Public origin of the WEB app (the client). Every user-facing link we email
+  // (invite, password reset, email verification) is built from this. The dev
+  // default is only safe in dev — see the production refinement below, which
+  // makes an unset APP_URL a boot failure rather than a batch of emails that
+  // send real users to localhost.
+  APP_URL: z.string().url().default("http://localhost:3000"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -31,7 +33,24 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().optional().default(""),
 });
 
-const parsed = envSchema.safeParse(process.env);
+// Defaults that are merely convenient in dev are dangerous in production. The
+// localhost APP_URL default silently shipped dev links inside real invite and
+// password-reset emails, because the deployed environment never set it and
+// nothing complained. A missing public origin is a broken deploy, so say so at
+// boot instead of discovering it in someone's inbox.
+const productionEnvSchema = envSchema.superRefine((value, ctx) => {
+  if (value.NODE_ENV !== "production") return;
+  if (!process.env.APP_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["APP_URL"],
+      message:
+        "APP_URL is required in production — it is the public origin of the web app used to build emailed links. Set it to the deployed client origin, e.g. https://app.example.com",
+    });
+  }
+});
+
+const parsed = productionEnvSchema.safeParse(process.env);
 
 if (!parsed.success) {
   const issues = parsed.error.issues

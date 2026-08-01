@@ -62,9 +62,7 @@
       "outranked": "Alleen een eigenaar kan dit account beheren.",
       "confirmDisableTitle": "Toegang uitschakelen?",
       "confirmDisableBody": "{{name}} kan daarna niet meer inloggen. Actieve sessies worden direct beëindigd. Je kunt de toegang later weer inschakelen."
-    },
-    "accessRole": "Toegangsniveau",
-    "accessRoleHint": "Bepaalt wat deze persoon in de app mag. Losstaand van de functie."
+    }
   },
   "delete": {
     "title": "Medewerker verwijderen",
@@ -93,11 +91,6 @@
   },
   "toast": {
     "created": "Medewerker aangemaakt",
-    "createdInvited": "Medewerker aangemaakt — uitnodiging verstuurd naar {{email}}",
-    "inviteFailed": {
-      "email_taken": "Medewerker aangemaakt, maar dit e-mailadres heeft al een account. Nodig handmatig uit.",
-      "send_failed": "Medewerker aangemaakt, maar de uitnodiging kon niet worden verstuurd. Probeer het opnieuw via Uitnodigen."
-    },
     "updated": "Medewerker bijgewerkt",
     "deleted": "Medewerker verwijderd",
     "saveError": "Opslaan mislukt",

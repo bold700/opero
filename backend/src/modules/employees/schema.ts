@@ -16,24 +16,19 @@ export const teamRoleSchema = z.enum([
 
 export type TeamRoleValue = z.infer<typeof teamRoleSchema>;
 
+// No access-level field here on purpose. An employee record carries no login
+// and no permissions; access is granted separately through the Invite action,
+// which is where the role is chosen and guarded. Accepting a role at create
+// time is what made "save an employee" quietly mean "email them an invite".
 export const createEmployeeSchema = z.object({
   name: z.string().min(1),
   phone: z.string().default(""),
   email: z.string().optional(),
   roles: z.array(teamRoleSchema).optional(),
   status: z.enum(["active", "on_leave", "inactive"]).optional(),
-  // The ACCESS LEVEL for the login auto-created alongside this employee — a
-  // different axis from `roles` above, which are job titles that grant nothing.
-  // Omitted → `technician`, so existing callers are unaffected. The route still
-  // checks the caller may grant it; only used when an email is present.
-  accessRole: z.enum(["admin", "office", "foreman", "technician"]).optional(),
 });
 
-// `accessRole` is create-only: it seeds the auto-invite. Changing an existing
-// login's level goes through PATCH /users/:id, which has the guards for it —
-// accepting it here would silently ignore it, which reads as "the role change
-// didn't stick".
-export const updateEmployeeSchema = createEmployeeSchema.omit({ accessRole: true }).partial();
+export const updateEmployeeSchema = createEmployeeSchema.partial();
 
 // --- Absence (vacation / sick / training) ----------------------------------
 

@@ -99,6 +99,13 @@ export function resetPassword(token: string, newPassword: string): Promise<void>
   return api.post<void>("/auth/reset-password", { token, newPassword }, { auth: false });
 }
 
+// Accept an invitation: set the first password and activate the account. A
+// separate endpoint from resetPassword because the tokens are not
+// interchangeable server-side — an invite link only works here.
+export function acceptInvite(token: string, newPassword: string): Promise<void> {
+  return api.post<void>("/auth/accept-invite", { token, newPassword }, { auth: false });
+}
+
 // Confirm a pending email change using the token from the emailed link. On
 // success the login email is switched and all sessions are revoked (re-login).
 export function confirmEmailChange(token: string): Promise<void> {

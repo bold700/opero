@@ -285,13 +285,24 @@ model AuthSession {
   @@index([userId])
 }
 
+// What a set-password token is FOR. Both kinds are opaque, hashed at rest and
+// single-use, but they are not interchangeable: an invite activates a brand-new
+// account and lives for days in an inbox, while a reset re-secures an existing
+// one and expires in an hour. Each is consumed by its own endpoint, so a token
+// minted for one purpose can never be replayed through the other.
+enum ActionTokenPurpose {
+  invite
+  reset
+}
+
 model PasswordReset {
-  id        String   @id @default(uuid())
+  id        String             @id @default(uuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String             @unique
+  purpose   ActionTokenPurpose @default(reset)
   expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  used      Boolean            @default(false)
+  createdAt DateTime           @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

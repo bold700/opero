@@ -21,12 +21,14 @@ import { audit } from "../lib/audit.js";
 import { BadRequest, NotActivated, Unauthorized } from "../lib/httpError.js";
 import { authRateLimit } from "../lib/rateLimit.js";
 import { sendEmail } from "../lib/email.js";
+import { passwordResetEmail, verifyEmailChangeEmail } from "../lib/email-templates.js";
 import { hashPassword, toAuthUser, verifyPassword, mergePreferences } from "./service.js";
 import type { AuthUser } from "./types.js";
 import { storeUpload, deleteStored } from "../lib/attachUpload.js";
 import { uploadSingle } from "../lib/upload.js";
 import {
   consumeEmailChange,
+  consumeInvite,
   consumePasswordReset,
   consumeRefreshToken,
   issueEmailChange,
@@ -317,14 +319,7 @@ authRouter.post(
     });
     if (!taken) {
       const token = await issueEmailChange(userId, email);
-      const url = `${env.APP_URL.replace(/\/$/, "")}/verify-email?token=${token}`;
-      await sendEmail({
-        to: email,
-        subject: "Opero — bevestig je nieuwe e-mailadres / confirm your new email",
-        text:
-          `Bevestig je nieuwe e-mailadres via deze link (verloopt over 1 uur):\n${url}\n\n` +
-          `Confirm your new email address using this link (expires in 1 hour):\n${url}`,
-      });
+      await sendEmail(verifyEmailChangeEmail({ to: email, token }));
     }
     res.status(204).end();
   }),
@@ -379,48 +374,71 @@ authRouter.post(
     const { email } = forgotSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
     if (user) {
-      const token = await issuePasswordReset(user.id);
       // Email a link to the reset page, not the raw token. The token expires in
       // 1 hour (see issuePasswordReset).
-      const resetUrl = `${env.APP_URL.replace(/\/$/, "")}/reset-password?token=${token}`;
-      await sendEmail({
-        to: email,
-        subject: "Opero — wachtwoord resetten / reset your password",
-        text:
-          `Klik op deze link om je wachtwoord te resetten (verloopt over 1 uur):\n${resetUrl}\n\n` +
-          `Click this link to reset your password (expires in 1 hour):\n${resetUrl}`,
-      });
+      const token = await issuePasswordReset(user.id);
+      await sendEmail(passwordResetEmail({ to: email, token }));
     }
     res.status(204).end();
   }),
 );
 
 // --- POST /reset-password -------------------------------------------------
+//
+// Resets ONLY. Accepting an invitation is POST /accept-invite: the two are
+// separate token purposes, so an invite presented here is rejected (and left
+// unspent) rather than quietly activating the account through the reset path.
 authRouter.post(
   "/reset-password",
   asyncHandler(async (req, res) => {
     const { token, newPassword } = resetSchema.parse(req.body);
     const consumed = await consumePasswordReset(token);
     if (!consumed) throw BadRequest("Invalid or expired reset token");
-    // Setting a password from a valid token also ACTIVATES an invited user — the
-    // same flow serves "accept invite" and "reset password". Disabled users stay
-    // disabled (a token shouldn't silently re-enable revoked access).
-    const target = await prisma.user.findUnique({
-      where: { id: consumed.userId },
-      select: { status: true },
-    });
-    const activate = target?.status === "invited";
     await prisma.user.update({
       where: { id: consumed.userId },
-      data: {
-        passwordHash: await hashPassword(newPassword),
-        ...(activate ? { status: "active", activatedAt: new Date() } : {}),
-      },
+      data: { passwordHash: await hashPassword(newPassword) },
     });
     // Revoke all existing sessions after a password reset.
     await prisma.authSession.updateMany({
       where: { userId: consumed.userId, revoked: false },
       data: { revoked: true },
+    });
+    res.status(204).end();
+  }),
+);
+
+// --- POST /accept-invite --------------------------------------------------
+//
+// Activate a brand-new account from an invitation link: set the first password
+// and flip `invited` → `active`. Distinct from a reset because the situations
+// differ — this one creates access rather than restoring it, which is exactly
+// why it must not be reachable with a reset token, nor a reset with this one.
+authRouter.post(
+  "/accept-invite",
+  asyncHandler(async (req, res) => {
+    const { token, newPassword } = resetSchema.parse(req.body);
+    const consumed = await consumeInvite(token);
+    if (!consumed) throw BadRequest("Invalid or expired invitation link");
+
+    const target = await prisma.user.findUnique({
+      where: { id: consumed.userId },
+      select: { status: true },
+    });
+    if (!target) throw BadRequest("Invalid or expired invitation link");
+    // A revoked account must not be resurrected by an invite that was mailed
+    // before access was withdrawn. Only a pending invitation can be accepted;
+    // an already-active user setting a password is a reset, not an acceptance.
+    if (target.status !== "invited") {
+      throw BadRequest("This invitation has already been used");
+    }
+
+    await prisma.user.update({
+      where: { id: consumed.userId },
+      data: {
+        passwordHash: await hashPassword(newPassword),
+        status: "active",
+        activatedAt: new Date(),
+      },
     });
     res.status(204).end();
   }),

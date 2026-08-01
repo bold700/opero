@@ -62,9 +62,7 @@
       "outranked": "Only an owner can manage this account.",
       "confirmDisableTitle": "Disable access?",
       "confirmDisableBody": "{{name}} will no longer be able to sign in. Active sessions end immediately. You can re-enable access later."
-    },
-    "accessRole": "Access level",
-    "accessRoleHint": "Controls what this person may do in the app. Separate from their function."
+    }
   },
   "delete": {
     "title": "Delete employee",
@@ -93,11 +91,6 @@
   },
   "toast": {
     "created": "Employee created",
-    "createdInvited": "Employee created — invitation sent to {{email}}",
-    "inviteFailed": {
-      "email_taken": "Employee created, but this email address already has an account. Invite manually.",
-      "send_failed": "Employee created, but the invitation could not be sent. Retry via Invite."
-    },
     "updated": "Employee updated",
     "deleted": "Employee deleted",
     "saveError": "Save failed",

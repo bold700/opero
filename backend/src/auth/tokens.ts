@@ -91,37 +91,67 @@ export async function revokeRefreshToken(raw: string): Promise<void> {
 
 // --- Password reset tokens (opaque, hashed) -------------------------------
 
+// Invites and resets share this storage and their single-use, hashed-at-rest
+// mechanics, but they are distinct purposes and each is consumed only by its own
+// endpoint (see consumeActionToken). A 7-day invite must not be redeemable as a
+// password reset for an already-active account, and an hour-long reset must not
+// activate an invited one.
+export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const RESET_TTL_MS = 60 * 60 * 1000;
+
 export async function issuePasswordReset(userId: string): Promise<string> {
   const raw = randomToken();
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1h
   await prisma.passwordReset.create({
-    data: { userId, tokenHash: hashToken(raw), expiresAt },
+    data: {
+      userId,
+      tokenHash: hashToken(raw),
+      purpose: "reset",
+      expiresAt: new Date(Date.now() + RESET_TTL_MS),
+    },
   });
   return raw;
 }
 
-// An invite is the same "set a password via a token" mechanism as a reset, just
-// longer-lived (invites sit in an inbox). Consumed by the same set-password flow.
+// Mint an invite token. Longer-lived than a reset because invites sit in an
+// inbox until the person gets round to them.
 export async function issueInvite(userId: string): Promise<string> {
   const raw = randomToken();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   await prisma.passwordReset.create({
-    data: { userId, tokenHash: hashToken(raw), expiresAt },
+    data: {
+      userId,
+      tokenHash: hashToken(raw),
+      purpose: "invite",
+      expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+    },
   });
   return raw;
 }
 
-export async function consumePasswordReset(
+// Consume a token for ONE specific purpose. A token of the wrong purpose is
+// rejected exactly like an unknown one — and is left unused, so presenting an
+// invite to the reset endpoint doesn't burn the invite.
+export async function consumeActionToken(
   raw: string,
+  purpose: "invite" | "reset",
 ): Promise<{ userId: string } | null> {
   const tokenHash = hashToken(raw);
   const row = await prisma.passwordReset.findUnique({ where: { tokenHash } });
-  if (!row || row.used || row.expiresAt < new Date()) return null;
+  if (!row || row.used || row.purpose !== purpose || row.expiresAt < new Date()) {
+    return null;
+  }
   await prisma.passwordReset.update({
     where: { id: row.id },
     data: { used: true },
   });
   return { userId: row.userId };
+}
+
+export function consumePasswordReset(raw: string) {
+  return consumeActionToken(raw, "reset");
+}
+
+export function consumeInvite(raw: string) {
+  return consumeActionToken(raw, "invite");
 }
 
 // A pending email change — the login email only switches once the token from the

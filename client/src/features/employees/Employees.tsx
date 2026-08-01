@@ -131,18 +131,9 @@ export function Employees() {
         setDialogOpen(false);
         setToast(t("employees.toast.updated"));
       } else {
-        const created = await createEmployee(input);
+        await createEmployee(input);
         setDialogOpen(false);
-        // Say what happened to the auto-invite, so "no account arrived" is
-        // never silent. Falls back to the plain created toast when the person
-        // has no email (nothing was attempted, and that's expected).
-        setToast(
-          created.invite?.invited
-            ? t("employees.toast.createdInvited", { email: created.email })
-            : created.invite && created.invite.reason !== "no_email"
-              ? t(`employees.toast.inviteFailed.${created.invite.reason}`)
-              : t("employees.toast.created"),
-        );
+        setToast(t("employees.toast.created"));
       }
       refresh();
     } catch (e) {

@@ -9,10 +9,14 @@ import { env } from "../env.js";
 //   - Not configured, dev/test → log to console (links/codes visible locally).
 //   - Not configured, production → throw (fail loud: a misconfigured deploy must
 //     not silently drop password-reset emails).
+// `text` is required and `html` optional, never the other way round: the plain
+// part is the fallback for clients that refuse HTML, so a message without it
+// would arrive blank for those readers.
 export type Email = {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 };
 
 const resendConfigured = Boolean(env.RESEND_API_KEY && env.EMAIL_FROM);
@@ -27,6 +31,7 @@ export async function sendEmail(email: Email): Promise<void> {
       to: email.to,
       subject: email.subject,
       text: email.text,
+      ...(email.html ? { html: email.html } : {}),
     });
     if (error) {
       // Surface the failure to logs + caller. Callers that must not leak account

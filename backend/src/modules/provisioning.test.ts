@@ -11,7 +11,7 @@ const { prisma } = await import("../db/client.js");
 const { hashPassword } = await import("../auth/service.js");
 
 // User provisioning / invitation lifecycle:
-//   admin invites → user is `invited` → login rejected → activate via reset-password
+//   admin invites → user is `invited` → login rejected → activate via accept-invite
 //   → user is `active` → login works. Plus collision (409), role mismatch (400),
 //   self-disable guard, resend, disable/enable, and cross-org isolation.
 
@@ -111,10 +111,10 @@ describe("user provisioning", () => {
     const blocked = await login(techEmail, "whatever");
     expect(blocked.status).toBe(401);
 
-    // Activate by consuming the invite token via reset-password.
+    // Activate by consuming the invite token via accept-invite.
     const token = lastInviteToken();
     const activate = await request(app)
-      .post("/api/auth/reset-password")
+      .post("/api/auth/accept-invite")
       .send({ token, newPassword: "tech-pass-123" });
     expect(activate.status).toBe(204);
 
@@ -435,41 +435,56 @@ describe("user provisioning", () => {
     expect(res.status).toBe(400);
   });
 
-  it("creates an employee with an explicit admin access level", async () => {
-    const res = await request(app)
+  // The access level is chosen when access is granted, not when the person is
+  // recorded. Creating the employee is inert; the invite is what mints a login,
+  // at whatever level the inviter picks.
+  it("grants the access level chosen at invite time, not at employee create", async () => {
+    const email = `${TAG}-newowner@opero.test`;
+    const created = await request(app)
       .post("/api/employees")
       .set(auth(adminToken))
       .send({
         name: `${TAG} New Owner`,
         phone: "",
-        email: `${TAG}-newowner@opero.test`,
+        email,
         roles: ["Administration"],
-        accessRole: "admin",
       });
-    expect(res.status).toBe(201);
-    expect(res.body.invite.invited).toBe(true);
+    expect(created.status).toBe(201);
+    // Creating the record grants nothing.
+    expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
 
-    const login = await prisma.user.findUnique({
-      where: { email: `${TAG}-newowner@opero.test` },
-    });
+    const invited = await request(app)
+      .post("/api/users/invite")
+      .set(auth(adminToken))
+      .send({ kind: "employee", employeeId: created.body.id, role: "admin" });
+    expect(invited.status).toBe(201);
+
+    const login = await prisma.user.findUnique({ where: { email } });
     expect(login!.role).toBe("admin");
+    expect(login!.status).toBe("invited");
   });
 
-  it("defaults employee-create to technician when no access level is given", async () => {
-    const res = await request(app)
+  // TeamRole is a job description; it must never imply an access level. An
+  // "Administration" job title still gets exactly the level the inviter chose.
+  it("never infers access level from the employee's job roles", async () => {
+    const email = `${TAG}-default@opero.test`;
+    const created = await request(app)
       .post("/api/employees")
       .set(auth(adminToken))
       .send({
         name: `${TAG} Default`,
         phone: "",
-        email: `${TAG}-default@opero.test`,
-        roles: ["Technician"],
+        email,
+        roles: ["Administration", "Planner"],
       });
-    expect(res.status).toBe(201);
+    expect(created.status).toBe(201);
 
-    const login = await prisma.user.findUnique({
-      where: { email: `${TAG}-default@opero.test` },
-    });
+    await request(app)
+      .post("/api/users/invite")
+      .set(auth(adminToken))
+      .send({ kind: "employee", employeeId: created.body.id, role: "technician" });
+
+    const login = await prisma.user.findUnique({ where: { email } });
     expect(login!.role).toBe("technician");
   });
 });
