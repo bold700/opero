@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -19,6 +19,7 @@ import { ResponsiveDialog, useSheetMenuProps } from "../../../components/Respons
 import { SelectField } from "../../../components/SelectField";
 import { CheckboxGroupField } from "../../../components/CheckboxGroupField";
 import { useForm } from "../../../lib/useForm";
+import { useDirty } from "../../../lib/isDirty";
 import { required, email } from "../../../lib/validation";
 import { AccountSection } from "../../users/components/AccountSection";
 import type { StaffRole } from "../../users/api";
@@ -88,12 +89,12 @@ export function EmployeeDialog({
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const sheetMenu = useSheetMenuProps();
-  const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
-    EMPTY,
-    RULES,
-  );
-  // Roles aren't a plain string, so they live outside useForm.
+  const { values, setField, onBlur, errorFor, isValid, dirty, reset, touchAll } =
+    useForm<Form>(EMPTY, RULES);
+  // Roles aren't a plain string, so they live outside useForm — which means
+  // useForm's `dirty` can't see them, and they need their own baseline.
   const [roles, setRoles] = useState<TeamRole[]>([]);
+  const initialRoles = useRef<TeamRole[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -107,8 +108,15 @@ export function EmployeeDialog({
           }
         : EMPTY,
     );
-    setRoles((employee?.roles as TeamRole[]) ?? []);
+    const seededRoles = (employee?.roles as TeamRole[]) ?? [];
+    initialRoles.current = seededRoles;
+    setRoles(seededRoles);
   }, [open, employee, reset]);
+
+  // Roles are a set, so ticking and unticking the same one leaves the form
+  // unchanged; isDirty compares array members order-insensitively.
+  const rolesChanged = useDirty({ roles }, { roles: initialRoles.current });
+  const hasChanges = dirty || rolesChanged;
 
   const err = (key: keyof Form) => {
     const k = errorFor(key);
@@ -271,10 +279,12 @@ export function EmployeeDialog({
         <Button onClick={onClose} disabled={busy}>
           {t("common.actions.cancel")}
         </Button>
+        {/* `hasChanges` covers the roles picker too, which lives outside
+            useForm — otherwise toggling only a role would leave Save dead. */}
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={busy || !isValid}
+          disabled={busy || !isValid || !hasChanges}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
           {t("common.actions.save")}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -9,6 +9,7 @@ import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import { useDirty } from "../../../lib/isDirty";
 import { SelectField } from "../../../components/SelectField";
 import {
   createVariant,
@@ -47,35 +48,40 @@ export function VariantFormDialog({
     unit: "m",
     unitPrice: 0,
   });
+  // What the dialog was seeded with, so an untouched edit can't be saved.
+  const initialForm = useRef<VariantInput | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setForm(
-      variant
-        ? {
-            size: variant.size,
-            component: variant.component,
-            thicknessMm: variant.thicknessMm ?? null,
-            unit: variant.unit,
-            unitPrice: variant.unitPrice ?? 0,
-            costPrice: variant.costPrice ?? null,
-          }
-        : { size: "", component: "meter", unit: "m", unitPrice: 0 },
-    );
+    const seeded: VariantInput = variant
+      ? {
+          size: variant.size,
+          component: variant.component,
+          thicknessMm: variant.thicknessMm ?? null,
+          unit: variant.unit,
+          unitPrice: variant.unitPrice ?? 0,
+          costPrice: variant.costPrice ?? null,
+        }
+      : { size: "", component: "meter", unit: "m", unitPrice: 0 };
+    initialForm.current = seeded;
+    setForm(seeded);
   }, [open, variant]);
 
   const label = (o: { nl: string; en: string }) => (lang === "nl" ? o.nl : o.en);
   const set = <K extends keyof VariantInput>(k: K, v: VariantInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  const dirty = useDirty(form, initialForm.current);
+  // Editing additionally requires a change; creating keeps its original gating.
   const canSubmit =
     form.size.trim().length > 0 &&
     Number.isFinite(form.unitPrice) &&
     form.unitPrice >= 0 &&
-    !submitting;
+    !submitting &&
+    (!editing || dirty);
 
   const submit = async () => {
     setSubmitting(true);

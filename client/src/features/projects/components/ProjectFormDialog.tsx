@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -9,6 +9,7 @@ import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import { useDirty } from "../../../lib/isDirty";
 import { SelectField } from "../../../components/SelectField";
 import { getCustomers, type CustomerOption } from "../../work-orders/create-api";
 import { getWorkTypes, type WorkTypeOption } from "../../work-order-detail/api";
@@ -52,20 +53,42 @@ export function ProjectFormDialog({
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
 
+  // What the dialog was seeded with, so an untouched edit can't be saved.
+  const initialValues = useRef<{
+    customerId: string;
+    name: string;
+    workTypeId: string;
+    description: string;
+    instructions: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!open) return;
     getCustomers().then(setCustomers).catch(() => setCustomers([]));
     getWorkTypes().then(setWorkTypes).catch(() => setWorkTypes([]));
     // Seed fields from the project when editing; clear when creating.
-    setCustomerId(project?.customerId ?? "");
-    setName(project?.name ?? "");
-    setWorkTypeId(project?.workTypeId ?? "");
-    setDescription(project?.description ?? "");
-    setInstructions(project?.instructions ?? "");
+    const seeded = {
+      customerId: project?.customerId ?? "",
+      name: project?.name ?? "",
+      workTypeId: project?.workTypeId ?? "",
+      description: project?.description ?? "",
+      instructions: project?.instructions ?? "",
+    };
+    initialValues.current = seeded;
+    setCustomerId(seeded.customerId);
+    setName(seeded.name);
+    setWorkTypeId(seeded.workTypeId);
+    setDescription(seeded.description);
+    setInstructions(seeded.instructions);
   }, [open, project]);
 
-  // Create needs a customer; edit has one already — always submittable.
-  const canSubmit = editing ? true : Boolean(customerId);
+  const dirty = useDirty(
+    { customerId, name, workTypeId, description, instructions },
+    initialValues.current,
+  );
+  // Create needs a customer; edit needs an actual change — this used to be a
+  // flat `true`, which offered Save on a project nobody had touched.
+  const canSubmit = editing ? dirty : Boolean(customerId);
 
   const submit = () => {
     if (editing) {

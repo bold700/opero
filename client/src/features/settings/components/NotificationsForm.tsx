@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
@@ -9,6 +9,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { GroupLabel } from "./GroupLabel";
 import { ToggleRow } from "./ToggleRow";
 import { useAuth } from "../../../auth/AuthContext";
+import { useDirty } from "../../../lib/isDirty";
 import type { NotificationPrefs } from "../../../lib/api/auth";
 import { updatePreferences } from "../api";
 
@@ -29,6 +30,10 @@ export function NotificationsForm() {
   const [prefs, setPrefs] = useState<NotificationPrefs>(
     () => user!.preferences.notifications,
   );
+  // The saved state to compare against. Unlike the dialogs there is no reopen
+  // to re-seed from, so this is advanced by hand once a save succeeds —
+  // otherwise Save would stay enabled forever after the first one.
+  const savedPrefs = useRef<NotificationPrefs>(user!.preferences.notifications);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -36,12 +41,15 @@ export function NotificationsForm() {
   const set = (key: keyof NotificationPrefs) => (next: boolean) =>
     setPrefs((p) => ({ ...p, [key]: next }));
 
+  const dirty = useDirty(prefs, savedPrefs.current);
+
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
       const updated = await updatePreferences({ notifications: prefs });
       setUser(updated);
+      savedPrefs.current = updated.preferences.notifications;
       setToast(t("settings.notifications.saved"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("settings.notifications.saveError"));
@@ -73,7 +81,7 @@ export function NotificationsForm() {
         <Button
           variant="contained"
           onClick={save}
-          disabled={busy}
+          disabled={busy || !dirty}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
           {t("common.actions.save")}

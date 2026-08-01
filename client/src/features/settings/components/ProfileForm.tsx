@@ -31,10 +31,8 @@ function initials(name: string): string {
 export function ProfileForm() {
   const { t } = useTranslation();
   const { user, setUser } = useAuth();
-  const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
-    { name: "", phone: "" },
-    RULES,
-  );
+  const { values, setField, onBlur, errorFor, isValid, dirty, reset, touchAll } =
+    useForm<Form>({ name: "", phone: "" }, RULES);
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,10 +78,6 @@ export function ProfileForm() {
     const k = errorFor(key);
     return { error: !!k, helperText: k ? t(k) : undefined };
   };
-
-  const dirty =
-    !!user &&
-    (values.name !== user.name || values.phone !== (user.phone ?? ""));
 
   const save = async () => {
     if (!isValid) {

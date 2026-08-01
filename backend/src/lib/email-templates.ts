@@ -133,7 +133,7 @@ export function inviteEmail(params: {
     heading: `Je bent uitgenodigd voor ${BRAND}`,
     intro: [
       `Hallo ${escapeHtml(params.name)},`,
-      `<strong>${escapeHtml(params.invitedByName)}</strong> heeft een account voor je aangemaakt bij <strong>${escapeHtml(params.organizationName)}</strong>. Met ${BRAND} beheer je werkbonnen, planning en projecten.`,
+      `<strong>${escapeHtml(params.invitedByName)}</strong> heeft een account voor je aangemaakt bij <strong>${escapeHtml(params.organizationName)}</strong>.`,
       "Kies hieronder een wachtwoord om je account te activeren.",
     ],
     buttonLabel: "Account activeren",

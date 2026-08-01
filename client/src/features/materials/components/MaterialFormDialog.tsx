@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -9,6 +9,7 @@ import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import { useDirty } from "../../../lib/isDirty";
 import { SelectField } from "../../../components/SelectField";
 import {
   createMaterial,
@@ -45,6 +46,8 @@ export function MaterialFormDialog({
     supplier: "",
     sizeUnit: "pipe_od_mm",
   });
+  // What the dialog was seeded with, so an untouched edit can't be saved.
+  const initialForm = useRef<MaterialInput | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,9 +55,8 @@ export function MaterialFormDialog({
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setForm(
-      material
-        ? {
+    const seeded: MaterialInput = material
+      ? {
             name: material.name,
             class: material.class,
             supplier: material.supplier ?? "",
@@ -66,17 +68,23 @@ export function MaterialFormDialog({
             priceSource: material.priceSource ?? null,
             priceValidFrom: material.priceValidFrom ?? null,
             priceValidTo: material.priceValidTo ?? null,
-            priceNote: material.priceNote ?? null,
-          }
-        : { name: "", class: "insulation", supplier: "", sizeUnit: "pipe_od_mm" },
-    );
+          priceNote: material.priceNote ?? null,
+        }
+      : { name: "", class: "insulation", supplier: "", sizeUnit: "pipe_od_mm" };
+    initialForm.current = seeded;
+    setForm(seeded);
   }, [open, material]);
 
   const label = (o: { nl: string; en: string }) => (lang === "nl" ? o.nl : o.en);
   const set = <K extends keyof MaterialInput>(k: K, v: MaterialInput[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const canSubmit = form.name.trim().length > 0 && !submitting;
+  const dirty = useDirty(form, initialForm.current);
+  // Editing additionally requires a change: re-saving an untouched material
+  // would PUT the same values back. Creating keeps its original gating, since
+  // a new material has nothing to differ from.
+  const canSubmit =
+    form.name.trim().length > 0 && !submitting && (!editing || dirty);
 
   const submit = async () => {
     setSubmitting(true);

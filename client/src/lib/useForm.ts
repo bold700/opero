@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { isDirty } from "./isDirty";
 import { firstError, type Validator } from "./validation";
 
 // Minimal form helper: holds values, per-field validators, touched state, and
@@ -13,9 +14,15 @@ export function useForm<T extends Record<string, string>>(
 ) {
   const [values, setValues] = useState<T>(initial);
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
+  // What the form was last seeded with, so `dirty` can tell "edited" from
+  // "reopened". A ref, not state: it is a baseline for comparison and must not
+  // itself cause a render.
+  const initialRef = useRef<T>(initial);
 
-  // Reset to a new set of values (e.g. when an edit dialog opens).
+  // Reset to a new set of values (e.g. when an edit dialog opens). This is the
+  // single seeding path, which is why re-baselining here covers every caller.
   const reset = useCallback((next: T) => {
+    initialRef.current = next;
     setValues(next);
     setTouched({});
   }, []);
@@ -53,6 +60,11 @@ export function useForm<T extends Record<string, string>>(
     [errors],
   );
 
+  // True once a value differs from what the form was seeded with. Callers that
+  // keep additional state outside this hook (e.g. a roles array) must OR their
+  // own comparison in — this only speaks for the fields it holds.
+  const dirty = useMemo(() => isDirty(values, initialRef.current), [values]);
+
   // Mark everything touched (call on submit attempt to surface all errors).
   const touchAll = useCallback(() => {
     const all: Partial<Record<keyof T, boolean>> = {};
@@ -60,5 +72,5 @@ export function useForm<T extends Record<string, string>>(
     setTouched(all);
   }, [values]);
 
-  return { values, setField, onBlur, errorFor, isValid, reset, touchAll };
+  return { values, setField, onBlur, errorFor, isValid, dirty, reset, touchAll };
 }

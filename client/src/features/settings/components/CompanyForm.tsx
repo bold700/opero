@@ -35,7 +35,7 @@ const RULES = { email: [emailRule] };
 export function CompanyForm() {
   const { t } = useTranslation();
   const { data: org, loading } = useApi<Organization>(getOrganization);
-  const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
+  const { values, setField, onBlur, errorFor, isValid, dirty, reset, touchAll } = useForm<Form>(
     {
       name: "",
       email: "",
@@ -191,7 +191,7 @@ export function CompanyForm() {
         <Button
           variant="contained"
           onClick={save}
-          disabled={busy || !isValid}
+          disabled={busy || !isValid || !dirty}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
           {t("common.actions.save")}

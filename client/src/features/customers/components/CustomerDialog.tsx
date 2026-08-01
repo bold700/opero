@@ -83,10 +83,8 @@ export function CustomerDialog({
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
-  const { values, setField, onBlur, errorFor, isValid, reset, touchAll } = useForm<Form>(
-    EMPTY,
-    RULES,
-  );
+  const { values, setField, onBlur, errorFor, isValid, dirty, reset, touchAll } =
+    useForm<Form>(EMPTY, RULES);
 
   // Seed the form when opening (edit → existing values, create → empty).
   useEffect(() => {
@@ -256,10 +254,12 @@ export function CustomerDialog({
         <Button onClick={onClose} disabled={busy}>
           {t("common.actions.cancel")}
         </Button>
+        {/* `dirty`, so reopening a record and saving it unchanged isn't offered
+            as an action — it would PATCH the same values back. */}
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={busy || !isValid}
+          disabled={busy || !isValid || !dirty}
           startIcon={busy ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
           {t("common.actions.save")}
