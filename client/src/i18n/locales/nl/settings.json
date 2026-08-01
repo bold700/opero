@@ -56,7 +56,7 @@
     "lastName": "Achternaam",
     "email": "E-mailadres",
     "phone": "Telefoonnummer",
-    "role": "Functie",
+    "role": "Toegangsniveau",
     "roles": {
       "admin": "Admin",
       "office": "Kantoormedewerker",

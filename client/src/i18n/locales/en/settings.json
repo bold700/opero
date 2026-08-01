@@ -56,7 +56,7 @@
     "lastName": "Last name",
     "email": "Email address",
     "phone": "Phone number",
-    "role": "Role",
+    "role": "Access level",
     "roles": {
       "admin": "Admin",
       "office": "Office staff",

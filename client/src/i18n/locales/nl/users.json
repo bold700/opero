@@ -22,7 +22,7 @@
     "title": "Gebruiker uitnodigen",
     "subtitle": "Ze ontvangen een e-mail met een link om hun wachtwoord in te stellen en hun account te activeren.",
     "linkedTo": "Login voor {{name}}",
-    "role": "Rol",
+    "role": "Toegangsniveau",
     "send": "Uitnodiging versturen",
     "clientRoleNote": "{{name}} krijgt een klant-login voor het klantportaal."
   },

@@ -22,7 +22,7 @@
     "title": "Invite user",
     "subtitle": "They'll receive an email with a link to set their password and activate their account.",
     "linkedTo": "Login for {{name}}",
-    "role": "Role",
+    "role": "Access level",
     "send": "Send invite",
     "clientRoleNote": "{{name}} will get a client login for the customer portal."
   },

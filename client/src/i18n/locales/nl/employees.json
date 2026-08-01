@@ -46,7 +46,7 @@
     "name": "Naam",
     "phone": "Telefoon",
     "email": "E-mail",
-    "roles": "Functies",
+    "roles": "Rollen",
     "status": "Status",
     "account": {
       "title": "Account",
