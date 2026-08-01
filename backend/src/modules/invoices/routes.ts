@@ -7,8 +7,9 @@ import { requireAuth, requireRole } from "../../auth/middleware.js";
 
 export const invoicesRouter = Router();
 
-// Invoices are admin-only (spec: Reports/finance = admin; invoice actions live
-// with Administration → admin in the 3-role model).
+// Invoices are office work: money is never field-visible, so admin + office
+// only (spec: Reports/finance = admin; office runs the full operational app).
+// foreman/technician/client never reach these routes.
 invoicesRouter.use(requireAuth, requireRole("admin", "office"));
 
 function todayIso(): string {

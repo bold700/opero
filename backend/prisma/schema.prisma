@@ -121,6 +121,11 @@ enum ProjectActivityType {
 }
 
 // Employee job functions (types.ts Role) — distinct from auth UserRole.
+// These are JOB TITLES: they drive display labels, sort order and the
+// office/field list filter, and nothing else. A TeamRole value appearing in an
+// access check is a bug — authorization is UserRole's job and lives entirely in
+// the predicates in @opero/shared permissions.ts. Note Foreman/Technician also
+// exist as UserRole values; same word, different axis (title vs. capability).
 enum TeamRole {
   Sales
   WorkPlanner

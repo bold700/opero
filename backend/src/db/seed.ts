@@ -155,13 +155,11 @@ async function main() {
 
   // -----------------------------------------------------------------------
   // 4. Employees (keep mock ids). roles strings map 1:1 to TeamRole enum.
-  //    DEMO mode seeds the full mock team; otherwise seed only the handful the
-  //    demo login accounts attach to (one Technician), so the technician login
-  //    still resolves to a real employee on a clean slate.
+  //    DEMO mode seeds the full mock team; otherwise NO mock employees at all —
+  //    the demo logins carry their own dedicated Employee records (§9), so
+  //    there is nothing here that needs propping up for them to resolve.
   // -----------------------------------------------------------------------
-  const seededTeam = SEED_DEMO
-    ? mockTeamMembers
-    : mockTeamMembers.filter((tm) => tm.roles.includes("Technician")).slice(0, 1);
+  const seededTeam = SEED_DEMO ? mockTeamMembers : [];
   for (let i = 0; i < seededTeam.length; i++) {
     const tm = seededTeam[i];
     // Most active; sprinkle a few on_leave / inactive for realistic variety.
@@ -182,6 +180,27 @@ async function main() {
   const employeeIds = new Set(seededTeam.map((tm) => tm.id));
   const validEmployeeId = (id?: string | null): string | null =>
     id && employeeIds.has(id) ? id : null;
+
+  // The technician demo login gets its OWN Employee, never a mockTeamMembers
+  // persona. Binding it to the first mock technician (tm-004 "Sven Bakker")
+  // made the login's identity depend on array order in shared/src/mock-data.ts,
+  // and that persona sits on every project crew — so the dev login inherited a
+  // full werkbon list it was never meant to own.
+  //
+  // Seeded with NO work: this employee starts with zero werkbon and project
+  // assignments, so the account is a clean slate you assign work to yourself.
+  const DEMO_TECHNICIAN_ID = "demo-technician";
+  await prisma.employee.create({
+    data: {
+      id: DEMO_TECHNICIAN_ID,
+      orgId,
+      name: "Technician Demo",
+      phone: "",
+      email: "technician@opero.test",
+      roles: ["Technician"] as TeamRole[],
+      status: "active",
+    },
+  });
 
   // -----------------------------------------------------------------------
   // 6. Articles (catalog) — keep ids; category → CatalogCategory enum
@@ -734,9 +753,6 @@ async function main() {
     },
   });
 
-  const technicianEmployeeId = validEmployeeId(
-    seededTeam.find((tm) => tm.roles.includes("Technician"))?.id,
-  );
   // Only seeded when demo customers were (the non-demo slice seeds none).
   const firstCustomerId = SEED_DEMO ? mockCustomers[0]?.id ?? null : null;
 
@@ -776,21 +792,23 @@ async function main() {
     },
   });
 
-  // The remaining two demo logins are only created when their domain record
-  // exists. Creating them unlinked would break the invariant on a clean slate.
-  if (technicianEmployeeId) {
-    await prisma.user.create({
-      data: {
-        orgId,
-        email: "technician@opero.test",
-        passwordHash,
-        name: "Technician Demo",
-        role: "technician",
-        totpEnabled: false,
-        employeeId: technicianEmployeeId,
-      },
-    });
-  }
+  // The technician login always resolves: its Employee (DEMO_TECHNICIAN_ID) is
+  // minted unconditionally in §4, so the link invariant holds on a clean slate
+  // without depending on any mock data being seeded.
+  await prisma.user.create({
+    data: {
+      orgId,
+      email: "technician@opero.test",
+      passwordHash,
+      name: "Technician Demo",
+      role: "technician",
+      totpEnabled: false,
+      employeeId: DEMO_TECHNICIAN_ID,
+    },
+  });
+
+  // The client login is only created when its Customer exists (demo-only).
+  // Creating it unlinked would break the invariant on a clean slate.
   if (firstCustomerId) {
     await prisma.user.create({
       data: {
