@@ -9,7 +9,7 @@
   "scripts": {
     "dev:client": "pnpm --filter @opero/client dev",
     "dev:backend": "pnpm --filter @opero/backend dev",
-    "predev": "docker start opero-postgres 2>/dev/null || true; for i in $(seq 1 30); do docker exec opero-postgres pg_isready -U opero >/dev/null 2>&1 && exit 0; sleep 0.5; done; echo 'postgres did not become ready in time' >&2; exit 1",
+    "predev": "bash scripts/dev-db.sh",
     "dev": "concurrently -n api,client -c blue,magenta \"corepack pnpm --filter @opero/backend dev\" \"corepack pnpm --filter @opero/client dev\"",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",

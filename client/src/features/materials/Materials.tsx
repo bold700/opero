@@ -2,16 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { PageLayout } from "../../components/PageLayout";
-import { LAVENDER, SPACING } from "../../theme/tokens";
+import { FilterSelect } from "../../components/FilterSelect";
+import { SPACING } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import {
   getMaterialGroups,
   getSuppliers,
@@ -32,7 +32,7 @@ export function Materials() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = canSeeAllProjects(user?.role ?? "client");
+  const isAdmin = isOffice(user?.role ?? "client");
   const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
   const [search, setSearch] = useState("");
@@ -93,23 +93,17 @@ export function Materials() {
         />
       }
     >
-      {/* Supplier filter chips (only when there's more than one supplier). */}
+      {/* Supplier filter (only when there's more than one supplier). */}
       {suppliers && suppliers.length > 1 ? (
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <FilterChip
-            label={t("materials.filters.allSuppliers")}
-            active={supplier === ""}
-            onClick={() => setSupplier("")}
-          />
-          {suppliers.map((s) => (
-            <FilterChip
-              key={s}
-              label={s}
-              active={supplier === s}
-              onClick={() => setSupplier(s)}
-            />
-          ))}
-        </Box>
+        <FilterSelect
+          value={supplier}
+          onChange={setSupplier}
+          ariaLabel={t("materials.filters.label")}
+          options={[
+            { value: "", label: t("materials.filters.allSuppliers") },
+            ...suppliers.map((s) => ({ value: s, label: s })),
+          ]}
+        />
       ) : null}
 
       {loading ? (
@@ -153,28 +147,5 @@ export function Materials() {
         />
       ) : null}
     </PageLayout>
-  );
-}
-
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Chip
-      label={label}
-      onClick={onClick}
-      variant={active ? "filled" : "outlined"}
-      sx={
-        active
-          ? { bgcolor: LAVENDER, color: "primary.main", fontWeight: 600 }
-          : { color: "text.secondary" }
-      }
-    />
   );
 }

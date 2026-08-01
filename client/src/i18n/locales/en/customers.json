@@ -1,6 +1,7 @@
 {
   "title": "Customers",
   "filters": {
+    "label": "Filter",
     "all": "All",
     "business": "Business",
     "private": "Private"

@@ -74,6 +74,11 @@ beforeAll(async () => {
 
   const woRes = await request(app).post("/api/work-orders").set(auth(adminToken)).send({ projectId });
   workOrderId = woRes.body.id;
+  // Assignment is per WERKBON, not per project — that's what grants access.
+  await prisma.workOrder.update({
+    where: { id: workOrderId },
+    data: { assignees: { connect: { id: techEmp.id } } },
+  });
 
   // Add a task + a priced material so the PDF has content to lay out.
   const taskRes = await request(app)
@@ -112,6 +117,23 @@ describe("work-order PDF export", () => {
     const body = res.body as Buffer;
     expect(body.subarray(0, 5).toString("ascii")).toBe("%PDF-");
     expect(res.headers["content-disposition"]).toContain(".pdf");
+    // A complete document, not a stream that died mid-write: pdfkit only emits
+    // the trailer on doc.end(), so %%EOF proves the whole PDF was flushed.
+    expect(body.subarray(-1024).toString("latin1")).toContain("%%EOF");
+  });
+
+  // The client and API are different origins, so the browser hides every
+  // non-safelisted response header from JS unless the server exposes it.
+  // Without this the download helper cannot read the server's filename — the
+  // regression that broke the export's naming. See backend/src/index.ts.
+  it("exposes Content-Disposition to the browser via CORS", async () => {
+    const res = await request(app)
+      .get(`/api/work-orders/${workOrderId}/pdf`)
+      .set(auth(adminToken))
+      .set("Origin", "http://localhost:3000");
+    expect(res.headers["access-control-expose-headers"] ?? "").toMatch(
+      /content-disposition/i,
+    );
   });
 
   it("an assigned technician can export the PDF", async () => {

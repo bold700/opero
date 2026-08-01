@@ -1,6 +1,7 @@
 {
   "title": "Klanten",
   "filters": {
+    "label": "Filter",
     "all": "Alle",
     "business": "Zakelijk",
     "private": "Particulier"

@@ -23,7 +23,12 @@ export type AdminDashboard = {
   openInvoices: number;
 };
 
-// --- technician ----------------------------------------------------------
+// --- technician + foreman -------------------------------------------------
+//
+// The foreman gets the SAME money-free shape as the technician — the only
+// difference is scope (projectScopeWhere: foreman sees every org project, a
+// technician only assigned ones). `role` echoes which one it is so the client
+// can still branch on it.
 
 export type TechnicianProjectRow = {
   id: string;
@@ -39,7 +44,7 @@ export type TechnicianProjectRow = {
 };
 
 export type TechnicianDashboard = {
-  role: "technician";
+  role: "technician" | "foreman";
   todayProjects: TechnicianProjectRow[];
   upcomingProjects: TechnicianProjectRow[];
   openTaskCount: number;

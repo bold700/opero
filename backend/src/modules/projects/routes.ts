@@ -18,6 +18,7 @@ import {
   projectSummaryDto,
   activityDto,
   projectInclude,
+  projectIncludeFor,
   type ProjectWithRelations,
 } from "./dto.js";
 
@@ -199,7 +200,9 @@ projectsRouter.get(
     const user = req.user!;
     const project = await prisma.project.findFirst({
       where: projectScopeWhere(user, { id: req.params.id }),
-      include: projectInclude,
+      // ...For(user): the nested werkbon list is scoped per assignment, so a
+      // technician on this project's crew still only sees THEIR visits here.
+      include: projectIncludeFor(user),
     });
     if (!project) throw NotFound("Project not found");
     res.json(await projectDtoFor(user, project));
@@ -1021,7 +1024,9 @@ projectsRouter.delete(
 // HANDOVER — admin + technician (assigned)
 // =========================================================================
 
-// Gate handover writes to admin or technician-on-assigned.
+// Gate handover writes to whoever sees the project org-wide (office + foreman —
+// registration work, so the foreman may do it on any project) or a technician
+// on an assigned one.
 function assertHandoverWriter(
   user: AuthUser,
   project: {

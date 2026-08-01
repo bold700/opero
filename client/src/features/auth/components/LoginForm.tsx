@@ -45,7 +45,11 @@ export function LoginForm() {
       setUser(res.user);
       navigate("/");
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
+      if (e instanceof ApiError && e.code === "ACCOUNT_NOT_ACTIVATED") {
+        // Provisioned but never activated — "wrong password" would send them
+        // hunting for a typo instead of to their invite mail.
+        setError(t("auth.errors.notActivated"));
+      } else if (e instanceof ApiError && e.status === 401) {
         setError(t("auth.errors.invalidCredentials"));
       } else {
         setError(t("auth.errors.loginFailed"));

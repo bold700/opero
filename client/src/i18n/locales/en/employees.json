@@ -11,6 +11,7 @@
     "active": "Active"
   },
   "filters": {
+    "label": "Filter",
     "all": "All",
     "technicians": "Technicians",
     "office": "Office",

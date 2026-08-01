@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
+import { DateField } from "../../../components/DateField";
 import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import IconButton from "@mui/material/IconButton";
@@ -196,8 +197,7 @@ export function AbsenceDialog({
             fullWidth
           />
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <TextField
-              type="date"
+            <DateField
               size="small"
               label={t("employees.absence.from")}
               value={startDate}
@@ -207,11 +207,9 @@ export function AbsenceDialog({
                 // office only has to touch one field for it.
                 if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
               }}
-              slotProps={{ inputLabel: { shrink: true } }}
               sx={{ flex: 1, minWidth: 150 }}
             />
-            <TextField
-              type="date"
+            <DateField
               size="small"
               label={t("employees.absence.to")}
               value={endDate}
@@ -222,7 +220,6 @@ export function AbsenceDialog({
                   ? t("employees.absence.rangeError")
                   : undefined
               }
-              slotProps={{ inputLabel: { shrink: true } }}
               sx={{ flex: 1, minWidth: 150 }}
             />
           </Box>

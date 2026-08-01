@@ -4,20 +4,21 @@ import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { Forbidden } from "../../lib/httpError.js";
 import { requireAuth } from "../../auth/middleware.js";
-import { canSeeAllProjects, type UserRole } from "@opero/shared";
+import { isOffice, type UserRole } from "@opero/shared";
 
 export const reportsRouter = Router();
 
 reportsRouter.use(requireAuth);
 
 // Reports is office work (company-wide finance/analytics) — the owner and
-// office staff. Technicians see only their own timesheet via
-// /employees/:id/timesheet; clients see nothing.
+// office staff. Field staff (technician, foreman) see only their own timesheet
+// via /employees/:id/timesheet; clients see nothing. isOffice, NOT
+// canSeeAllProjects: the foreman sees every project but never company finance.
 //
 // Named requireStaff, not requireAdmin: a helper called "requireAdmin" that
 // also admits office would be a landmine for the next reader.
 function requireStaff(role: UserRole) {
-  if (!canSeeAllProjects(role)) throw Forbidden("Not available");
+  if (!isOffice(role)) throw Forbidden("Not available");
 }
 
 // --- Period handling ------------------------------------------------------

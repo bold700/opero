@@ -29,11 +29,15 @@ datasource db {
 //   admin      = the owner: everything, incl. provisioning logins + org config
 //   office     = office staff: the full operational app, but never logins or
 //                org config (a clerk must not be able to disable the owner)
+//   foreman    = meewerkend uitvoerder: field staff who sees EVERYONE's work
+//                orders and planning (read-only planning, no prices, nothing
+//                commercial) — see @opero/shared permissions.ts
 //   technician = field staff (monteur)
 //   client     = the customer's own portal login
 enum UserRole {
   admin
   office
+  foreman
   technician
   client
 }

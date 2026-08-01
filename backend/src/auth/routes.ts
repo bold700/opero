@@ -18,7 +18,7 @@ import { env } from "../env.js";
 import { prisma } from "../db/client.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { audit } from "../lib/audit.js";
-import { BadRequest, Unauthorized } from "../lib/httpError.js";
+import { BadRequest, NotActivated, Unauthorized } from "../lib/httpError.js";
 import { authRateLimit } from "../lib/rateLimit.js";
 import { sendEmail } from "../lib/email.js";
 import { hashPassword, toAuthUser, verifyPassword, mergePreferences } from "./service.js";
@@ -65,14 +65,22 @@ authRouter.post(
     const { email, password } = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
     // Generic failure — no user enumeration.
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    if (!user) throw Unauthorized("Invalid credentials");
+    // Checked BEFORE the password comparison, deliberately: an invited user's
+    // stored hash is `unusablePassword()` (random bytes), so verifyPassword can
+    // never succeed for them. Behind the password check this branch is dead code
+    // and the user is told "invalid credentials" — sending them to hunt for a
+    // typo instead of to their invite mail. Telling an invited account it isn't
+    // activated leaks nothing an invite email hasn't already told that address.
+    if (user.status === "invited") {
+      throw NotActivated(
+        "This account hasn't been activated yet. Check your email for the invite.",
+      );
+    }
+    if (!(await verifyPassword(password, user.passwordHash))) {
       throw Unauthorized("Invalid credentials");
     }
-    // Provisioned-but-not-activated users can't log in until they set a password
-    // via their invite link. Disabled users are treated as invalid (no enumeration).
-    if (user.status === "invited") {
-      throw Unauthorized("This account hasn't been activated yet. Check your email for the invite.");
-    }
+    // Disabled users are treated as invalid (no enumeration).
     if (user.status === "disabled") {
       throw Unauthorized("Invalid credentials");
     }

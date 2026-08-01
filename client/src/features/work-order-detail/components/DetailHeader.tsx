@@ -13,6 +13,7 @@ import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import HistoryIcon from "@mui/icons-material/History";
 import Tooltip from "@mui/material/Tooltip";
 import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
@@ -47,6 +48,7 @@ export function DetailHeader({
   onExportPdf,
   onExportQuotePdf,
   onOpenInfo,
+  onOpenActivity,
 }: {
   workOrder: WorkOrder;
   project: Project;
@@ -71,6 +73,11 @@ export function DetailHeader({
    * one column and the panel isn't on screen; omit it and no icon renders.
    */
   onOpenInfo?: () => void;
+  /**
+   * Opens the Activiteit sheet. Same rule as `onOpenInfo`: only passed where the
+   * layout has collapsed to one column; omit it and no icon renders.
+   */
+  onOpenActivity?: () => void;
 }) {
   const { t } = useTranslation();
   const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
@@ -152,6 +159,20 @@ export function DetailHeader({
                 sx={{ display: { xs: "inline-flex", lg: "none" } }}
               >
                 <InfoOutlinedIcon />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+
+          {/* Activiteit — same story as Projectinfo above: below lg the log falls
+              to the very bottom of the page, so it moves into a sheet. */}
+          {onOpenActivity ? (
+            <Tooltip title={t("workOrderDetail.activity.title")}>
+              <IconButton
+                aria-label={t("workOrderDetail.activity.title")}
+                onClick={onOpenActivity}
+                sx={{ display: { xs: "inline-flex", lg: "none" } }}
+              >
+                <HistoryIcon />
               </IconButton>
             </Tooltip>
           ) : null}

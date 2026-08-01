@@ -32,11 +32,11 @@ export type LinkedAccount = {
   activatedAt?: string;
 } | null;
 
-// A login is always provisioned for an existing person. Employee → admin
-// (the owner), office or technician; Customer → always client (role derived
-// server-side). Mirrors inviteUserSchema in shared/src/schemas.ts.
+// A login is always provisioned for an existing person. Employee → any staff
+// role (admin/office/foreman/technician); Customer → always client (role
+// derived server-side). Mirrors inviteUserSchema in shared/src/schemas.ts.
 export type InviteInput =
-  | { kind: "employee"; employeeId: string; role: "admin" | "office" | "technician" }
+  | { kind: "employee"; employeeId: string; role: "admin" | "office" | "foreman" | "technician" }
   | { kind: "customer"; customerId: string };
 
 export function inviteUser(input: InviteInput): Promise<UserAccount> {
@@ -45,7 +45,7 @@ export function inviteUser(input: InviteInput): Promise<UserAccount> {
 
 // Change an existing login's ACCESS LEVEL. `client` is absent on purpose: it
 // pairs structurally with a Customer record, so it's not a level you move to.
-export type StaffRole = "admin" | "office" | "technician";
+export type StaffRole = "admin" | "office" | "foreman" | "technician";
 
 export function updateUserRole(id: string, role: StaffRole): Promise<UserAccount> {
   return api.patch<UserAccount>(`/users/${id}`, { role });

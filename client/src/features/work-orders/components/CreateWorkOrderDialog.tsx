@@ -13,7 +13,7 @@ import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useAuth } from "../../../auth/AuthContext";
-import { canSeeAllProjects } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import {
   getCustomers,
   getCustomerLocations,
@@ -60,7 +60,7 @@ export function CreateWorkOrderDialog({
 }) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isAdmin = canSeeAllProjects(user?.role ?? "client");
+  const isAdmin = isOffice(user?.role ?? "client");
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [locations, setLocations] = useState<LocationOption[]>([]);

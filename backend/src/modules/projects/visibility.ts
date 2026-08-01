@@ -6,7 +6,9 @@ import type { AuthUser } from "../../auth/types.js";
 // deletedAt:null on every list/detail query, so visibility is enforced
 // uniformly at the data layer.
 //
-// - admin/office: every project in the org.
+// - admin/office/foreman: every project in the org (foreman = meewerkend
+//                 uitvoerder — org-wide werkbon+planning visibility is his
+//                 whole role; office POWERS stay behind isOffice).
 // - client:       only projects of their linked customer (customerId match).
 // - technician:   only projects where their employee is teamLeaderId OR
 //                 projectLeaderId OR one of the installers (m:n).

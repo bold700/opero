@@ -26,7 +26,7 @@ export const createEmployeeSchema = z.object({
   // different axis from `roles` above, which are job titles that grant nothing.
   // Omitted → `technician`, so existing callers are unaffected. The route still
   // checks the caller may grant it; only used when an email is present.
-  accessRole: z.enum(["admin", "office", "technician"]).optional(),
+  accessRole: z.enum(["admin", "office", "foreman", "technician"]).optional(),
 });
 
 // `accessRole` is create-only: it seeds the auto-invite. Changing an existing

@@ -21,7 +21,7 @@ import {
   absenceDto,
 } from "./dto.js";
 import {
-  canSeeAllProjects,
+  isOffice,
   canActOnAccount,
   canGrantRole,
   type UserRole,
@@ -457,18 +457,20 @@ employeesRouter.delete(
 // projectLeader OR teamLeader OR one of the installers, optionally filtered by the
 // task's `day` string (YYYY-MM-DD) with a lexicographic >= from && <= to filter.
 //
-// Guard: admin may view any employee's timesheet; a technician may view ONLY their
-// own (user.employeeId === :id). Client: 403.
+// Guard: the office may view any employee's timesheet; field staff (technician,
+// foreman) may view ONLY their own (user.employeeId === :id). Client: 403.
 employeesRouter.get(
   "/:id/timesheet",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const employeeId = req.params.id;
-    // The office runs payroll, so they see anyone's hours; a technician sees
-    // only their own.
+    // The office runs payroll, so they see anyone's hours; field staff
+    // (technician, foreman) see only their own. isOffice, NOT
+    // canSeeAllProjects: the foreman sees every project but not payroll hours.
     const canView =
-      canSeeAllProjects(user.role) ||
-      (user.role === "technician" && user.employeeId === employeeId);
+      isOffice(user.role) ||
+      ((user.role === "technician" || user.role === "foreman") &&
+        user.employeeId === employeeId);
     if (!canView) throw Forbidden("Not allowed for this timesheet");
 
     const employee = await prisma.employee.findFirst({

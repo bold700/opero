@@ -8,7 +8,7 @@ import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -29,7 +29,7 @@ export function Projects() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canManage = canSeeAllProjects(user?.role ?? "client");
+  const canManage = isOffice(user?.role ?? "client");
 
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);

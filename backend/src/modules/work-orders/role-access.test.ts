@@ -101,8 +101,16 @@ beforeAll(async () => {
   const wo2 = await request(app).post("/api/work-orders").set(auth(adminToken)).send({ projectId: otherProjectId });
   // Put BOTH werkbonnen on the planning calendar (plannedDate is per-werkbon now)
   // so the feed would include both if scoping were broken.
-  await prisma.workOrder.update({ where: { id: wo1.body.id }, data: { plannedDate: "2030-06-01" } });
-  await prisma.workOrder.update({ where: { id: wo2.body.id }, data: { plannedDate: "2030-06-02" } });
+  // Assignment is per WERKBON: put the technician on their own project's
+  // werkbon (wo2 stays another crew's, so it must remain invisible).
+  await prisma.workOrder.update({
+    where: { id: wo1.body.id },
+    data: { plannedDate: "2030-06-01", assignees: { connect: { id: techEmployeeId } } },
+  });
+  await prisma.workOrder.update({
+    where: { id: wo2.body.id },
+    data: { plannedDate: "2030-06-02", assignees: { connect: { id: otherEmployeeId } } },
+  });
 });
 
 afterAll(async () => {

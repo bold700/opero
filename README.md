@@ -21,11 +21,11 @@ Install dependencies:
 pnpm install
 ```
 
-Create the local Postgres container (once):
-
-```bash
-docker run --name opero-postgres -e POSTGRES_USER=opero -e POSTGRES_PASSWORD=opero_dev_pw -e POSTGRES_DB=opero -p 5433:5432 -d postgres:16
-```
+The local Postgres container is handled automatically — `pnpm dev` runs
+`scripts/dev-db.sh`, which creates `opero-postgres` if it is missing, starts it
+if it is stopped, and waits until it accepts connections. Data lives in the
+`opero-postgres-data` Docker volume, so it survives removing the container.
+Docker Desktop does need to be running.
 
 Copy the backend environment file and adjust as needed:
 

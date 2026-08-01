@@ -16,7 +16,8 @@ import type { InviteInput } from "../api";
 
 // Provision a login for an EXISTING person (Employee or Customer). Email, name
 // and role come from that record — there is never a free-typed address.
-// Employees can be admin or technician; customers are always the client role.
+// Employees can be any staff role (admin/office/foreman/technician); customers
+// are always the client role.
 //
 // The person is ALWAYS known: this is launched from their row on Werknemers /
 // Klanten, which is the only place access is managed. (There used to be a
@@ -33,7 +34,7 @@ export type InviteFixedTarget =
 // Which of these the signed-in user may actually hand out is a level question,
 // so the options come from grantableRoles() — office never sees `admin`, since
 // minting an owner would be a way around the guard on disabling one.
-type EmployeeRole = "admin" | "office" | "technician";
+type EmployeeRole = "admin" | "office" | "foreman" | "technician";
 
 export function InviteDialog({
   open,

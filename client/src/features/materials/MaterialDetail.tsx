@@ -17,7 +17,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { STATUS_TONES, SPACING } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import {
   getMaterial,
   getMaterialMeta,
@@ -46,7 +46,7 @@ export function MaterialDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = canSeeAllProjects(user?.role ?? "client");
+  const isAdmin = isOffice(user?.role ?? "client");
   const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
   const [material, setMaterial] = useState<MaterialDetailType | null>(null);

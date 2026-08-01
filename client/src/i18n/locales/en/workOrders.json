@@ -8,6 +8,7 @@
     "done": "Done"
   },
   "filters": {
+    "label": "Filter",
     "all": "All",
     "open": "Open",
     "onTheWay": "On the way",

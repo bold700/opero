@@ -2,14 +2,18 @@ import { Router } from "express";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../auth/middleware.js";
+import { isOffice } from "@opero/shared";
 import { visibleProjectsWhere } from "../projects/visibility.js";
+import { visibleWorkOrdersWhere } from "../work-orders/visibility.js";
 
 // Global search: GET /api/search?q=... — searches customers, projects and work
 // orders the requesting user is allowed to see, and returns the top few of each.
 //
 // Permission is enforced by REUSING the same role-scoped `where` fragments the
-// list endpoints use (org scope + visibleProjectsWhere + the customer role
-// rule), so results can never leak across orgs or roles.
+// list endpoints use, so results can never leak across orgs or roles. Note the
+// two are DIFFERENT questions: projects use visibleProjectsWhere, work orders
+// use visibleWorkOrdersWhere (assignment is per werkbon). Search must never be
+// scoped more loosely than the list it mirrors.
 export const searchRouter = Router();
 
 searchRouter.use(requireAuth);
@@ -36,9 +40,11 @@ searchRouter.get(
     const orgScope = { orgId: user.orgId, deletedAt: null };
     const projectScope = visibleProjectsWhere(user); // role-aware
 
-    // --- Customers: technicians have no customer access; clients only their own.
+    // --- Customers: field staff (technician, foreman) have no customer
+    // access; clients only their own. Allow-list (office + client), so a new
+    // role defaults to NO customer results.
     const customersPromise =
-      user.role === "technician"
+      !isOffice(user.role) && user.role !== "client"
         ? Promise.resolve([])
         : prisma.customer.findMany({
             where: {
@@ -58,17 +64,24 @@ searchRouter.get(
             select: { id: true, name: true, city: true },
           });
 
-    // --- Projects: org + role visibility.
+    // --- Projects: org + role visibility. AND the fragments — never spread:
+    // the technician visibility fragment IS a top-level OR, and an object
+    // literal's own `OR:` (the search terms) would silently REPLACE it,
+    // leaking every org project into their search (see visibility.ts).
     const projectsPromise = prisma.project.findMany({
       where: {
-        ...orgScope,
-        ...projectScope,
-        OR: [
-          { projectNumber: ci },
-          { name: ci },
-          { customerName: ci },
-          { city: ci },
-          { address: ci },
+        AND: [
+          orgScope,
+          projectScope,
+          {
+            OR: [
+              { projectNumber: ci },
+              { name: ci },
+              { customerName: ci },
+              { city: ci },
+              { address: ci },
+            ],
+          },
         ],
       },
       orderBy: { createdAt: "desc" },
@@ -76,15 +89,24 @@ searchRouter.get(
       select: { id: true, projectNumber: true, name: true, customerName: true, city: true },
     });
 
-    // --- Work orders: scoped through their project's visibility.
+    // --- Work orders: scoped by WERKBON visibility, not their project's.
+    // Assignment is per werkbon, so scoping this through the project would let
+    // a technician SEARCH UP a colleague's werkbon on a project they merely
+    // share — the list endpoint's rule has to hold here too, or search becomes
+    // the back door around it. Same AND-not-spread rule as above.
     const workOrdersPromise = prisma.workOrder.findMany({
       where: {
-        project: { is: { ...orgScope, ...projectScope } },
-        OR: [
-          { title: ci },
-          { project: { is: { projectNumber: ci } } },
-          { project: { is: { customerName: ci } } },
-          { project: { is: { city: ci } } },
+        AND: [
+          { project: { is: orgScope } },
+          visibleWorkOrdersWhere(user),
+          {
+            OR: [
+              { title: ci },
+              { project: { is: { projectNumber: ci } } },
+              { project: { is: { customerName: ci } } },
+              { project: { is: { city: ci } } },
+            ],
+          },
         ],
       },
       orderBy: { createdAt: "desc" },

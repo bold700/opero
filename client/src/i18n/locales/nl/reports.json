@@ -15,6 +15,7 @@
     "allTime": "Alles"
   },
   "filters": {
+    "label": "Filter",
     "all": "Alle",
     "workOrders": "Werkbonnen",
     "hours": "Uren",

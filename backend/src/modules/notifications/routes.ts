@@ -135,8 +135,13 @@ notificationsRouter.get(
       }
     }
 
-    // --- Work orders newly assigned to a technician -----------------------
-    if (categoryEnabled("newWorkOrder", prefs) && user.role === "technician") {
+    // --- Work orders newly assigned to field staff ------------------------
+    // A foreman works along on the tools, so he can hold task assignments
+    // exactly like a technician.
+    if (
+      categoryEnabled("newWorkOrder", prefs) &&
+      (user.role === "technician" || user.role === "foreman")
+    ) {
       const employeeId = user.employeeId ?? "__none__";
       const workOrders = await prisma.workOrder.findMany({
         where: {

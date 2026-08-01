@@ -15,6 +15,7 @@
     "allTime": "All time"
   },
   "filters": {
+    "label": "Filter",
     "all": "All",
     "workOrders": "Work orders",
     "hours": "Hours",

@@ -212,6 +212,11 @@ describe("meerwerk invoice totals", () => {
       where: { id: projectId },
       data: { installers: { connect: { id: employee.id } } },
     });
+    // Assignment is per WERKBON, not per project — that's what grants access.
+    await prisma.workOrder.update({
+      where: { id: workOrderId },
+      data: { assignees: { connect: { id: employee.id } } },
+    });
     const techUser = await prisma.user.create({
       data: {
         orgId,

@@ -98,6 +98,11 @@ beforeAll(async () => {
     .set(auth(adminToken))
     .send({ projectId, title: `${TAG} WO` });
   workOrderId = wo.body.id;
+  // Assignment is per WERKBON, not per project — that's what grants access.
+  await prisma.workOrder.update({
+    where: { id: workOrderId },
+    data: { assignees: { connect: { id: employeeId } } },
+  });
   const withTask = await request(app)
     .post(`/api/work-orders/${workOrderId}/tasks`)
     .set(auth(adminToken))
@@ -380,6 +385,13 @@ describe("werkbon-level monteur assignment (multiple)", () => {
       .send({ assigneeIds: [] });
     expect(res.status).toBe(200);
     expect(res.body.assignees).toEqual([]);
+    // Put the technician back on the crew: visibility is per werkbon, so the
+    // later technician-permission tests below need this assignment to reach
+    // the werkbon at all (otherwise they 404 before hitting the 403 guard).
+    await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ assigneeIds: [employeeId] });
   });
 });
 

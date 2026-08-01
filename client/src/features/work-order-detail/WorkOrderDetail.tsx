@@ -24,6 +24,7 @@ import {
   exportWorkOrderPdf,
   exportWorkOrderQuotePdf,
   getProject,
+  getProjectActivity,
   getAssignableEmployees,
   setWorkOrderAssignees,
   setWorkOrderSchedule,
@@ -71,6 +72,7 @@ import { ProjectInfoSheet } from "./components/ProjectInfoSheet";
 import { MeerwerkApprovalPanel } from "./components/MeerwerkApprovalPanel";
 import { AttachmentsPanel } from "./components/AttachmentsPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
+import { ActivitySheet } from "./components/ActivitySheet";
 import { SignOffDialog } from "./components/SignOffDialog";
 
 // Work-order detail: header + tasks + meerwerk (extra-work approval) + activity.
@@ -89,13 +91,15 @@ export function WorkOrderDetail() {
   const showPrices = canSeePrices(role);
   const showMargin = canSeeMargin(role);
 
-  // Below lg the two-column layout collapses, so Projectinfo moves into a sheet
+  // Below lg the two-column layout collapses, so Projectinfo and Activiteit —
+  // the two reference panels you consult rather than work in — move into sheets
   // reachable from the header. Matches the breakpoint of the layout itself
   // (see the flexDirection below), NOT the usual sm "mobile" — on a tablet the
-  // sidebar is already gone and the panel is just as buried.
+  // sidebar is already gone and the panels are just as buried.
   const theme = useTheme();
-  const infoInSheet = useMediaQuery(theme.breakpoints.down("lg"));
+  const sidePanelsInSheet = useMediaQuery(theme.breakpoints.down("lg"));
   const [infoOpen, setInfoOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -120,9 +124,15 @@ export function WorkOrderDetail() {
     [id],
   );
 
+  // Nearly every mutation writes a ProjectActivity row (see appendActivity
+  // calls in the backend work-order routes), so refreshing the work order
+  // also refreshes the activity feed — otherwise the panel only updates on
+  // a full page reload.
   const refreshWorkOrder = useCallback(async () => {
-    setWo(await getWorkOrder(id));
-  }, [id]);
+    const [w, activity] = await Promise.all([getWorkOrder(id), getProjectActivity(project?.id ?? "")]);
+    setWo(w);
+    setProject((p) => (p ? { ...p, activity } : p));
+  }, [id, project?.id]);
 
   const refreshProject = useCallback(async () => {
     if (wo) setProject(await getProject(wo.projectId));
@@ -248,8 +258,9 @@ export function WorkOrderDetail() {
           exporting={exporting}
           exportingQuote={exportingQuote}
           onBack={() => navigate("/work-orders")}
-          // Only where the panel isn't on screen; the icon hides itself at lg+.
-          onOpenInfo={infoInSheet ? () => setInfoOpen(true) : undefined}
+          // Only where the panels aren't on screen; the icons hide themselves at lg+.
+          onOpenInfo={sidePanelsInSheet ? () => setInfoOpen(true) : undefined}
+          onOpenActivity={sidePanelsInSheet ? () => setActivityOpen(true) : undefined}
           onDelete={handleDelete}
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
@@ -375,19 +386,27 @@ export function WorkOrderDetail() {
 
             {/* Below lg this lives in a sheet behind the header's info icon —
                 inline it would sit ~3 screens down, past the whole werkbon. */}
-            {infoInSheet ? null : <ProjectInfoPanel {...projectInfoProps} />}
+            {sidePanelsInSheet ? null : <ProjectInfoPanel {...projectInfoProps} />}
 
-            <ActivityPanel activity={project.activity} />
+            {/* Same treatment — below lg this is the header's history icon. */}
+            {sidePanelsInSheet ? null : <ActivityPanel activity={project.activity} />}
           </Box>
         </Box>
       </Box>
 
-      {infoInSheet ? (
-        <ProjectInfoSheet
-          open={infoOpen}
-          onClose={() => setInfoOpen(false)}
-          {...projectInfoProps}
-        />
+      {sidePanelsInSheet ? (
+        <>
+          <ProjectInfoSheet
+            open={infoOpen}
+            onClose={() => setInfoOpen(false)}
+            {...projectInfoProps}
+          />
+          <ActivitySheet
+            open={activityOpen}
+            onClose={() => setActivityOpen(false)}
+            activity={project.activity}
+          />
+        </>
       ) : null}
 
       <SignOffDialog

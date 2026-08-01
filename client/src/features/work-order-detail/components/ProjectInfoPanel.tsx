@@ -9,6 +9,7 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import { Card } from "../../../components/Card";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { AutosaveDateField } from "../../../components/AutosaveDateField";
 import { SelectField } from "../../../components/SelectField";
 import { useSheetMenuProps } from "../../../components/ResponsiveDialog";
 
@@ -192,25 +193,32 @@ export function ProjectInfoPanel({
                   mt: 1,
                 }}
               >
-                <TextField
-                  type="date"
+                {/* AutosaveDateField owns the commit timing so an open calendar
+                    is never disturbed: picking a day saves ~0.5s later, while
+                    stepping through months/years only restarts the debounce (in
+                    some browsers each step fires a `change`, which is what used
+                    to save + close the picker mid-navigation). It also refuses
+                    to touch the input while it's focused — a remount or a
+                    programmatic value write closes the picker just as surely.
+                    `disabled` is permission-only, NEVER `busy`: an unrelated
+                    concurrent mutation disabling this input would drop focus and
+                    close the picker too. */}
+                <AutosaveDateField
                   size="small"
                   label={t("workOrderDetail.info.startDate")}
                   value={workOrder.plannedDate ?? ""}
-                  onChange={(e) => onSetSchedule({ plannedDate: e.target.value || null })}
-                  disabled={busy}
-                  slotProps={{ inputLabel: { shrink: true } }}
+                  onCommit={(v) => onSetSchedule({ plannedDate: v || null })}
+                  disabled={!canEdit}
                   sx={{ flex: 1 }}
                 />
-                <TextField
-                  type="date"
+                <AutosaveDateField
                   size="small"
                   label={t("workOrderDetail.info.endDateOptional")}
                   value={workOrder.plannedEndDate ?? ""}
-                  onChange={(e) => onSetSchedule({ plannedEndDate: e.target.value || null })}
-                  disabled={busy || !workOrder.plannedDate}
+                  onCommit={(v) => onSetSchedule({ plannedEndDate: v || null })}
+                  // No range without a start date — that half of the guard stays.
+                  disabled={!canEdit || !workOrder.plannedDate}
                   slotProps={{
-                    inputLabel: { shrink: true },
                     htmlInput: { min: workOrder.plannedDate, placeholder: t("workOrderDetail.info.sameDay") },
                   }}
                   sx={{ flex: 1 }}

@@ -155,10 +155,50 @@ async function upload<T>(path: string, file: Blob, fields?: Record<string, strin
   return payload as T;
 }
 
+// Pull the filename out of a Content-Disposition header, or null when absent.
+// Handles both `filename="x.pdf"` and RFC 5987 `filename*=UTF-8''x.pdf`.
+// Returns only the basename: a header is server-supplied data, and a value like
+// `../../evil.pdf` must never steer where the browser writes.
+export function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  const raw = star?.[1] ?? plain?.[1];
+  if (!raw) return null;
+  let value = raw.trim();
+  if (star) {
+    try {
+      value = decodeURIComponent(value);
+    } catch {
+      /* malformed percent-encoding — fall back to the raw value */
+    }
+  }
+  const base = value.split(/[\\/]/).pop()?.trim();
+  return base ? base : null;
+}
+
 // GET a binary response (e.g. a generated PDF) as a Blob, with the auth header
 // and the same 401-refresh-retry flow as request(). Used for file downloads that
 // can't go through an <a href> (those can't send the bearer token).
+//
+// Also returns the server's suggested filename from Content-Disposition, which
+// is only readable because the API exposes that header via CORS (see the
+// `exposedHeaders` note in backend/src/index.ts).
+async function downloadWithName(
+  path: string,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const res = await downloadResponse(path);
+  return {
+    blob: await res.blob(),
+    filename: filenameFromDisposition(res.headers.get("Content-Disposition")),
+  };
+}
+
 async function download(path: string): Promise<Blob> {
+  return (await downloadResponse(path)).blob();
+}
+
+async function downloadResponse(path: string): Promise<Response> {
   const send = () => {
     const headers: Record<string, string> = {};
     const token = getAccessToken();
@@ -188,7 +228,7 @@ async function download(path: string): Promise<Blob> {
     }
     throw new ApiError(res.status, message);
   }
-  return res.blob();
+  return res;
 }
 
 // One page of a cursor-paginated list (mirrors backend Page<T>).
@@ -254,4 +294,5 @@ export const api = {
     request<T>(path, { method: "DELETE", body }),
   upload,
   download,
+  downloadWithName,
 };

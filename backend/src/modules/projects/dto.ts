@@ -14,6 +14,8 @@ import type {
 } from "@prisma/client";
 import { canSeePrices, type UserRole } from "@opero/shared";
 import { refsFrom } from "../../lib/photoUrls.js";
+import type { AuthUser } from "../../auth/types.js";
+import { visibleWorkOrdersWhere } from "../work-orders/visibility.js";
 
 // A synchronous key→url lookup, prebuilt in the route wrapper (projectDtoFor)
 // so these nested mappers can stay sync while still emitting renderable urls.
@@ -281,6 +283,11 @@ export function projectDto(
 }
 
 // Prisma include used by GET /:id to load the full aggregate.
+//
+// NOTE the nested `workOrders` list is UNSCOPED. That is correct only for
+// office-level callers (every mutation route below is office-gated). Any route
+// a technician can reach must use projectIncludeFor(user) instead, or the
+// project detail screen hands them a list of their colleagues' werkbonnen.
 export const projectInclude = {
   workType: { select: { id: true, name: true } },
   intake: true,
@@ -311,3 +318,15 @@ export const projectInclude = {
     include: { user: { select: { name: true } } },
   },
 } as const;
+
+// The same aggregate, with the nested werkbon list scoped to what THIS user may
+// see. Werkbon visibility is per-assignment, so a technician on a project's crew
+// must still only see the werkbonnen assigned to them — the project is just the
+// grouping. For office/foreman the scope is `{}`, making this identical to
+// projectInclude.
+export function projectIncludeFor(user: AuthUser) {
+  return {
+    ...projectInclude,
+    workOrders: { ...projectInclude.workOrders, where: visibleWorkOrdersWhere(user) },
+  } as const;
+}

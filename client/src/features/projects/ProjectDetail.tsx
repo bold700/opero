@@ -21,7 +21,7 @@ import { STATUS as WORK_ORDER_STATUS } from "../../features/work-orders/constant
 import type { WorkOrderStatus } from "../../features/work-orders/api";
 import { useApi } from "../../lib/api/useApi";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import {
   getProject,
   updateProject,
@@ -42,7 +42,7 @@ export function ProjectDetail() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canManage = canSeeAllProjects(user?.role ?? "client");
+  const canManage = isOffice(user?.role ?? "client");
 
   const [project, setProject] = useState<ProjectDetailType | null>(null);
   const { loading, error } = useApi(

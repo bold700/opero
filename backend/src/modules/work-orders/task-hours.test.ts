@@ -87,6 +87,12 @@ beforeAll(async () => {
     .set(auth(adminToken))
     .send({ projectId });
   workOrderId = wo.body.id;
+  // Assignment is per WERKBON, not per project — put the technician on this
+  // werkbon's crew, which is what grants them access.
+  await prisma.workOrder.update({
+    where: { id: workOrderId },
+    data: { assignees: { connect: { id: employeeId } } },
+  });
   const withTask = await request(app)
     .post(`/api/work-orders/${workOrderId}/tasks`)
     .set(auth(adminToken))

@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects, canManageAccounts } from "@opero/shared";
+import { isOffice, canManageAccounts } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -41,7 +41,7 @@ export function Customers() {
   const role = user?.role ?? "client";
   // The customer RECORD is office work; the customer's LOGIN is not — see the
   // same split in Employees.tsx.
-  const canManage = canSeeAllProjects(role);
+  const canManage = isOffice(role);
   const canManageAccount = canManageAccounts(role);
 
   const [activeFilter, setActiveFilter] = useState<CustomerFilter>("all");

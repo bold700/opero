@@ -60,6 +60,7 @@
     "roles": {
       "admin": "Admin",
       "office": "Office staff",
+      "foreman": "Foreman",
       "technician": "Technician",
       "client": "Client"
     },

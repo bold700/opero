@@ -199,14 +199,16 @@ export function deleteWorkOrder(id: string): Promise<void> {
   return api.delete<void>(`/work-orders/${id}`);
 }
 
-// Download the work order as a PDF. Fetches the blob (with auth) and triggers a
-// browser download. `filename` is the suggested save name.
-export async function exportWorkOrderPdf(id: string, filename: string): Promise<void> {
-  const blob = await api.download(`/work-orders/${id}/pdf`);
+// Fetch a document (with auth) and hand it to the browser as a download.
+// Prefers the server's Content-Disposition filename — it carries the canonical
+// document identity (e.g. the assigned offerte number) — and falls back to the
+// caller's name when the header is missing.
+async function downloadDocument(path: string, fallbackFilename: string): Promise<void> {
+  const { blob, filename } = await api.downloadWithName(path);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename;
+  a.download = filename ?? fallbackFilename;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -214,22 +216,26 @@ export async function exportWorkOrderPdf(id: string, filename: string): Promise<
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// Download the work order as a customer-facing quote (offerte) PDF — admin
+// Download the work order as a PDF. `filename` is the fallback save name.
+export function exportWorkOrderPdf(id: string, filename: string): Promise<void> {
+  return downloadDocument(`/work-orders/${id}/pdf`, filename);
+}
+
+// Download the work order as a customer-facing quote (offerte) PDF — office
 // only (403 otherwise). Same blob-download flow as exportWorkOrderPdf.
-export async function exportWorkOrderQuotePdf(id: string, filename: string): Promise<void> {
-  const blob = await api.download(`/work-orders/${id}/quote-pdf`);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+export function exportWorkOrderQuotePdf(id: string, filename: string): Promise<void> {
+  return downloadDocument(`/work-orders/${id}/quote-pdf`, filename);
 }
 
 export function getProject(id: string): Promise<Project> {
   return api.get<Project>(`/projects/${id}`);
+}
+
+// Lighter than refetching the whole project: just the activity feed, newest
+// first. Used to keep the ActivityPanel live after every mutation without
+// re-pulling customer/address/etc. that didn't change.
+export function getProjectActivity(projectId: string): Promise<Activity[]> {
+  return api.get<Activity[]>(`/projects/${projectId}/activity`);
 }
 
 // --- Tasks (work-order mutations) -----------------------------------------

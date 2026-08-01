@@ -24,6 +24,11 @@
     "openInvoices": "Openstaande facturen",
     "recentActivity": "Activiteit (7 dagen)"
   },
+  "foreman": {
+    "kpis": {
+      "allProjects": "Actieve projecten"
+    }
+  },
   "technician": {
     "kpis": {
       "assignedProjects": "Toegewezen projecten",

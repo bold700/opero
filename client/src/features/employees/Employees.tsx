@@ -1,15 +1,13 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects, canManageAccounts, canActOnAccount } from "@opero/shared";
-import { LAVENDER } from "../../theme/tokens";
+import { isOffice, canManageAccounts, canActOnAccount } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -22,8 +20,9 @@ import {
   type EmployeeRow,
   type EmployeeInput,
 } from "./api";
-import { FILTERS, FILTER_LABEL_KEY, type EmployeeFilter } from "./constants";
+import type { EmployeeFilter } from "./constants";
 import { EmployeesActions } from "./components/EmployeesActions";
+import { EmployeesFilterChips } from "./components/EmployeesFilterChips";
 import { EmployeesKpis } from "./components/EmployeesKpis";
 import { EmployeesTable } from "./components/EmployeesTable";
 import { EmployeeDialog } from "./components/EmployeeDialog";
@@ -58,7 +57,7 @@ export function Employees() {
   //   canManageAccount — whether the LOGIN panel shows at all. Admin + office;
   //                      WHICH accounts it can act on is per-target, decided
   //                      inside AccountSection by canActOnAccount.
-  const canManage = canSeeAllProjects(role);
+  const canManage = isOffice(role);
   const canManageAccount = canManageAccounts(role);
   // Deleting revokes the target's login too, so the same level rule applies:
   // you can't delete someone at or above your own level. Office removes
@@ -275,21 +274,7 @@ export function Employees() {
     >
       <EmployeesKpis counts={counts} />
 
-      {/* Filter chips */}
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-        {FILTERS.map((f) => {
-          const active = f === activeFilter;
-          return (
-            <Chip
-              key={f}
-              label={t(FILTER_LABEL_KEY[f])}
-              onClick={() => setActiveFilter(f)}
-              variant={active ? "filled" : "outlined"}
-              sx={active ? { bgcolor: LAVENDER, color: "primary.main", fontWeight: 600 } : { color: "text.secondary" }}
-            />
-          );
-        })}
-      </Box>
+      <EmployeesFilterChips value={activeFilter} counts={counts} onChange={setActiveFilter} />
 
       {/* Table */}
       {loading ? (

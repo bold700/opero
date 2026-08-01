@@ -3,8 +3,9 @@ import type { ProjectStatus, Stage } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../auth/middleware.js";
-import { canSeeAllProjects } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import { projectScopeWhere } from "../projects/visibility.js";
+import { visibleWorkOrdersWhere } from "../work-orders/visibility.js";
 import {
   type AdminDashboard,
   type ClientDashboard,
@@ -50,11 +51,13 @@ dashboardRouter.get(
     const user = req.user!;
 
     // -------------------------------------------------------- admin + office
-    // Office staff run the same operational overview as the owner. NOTE the
+    // Office staff run the same operational overview as the owner. isOffice,
+    // NOT canSeeAllProjects: this payload carries money (pipelineValue,
+    // invoices) — the foreman sees all projects but never money. NOTE the
     // branches below are exhaustive-by-fallthrough: a role matching neither
-    // this nor the technician check falls to the client payload, so a new role
-    // must be added here explicitly or it gets the wrong dashboard.
-    if (canSeeAllProjects(user.role)) {
+    // this nor the field-staff check falls to the client payload, so a new
+    // role must be added here explicitly or it gets the wrong dashboard.
+    if (isOffice(user.role)) {
       const where = projectScopeWhere(user); // all org projects
       const { start, end } = isoWeekRange();
 
@@ -140,21 +143,35 @@ dashboardRouter.get(
       return;
     }
 
-    // ----------------------------------------------------------- technician
-    if (user.role === "technician") {
-      const where = projectScopeWhere(user); // only assigned projects
+    // ------------------------------------------------- technician + foreman
+    // Same money-free payload for both; the scope differs via projectScopeWhere
+    // (technician: only assigned projects; foreman: every org project — his
+    // whole job is the org-wide werkbon/planning view).
+    if (user.role === "technician" || user.role === "foreman") {
+      const where = projectScopeWhere(user);
       const today = todayIso();
+      // Werkbon-level scope: for a technician this is "assigned to me". A
+      // project can hold several crews' werkbonnen, so every nested workOrders
+      // read below is filtered by it — otherwise the open-task count and the
+      // project's planned date would silently fold in a COLLEAGUE's werkbonnen
+      // on a shared project. (Foreman is org-wide, so this is `{}` for him and
+      // the numbers are unchanged.)
+      const woScope = visibleWorkOrdersWhere(user);
 
-      // Assigned projects with their open work-order tasks. Scheduling now lives on
+      // Visible projects with their open work-order tasks. Scheduling now lives on
       // the werkbon, so a project is "upcoming" when it has a werkbon planned today
-      // or later, or a werkbon with no date yet. canSeePrices(technician) is false,
-      // so we never select or return any price/value fields.
+      // or later, or a werkbon with no date yet. canSeePrices is false for both
+      // roles, so we never select or return any price/value fields.
       const projects = await prisma.project.findMany({
         where: {
-          ...where,
-          OR: [
-            { workOrders: { some: { plannedDate: { gte: today } } } },
-            { workOrders: { some: { plannedDate: null } } },
+          AND: [
+            where,
+            {
+              OR: [
+                { workOrders: { some: { AND: [woScope, { plannedDate: { gte: today } }] } } },
+                { workOrders: { some: { AND: [woScope, { plannedDate: null }] } } },
+              ],
+            },
           ],
         },
         select: {
@@ -167,6 +184,7 @@ dashboardRouter.get(
           stage: true,
           nextStepKey: true,
           workOrders: {
+            where: woScope,
             select: {
               plannedDate: true,
               tasks: { where: { done: false }, select: { id: true } },
@@ -197,7 +215,7 @@ dashboardRouter.get(
       });
 
       const payload: TechnicianDashboard = {
-        role: "technician",
+        role: user.role,
         todayProjects: rows.filter((r) => r.plannedDate === today),
         upcomingProjects: rows.filter((r) => r.plannedDate !== null && r.plannedDate > today),
         openTaskCount,

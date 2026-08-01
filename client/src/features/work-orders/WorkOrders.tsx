@@ -2,13 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import { PageLayout } from "../../components/PageLayout";
+import { FilterSelect } from "../../components/FilterSelect";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects } from "@opero/shared";
-import { LAVENDER } from "../../theme/tokens";
+import { isOffice } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -25,7 +24,16 @@ import { useApi } from "../../lib/api/useApi";
 import { WorkOrdersActions } from "./components/WorkOrdersActions";
 import { WorkOrdersTable } from "./components/WorkOrdersTable";
 import { WorkOrderFilterBar } from "./components/WorkOrderFilterBar";
+import { WorkOrderFilterToggle } from "./components/WorkOrderFilterToggle";
 import { CreateWorkOrderDialog } from "./components/CreateWorkOrderDialog";
+
+const EMPTY_COUNTS: WorkOrderCounts = {
+  total: 0,
+  open: 0,
+  on_the_way: 0,
+  urgent: 0,
+  done: 0,
+};
 
 export function WorkOrders() {
   const navigate = useNavigate();
@@ -33,13 +41,17 @@ export function WorkOrders() {
   const { user } = useAuth();
   // Werkbon setup (customer + project) is an office task — admin only. Technicians
   // are assigned werkbons and fill them in on the detail screen; they don't create.
-  const canCreate = canSeeAllProjects(user?.role ?? "client");
+  const canCreate = isOffice(user?.role ?? "client");
 
   const [activeFilter, setActiveFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<WorkOrderFilters>({});
+
+  // How many narrowing filters are set. Badged on the toggle so an active
+  // filter is never invisible while the panel is collapsed.
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   // Server-side search (debounced) + server-side status filter. Both reset the
   // paged list to page 1 (they're in the deps below).
@@ -58,7 +70,7 @@ export function WorkOrders() {
   // Every filter is a dep, so changing one restarts the paged list at page 1
   // rather than appending onto a stale cursor.
   const { customerId, assigneeId, workTypeId, dateFrom, dateTo } = filters;
-  const { items, loading, loadingMore, error, hasMore, loadMore } =
+  const { items, meta, loading, loadingMore, error, hasMore, loadMore } =
     usePagedApi<WorkOrderRow, { counts: WorkOrderCounts }>(
       (cursor) =>
         getWorkOrdersPage({
@@ -82,6 +94,9 @@ export function WorkOrders() {
       ],
     );
 
+  // Whole-set counts from the first page (query-wide; unchanged as you load more).
+  const counts = meta?.counts ?? EMPTY_COUNTS;
+
   // Open the create dialog when arriving via the quick-create menu (?create=1).
   useCreateParam(() => setCreateOpen(true), canCreate);
 
@@ -97,25 +112,40 @@ export function WorkOrders() {
         />
       }
     >
-      {/* Filter chips */}
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-        {FILTERS.map((f) => {
-          const active = f.key === activeFilter;
-          return (
-            <Chip
-              key={f.key}
-              label={t(`workOrders.filters.${f.key}`)}
-              onClick={() => setActiveFilter(f.key)}
-              variant={active ? "filled" : "outlined"}
-              sx={active ? { bgcolor: LAVENDER, color: "primary.main", fontWeight: 600 } : { color: "text.secondary" }}
-            />
-          );
-        })}
+      {/* Status filter (left) + the Filters toggle (far right) share ONE row,
+          so the collapsed filter UI costs no vertical space of its own. */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1,
+          flexWrap: "wrap",
+        }}
+      >
+        <FilterSelect
+          value={activeFilter}
+          onChange={setActiveFilter}
+          ariaLabel={t("workOrders.filters.label")}
+          // `key` is camelCase for the i18n lookup, `status` is the snake_case
+          // value that doubles as the WorkOrderCounts key ("all" → total).
+          options={FILTERS.map((f) => ({
+            value: f.key,
+            label: t(`workOrders.filters.${f.key}`),
+            count: f.status === null ? counts.total : counts[f.status],
+          }))}
+        />
+
+        <WorkOrderFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((v) => !v)}
+          activeCount={activeFilterCount}
+          onClear={() => setFilters({})}
+        />
       </Box>
 
       <WorkOrderFilterBar
         open={filtersOpen}
-        onToggle={() => setFiltersOpen((v) => !v)}
         filters={filters}
         onChange={setFilters}
         options={filterOptions}

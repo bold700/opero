@@ -37,6 +37,13 @@ app.use(
   cors({
     origin: corsOrigins,
     credentials: true,
+    // The client and the API are separate origins in every environment, so the
+    // browser hides all but a handful of "safelisted" response headers from JS
+    // unless they're exposed here. Content-Disposition carries the server's
+    // filename for the PDF/document downloads (work-order + quote export); the
+    // download helper cannot read it without this, and any code that trusts it
+    // silently falls back or fails.
+    exposedHeaders: ["Content-Disposition"],
   }),
 );
 app.use(express.json({ limit: "2mb" }));

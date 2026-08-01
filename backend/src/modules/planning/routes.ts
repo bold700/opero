@@ -8,6 +8,7 @@ import { audit } from "../../lib/audit.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
 import { projectScopeWhere } from "../projects/visibility.js";
+import { workOrderScopeWhere as sharedWorkOrderScopeWhere } from "../work-orders/visibility.js";
 import { absencesInRange } from "../employees/absence.js";
 import {
   planningWorkOrderInclude,
@@ -20,6 +21,10 @@ import {
   schedulePlanningSchema,
   durationSchema,
 } from "./schema.js";
+import {
+  applyWorkOrderSchedule,
+  clearWorkOrderSchedule,
+} from "./schedule.js";
 
 export const planningRouter = Router();
 
@@ -33,21 +38,12 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-// A werkbon is visible if its parent project is visible. Reuse projectScopeWhere
-// (org + soft-delete + role visibility) nested under `project`, then AND the
-// werkbon-level constraints so both always hold (never let one OR clobber the
-// other — see visibility.ts).
-function workOrderScopeWhere(
-  user: AuthUser,
-  extra?: Prisma.WorkOrderWhereInput,
-): Prisma.WorkOrderWhereInput {
-  return {
-    AND: [
-      { project: projectScopeWhere(user) },
-      ...(extra ? [extra] : []),
-    ],
-  };
-}
+// Werkbon visibility for the calendar is the WERKBON-level rule, not the
+// project one: assignment is per werkbon (WorkOrder.assignees), so a monteur
+// crewed on one visit of a project must not see that project's other visits on
+// the planning. Delegates to the shared helper — see work-orders/visibility.ts.
+// `extra` is ANDed so neither OR can clobber the other.
+const workOrderScopeWhere = sharedWorkOrderScopeWhere;
 
 // Append a ProjectActivity row inside a transaction (mirror makeActivity +
 // logChange from the store).
@@ -289,54 +285,15 @@ planningRouter.post(
     }
 
     await prisma.$transaction(async (tx) => {
-      const first = existing.planningItems[0];
-      if (first) {
-        // Update the existing slot in place (mirror existing-item branch).
-        await tx.planningItem.update({
-          where: { id: first.id },
-          data: {
-            date,
-            ...(teamLeaderId !== undefined
-              ? {
-                  teamLeader: teamLeaderId
-                    ? { connect: { id: teamLeaderId } }
-                    : { disconnect: true },
-                }
-              : {}),
-            ...(startTime !== undefined ? { startTime } : {}),
-            ...(endTime !== undefined ? { endTime } : {}),
-            ...(vehicle !== undefined ? { vehicle } : {}),
-          },
-        });
-      } else {
-        // Create a new slot with the store defaults: 08:00–15:30, crew copied
-        // from the werkbon's assignees, vehicle "Bus - nog toewijzen".
-        const createData: Prisma.PlanningItemCreateInput = {
-          workOrder: { connect: { id: existing.id } },
-          date,
-          startTime: startTime ?? "08:00",
-          endTime: endTime ?? "15:30",
-          vehicle: vehicle ?? "Bus - nog toewijzen",
-          installers: {
-            connect: existing.assignees.map((a) => ({ id: a.id })),
-          },
-        };
-        if (existing.project.projectLeaderId) {
-          createData.projectLeader = {
-            connect: { id: existing.project.projectLeaderId },
-          };
-        }
-        const slotTeamLeaderId = teamLeaderId ?? existing.project.teamLeaderId;
-        if (slotTeamLeaderId) {
-          createData.teamLeader = { connect: { id: slotTeamLeaderId } };
-        }
-        await tx.planningItem.create({ data: createData });
-      }
-
-      // Update the werkbon: plannedDate/end.
-      await tx.workOrder.update({
-        where: { id: existing.id },
-        data: { plannedDate: date, plannedEndDate: newEnd },
+      // Slot + werkbon columns are written together by the shared service, so
+      // this route and the werkbon PATCH can never leave the two disagreeing.
+      await applyWorkOrderSchedule(tx, user, existing, {
+        date,
+        endDate: newEnd,
+        startTime,
+        endTime,
+        teamLeaderId,
+        vehicle,
       });
 
       await appendActivity(
@@ -347,10 +304,6 @@ planningRouter.post(
         leader ? "planning.scheduledWithTeam" : "planning.scheduled",
         { params: { date, leader: leader?.name } },
       );
-      await audit(tx, user, "planning.schedule", "workOrder", existing.id, {
-        date,
-        teamLeaderId,
-      });
     });
 
     res.status(201).json(await reloadEntries(user, existing.id));
@@ -410,11 +363,7 @@ planningRouter.delete(
     const existing = await loadWorkOrderForUser(user, req.params.workOrderId);
 
     await prisma.$transaction(async (tx) => {
-      await tx.planningItem.deleteMany({ where: { workOrderId: existing.id } });
-      await tx.workOrder.update({
-        where: { id: existing.id },
-        data: { plannedDate: null, plannedEndDate: null },
-      });
+      await clearWorkOrderSchedule(tx, user, existing);
       await appendActivity(
         tx,
         user,
@@ -422,7 +371,6 @@ planningRouter.delete(
         "system",
         "planning.unscheduled",
       );
-      await audit(tx, user, "planning.unschedule", "workOrder", existing.id);
     });
 
     res.status(204).end();

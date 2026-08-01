@@ -123,9 +123,9 @@ export const inviteUserSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("employee"),
     employeeId: z.string().min(1),
-    // The owner (admin), office staff (office) or field staff (technician) —
-    // all three are Employees.
-    role: z.enum(["admin", "office", "technician"]),
+    // The owner (admin), office staff (office) or field staff (foreman,
+    // technician) — all of them are Employees.
+    role: z.enum(["admin", "office", "foreman", "technician"]),
   }),
   z.object({
     kind: z.literal("customer"),
@@ -144,7 +144,7 @@ export type InviteUserRequest = z.infer<typeof inviteUserSchema>;
 // pairs structurally with `customerId`, and a client login carrying an
 // `employeeId` would break the one-record-per-login invariant.
 export const updateUserRoleSchema = z.object({
-  role: z.enum(["admin", "office", "technician"]),
+  role: z.enum(["admin", "office", "foreman", "technician"]),
 });
 export type UpdateUserRoleRequest = z.infer<typeof updateUserRoleSchema>;
 
@@ -155,7 +155,7 @@ export const disable2faSchema = z.object({ password: z.string().min(1) });
 export type Disable2faRequest = z.infer<typeof disable2faSchema>;
 
 // User DTO returned by /auth endpoints (mirrors backend AuthUser).
-export const userRoleSchema = z.enum(["admin", "office", "technician", "client"]);
+export const userRoleSchema = z.enum(["admin", "office", "foreman", "technician", "client"]);
 export type UserRoleDto = z.infer<typeof userRoleSchema>;
 
 export const authUserSchema = z.object({

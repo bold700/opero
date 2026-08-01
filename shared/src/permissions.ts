@@ -5,8 +5,9 @@
 // Roles: admin = THE OWNER (full everywhere, incl. org config and any account),
 // office/kantoormedewerker (the full operational app, incl. inviting staff and
 // customers, but never org config and never an account at or above its own
-// level), technician/monteur (LIMITED field access), client/klant (LIMITED
-// own-data / NONE).
+// level), foreman/meewerkend uitvoerder (field staff who sees EVERYONE's work
+// orders and planning, but nothing commercial), technician/monteur (LIMITED
+// field access), client/klant (LIMITED own-data / NONE).
 //
 // Office does the whole operational job, the owner's exceptions being org
 // configuration and anything touching a peer-or-above account. Account access
@@ -24,7 +25,7 @@
 //   - reports/technician = "limited" means "own timesheet" (the /timesheet view),
 //     NOT the company-wide reports.
 
-export type UserRole = "admin" | "office" | "technician" | "client";
+export type UserRole = "admin" | "office" | "foreman" | "technician" | "client";
 
 export type Section =
   | "dashboard"
@@ -40,25 +41,33 @@ export type Section =
 export type Access = "full" | "limited" | "none";
 
 // The matrix itself. `limited` is coarse — see the per-cell notes above.
+//
+// foreman (meewerkend uitvoerder) — the client's spec is "alleen toegang
+// werkbonnen en planning van iedereen": every werkbon and the whole team's
+// planning, nothing commercial. So: work orders limited = ALL of them, with
+// technician-style registration rights (never quote scope / prices); planning
+// limited = view everyone, read-only; materials limited = catalog READ via the
+// API only (werkbon material registration needs variant search) but NO nav
+// entry; reports limited = own timesheet, like technician. Everything else none.
 export const PERMISSION_MATRIX: Record<Section, Record<UserRole, Access>> = {
-  dashboard:   { admin: "full", office: "full", technician: "limited", client: "limited" },
-  work_orders: { admin: "full", office: "full", technician: "limited", client: "limited" },
-  planning:    { admin: "full", office: "full", technician: "limited", client: "none" },
-  customers:   { admin: "full", office: "full", technician: "limited", client: "limited" },
+  dashboard:   { admin: "full", office: "full", foreman: "limited", technician: "limited", client: "limited" },
+  work_orders: { admin: "full", office: "full", foreman: "limited", technician: "limited", client: "limited" },
+  planning:    { admin: "full", office: "full", foreman: "limited", technician: "limited", client: "none" },
+  customers:   { admin: "full", office: "full", foreman: "none", technician: "limited", client: "limited" },
   // Office manages employee records fully, including delete — EXCEPT deleting
   // an employee who holds an admin login. Delete revokes the target's login
   // (employees/routes.ts), so the usual rule applies: never delete someone at
   // or above your own level.
-  employees:   { admin: "full", office: "limited", technician: "none", client: "none" },
-  materials:   { admin: "full", office: "full", technician: "limited", client: "none" },
-  reports:     { admin: "full", office: "full", technician: "limited", client: "none" },
+  employees:   { admin: "full", office: "limited", foreman: "none", technician: "none", client: "none" },
+  materials:   { admin: "full", office: "full", foreman: "limited", technician: "limited", client: "none" },
+  reports:     { admin: "full", office: "full", foreman: "limited", technician: "limited", client: "none" },
   // Office gets their own profile/security/notifications, but not the company
   // settings or the pre-job checklist template.
-  settings:    { admin: "full", office: "limited", technician: "limited", client: "limited" },
+  settings:    { admin: "full", office: "limited", foreman: "limited", technician: "limited", client: "limited" },
   // Access / user provisioning (not in the original spec table). Office manages
   // logins too, but only for levels BELOW it — never an admin or another office
   // user, and it can't mint an admin. Hence "limited". See canActOnAccount.
-  users:       { admin: "full", office: "limited", technician: "none", client: "none" },
+  users:       { admin: "full", office: "limited", foreman: "none", technician: "none", client: "none" },
 };
 
 export function accessFor(section: Section, role: UserRole): Access {
@@ -71,12 +80,13 @@ export function hasAnyAccess(section: Section, role: UserRole): boolean {
 
 // Whether the requesting role may see prices/financials.
 //
-// Admins and clients always see prices. Technicians NEVER do — this is an
-// absolute rule from the client, not a configurable preference: the monteur
-// sees the product and what to do, never what it costs or sells for. There is
-// deliberately no org setting to switch this on.
+// Admins and clients always see prices. Field staff (technician AND foreman)
+// NEVER do — this is an absolute rule from the client, not a configurable
+// preference: whoever is on the road sees the product and what to do, never
+// what it costs or sells for. There is deliberately no org setting to switch
+// this on. Written as an allow-list so a new role defaults to NO prices.
 export function canSeePrices(role: UserRole): boolean {
-  return role !== "technician";
+  return role === "admin" || role === "office" || role === "client";
 }
 
 // Whether the requesting role may see COST price + margin (the difference
@@ -91,7 +101,7 @@ export function canSeePrices(role: UserRole): boolean {
 // hiding what a line cost makes that job impossible.
 // Cost/margin must never leak into any client-facing surface (PDF, quote).
 export function canSeeMargin(role: UserRole): boolean {
-  return role === "admin" || role === "office";
+  return isOffice(role);
 }
 
 // --- Role predicates -------------------------------------------------------
@@ -107,19 +117,42 @@ export function isStaff(role: UserRole): boolean {
   return role !== "client";
 }
 
-/** Sees every project in the org, not just the ones they're assigned to. */
-export function canSeeAllProjects(role: UserRole): boolean {
+/**
+ * THE OFFICE — the owner + office staff. The people who run the commercial
+ * side: reports, money dashboards, payroll timesheets, customer database,
+ * management flags in the client.
+ *
+ * This predicate exists because `canSeeAllProjects` used to be its accidental
+ * synonym: with only admin/office seeing everything, "sees all projects" and
+ * "is the office" gave the same answer, and call sites used them
+ * interchangeably. The foreman breaks the symmetry — org-wide DATA visibility
+ * without ANY office powers — so the two questions must be asked separately.
+ * Data-layer scoping asks canSeeAllProjects; every authority check asks this.
+ */
+export function isOffice(role: UserRole): boolean {
   return role === "admin" || role === "office";
+}
+
+/**
+ * Sees every project in the org, not just the ones they're assigned to.
+ *
+ * DATA VISIBILITY ONLY — this is what visibleProjectsWhere feeds on, and since
+ * werkbon + planning visibility derive from project visibility, it is exactly
+ * how the foreman gets "werkbonnen en planning van iedereen". It does NOT
+ * imply office powers (reports, money, management): ask isOffice for those.
+ */
+export function canSeeAllProjects(role: UserRole): boolean {
+  return isOffice(role) || role === "foreman";
 }
 
 /** May change WHAT WAS SOLD — quoted lines, zones, prices. The office's job. */
 export function canEditQuoteScope(role: UserRole): boolean {
-  return role === "admin" || role === "office";
+  return isOffice(role);
 }
 
 /** Signs off meerwerk as the office (the first approval, before the client). */
 export function canApproveAsOffice(role: UserRole): boolean {
-  return role === "admin" || role === "office";
+  return isOffice(role);
 }
 
 /**
@@ -129,7 +162,7 @@ export function canApproveAsOffice(role: UserRole): boolean {
  * on an account at or above its own level (see `canActOnAccount`).
  */
 export function canManageAccounts(role: UserRole): boolean {
-  return role === "admin" || role === "office";
+  return isOffice(role);
 }
 
 // Account management is level-based, not a flat admin gate. One rule covers it:
@@ -143,9 +176,13 @@ export function canManageAccounts(role: UserRole): boolean {
 // touches an admin or another office user, and never mints an admin. Admin is
 // above everyone, so an admin acts on anyone (the self-action guards in
 // users/routes.ts keep the last owner from locking themselves out).
+// foreman sits at technician level: org-wide VISIBILITY is not rank. Office
+// manages foreman accounts (2 > 1); a foreman manages nobody (canManageAccounts
+// is false, and level 1 is never strictly above anyone).
 const ACCOUNT_LEVEL: Record<UserRole, number> = {
   admin: 3,
   office: 2,
+  foreman: 1,
   technician: 1,
   client: 1,
 };
@@ -182,7 +219,7 @@ export function canGrantRole(actorRole: UserRole, targetRole: UserRole): boolean
 
 /** The roles `actorRole` may pick from when inviting an employee. */
 export function grantableRoles(actorRole: UserRole): UserRole[] {
-  return (["admin", "office", "technician"] as const).filter((r) =>
+  return (["admin", "office", "foreman", "technician"] as const).filter((r) =>
     canGrantRole(actorRole, r),
   );
 }

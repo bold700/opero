@@ -31,13 +31,19 @@ export type TechnicianProjectRow = {
   openTaskCount: number;
 };
 
-export type TechnicianDashboard = {
-  role: "technician";
+// The foreman shares the technician's money-free shape, org-wide scoped. Two
+// union members rather than one with `role: "technician" | "foreman"`: TS
+// can't EXCLUDE a member by negative discriminant checks when the discriminant
+// is itself a union, which broke the AdminView fallthrough in Dashboard.tsx.
+type FieldDashboardBase = {
   todayProjects: TechnicianProjectRow[];
   upcomingProjects: TechnicianProjectRow[];
   openTaskCount: number;
   assignedProjectCount: number;
 };
+
+export type TechnicianDashboard = FieldDashboardBase & { role: "technician" };
+export type ForemanDashboard = FieldDashboardBase & { role: "foreman" };
 
 export type ClientProjectRow = {
   id: string;
@@ -54,7 +60,11 @@ export type ClientDashboard = {
   byStatus: Record<string, number>;
 };
 
-export type DashboardData = AdminDashboard | TechnicianDashboard | ClientDashboard;
+export type DashboardData =
+  | AdminDashboard
+  | TechnicianDashboard
+  | ForemanDashboard
+  | ClientDashboard;
 
 export function getDashboard(): Promise<DashboardData> {
   return api.get<DashboardData>("/dashboard");

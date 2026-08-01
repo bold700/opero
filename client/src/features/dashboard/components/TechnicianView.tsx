@@ -6,14 +6,21 @@ import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import { KpiCard } from "./KpiCard";
 import { TONE } from "../constants";
-import type { TechnicianDashboard } from "../api";
+import type { ForemanDashboard, TechnicianDashboard } from "../api";
 
-export function TechnicianView({ data }: { data: TechnicianDashboard }) {
+export function TechnicianView({ data }: { data: TechnicianDashboard | ForemanDashboard }) {
   const { t } = useTranslation();
+  // The foreman sees this same money-free view org-wide, so his first KPI
+  // counts ALL projects, not "assigned" ones — different label, same number
+  // slot (the backend already scopes the count per role).
+  const projectsLabel =
+    data.role === "foreman"
+      ? t("dashboard.foreman.kpis.allProjects")
+      : t("dashboard.technician.kpis.assignedProjects");
   return (
     <>
       <Box sx={{ display: "flex", gap: 2.5, flexWrap: "wrap" }}>
-        <KpiCard label={t("dashboard.technician.kpis.assignedProjects")} value={data.assignedProjectCount} tone={TONE.primary} />
+        <KpiCard label={projectsLabel} value={data.assignedProjectCount} tone={TONE.primary} />
         <KpiCard label={t("dashboard.technician.kpis.openTasks")} value={data.openTaskCount} tone={TONE.info} />
         <KpiCard label={t("dashboard.technician.kpis.today")} value={data.todayProjects.length} tone={TONE.success} />
       </Box>

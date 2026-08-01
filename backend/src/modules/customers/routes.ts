@@ -18,7 +18,7 @@ import { contactPersonDto, customerDto, customerListDto, locationDto } from "./d
 import { parseSilvasoftCustomers, type ParsedCustomer } from "./silvasoftImport.js";
 import { revokeLoginsFor } from "../users/provisioning.js";
 import { accountInclude } from "../users/dto.js";
-import { canSeeAllProjects, type UserRole } from "@opero/shared";
+import { isOffice, type UserRole } from "@opero/shared";
 
 export const customersRouter = Router();
 
@@ -35,14 +35,15 @@ function deriveCustomerType(name: string): "business" | "private" {
 customersRouter.use(requireAuth);
 
 // A client may only touch their own linked customer. Office staff (admin +
-// office): any. Technician: read only (customer info on their own work order —
-// handled in the work-orders module; here we keep customers office/client-scoped
-// for list/detail/manage).
+// office): any. Field staff (technician, foreman): none here — their customer
+// info arrives embedded on the work order (work-orders module); the Customers
+// section stays office/client-scoped for list/detail/manage. isOffice, NOT
+// canSeeAllProjects: the foreman sees every project but not the customer DB.
 function assertCanAccessCustomer(
   user: { role: UserRole; customerId: string | null },
   customerId: string,
 ) {
-  if (canSeeAllProjects(user.role)) return;
+  if (isOffice(user.role)) return;
   if (user.role === "client" && user.customerId === customerId) return;
   throw Forbidden("Not allowed for this customer");
 }
@@ -60,7 +61,12 @@ customersRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    if (user.role === "technician") throw Forbidden("Not available");
+    // Field staff (technician, foreman) get no customer list — their customer
+    // info is embedded on the werkbon. Explicit deny, not a fallthrough: the
+    // filter below treats every non-client as "sees all customers".
+    if (!isOffice(user.role) && user.role !== "client") {
+      throw Forbidden("Not available");
+    }
     const { limit, cursor, search } = parsePageParams(req);
     const typeFilter =
       typeof req.query.filter === "string" &&

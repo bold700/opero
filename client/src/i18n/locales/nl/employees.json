@@ -11,6 +11,7 @@
     "active": "Actief"
   },
   "filters": {
+    "label": "Filter",
     "all": "Alle",
     "technicians": "Monteurs",
     "office": "Kantoor",

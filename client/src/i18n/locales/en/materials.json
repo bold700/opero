@@ -3,6 +3,7 @@
   "searchPlaceholder": "Search material...",
   "empty": "No materials found.",
   "filters": {
+    "label": "Filter",
     "allSuppliers": "All suppliers"
   },
   "columns": {

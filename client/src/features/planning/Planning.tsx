@@ -11,7 +11,7 @@ import { useTheme } from "@mui/material/styles";
 import { TopBar } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
-import { canSeeAllProjects } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import { useCreateParam } from "../../lib/useCreateParam";
 import { SURFACE, SPACING, PAGE_PADDING_RESPONSIVE } from "../../theme/tokens";
 import {
@@ -34,7 +34,7 @@ export function Planning() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canManage = canSeeAllProjects(user?.role ?? "client");
+  const canManage = isOffice(user?.role ?? "client");
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));

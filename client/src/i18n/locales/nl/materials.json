@@ -3,6 +3,7 @@
   "searchPlaceholder": "Zoek materiaal...",
   "empty": "Geen materialen gevonden.",
   "filters": {
+    "label": "Filter",
     "allSuppliers": "Alle leveranciers"
   },
   "columns": {

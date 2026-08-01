@@ -431,6 +431,12 @@ async function main() {
     const totalAmount = quote.amount ?? 0;
     const share = count > 0 ? Math.round(totalAmount / count) : totalAmount;
 
+    // The project's crew, valid-filtered — the same list the project itself
+    // connects as `installers`.
+    const crew = (p.installerIds ?? [])
+      .filter((id: string) => employeeIds.has(id))
+      .map((id: string) => ({ id }));
+
     return base.map((wb, wbIdx) => {
       const isPrimary = wbIdx === 0;
       const amount = isPrimary ? totalAmount - share * (count - 1) : share;
@@ -440,6 +446,10 @@ async function main() {
         drawings: wb.drawings,
         approvedBySupervisor: wb.approvedBySupervisor,
         ordinal: wbIdx,
+        // Crew assignment is PER WERKBON — that's what makes a werkbon visible
+        // to a monteur (see work-orders/visibility.ts). Seeding only the
+        // project's `installers` would leave every technician with an empty app.
+        assignees: { connect: crew },
         // Scheduling lives on the werkbon; only the primary inherits the
         // project's planned dates.
         plannedDate: isPrimary ? p.plannedDate ?? null : null,
@@ -791,6 +801,33 @@ async function main() {
         role: "client",
         totpEnabled: false,
         customerId: firstCustomerId,
+      },
+    });
+  }
+
+  // Foreman (meewerkend uitvoerder) — demo-only: sees everyone's werkbonnen and
+  // planning, no prices, nothing commercial. Real foreman accounts arrive via
+  // invite; the clean seed stays at the essential logins.
+  if (SEED_DEMO) {
+    const foremanEmployee = await prisma.employee.create({
+      data: {
+        orgId,
+        name: "Foreman Demo",
+        phone: "",
+        email: "foreman@opero.test",
+        roles: ["Foreman"] as TeamRole[],
+        status: "active",
+      },
+    });
+    await prisma.user.create({
+      data: {
+        orgId,
+        email: "foreman@opero.test",
+        passwordHash,
+        name: "Foreman Demo",
+        role: "foreman",
+        totpEnabled: false,
+        employeeId: foremanEmployee.id,
       },
     });
   }

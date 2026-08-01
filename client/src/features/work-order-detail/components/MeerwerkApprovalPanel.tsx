@@ -35,9 +35,9 @@ export function MeerwerkApprovalPanel({
 }) {
   const { t } = useTranslation();
 
-  // Only office and client ever approve; a technician reports meerwerk but
-  // never signs it off.
-  if (role === "technician") return null;
+  // Only office and client ever approve; field staff (technician, foreman)
+  // report meerwerk but never sign it off.
+  if (role === "technician" || role === "foreman") return null;
 
   const isOffice = canApproveAsOffice(role);
 

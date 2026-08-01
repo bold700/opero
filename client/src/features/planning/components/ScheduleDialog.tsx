@@ -6,6 +6,7 @@ import DialogActions from "@mui/material/DialogActions";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { SelectField } from "../../../components/SelectField";
 import TextField from "@mui/material/TextField";
+import { DateField } from "../../../components/DateField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -168,9 +169,10 @@ export function ScheduleDialog({
             />
           )}
 
-          <TextField
+          {/* Local state, committed on submit — safe to keep `disabled={busy}`
+              here (busy only flips when the dialog itself saves). */}
+          <DateField
             label={t("planning.schedule.date")}
-            type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             disabled={busy}
@@ -178,7 +180,6 @@ export function ScheduleDialog({
             error={dateInPast}
             helperText={dateInPast ? t("planning.schedule.dateInPast") : undefined}
             slotProps={{
-              inputLabel: { shrink: true },
               htmlInput: { min: today },
             }}
           />

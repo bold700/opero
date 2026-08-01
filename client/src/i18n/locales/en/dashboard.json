@@ -24,6 +24,11 @@
     "openInvoices": "Open invoices",
     "recentActivity": "Activity (7 days)"
   },
+  "foreman": {
+    "kpis": {
+      "allProjects": "Active projects"
+    }
+  },
   "technician": {
     "kpis": {
       "assignedProjects": "Assigned projects",

@@ -23,6 +23,11 @@ import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
 import { canViewProject } from "../projects/visibility.js";
 import {
+  canViewWorkOrder,
+  visibleWorkOrdersWhere,
+  workOrderScopeWhere,
+} from "./visibility.js";
+import {
   workOrderDto,
   workOrderInclude,
   workOrderListDto,
@@ -30,6 +35,11 @@ import {
   type WorkOrderWithRelations,
 } from "./dto.js";
 import { recomputeWorkOrderStatus } from "./status.js";
+import {
+  applyWorkOrderSchedule,
+  clearWorkOrderSchedule,
+  setWorkOrderEndDate,
+} from "../planning/schedule.js";
 import { absencesInRange, isIsoDay } from "../employees/absence.js";
 import { buildWorkOrderPdf, type WorkOrderPdfData } from "./pdf.js";
 import { buildQuotePdf, type QuotePdfData } from "./quote-pdf.js";
@@ -126,11 +136,13 @@ async function recomputeQuoteAmount(tx: Tx, workOrderId: string): Promise<void> 
 
 // Load a workOrder + its project, enforce visibility, return write-ability.
 //
-// VISIBILITY / GUARD MODEL:
-// - admin:      canView always; canWrite always.
-// - technician: canView/canWrite ONLY for projects they're assigned to
-//               (teamLeaderId / projectLeaderId / installers includes employeeId).
-// - client:     canView only for their own customer's projects; canWrite never.
+// VISIBILITY / GUARD MODEL — assignment is per WERKBON, not per project:
+// - admin/office/foreman: canView always; canWrite always.
+// - technician: canView/canWrite ONLY for werkbonnen they are assigned to
+//               (WorkOrder.assignees, or holding one of its zones). Being on
+//               the parent project's crew is NOT enough — a project holds many
+//               visits and other crews' werkbonnen must stay hidden.
+// - client:     canView only for their own customer's werkbonnen; canWrite never.
 // Not visible → 404 (don't leak existence).
 async function loadProjectForWorkOrder(
   user: AuthUser,
@@ -145,6 +157,8 @@ async function loadProjectForWorkOrder(
     select: {
       id: true,
       projectId: true,
+      assignees: { select: { id: true } },
+      tasks: { select: { assigneeId: true } },
       project: {
         select: {
           id: true,
@@ -157,12 +171,12 @@ async function loadProjectForWorkOrder(
       },
     },
   });
-  if (!workOrder || !canViewProject(user, workOrder.project)) {
+  if (!workOrder || !canViewWorkOrder(user, workOrder)) {
     throw NotFound("Work order not found");
   }
   const canWrite =
     canSeeAllProjects(user.role) ||
-    (user.role === "technician" && canViewProject(user, workOrder.project));
+    (user.role === "technician" && canViewWorkOrder(user, workOrder));
   return {
     workOrder: { id: workOrder.id, projectId: workOrder.projectId },
     project: workOrder.project,
@@ -297,23 +311,14 @@ workOrdersRouter.get(
         ? req.query.status
         : undefined;
 
-    // Build a project filter that bakes in org + visibility. For
-    // technician/client this restricts to assigned/own projects; admin sees all.
+    // Org + optional project narrowing. Role VISIBILITY is NOT applied here —
+    // it is a work-order-level question (assignment is per werkbon), so it comes
+    // from visibleWorkOrdersWhere below and is ANDed onto the filter list.
     const projectWhere: Prisma.ProjectWhereInput = {
       orgId: user.orgId,
       deletedAt: null,
       ...(projectId ? { id: projectId } : {}),
     };
-    if (user.role === "client") {
-      projectWhere.customerId = user.customerId ?? "__none__";
-    } else if (user.role === "technician") {
-      const employeeId = user.employeeId ?? "__none__";
-      projectWhere.OR = [
-        { teamLeaderId: employeeId },
-        { projectLeaderId: employeeId },
-        { installers: { some: { id: employeeId } } },
-      ];
-    }
 
     // Narrowing filters, so a werkbon can still be found months later ("improve
     // the filters in the work order overview" — WOB Isolatie, 17-07-2026). All
@@ -347,7 +352,13 @@ workOrdersRouter.get(
     // Fragments are collected and ANDed — never spread onto one object, because
     // two fragments that both use OR would clobber each other and silently widen
     // visibility (the projectScopeWhere bug). Same reasoning here.
-    const filters: Prisma.WorkOrderWhereInput[] = [{ project: projectWhere }];
+    const filters: Prisma.WorkOrderWhereInput[] = [
+      { project: projectWhere },
+      // Role visibility at the WERKBON level: a technician sees only the
+      // werkbonnen assigned to them, never every werkbon of a project they
+      // happen to be crewed on.
+      visibleWorkOrdersWhere(user),
+    ];
 
     if (search) {
       const ci = { contains: search, mode: "insensitive" as const };
@@ -490,24 +501,18 @@ workOrdersRouter.get(
   asyncHandler(async (req, res) => {
     const user = req.user!;
 
-    const projectWhere: Prisma.ProjectWhereInput = {
-      orgId: user.orgId,
-      deletedAt: null,
-    };
-    if (user.role === "client") {
-      projectWhere.customerId = user.customerId ?? "__none__";
-    } else if (user.role === "technician") {
-      const employeeId = user.employeeId ?? "__none__";
-      projectWhere.OR = [
-        { teamLeaderId: employeeId },
-        { projectLeaderId: employeeId },
-        { installers: { some: { id: employeeId } } },
-      ];
-    }
+    // Scope the options through the WERKBON visibility rule (assignment is per
+    // werkbon), so a technician's filter menu only names customers that appear
+    // on werkbonnen they're actually on.
+    const visibleWorkOrders = workOrderScopeWhere(user);
 
     const [customers, assignees, workTypes] = await Promise.all([
       prisma.customer.findMany({
-        where: { orgId: user.orgId, deletedAt: null, projects: { some: projectWhere } },
+        where: {
+          orgId: user.orgId,
+          deletedAt: null,
+          projects: { some: { workOrders: { some: visibleWorkOrders } } },
+        },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
@@ -845,18 +850,32 @@ workOrdersRouter.patch(
         throw BadRequest("One or more assignees not found in organization");
       }
     }
+    // The schedule fields are NOT written straight to the columns here: the
+    // calendar draws PlanningItems, which shadow plannedDate, so a bare column
+    // write would move the werkbon's date while the calendar kept showing the
+    // old slot. Both stores go through the shared planning service instead.
+    const schedulingChanged =
+      input.plannedDate !== undefined || input.plannedEndDate !== undefined;
+    const scheduleTarget = schedulingChanged
+      ? await prisma.workOrder.findUniqueOrThrow({
+          where: { id: req.params.id },
+          select: {
+            id: true,
+            projectId: true,
+            plannedDate: true,
+            plannedEndDate: true,
+            planningItems: { orderBy: { date: "asc" }, select: { id: true } },
+            assignees: { select: { id: true } },
+            project: { select: { projectLeaderId: true, teamLeaderId: true } },
+          },
+        })
+      : null;
+
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
         data: {
           title: input.title !== undefined ? clampText(input.title) : undefined,
-          // Werkbon schedule (the visit's date(s)). Reconcile end ≥ start.
-          ...(input.plannedDate !== undefined
-            ? { plannedDate: input.plannedDate || null }
-            : {}),
-          ...(input.plannedEndDate !== undefined
-            ? { plannedEndDate: input.plannedEndDate || null }
-            : {}),
           // Full replace of the assigned crew when assigneeIds is provided.
           ...(input.assigneeIds !== undefined
             ? { assignees: { set: input.assigneeIds.map((id) => ({ id })) } }
@@ -867,6 +886,37 @@ workOrdersRouter.patch(
             : {}),
         },
       });
+
+      if (scheduleTarget) {
+        const nextStart =
+          input.plannedDate !== undefined
+            ? input.plannedDate || null
+            : scheduleTarget.plannedDate;
+        if (!nextStart) {
+          // No start date = not planned: drop the slots too, or the werkbon
+          // would linger on the calendar via a now-orphaned PlanningItem.
+          await clearWorkOrderSchedule(tx, user, scheduleTarget);
+        } else if (input.plannedDate !== undefined) {
+          // Move (or create) the slot. Times, crew and vehicle are deliberately
+          // not passed — an existing slot keeps what the office set on the
+          // Planning screen and only its date moves.
+          await applyWorkOrderSchedule(tx, user, scheduleTarget, {
+            date: nextStart,
+            ...(input.plannedEndDate !== undefined
+              ? { endDate: input.plannedEndDate || null }
+              : {}),
+          });
+        } else {
+          // End date only — the start (and therefore the slot) is unchanged.
+          await setWorkOrderEndDate(
+            tx,
+            user,
+            scheduleTarget,
+            input.plannedEndDate || null,
+          );
+        }
+      }
+
       await audit(tx, user, "workOrder.update", "workOrder", req.params.id, input);
     });
     res.json(await reloadWorkOrder(user, req.params.id));

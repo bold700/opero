@@ -17,16 +17,32 @@ export function EmployeesKpis({ counts }: { counts: EmployeeCounts }) {
   ];
 
   return (
-    <Box sx={{ display: "flex", gap: 2.5, flexWrap: { xs: "wrap", lg: "nowrap" } }}>
+    // A GRID, not a flex row: the old `flex: 1 1 45%` was overridden by
+    // `minWidth: 180`, so on a phone two cards + the gap exceeded the viewport
+    // and every card wrapped onto its own line — four full-width cards pushing
+    // the actual list a screen down. Grid columns divide the available width
+    // instead of fighting a min-width, so all 4 fit in one row at every size.
+    <Box
+      sx={{
+        display: "grid",
+        gap: { xs: 1, sm: 2.5 },
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+      }}
+    >
       {kpis.map((k) => (
-        <Card
-          key={k.label}
-          sx={{ flex: { xs: "1 1 45%", lg: "1 1 0" }, minWidth: 180, p: 2.5 }}
-        >
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, mb: 0.5 }}>
+        // Tighter padding and a smaller number on mobile — at 4-up on a phone
+        // the card is under a quarter of its designed width.
+        <Card key={k.label} sx={{ p: { xs: 1, sm: 2.5 } }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontWeight: 500, mb: 0.5, fontSize: { xs: 11, sm: 14 } }}
+          >
             {k.label}
           </Typography>
-          <Typography sx={{ fontSize: 28, fontWeight: 700, color: k.tone, lineHeight: 1 }}>
+          <Typography
+            sx={{ fontSize: { xs: 18, sm: 28 }, fontWeight: 700, color: k.tone, lineHeight: 1 }}
+          >
             {k.value}
           </Typography>
         </Card>

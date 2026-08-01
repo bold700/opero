@@ -74,6 +74,11 @@ beforeAll(async () => {
 
   const woRes = await request(app).post("/api/work-orders").set(auth(adminToken)).send({ projectId });
   workOrderId = woRes.body.id;
+  // Assignment is per WERKBON, not per project — that's what grants access.
+  await prisma.workOrder.update({
+    where: { id: workOrderId },
+    data: { assignees: { connect: { id: techEmp.id } } },
+  });
 });
 
 afterAll(async () => {
