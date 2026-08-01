@@ -1,0 +1,16 @@
+# Railway/Nixpacks build config.
+#
+# Railway sets NODE_ENV=production for the whole build, which makes pnpm skip
+# devDependencies. The backend build needs them: prisma (generate), typescript
+# (tsc) and esbuild (bundling) all live in devDependencies. Without them the
+# build dies with "sh: 1: prisma: Permission denied".
+#
+# So both install phases run with --prod=false. The runtime image still only
+# needs `dependencies` — dist/index.js is a bundle and devDeps are never
+# imported at run time.
+
+[phases.install]
+cmds = [
+  "npm install -g corepack@0.24.1 && corepack enable",
+  "NODE_ENV=development pnpm i --frozen-lockfile --prod=false",
+]
