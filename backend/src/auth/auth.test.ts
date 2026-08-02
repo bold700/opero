@@ -99,6 +99,59 @@ describe("login + session lifecycle", () => {
   });
 });
 
+// Regression: addresses are stored lowercased, but the login and
+// forgot-password lookups used to query the raw input against a byte-exact
+// unique index. A user who typed "Support@..." got "invalid credentials" and no
+// reset mail — forgot-password only sends inside `if (user)`, so it returned
+// its usual 204 while silently doing nothing.
+describe("email is case-insensitive", () => {
+  const upper = adminEmail.toUpperCase();
+
+  it("logs in when the address is capitalized", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: upper, password: PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.accessToken).toBeTruthy();
+    // The stored (lowercase) identity is what comes back, not the typed casing.
+    expect(res.body.user.email).toBe(adminEmail);
+  });
+
+  it("logs in when the address has surrounding whitespace", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: `  ${adminEmail}  `, password: PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe(adminEmail);
+  });
+
+  it("issues a reset token for a capitalized address", async () => {
+    const user = await prisma.user.findUnique({ where: { email: adminEmail } });
+    const before = await prisma.passwordReset.count({
+      where: { userId: user!.id, purpose: "reset" },
+    });
+
+    const res = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({ email: upper });
+    expect(res.status).toBe(204);
+
+    // 204 is returned either way (no user enumeration), so assert on the effect:
+    // a reset token must actually have been minted.
+    const after = await prisma.passwordReset.count({
+      where: { userId: user!.id, purpose: "reset" },
+    });
+    expect(after).toBe(before + 1);
+  });
+
+  it("still rejects a genuinely unknown address", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: `${TAG}-nobody@opero.test`, password: PASSWORD });
+    expect(res.status).toBe(401);
+  });
+});
+
 describe("2FA enrollment + login", () => {
   it("sets up, enables, and then requires TOTP at login", async () => {
     // create a fresh user and log in (no 2FA yet)

@@ -302,7 +302,8 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const { newEmail, currentPassword } = requestEmailChangeSchema.parse(req.body);
     const userId = req.user!.id;
-    const email = newEmail.trim().toLowerCase();
+    // Already trimmed + lowercased by the schema (see `emailIdentity`).
+    const email = newEmail;
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {

@@ -5,8 +5,21 @@ import { z } from "zod";
 
 // --- Auth (Phase 2) -------------------------------------------------------
 
+// The login identity. Addresses are stored lowercased, so every schema that
+// carries one normalizes here rather than at each call site — a `findUnique`
+// on a raw address silently misses the row when the user capitalizes it (the
+// column is plain text with a byte-exact unique index). Trim first: mobile
+// keyboards routinely append a space, and both auto-capitalize the first
+// letter. Domains are case-insensitive by RFC 5321 and every mail provider
+// treats the local part that way too, so folding the whole address is safe.
+const emailIdentity = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.string().email());
+
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailIdentity,
   password: z.string().min(1),
 });
 export type LoginRequest = z.infer<typeof loginSchema>;
@@ -24,7 +37,7 @@ export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>;
 // Requires re-auth (current password); a confirmation link is sent to newEmail
 // and the email only switches when that link is confirmed.
 export const requestEmailChangeSchema = z.object({
-  newEmail: z.string().email(),
+  newEmail: emailIdentity,
   currentPassword: z.string().min(1),
 });
 export type RequestEmailChangeRequest = z.infer<typeof requestEmailChangeSchema>;
@@ -96,7 +109,7 @@ export type RefreshRequest = z.infer<typeof refreshSchema>;
 export const logoutSchema = z.object({ refreshToken: z.string().min(1) });
 export type LogoutRequest = z.infer<typeof logoutSchema>;
 
-export const forgotPasswordSchema = z.object({ email: z.string().email() });
+export const forgotPasswordSchema = z.object({ email: emailIdentity });
 export type ForgotPasswordRequest = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z.object({

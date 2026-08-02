@@ -233,6 +233,12 @@ model PrejobCheckItem {
 model User {
   id           String    @id @default(uuid())
   orgId        String
+  // The login identity. ALWAYS stored lowercased — the shared zod schemas fold
+  // it on the way in, and migration 20260802100000_email_case_insensitive adds a
+  // UNIQUE index on lower(email) that Prisma cannot express here. `@unique` is
+  // kept because it is what types findUnique({ where: { email } }); the
+  // functional index is the actual case-insensitivity guarantee. Never query
+  // this column with un-normalized input.
   email        String    @unique
   passwordHash String
   name         String
