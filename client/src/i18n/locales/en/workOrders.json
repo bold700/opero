@@ -42,7 +42,7 @@
     "workType": "Work type",
     "technician": "Technician",
     "status": "Status",
-    "date": "Date",
+    "date": "Planned date",
     "action": "Action",
     "empty": "No work orders found.",
     "viewAria": "open work order"

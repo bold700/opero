@@ -305,6 +305,10 @@ export function workOrderListDto(wb: WorkOrderListSource) {
     ),
     // Read the denormalized column (kept in sync by recomputeWorkOrderStatus).
     status: wb.listStatus as WorkOrderListStatus,
-    date: wb.createdAt.toISOString(),
+    // WHEN THE WORK HAPPENS, not when the row was typed in. Null until the
+    // werkbon is scheduled — the list renders that as "not planned", which is
+    // the same answer the planning calendar gives (planning/routes.ts treats a
+    // werkbon as on the calendar only once it has a plannedDate or a slot).
+    date: wb.plannedDate ?? null,
   };
 }

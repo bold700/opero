@@ -11,7 +11,8 @@ export type WorkOrderRow = {
   workType: string;
   technician: string;
   status: WorkOrderStatus;
-  date: string;
+  // Planned work date — null until the werkbon is scheduled.
+  date: string | null;
 };
 
 // Per-status totals across the whole (scoped+searched) set — powers the count

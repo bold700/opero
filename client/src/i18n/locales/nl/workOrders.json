@@ -42,7 +42,7 @@
     "workType": "Type werk",
     "technician": "Monteur",
     "status": "Status",
-    "date": "Datum",
+    "date": "Geplande datum",
     "action": "Actie",
     "empty": "Geen werkbonnen gevonden.",
     "viewAria": "werkbon openen"
