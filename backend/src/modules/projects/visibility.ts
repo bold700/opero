@@ -10,8 +10,21 @@ import type { AuthUser } from "../../auth/types.js";
 //                 uitvoerder — org-wide werkbon+planning visibility is his
 //                 whole role; office POWERS stay behind isOffice).
 // - client:       only projects of their linked customer (customerId match).
-// - technician:   only projects where their employee is teamLeaderId OR
-//                 projectLeaderId OR one of the installers (m:n).
+// - technician:   projects where their employee is teamLeaderId OR
+//                 projectLeaderId OR one of the installers (m:n), OR that hold
+//                 a werkbon assigned to them.
+//
+// That last arm is NOT optional. Werkbon assignment is per WERKBON, not per
+// project (../work-orders/visibility.ts) — a monteur is dispatched to a visit
+// without necessarily being on the project's crew. The werkbon detail screen
+// loads the parent project too, so without this arm the werkbon opens (200)
+// and the project 404s, and the page dies on "Project not found". Keep the two
+// rules in sync: anything that grants werkbon access must grant read access to
+// its project.
+//
+// This widens READ only. It does not widen the werkbon list inside a project —
+// GET /:id scopes that separately via projectIncludeFor (../projects/dto.ts) —
+// nor writes, which gate on canViewProject below.
 //
 // The office check MUST come first and be explicit. The final branch is a
 // fallthrough, so anyone not named above silently lands in the technician
@@ -34,6 +47,18 @@ export function visibleProjectsWhere(
       { teamLeaderId: employeeId },
       { projectLeaderId: employeeId },
       { installers: { some: { id: employeeId } } },
+      // Holds a werkbon on this project — assigned to the visit itself, or to
+      // one of its zones. Mirrors visibleWorkOrdersWhere.
+      {
+        workOrders: {
+          some: {
+            OR: [
+              { assignees: { some: { id: employeeId } } },
+              { tasks: { some: { assigneeId: employeeId } } },
+            ],
+          },
+        },
+      },
     ],
   };
 }
