@@ -112,10 +112,6 @@
     "languageDutch": "Dutch",
     "languageEnglish": "English",
     "privacy": "Privacy",
-    "showPrices": {
-      "label": "Show prices to technicians",
-      "sub": "Technicians see amounts on work orders"
-    },
     "saved": "Preferences saved",
     "saveError": "Save failed"
   },

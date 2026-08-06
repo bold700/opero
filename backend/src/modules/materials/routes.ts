@@ -777,8 +777,8 @@ materialsRouter.post(
   }),
 );
 
-// GET /:id — one material with its full variant set. Prices stripped for
-// technicians when the org hides prices from them.
+// GET /:id — one material with its full variant set. Prices stripped for field
+// staff (canSeePrices — absolute, there is no org toggle).
 materialsRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {

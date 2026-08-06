@@ -14,6 +14,7 @@ let orgId: string;
 let otherOrgId: string;
 let adminToken: string;
 let technicianToken: string;
+let foremanToken: string;
 let clientToken: string;
 let materialId: string;
 let otherOrgMaterialId: string;
@@ -61,11 +62,15 @@ beforeAll(async () => {
   const technician = await prisma.user.create({
     data: { orgId, email: `${TAG}-t@opero.test`, passwordHash: pw, name: "T", role: "technician", status: "active" },
   });
+  const foreman = await prisma.user.create({
+    data: { orgId, email: `${TAG}-f@opero.test`, passwordHash: pw, name: "F", role: "foreman", status: "active" },
+  });
   const client = await prisma.user.create({
     data: { orgId, email: `${TAG}-c@opero.test`, passwordHash: pw, name: "C", role: "client", status: "active" },
   });
   adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
   technicianToken = signAccessToken({ sub: technician.id, role: "technician", orgId });
+  foremanToken = signAccessToken({ sub: foreman.id, role: "foreman", orgId });
   clientToken = signAccessToken({ sub: client.id, role: "client", orgId });
 
   materialId = (await createMaterial(orgId, "own")).id;
@@ -134,6 +139,22 @@ describe("materials catalog — detail", () => {
       .get(`/api/materials/${otherOrgMaterialId}`)
       .set(auth(adminToken));
     expect(crossOrg.status).toBe(404);
+  });
+
+  // The foreman is field staff too — canSeePrices is false for him. He has no
+  // materials nav entry, but /materials/:id is reachable by direct URL (the
+  // client route guard only matches exact NAV_ITEMS paths), so the server strip
+  // is what actually protects this. The client drops the price COLUMN on top.
+  it("strips unitPrice for foremen", async () => {
+    const res = await request(app)
+      .get(`/api/materials/${materialId}`)
+      .set(auth(foremanToken));
+    expect(res.status).toBe(200);
+    expect(res.body.variants.length).toBeGreaterThan(0);
+    for (const v of res.body.variants as { unitPrice?: number; costPrice?: number }[]) {
+      expect(v.unitPrice).toBeUndefined();
+      expect(v.costPrice).toBeUndefined();
+    }
   });
 });
 

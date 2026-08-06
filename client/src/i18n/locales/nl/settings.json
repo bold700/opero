@@ -112,10 +112,6 @@
     "languageDutch": "Nederlands",
     "languageEnglish": "Engels",
     "privacy": "Privacy",
-    "showPrices": {
-      "label": "Prijzen tonen aan monteurs",
-      "sub": "Monteurs zien bedragen op werkbonnen"
-    },
     "saved": "Voorkeuren opgeslagen",
     "saveError": "Opslaan mislukt"
   },

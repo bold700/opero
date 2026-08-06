@@ -40,9 +40,9 @@ export function materialSummaryDto(
   };
 }
 
-// Variant price is stripped for technicians when the org hides prices from
-// them (same conditional-spread pattern as articleDto). `costPrice` is admin-
-// only (showMargin) — clients get the selling price but never the cost.
+// Variant price is stripped for field staff (canSeePrices — absolute, there is
+// no org toggle; same conditional-spread pattern as articleDto). `costPrice` is
+// admin-only (showMargin) — clients get the selling price but never the cost.
 export function variantDto(v: MaterialVariant, showPrices = true, showMargin = false) {
   return {
     id: v.id,
@@ -117,7 +117,7 @@ export function variantSearchRowDto(
 }
 
 // The article catalog carries a unitPrice (it's the price list). Strip it for
-// technicians when the org hides prices from them; admins always see it.
+// field staff (canSeePrices — absolute, no org toggle); admins always see it.
 export function articleDto(a: Article, showPrices = true) {
   return {
     id: a.id,

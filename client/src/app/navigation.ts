@@ -29,8 +29,8 @@ const ALL: UserRole[] = ["admin", "office", "foreman", "technician", "client"];
 const OFFICE: UserRole[] = ["admin", "office"];
 // Field staff — on the tools. The foreman (meewerkend uitvoerder) additionally
 // sees EVERYONE's werkbonnen and planning (backend scope), but shares the
-// field-staff surface: no customers, no reports, no materials nav (his catalog
-// access is API-only, for registering materials on a werkbon), never prices.
+// field-staff surface: no customers, no reports, and NEVER prices — the
+// materials catalog is theirs to browse, with its price column dropped.
 const FIELD: UserRole[] = ["foreman", "technician"];
 
 export const NAV_ITEMS: NavItem[] = [
@@ -44,11 +44,12 @@ export const NAV_ITEMS: NavItem[] = [
   // "manage own profile" is served by Settings (profile/security/notifications).
   { path: "/customers", labelKey: "nav.customers", icon: CustomersIcon, roles: OFFICE },
   { path: "/employees", labelKey: "nav.employees", icon: EmployeesIcon, roles: OFFICE },
-  // Materials — the supplier parts catalog (prices from the price lists). Office
-  // full, technician limited (prices stripped per org setting), client none.
-  // Not the foreman: his spec is werkbonnen + planning only (catalog stays
-  // reachable through the werkbon material dialogs, not as a destination).
-  { path: "/materials", labelKey: "nav.materials", icon: MaterialsIcon, roles: [...OFFICE, "technician"] },
+  // Materials — the supplier parts catalog. Office sees prices; FIELD STAFF get
+  // the same catalog with the price column removed entirely (canSeePrices is
+  // false for technician AND foreman — an absolute rule, not a setting). Both
+  // field roles get it: looking up a size on site is the same job whether you
+  // are on the tools or running the crew.
+  { path: "/materials", labelKey: "nav.materials", icon: MaterialsIcon, roles: [...OFFICE, ...FIELD] },
   { path: "/reports", labelKey: "nav.reports", icon: ReportsIcon, roles: OFFICE },
   // Own timesheet — field staff's "Reports = own hours" access (spec matrix).
   // The foreman works along on the tools, so he clocks hours like a technician.

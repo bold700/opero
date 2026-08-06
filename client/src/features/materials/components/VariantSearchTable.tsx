@@ -6,18 +6,25 @@ import { formatPrice, UNIT_LABEL_KEYS } from "../constants";
 import type { MaterialVariantRow } from "../api";
 
 // Flat search results: one row per matching variant (search mode of the
-// Materials screen). Price shown when present (stripped server-side for
-// technicians).
+// Materials screen).
+//
+// `showPrices` (canSeePrices, from the page) removes the price COLUMN entirely
+// for field staff rather than blanking its cells. The backend already strips the
+// value, so a rendered column would show a dash per row — which still tells a
+// monteur these parts are priced. Field staff keep the catalog; the money is not
+// theirs to see.
 export function VariantSearchTable({
   rows,
   hasMore,
   loadingMore,
   onLoadMore,
+  showPrices,
 }: {
   rows: MaterialVariantRow[];
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
+  showPrices: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -51,15 +58,19 @@ export function VariantSearchTable({
             </Typography>
           ),
         },
-        {
-          header: t("materials.columns.price"),
-          align: "right",
-          cell: (r) => (
-            <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
-              {price(r)}
-            </Typography>
-          ),
-        },
+        ...(showPrices
+          ? [
+              {
+                header: t("materials.columns.price"),
+                align: "right" as const,
+                cell: (r: MaterialVariantRow) => (
+                  <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
+                    {price(r)}
+                  </Typography>
+                ),
+              },
+            ]
+          : []),
       ]}
       renderCard={(r) => (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
@@ -70,9 +81,11 @@ export function VariantSearchTable({
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {r.supplier}
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
-              {price(r)}
-            </Typography>
+            {showPrices ? (
+              <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
+                {price(r)}
+              </Typography>
+            ) : null}
           </Box>
         </Box>
       )}

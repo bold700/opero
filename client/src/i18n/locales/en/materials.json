@@ -12,6 +12,7 @@
     "price": "Price",
     "sizeRange": "Sizes",
     "variantCount": "Prices",
+    "variantCountNeutral": "Variants",
     "component": "Part",
     "cost": "Cost / margin",
     "costPlaceholder": "cost",
@@ -57,6 +58,7 @@
   "detail": {
     "back": "Back",
     "priceCount": "{{count}} prices",
+    "variantCount": "{{count}} variants",
     "deleteMaterial": "Delete material",
     "deleteMaterialTitle": "Delete material?",
     "deleteMaterialMessage": "\"{{name}}\" and all its variants will be deleted. This cannot be undone.",

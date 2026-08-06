@@ -17,7 +17,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { STATUS_TONES, SPACING } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
 import { useAuth } from "../../auth/AuthContext";
-import { isOffice } from "@opero/shared";
+import { canSeePrices, isOffice, type UserRole } from "@opero/shared";
 import {
   getMaterial,
   getMaterialMeta,
@@ -47,6 +47,10 @@ export function MaterialDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = isOffice(user?.role ?? "client");
+  // Least-privileged fallback: canSeePrices("client") is TRUE, so defaulting to
+  // "client" like isAdmin does above would show prices to an unresolved user.
+  const role: UserRole = user?.role ?? "technician";
+  const showPrices = canSeePrices(role);
   const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
   const [material, setMaterial] = useState<MaterialDetailType | null>(null);
@@ -260,15 +264,22 @@ export function MaterialDetail() {
               header: t("materials.columns.component"),
               cell: (v) => <Typography variant="body2">{componentLabel(v)}</Typography>,
             },
-            {
-              header: t("materials.columns.price"),
-              align: "right",
-              cell: (v) => (
-                <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
-                  {priceLabel(v)}
-                </Typography>
-              ),
-            },
+            // Price column is dropped entirely for field staff — not blanked.
+            // The backend strips the value, so rendering it would give a monteur
+            // a column of dashes, which still says "these parts are priced".
+            ...(showPrices
+              ? [
+                  {
+                    header: t("materials.columns.price"),
+                    align: "right" as const,
+                    cell: (v: MaterialVariant) => (
+                      <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
+                        {priceLabel(v)}
+                      </Typography>
+                    ),
+                  },
+                ]
+              : []),
             // Admin-only: cost + margin (read display; edit via the row action).
             ...(isAdmin
               ? [
@@ -314,9 +325,11 @@ export function MaterialDetail() {
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {v.size} · {componentLabel(v)}
                 </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
-                  {priceLabel(v)}
-                </Typography>
+                {showPrices ? (
+                  <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
+                    {priceLabel(v)}
+                  </Typography>
+                ) : null}
               </Box>
               {isAdmin ? (
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>

@@ -11,7 +11,7 @@ import { useApi } from "../../lib/api/useApi";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useAuth } from "../../auth/AuthContext";
-import { isOffice } from "@opero/shared";
+import { canSeePrices, isOffice, type UserRole } from "@opero/shared";
 import {
   getMaterialGroups,
   getSuppliers,
@@ -33,6 +33,10 @@ export function Materials() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = isOffice(user?.role ?? "client");
+  // Least-privileged fallback: canSeePrices("client") is TRUE, so defaulting to
+  // "client" like isAdmin does above would show prices to an unresolved user.
+  const role: UserRole = user?.role ?? "technician";
+  const showPrices = canSeePrices(role);
   const lang = i18n.language.startsWith("en") ? "en" : "nl";
 
   const [search, setSearch] = useState("");
@@ -118,6 +122,7 @@ export function Materials() {
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}
+          showPrices={showPrices}
         />
       ) : visibleGroups.length === 0 ? (
         <Alert severity="info">{t("materials.empty")}</Alert>
@@ -128,6 +133,7 @@ export function Materials() {
               key={group.class}
               group={group}
               onOpen={(id) => navigate(`/materials/${id}`)}
+              showPrices={showPrices}
             />
           ))}
         </Box>

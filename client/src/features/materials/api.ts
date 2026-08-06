@@ -43,9 +43,10 @@ export type MaterialGroup = {
   materials: MaterialSummary[];
 };
 
-// Mirrors the backend variantDto. `unitPrice` present only when the org shows
-// prices to this role (stripped server-side for technicians). `costPrice`
-// (inkoopprijs) is admin-only — present only for admins (canSeeMargin).
+// Mirrors the backend variantDto. `unitPrice` is present only for roles that
+// may see prices (canSeePrices — stripped server-side for field staff; there is
+// no org toggle, it is absolute). `costPrice` (inkoopprijs) is admin-only —
+// present only for admins (canSeeMargin).
 export type MaterialVariant = {
   id: string;
   size: string;

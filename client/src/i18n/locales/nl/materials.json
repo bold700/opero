@@ -12,6 +12,7 @@
     "price": "Prijs",
     "sizeRange": "Maten",
     "variantCount": "Prijzen",
+    "variantCountNeutral": "Varianten",
     "component": "Onderdeel",
     "cost": "Inkoop / marge",
     "costPlaceholder": "inkoop",
@@ -57,6 +58,7 @@
   "detail": {
     "back": "Terug",
     "priceCount": "{{count}} prijzen",
+    "variantCount": "{{count}} varianten",
     "deleteMaterial": "Materiaal verwijderen",
     "deleteMaterialTitle": "Materiaal verwijderen?",
     "deleteMaterialMessage": "\"{{name}}\" en alle varianten worden verwijderd. Dit kan niet ongedaan worden gemaakt.",

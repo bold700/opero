@@ -9,12 +9,18 @@ import type { MaterialGroup, MaterialSummary } from "../api";
 // One class section of the catalog: a heading (Isolatie / Hulpstukken /
 // Buffervaten / Plaatwerk) and its materials as the standard table→card list.
 // Tapping a material opens its detail page.
+//
+// The variant count itself is just how many sizes/thicknesses exist — useful to
+// everyone. Only its LABEL talks about prices ("Prijzen" / "12 prijzen"), so for
+// field staff we say "Varianten" instead. Same number, no claim about money.
 export function MaterialGroupList({
   group,
   onOpen,
+  showPrices,
 }: {
   group: MaterialGroup;
   onOpen: (materialId: string) => void;
+  showPrices: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -58,7 +64,11 @@ export function MaterialGroupList({
             ),
           },
           {
-            header: t("materials.columns.variantCount"),
+            header: t(
+              showPrices
+                ? "materials.columns.variantCount"
+                : "materials.columns.variantCountNeutral",
+            ),
             align: "right",
             cell: (m) => (
               <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
@@ -76,7 +86,12 @@ export function MaterialGroupList({
               </Typography>
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {m.supplier} · {formatSizeRange(m.sizeUnit, m.sizeRange)} ·{" "}
-                {t("materials.detail.priceCount", { count: m.variantCount })}
+                {t(
+                  showPrices
+                    ? "materials.detail.priceCount"
+                    : "materials.detail.variantCount",
+                  { count: m.variantCount },
+                )}
               </Typography>
             </Box>
             <ChevronRightIcon fontSize="small" sx={{ color: "text.secondary" }} />
