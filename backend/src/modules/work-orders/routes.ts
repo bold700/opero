@@ -39,8 +39,14 @@ import {
   applyWorkOrderSchedule,
   clearWorkOrderSchedule,
   setWorkOrderEndDate,
+  DEFAULT_START_TIME,
+  DEFAULT_END_TIME,
 } from "../planning/schedule.js";
 import { absencesInRange, isIsoDay } from "../employees/absence.js";
+import {
+  assignableRoleFilterSchema,
+  assignableWhere,
+} from "../employees/assignable-roles.js";
 import { buildWorkOrderPdf, type WorkOrderPdfData } from "./pdf.js";
 import { buildQuotePdf, type QuotePdfData } from "./quote-pdf.js";
 import { buildMaterialLineName, parseDiameter, LINE_UNIT_LABELS } from "../materials/labels.js";
@@ -436,10 +442,17 @@ workOrdersRouter.get(
   }),
 );
 
-// GET /work-orders/assignable?date=&endDate= — field staff {id, name} for
+// GET /work-orders/assignable?date=&endDate=&role= — field staff {id, name} for
 // per-task assignment. Readable by admin + technician (the employees list is
 // admin-only, but technicians assign tasks on the detail screen). Must precede
 // "/:id".
+//
+// `role` (project_leader | technician) narrows the list by JOB TITLE so the
+// project-leader picker doesn't offer the whole payroll. It only narrows:
+// employees with no title set are always included (see assignableWhere) so an
+// org that never filled the field in can still assign someone. An unknown
+// value is rejected rather than silently ignored, so a typo can't quietly
+// return the unfiltered list.
 //
 // When a date (or range) is supplied, anyone with an absence overlapping it is
 // annotated `unavailable` with the reason. They are RETURNED, not removed: the
@@ -450,8 +463,23 @@ workOrdersRouter.get(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     if (user.role === "client") throw Forbidden("Not allowed");
+
+    // An absent OR EMPTY `role` means "everyone assignable" — `?role=` is what a
+    // cleared picker sends, and 400-ing on it would break the unfiltered list
+    // rather than widening it. Only a non-empty unknown value is an error.
+    // (Same rule as the materials category filter.)
+    const rawRole = req.query.role === "" ? undefined : req.query.role;
+    const parsedRole =
+      rawRole === undefined ? undefined : assignableRoleFilterSchema.safeParse(rawRole);
+    if (parsedRole && !parsedRole.success) throw BadRequest("Unknown role filter");
+
     const rows = await prisma.employee.findMany({
-      where: { orgId: user.orgId, deletedAt: null, status: "active" },
+      where: {
+        orgId: user.orgId,
+        deletedAt: null,
+        status: "active",
+        ...(parsedRole?.success ? assignableWhere(parsedRole.data) : {}),
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
@@ -559,7 +587,14 @@ workOrdersRouter.get(
             city: true,
             insulationType: true,
             urgency: true,
-            customer: { select: { contactName: true } },
+            // Fallback for the printed job description when this werkbon
+            // carries none of its own.
+            description: true,
+            // Site contact for THIS job — overrides the customer's default
+            // contact on the printed werkbon (see below).
+            contactName: true,
+            contactPhone: true,
+            customer: { select: { contactName: true, phone: true, email: true } },
           },
         },
       },
@@ -588,14 +623,33 @@ workOrdersRouter.get(
       createdAt: wb.createdAt,
       customer: {
         name: wb.project.customerName,
-        contactName: wb.project.customer?.contactName || undefined,
+        // The PROJECT's site contact wins over the customer's default one: on
+        // site a technician needs whoever is actually there for THIS job, not
+        // head office. Falls back to the customer record when the project
+        // carries no contact of its own.
+        contactName: wb.project.contactName || wb.project.customer?.contactName || undefined,
+        contactPhone: wb.project.contactPhone || wb.project.customer?.phone || undefined,
+        contactEmail: wb.project.customer?.email || undefined,
         address: wb.project.address || undefined,
         postalCode: wb.project.postalCode || undefined,
         city: wb.project.city || undefined,
       },
       insulationType: wb.project.insulationType || undefined,
+      // The planned visit — dates from the werkbon, times from its slot.
+      plannedDate: wb.plannedDate ?? undefined,
+      plannedEndDate: wb.plannedEndDate ?? undefined,
+      startTime: wb.planningItems?.[0]?.startTime ?? undefined,
+      endTime: wb.planningItems?.[0]?.endTime ?? undefined,
+      // The werkbon's OWN description wins; the project's is the fallback (a
+      // project groups many visits, so its text is the generic one).
+      jobDescription:
+        wb.description?.trim() || wb.project.description?.trim() || undefined,
       tasks: sortedTasks.map((t) => ({
         description: t.description,
+        // The zone's "Werkomschrijving" — stored as `note`. It was never passed
+        // to the builder, so the one thing the office types per zone never
+        // reached the printed werkbon.
+        note: t.note,
         workTypeName: t.workType?.name ?? undefined,
         assigneeName: t.assignee?.name ?? undefined,
         done: t.done,
@@ -620,6 +674,13 @@ workOrdersRouter.get(
       prejobCheck,
       prejobLabels,
       prejobPhotos: wb.prejobPhotos,
+      // Drawings/documents go ON the printed werkbon: images as full pages,
+      // PDFs listed by name (pdfkit cannot merge them).
+      attachments: wb.attachments.map((a) => ({
+        key: a.key,
+        filename: a.filename,
+        contentType: a.contentType,
+      })),
       dispatchedAt: wb.dispatchedAt,
       signature: wb.signature,
       signedByName: wb.signedByName ?? wb.signedBy?.name ?? undefined,
@@ -754,7 +815,7 @@ workOrdersRouter.get(
 // WORK ORDER CRUD
 // =========================================================================
 
-// POST /work-orders {projectId, title?} — create. Admin only: setting up a
+// POST /work-orders {projectId, title?, description?} — create. Admin only: setting up a
 // werkbon (customer + project context) is an office task. Technicians are
 // ASSIGNED werkbons and fill them in (tasks/photos/signature) via the write
 // endpoints below — they don't create. See shared/src/permissions.ts.
@@ -790,6 +851,9 @@ workOrdersRouter.post(
           // Empty title → the client renders a translated fallback that includes
           // the 1-based index. No display prose stored in the DB.
           title: input.title?.trim() ?? "",
+          // Optional per-visit description; null when not supplied, so the
+          // printed werkbon falls back to the project's.
+          description: clampText(input.description ?? "").trim() || null,
           drawings: [],
           ordinal: count,
           // Billing is per-werkbon: each werkbon gets its own quote + invoice.
@@ -854,8 +918,12 @@ workOrdersRouter.patch(
     // calendar draws PlanningItems, which shadow plannedDate, so a bare column
     // write would move the werkbon's date while the calendar kept showing the
     // old slot. Both stores go through the shared planning service instead.
+    const timesChanged =
+      input.startTime !== undefined || input.endTime !== undefined;
     const schedulingChanged =
-      input.plannedDate !== undefined || input.plannedEndDate !== undefined;
+      input.plannedDate !== undefined ||
+      input.plannedEndDate !== undefined ||
+      timesChanged;
     const scheduleTarget = schedulingChanged
       ? await prisma.workOrder.findUniqueOrThrow({
           where: { id: req.params.id },
@@ -864,18 +932,37 @@ workOrdersRouter.patch(
             projectId: true,
             plannedDate: true,
             plannedEndDate: true,
-            planningItems: { orderBy: { date: "asc" }, select: { id: true } },
+            planningItems: {
+              orderBy: { date: "asc" },
+              select: { id: true, startTime: true, endTime: true },
+            },
             assignees: { select: { id: true } },
             project: { select: { projectLeaderId: true, teamLeaderId: true } },
           },
         })
       : null;
+    if (scheduleTarget && timesChanged) {
+      // A one-sided time change must still leave start < end against what the
+      // slot keeps (or, for a new slot, gets as default).
+      const slot = scheduleTarget.planningItems[0];
+      const effectiveStart =
+        input.startTime ?? slot?.startTime ?? DEFAULT_START_TIME;
+      const effectiveEnd = input.endTime ?? slot?.endTime ?? DEFAULT_END_TIME;
+      if (effectiveStart >= effectiveEnd) {
+        throw BadRequest("endTime must be after startTime");
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
         data: {
           title: input.title !== undefined ? clampText(input.title) : undefined,
+          // This visit's own description; cleared to null when blanked, so the
+          // printed werkbon falls back to the project's description again.
+          ...(input.description !== undefined
+            ? { description: clampText(input.description).trim() || null }
+            : {}),
           // Full replace of the assigned crew when assigneeIds is provided.
           ...(input.assigneeIds !== undefined
             ? { assignees: { set: input.assigneeIds.map((id) => ({ id })) } }
@@ -893,18 +980,26 @@ workOrdersRouter.patch(
             ? input.plannedDate || null
             : scheduleTarget.plannedDate;
         if (!nextStart) {
+          // A time needs a scheduled visit to belong to — and sending one in
+          // the same patch that clears the date is contradictory.
+          if (timesChanged) {
+            throw BadRequest("Cannot set a time on an unscheduled work order");
+          }
           // No start date = not planned: drop the slots too, or the werkbon
           // would linger on the calendar via a now-orphaned PlanningItem.
           await clearWorkOrderSchedule(tx, user, scheduleTarget);
-        } else if (input.plannedDate !== undefined) {
-          // Move (or create) the slot. Times, crew and vehicle are deliberately
-          // not passed — an existing slot keeps what the office set on the
-          // Planning screen and only its date moves.
+        } else if (input.plannedDate !== undefined || timesChanged) {
+          // Move (or create) the slot. Crew and vehicle are deliberately not
+          // passed — the slot keeps what the office set on the Planning screen.
+          // Times pass through only when the patch carries them, so a bare
+          // date move still preserves the slot's times.
           await applyWorkOrderSchedule(tx, user, scheduleTarget, {
             date: nextStart,
             ...(input.plannedEndDate !== undefined
               ? { endDate: input.plannedEndDate || null }
               : {}),
+            ...(input.startTime !== undefined ? { startTime: input.startTime } : {}),
+            ...(input.endTime !== undefined ? { endTime: input.endTime } : {}),
           });
         } else {
           // End date only — the start (and therefore the slot) is unchanged.

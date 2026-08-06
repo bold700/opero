@@ -4,11 +4,13 @@
   "empty": "Geen materialen gevonden.",
   "filters": {
     "label": "Filter",
-    "allSuppliers": "Alle leveranciers"
+    "allSuppliers": "Alle leveranciers",
+    "allCategories": "Alle systemen"
   },
   "columns": {
     "name": "Omschrijving",
     "supplier": "Leverancier",
+    "system": "Systeem",
     "price": "Prijs",
     "sizeRange": "Maten",
     "variantCount": "Prijzen",
@@ -23,6 +25,12 @@
     "fitting": "Hulpstukken",
     "tank": "Buffervaten",
     "cladding": "Plaatwerk"
+  },
+  "category": {
+    "gkw": "GKW",
+    "cv": "CV",
+    "kw_ww_circ": "KW/WW/CIRC",
+    "riool_hwa": "RIOOL/HWA"
   },
   "sizeUnit": {
     "pipe_od_mm": "Buisdiameter (mm)",
@@ -77,6 +85,8 @@
     "create": "Nieuw materiaal",
     "name": "Naam",
     "class": "Soort",
+    "category": "Systeem",
+    "categoryNone": "Geen systeem",
     "supplier": "Leverancier",
     "sizeUnit": "Maateenheid",
     "thickness": "Dikte (mm)",

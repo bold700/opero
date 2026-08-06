@@ -33,11 +33,12 @@
     "kpis": {
       "assignedProjects": "Toegewezen projecten",
       "openTasks": "Openstaande taken",
-      "today": "Vandaag"
+      "workOrders": "Werkbonnen"
     },
-    "todayTitle": "Vandaag",
-    "noWorkOrders": "Geen werkbonnen voor vandaag.",
-    "taskCount": "{{count}} taken"
+    "noWorkOrders": "Geen werkbonnen toegewezen.",
+    "taskCount": "{{count}} taken",
+    "workTitle": "Mijn werkbonnen",
+    "unplanned": "Niet gepland"
   },
   "client": {
     "title": "Mijn projecten",

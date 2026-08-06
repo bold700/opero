@@ -126,14 +126,14 @@ enum ProjectActivityType {
 // access check is a bug — authorization is UserRole's job and lives entirely in
 // the predicates in @opero/shared permissions.ts. Note Foreman/Technician also
 // exist as UserRole values; same word, different axis (title vs. capability).
+// Four titles on purpose (was 7): Sales/WorkPlanner/Planner/Administration all
+// behaved identically everywhere the title is read, so they are one Office
+// title. The other three each drive real assignability rules.
 enum TeamRole {
-  Sales
-  WorkPlanner
-  Planner
+  Office
+  ProjectLeader
   Foreman
   Technician
-  Administration
-  ProjectLeader
 }
 
 enum ExtraWorkRejectedBy {
@@ -149,6 +149,19 @@ enum MaterialClass {
   fitting // fittings-only products (Victaulic hulpstukken)
   tank // buffer vessels, priced per liter
   cladding // sheet-metal finishing / ducts, per Ø or m2
+}
+
+// Which INSTALLATION SYSTEM a material belongs to — a different axis from
+// MaterialClass (which says what KIND of object it is). This is how technicians
+// actually look material up in the field: "what am I insulating?". The values
+// are the client's own trade groups; identifiers are English-safe slugs of the
+// Dutch trade abbreviations, and the display strings ("GKW", "CV",
+// "KW/WW/CIRC", "RIOOL/HWA") come from i18n at render time.
+enum MaterialSystemCategory {
+  gkw // gas- en koudwaterleiding (gas / cold water supply)
+  cv // centrale verwarming (central heating)
+  kw_ww_circ // koud water / warm water / circulatie
+  riool_hwa // riool / hemelwaterafvoer (sewer / rainwater drainage)
 }
 
 // What a material VARIANT is: a running metre, a specific insulated fitting,
@@ -435,7 +448,11 @@ model Employee {
   name      String
   phone     String
   email     String?
-  roles     TeamRole[]
+  // ONE job title per employee (was TeamRole[]). The multi-select produced
+  // "Planner, Sales, Technician" strings nobody could act on, and every reader
+  // already collapsed it to a single primary role for display. Optional: a
+  // freshly hired employee legitimately has no title set yet.
+  role      TeamRole?
   status    EmployeeStatus @default(active)
   deletedAt DateTime?
   createdAt DateTime   @default(now())
@@ -520,6 +537,10 @@ model Material {
   // Display/trade name (business data, typically the supplier's Dutch name).
   name         String
   class        MaterialClass
+  // Which installation system the material is for (GKW / CV / KW-WW-CIRC /
+  // RIOOL-HWA) — the axis technicians search on. Nullable: not every material
+  // belongs to exactly one system, and pre-existing rows are uncategorised.
+  category     MaterialSystemCategory?
   supplier     String
   // Physical attributes (nullable — not every class has them).
   thicknessMm  Int? // fixed product thickness; null when it varies per variant
@@ -648,6 +669,10 @@ model Project {
   id            String         @id @default(uuid())
   orgId         String
   projectNumber String
+  // The CLIENT's own reference for this job (their order/PO/dossier number),
+  // as supplied by them. Distinct from projectNumber, which is Opero's own
+  // internal identity (OP-YYYY-NNN) and is never overwritten by this.
+  referenceNumber String?
   name          String?
   customerId    String
   customerName  String
@@ -780,6 +805,11 @@ model WorkOrder {
   id                 String        @id @default(uuid())
   projectId          String
   title              String
+  // What this VISIT is about, in the office's own words ("2nd floor, week 38").
+  // Deliberately separate from Project.description: a project groups many
+  // werkbonnen and each one can cover a different part of the job. Null falls
+  // back to the project's description on the printed werkbon.
+  description        String?
   drawings           String[]
   approvedBySupervisor Boolean     @default(false)
   ordinal            Int           @default(0)

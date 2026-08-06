@@ -69,7 +69,7 @@ beforeAll(async () => {
   // Technician linked to an employee that's assigned (installer) on the
   // project, so requireWritableWorkOrder lets them write.
   const employee = await prisma.employee.create({
-    data: { orgId, name: `${TAG}-tech`, phone: "0", roles: ["Technician"], status: "active" },
+    data: { orgId, name: `${TAG}-tech`, phone: "0", role: "Technician", status: "active" },
   });
   employeeId = employee.id;
   const technician = await prisma.user.create({
@@ -369,7 +369,7 @@ describe("werkbon-level monteur assignment (multiple)", () => {
 
   it("assigning an employee from another org is rejected (400)", async () => {
     const otherEmp = await prisma.employee.create({
-      data: { orgId: otherOrgId, name: `${TAG}-other-emp`, phone: "0", roles: ["Technician"], status: "active" },
+      data: { orgId: otherOrgId, name: `${TAG}-other-emp`, phone: "0", role: "Technician", status: "active" },
     });
     const res = await request(app)
       .patch(`/api/work-orders/${workOrderId}`)

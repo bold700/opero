@@ -25,19 +25,33 @@ export const FILTER_LABEL_KEY: Record<EmployeeFilter, string> = {
 
 // English TeamRole value → i18n label key. Translate at the call site.
 export const ROLE_LABEL_KEY: Record<string, string> = {
-  Technician: "employees.roles.technician",
-  Foreman: "employees.roles.foreman",
-  WorkPlanner: "employees.roles.workPlanner",
-  Planner: "employees.roles.planner",
+  Office: "employees.roles.office",
   ProjectLeader: "employees.roles.projectLeader",
-  Administration: "employees.roles.administration",
-  Sales: "employees.roles.sales",
+  Foreman: "employees.roles.foreman",
+  Technician: "employees.roles.technician",
 };
 
-// Roles considered "office" (vs field/monteur).
-const OFFICE_ROLES = new Set(["Administration", "Sales", "WorkPlanner", "Planner"]);
+// The office bucket is the single Office title since the 7→4 consolidation.
 export function isOffice(fn: string | null): boolean {
-  return fn ? OFFICE_ROLES.has(fn) : false;
+  return fn === "Office";
+}
+
+// Default account access level for the Invite dialog, from the job title.
+// Kantoor works in the office app; Voorman and Projectleider see all projects
+// without office powers; Monteur (and the untitled) get the field app. Admin is
+// never defaulted — making someone owner stays an explicit choice.
+export function defaultAccessRole(
+  fn: string | null,
+): "office" | "foreman" | "technician" {
+  switch (fn) {
+    case "Office":
+      return "office";
+    case "Foreman":
+    case "ProjectLeader":
+      return "foreman";
+    default:
+      return "technician";
+  }
 }
 
 export function initials(name: string): string {

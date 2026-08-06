@@ -206,7 +206,7 @@ describe("meerwerk invoice totals", () => {
     // Meerwerk doesn't (it's gated behind approval), so a technician may report
     // it — that's the whole point of meerwerk.
     const employee = await prisma.employee.create({
-      data: { orgId, name: `${TAG}-tech`, phone: "0", roles: ["Technician"], status: "active" },
+      data: { orgId, name: `${TAG}-tech`, phone: "0", role: "Technician", status: "active" },
     });
     await prisma.project.update({
       where: { id: projectId },

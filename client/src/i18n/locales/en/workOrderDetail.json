@@ -24,7 +24,7 @@
   },
   "header": {
     "back": "back",
-    "info": "Project info",
+    "info": "Details",
     "signed": "Signed",
     "signedBy": "by {{name}}",
     "finish": "Complete work order",
@@ -167,6 +167,8 @@
     "addSubmit": "Add task",
     "editTitle": "Change line",
     "editSubmit": "Save",
+    "categoryLabel": "System",
+    "allCategories": "All systems",
     "articleLabel": "Insulation type / article",
     "componentLabel": "Component",
     "quantityLabel": "Quantity",
@@ -189,7 +191,7 @@
     "isExtraWorkHint": "Not counted in the quote. Only invoiced after both office and client approve."
   },
   "info": {
-    "title": "Project info",
+    "title": "Details",
     "progress": "Progress",
     "progressValue": "{{done}} of {{total}} zones done",
     "urgency": "Urgency",
@@ -207,14 +209,18 @@
     "contact": "Contact",
     "contactName": "Contact name",
     "contactPhone": "Phone",
-    "description": "Description",
+    "workOrderDescription": "Work order description",
+    "workOrderDescriptionPlaceholder": "E.g. 2nd floor, week 38",
+    "projectDescription": "Project description",
     "planning": "Planning",
     "endDateOptional": "End date (optional)",
     "sameDay": "same day",
     "workOrderTitle": "Work order",
     "customer": "Customer",
     "customerSwitchTitle": "Change customer",
-    "customerSwitchBody": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job."
+    "customerSwitchBody": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job.",
+    "customerContact": "Customer contact",
+    "noContactDetails": "No contact details"
   },
   "meerwerkApproval": {
     "title": "Extra work — awaiting approval ({{count}})",

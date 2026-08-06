@@ -60,7 +60,7 @@ beforeAll(async () => {
   adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
 
   const techEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Tech`, phone: "0600000000", roles: ["Technician"] },
+    data: { orgId, name: `${TAG} Tech`, phone: "0600000000", role: "Technician" },
   });
   const tech = await prisma.user.create({
     data: { orgId, email: `${TAG}-m@opero.test`, passwordHash: pw, name: "M", role: "technician", status: "active", employeeId: techEmp.id },
@@ -198,6 +198,58 @@ describe("werkbon PATCH keeps the planning calendar in sync", () => {
     expect(row.plannedDate).toBe("2030-10-14");
     expect(row.plannedEndDate).toBe("2030-10-16");
     expect((await slots()).map((s) => s.date)).toEqual(["2030-10-14"]);
+  });
+
+  it("a time-only patch updates the slot and the detail, keeping the date", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ startTime: "09:00", endTime: "17:00" });
+    expect(res.status).toBe(200);
+
+    // The DTO carries the slot's times, so the sidebar can show/edit them.
+    expect(res.body.startTime).toBe("09:00");
+    expect(res.body.endTime).toBe("17:00");
+
+    const slot = (await slots())[0];
+    expect(slot.date).toBe("2030-05-03"); // unchanged
+    expect(slot.startTime).toBe("09:00");
+    expect(slot.endTime).toBe("17:00");
+    expect((await workOrderRow()).plannedDate).toBe("2030-05-03");
+  });
+
+  it("rejects a time on an unscheduled werkbon (400)", async () => {
+    await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ plannedDate: null });
+
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ startTime: "09:00" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an inverted time range (400)", async () => {
+    // Both in one patch — caught by the schema.
+    const both = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ startTime: "10:00", endTime: "09:00" });
+    expect(both.status).toBe(400);
+
+    // One-sided — a start past the slot's stored end (15:30 default).
+    const oneSided = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ startTime: "16:00" });
+    expect(oneSided.status).toBe(400);
+
+    // The slot kept its defaults through both rejections.
+    const slot = (await slots())[0];
+    expect(slot.startTime).toBe("08:00");
+    expect(slot.endTime).toBe("15:30");
   });
 
   it("a non-schedule patch leaves the planning untouched", async () => {

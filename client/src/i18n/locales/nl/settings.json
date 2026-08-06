@@ -59,9 +59,9 @@
     "role": "Toegangsniveau",
     "roles": {
       "admin": "Admin",
-      "office": "Kantoormedewerker",
-      "foreman": "Uitvoerder",
-      "technician": "Monteur",
+      "office": "Kantoortoegang",
+      "foreman": "Voormantoegang",
+      "technician": "Monteurtoegang",
       "client": "Klant"
     },
     "saved": "Profiel opgeslagen",

@@ -41,7 +41,7 @@ beforeAll(async () => {
   const adminEmployee = await prisma.employee.create({
     data: {
       orgId, name: `${TAG} Owner`, phone: "", email: `${TAG}-owner@opero.test`,
-      roles: ["Administration"], status: "active",
+      role: "Office", status: "active",
     },
   });
   adminEmployeeId = adminEmployee.id;
@@ -57,7 +57,7 @@ beforeAll(async () => {
   const officeEmployee = await prisma.employee.create({
     data: {
       orgId, name: `${TAG} Clerk`, phone: "", email: `${TAG}-clerk@opero.test`,
-      roles: ["WorkPlanner"], status: "active",
+      role: "Office", status: "active",
     },
   });
   const office = await prisma.user.create({
@@ -70,7 +70,7 @@ beforeAll(async () => {
 
   const target = await prisma.employee.create({
     data: {
-      orgId, name: `${TAG} Target`, phone: "", roles: ["Technician"],
+      orgId, name: `${TAG} Target`, phone: "", role: "Technician",
       status: "active",
     },
   });
@@ -122,7 +122,7 @@ describe("office CANNOT manage logins at or above its own level", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Peer Login`, phone: "", email: `${TAG}-peerlogin@opero.test`,
-        roles: ["Administration"], status: "active",
+        role: "Office", status: "active",
       },
     });
     const peer = await prisma.user.create({
@@ -147,7 +147,7 @@ describe("office CAN manage logins below its own level", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Invitee`, phone: "", email: `${TAG}-invitee@opero.test`,
-        roles: ["Technician"], status: "active",
+        role: "Technician", status: "active",
       },
     });
 
@@ -186,7 +186,7 @@ describe("office CAN manage logins below its own level", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Promote`, phone: "", email: `${TAG}-promote@opero.test`,
-        roles: ["Technician"], status: "active",
+        role: "Technician", status: "active",
       },
     });
     const invited = await request(app)
@@ -215,7 +215,7 @@ describe("office CAN manage logins below its own level", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} NoAdmin`, phone: "", email: `${TAG}-noadmin@opero.test`,
-        roles: ["Technician"], status: "active",
+        role: "Technician", status: "active",
       },
     });
     const invited = await request(app)
@@ -249,7 +249,7 @@ describe("office CAN manage logins below its own level", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} New Clerk`, phone: "", email: `${TAG}-newclerk@opero.test`,
-        roles: ["Administration"], status: "active",
+        role: "Office", status: "active",
       },
     });
 
@@ -271,7 +271,7 @@ describe("office CAN manage logins below its own level", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Cycle`, phone: "", email: `${TAG}-cycle@opero.test`,
-        roles: ["Technician"], status: "active",
+        role: "Technician", status: "active",
       },
     });
     const invited = await request(app)
@@ -357,7 +357,7 @@ describe("office CAN run the operational app", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Monteur`, phone: "", email: `${TAG}-monteur@opero.test`,
-        roles: ["Technician"], status: "active",
+        role: "Technician", status: "active",
       },
     });
     const login = await prisma.user.create({
@@ -383,7 +383,7 @@ describe("office CAN run the operational app", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Peer`, phone: "", email: `${TAG}-peer@opero.test`,
-        roles: ["Administration"], status: "active",
+        role: "Office", status: "active",
       },
     });
     const peer = await prisma.user.create({
@@ -406,7 +406,7 @@ describe("office CAN run the operational app", () => {
     const created = await request(app)
       .post("/api/employees")
       .set(auth(officeToken))
-      .send({ name: `${TAG} Hired`, phone: "0600000000", roles: ["Technician"] });
+      .send({ name: `${TAG} Hired`, phone: "0600000000", role: "Technician" });
     expect(created.status).toBe(201);
 
     const edited = await request(app)

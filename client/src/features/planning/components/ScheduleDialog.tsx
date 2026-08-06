@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useDirty } from "../../../lib/isDirty";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
@@ -19,13 +20,7 @@ import type {
 import { getAssignableEmployees } from "../api";
 import { useIsMobile } from "../../../lib/useIsMobile";
 
-// 24-hour time slots in 15-minute steps (00:00 … 23:45) — European clock, no
-// AM/PM, no arbitrary minutes.
-const TIME_SLOTS: string[] = Array.from({ length: 24 * 4 }, (_, i) => {
-  const h = Math.floor(i / 4);
-  const m = (i % 4) * 15;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-});
+import { TIME_SLOTS, suggestEndTime } from "../../../lib/timeSlots";
 
 // Schedule a werkbon on the calendar (or reschedule an existing one). When
 // `lockedWorkOrder` is set we're editing that entry (werkbon not changeable);
@@ -36,6 +31,9 @@ export function ScheduleDialog({
   employees,
   lockedWorkOrder,
   defaultDate,
+  defaultStartTime,
+  defaultEndTime,
+  defaultTeamLeaderId,
   busy,
   error,
   onClose,
@@ -46,6 +44,11 @@ export function ScheduleDialog({
   employees: AssignableEmployee[];
   lockedWorkOrder?: { id: string; label: string } | null;
   defaultDate?: string;
+  /** Rescheduling: seed the form with the slot's current times + crew, so an
+   *  edit starts from what is planned instead of an empty form. */
+  defaultStartTime?: string;
+  defaultEndTime?: string;
+  defaultTeamLeaderId?: string;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -59,14 +62,38 @@ export function ScheduleDialog({
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
 
+  // What the form was seeded with, so an untouched reschedule can't be saved.
+  // Null while creating: there is no "before" to compare a new slot against.
+  const initialValues = useRef<{
+    date: string;
+    teamLeaderId: string;
+    startTime: string;
+    endTime: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!open) return;
     setWorkOrderId(lockedWorkOrder?.id ?? "");
     setDate(defaultDate ?? "");
-    setTeamLeaderId("");
-    setStartTime("");
-    setEndTime("");
-  }, [open, lockedWorkOrder, defaultDate]);
+    setTeamLeaderId(defaultTeamLeaderId ?? "");
+    setStartTime(defaultStartTime ?? "");
+    setEndTime(defaultEndTime ?? "");
+    initialValues.current = lockedWorkOrder
+      ? {
+          date: defaultDate ?? "",
+          teamLeaderId: defaultTeamLeaderId ?? "",
+          startTime: defaultStartTime ?? "",
+          endTime: defaultEndTime ?? "",
+        }
+      : null;
+  }, [
+    open,
+    lockedWorkOrder,
+    defaultDate,
+    defaultStartTime,
+    defaultEndTime,
+    defaultTeamLeaderId,
+  ]);
 
   // Smart start: clears an end that's no longer after start; if no end is set,
   // suggests start + 2h (a typical job slot, capped at 23:45).
@@ -78,8 +105,7 @@ export function ScheduleDialog({
       return;
     }
     if (!endTime) {
-      const idx = TIME_SLOTS.indexOf(value);
-      const suggested = TIME_SLOTS[Math.min(idx + 8, TIME_SLOTS.length - 1)];
+      const suggested = suggestEndTime(value);
       if (suggested > value) setEndTime(suggested);
     }
   };
@@ -128,8 +154,18 @@ export function ScheduleDialog({
   // too rather than letting the office submit into a guaranteed error.
   const leaderAbsence = teamLeaderId ? unavailableById.get(teamLeaderId) : undefined;
 
+  // Rescheduling needs an actual change; creating only needs the required
+  // fields (there is nothing to diff a brand-new slot against).
+  const dirty = useDirty(
+    { date, teamLeaderId, startTime, endTime },
+    initialValues.current,
+  );
   const canSubmit =
-    Boolean(workOrderId && date) && !dateInPast && !leaderAbsence && !busy;
+    Boolean(workOrderId && date) &&
+    !dateInPast &&
+    !leaderAbsence &&
+    !busy &&
+    (!lockedWorkOrder || dirty);
 
   const submit = () =>
     onSubmit(workOrderId, {

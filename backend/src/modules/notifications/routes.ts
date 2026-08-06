@@ -13,6 +13,7 @@ import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../auth/middleware.js";
 import { projectScopeWhere } from "../projects/visibility.js";
+import { assignedToEmployeeWhere } from "../work-orders/visibility.js";
 
 // Notifications bell. The feed is DERIVED live from existing data (not stored per
 // user): extra work awaiting approval, urgent/blocked projects, newly assigned
@@ -142,11 +143,20 @@ notificationsRouter.get(
       categoryEnabled("newWorkOrder", prefs) &&
       (user.role === "technician" || user.role === "foreman")
     ) {
-      const employeeId = user.employeeId ?? "__none__";
       const workOrders = await prisma.workOrder.findMany({
+        // Assignment is at the WERKBON level (assignees, m:n) as well as the zone
+        // level — this used to check only the zone arm, so a monteur dispatched
+        // to the visit itself got no notification at all.
+        //
+        // AND, never a spread: assignedToEmployeeWhere returns a top-level OR,
+        // and a sibling key carrying its own OR would silently overwrite it.
+        // NOT visibleWorkOrdersWhere — that is org-wide ({}) for a foreman, who
+        // also reaches this branch, and would notify him about everyone's work.
         where: {
-          project: { is: projectScopeWhere(user) },
-          tasks: { some: { assigneeId: employeeId } },
+          AND: [
+            { project: { is: projectScopeWhere(user) } },
+            assignedToEmployeeWhere(user.employeeId),
+          ],
         },
         orderBy: { createdAt: "desc" },
         take: NOTIFICATIONS_LIMIT,

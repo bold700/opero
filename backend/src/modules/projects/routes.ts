@@ -45,6 +45,7 @@ async function projectSummaryListFor(
   return rows.map((p) => projectSummaryDto(p, user.role as UserRole));
 }
 import { projectScopeWhere, canViewProject } from "./visibility.js";
+import { assertAssignable, assertAllAssignable } from "./team-validation.js";
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -167,6 +168,9 @@ projectsRouter.get(
       ? projectScopeWhere(user, {
           OR: [
             { projectNumber: ci },
+            // The client's own reference: they quote THAT number on the phone,
+            // not Opero's, so the search has to match it too.
+            { referenceNumber: ci },
             { name: ci },
             { customerName: ci },
             { city: ci },
@@ -287,6 +291,21 @@ projectsRouter.post(
           address: siteAddress,
           postalCode: sitePostalCode,
           city: siteCity,
+          // The client's own reference for this job (their order/PO number).
+          referenceNumber: input.referenceNumber?.trim()
+            ? clampText(input.referenceNumber).trim()
+            : null,
+          // Site contact: what the form supplied, else prefilled from the
+          // customer's own contact details — the common case, and the office
+          // can still change it afterwards.
+          contactName:
+            (input.contactName?.trim()
+              ? clampText(input.contactName).trim()
+              : customer.contactName.trim()) || null,
+          contactPhone:
+            (input.contactPhone?.trim()
+              ? clampText(input.contactPhone).trim()
+              : customer.phone.trim()) || null,
           workTypeId,
           insulationType: insulation,
           description: notes,
@@ -360,6 +379,8 @@ projectsRouter.patch(
     const data: Prisma.ProjectUpdateInput = {};
     if (input.name !== undefined)
       data.name = clampText(input.name).trim() || null;
+    if (input.referenceNumber !== undefined)
+      data.referenceNumber = clampText(input.referenceNumber).trim() || null;
     if (input.description !== undefined)
       data.description = clampText(input.description);
     if (input.address !== undefined) data.address = clampText(input.address);
@@ -412,26 +433,26 @@ projectsRouter.patch(
       }
     }
 
-    // Team + work type (all project-level). Validate org membership first.
-    if (input.projectLeaderId) {
-      const leader = await prisma.employee.findFirst({
-        where: { id: input.projectLeaderId, orgId: user.orgId, deletedAt: null },
-      });
-      if (!leader) throw BadRequest("Project leader not found in organization");
-    }
+    // Team + work type (all project-level). Org membership AND job-title
+    // eligibility are both checked, so this route accepts exactly the people
+    // the picker offers (see modules/projects/team-validation.ts).
+    await assertAssignable(
+      user.orgId,
+      input.projectLeaderId,
+      "project_leader",
+      "Project leader",
+    );
     if (input.projectLeaderId !== undefined) {
       data.projectLeader = input.projectLeaderId
         ? { connect: { id: input.projectLeaderId } }
         : { disconnect: true };
     }
-    if (input.installerIds !== undefined && input.installerIds.length > 0) {
-      const found = await prisma.employee.count({
-        where: { id: { in: input.installerIds }, orgId: user.orgId, deletedAt: null },
-      });
-      if (found !== new Set(input.installerIds).size) {
-        throw BadRequest("One or more installers not found in organization");
-      }
-    }
+    await assertAllAssignable(
+      user.orgId,
+      input.installerIds,
+      "technician",
+      "installers",
+    );
     if (input.installerIds !== undefined) {
       data.installers = { set: input.installerIds.map((id) => ({ id })) };
     }
@@ -895,6 +916,31 @@ projectsRouter.post(
     const user = req.user!;
     const input = teamSchema.parse(req.body);
     const existing = await loadProjectForUser(user, req.params.id);
+
+    // This route used to connect whatever ids it was given without any check —
+    // not even org membership, so an id from another tenant could be attached
+    // to this project. Every slot is now validated for org membership and
+    // job-title eligibility, same as PATCH /:id.
+    await assertAssignable(
+      user.orgId,
+      input.projectLeaderId,
+      "project_leader",
+      "Project leader",
+    );
+    // The team leader (uitvoerder) leads the crew on site, so it is the same
+    // supervisory slot as the project leader.
+    await assertAssignable(
+      user.orgId,
+      input.teamLeaderId,
+      "project_leader",
+      "Team leader",
+    );
+    await assertAllAssignable(
+      user.orgId,
+      input.installerIds,
+      "technician",
+      "installers",
+    );
 
     const data: Prisma.ProjectUpdateInput = {};
     if (input.projectLeaderId !== undefined)

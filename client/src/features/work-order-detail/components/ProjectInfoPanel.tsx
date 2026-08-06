@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { TIME_SLOTS, suggestEndTime } from "../../../lib/timeSlots";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
@@ -7,6 +8,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Autocomplete from "@mui/material/Autocomplete";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
+import Link from "@mui/material/Link";
 import { Card } from "../../../components/Card";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { AutosaveDateField } from "../../../components/AutosaveDateField";
@@ -25,6 +27,7 @@ import type {
   AssigneeOption,
 } from "../api";
 import { isZoneComplete } from "./zoneStatus";
+import { CustomerContactBlock } from "./CustomerContactBlock";
 
 // A labelled block.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -60,22 +63,37 @@ export function ProjectInfoPanel({
   canEdit,
   busy,
   employees,
+  projectLeaders,
   onPatch,
   onAssignMonteurs,
   onSetSchedule,
   onSetTitle,
+  onSetDescription,
   bare = false,
 }: {
   project: Project;
   workOrder: WorkOrder;
   canEdit: boolean;
   busy: boolean;
+  /** Technician-eligible staff — the monteur picker. */
   employees: AssigneeOption[];
+  /** Project-leader-eligible staff — the projectleider picker. */
+  projectLeaders: AssigneeOption[];
   onPatch: (patch: ProjectSidebarPatch) => void;
   onAssignMonteurs: (ids: string[]) => void;
-  onSetSchedule: (patch: { plannedDate?: string | null; plannedEndDate?: string | null }) => void;
+  onSetSchedule: (patch: {
+    plannedDate?: string | null;
+    plannedEndDate?: string | null;
+    startTime?: string;
+    endTime?: string;
+  }) => void;
   /** Rename the werkbon (werkbon-level, not project). */
   onSetTitle: (title: string) => void;
+  /**
+   * Set THIS visit's own description (werkbon-level, not project). Blank is
+   * valid — the printed werkbon then falls back to the project's description.
+   */
+  onSetDescription: (description: string) => void;
   /**
    * Drop the Card chrome and the heading — for when this is already inside a
    * container that supplies both (the mobile Projectinfo sheet). Otherwise the
@@ -103,7 +121,29 @@ export function ProjectInfoPanel({
   const doneCount = zones.filter(isZoneComplete).length;
   // Scheduling is per-WERKBON — dates come from the werkbon, not the project.
   const days = durationDays(workOrder.plannedDate, workOrder.plannedEndDate);
-  const leaderName = employees.find((e) => e.id === project.projectLeaderId)?.name;
+  // Moving the start past the current end would invert the slot (the backend
+  // rejects that), so push the end along to start + 2h in the same patch —
+  // the same suggestion the Planning dialog makes.
+  const commitStartTime = (v: string) => {
+    if (!v) return;
+    if (workOrder.endTime && v >= workOrder.endTime) {
+      onSetSchedule({ startTime: v, endTime: suggestEndTime(v) });
+    } else {
+      onSetSchedule({ startTime: v });
+    }
+  };
+  // The leader picker is narrowed to project-leader-eligible staff, but an
+  // already-assigned leader must stay selectable even if their job title
+  // changed since — otherwise the select shows a blank value and saving any
+  // other field would silently drop them.
+  const leaderOptions = useMemo(() => {
+    const assignedId = project.projectLeaderId;
+    if (!assignedId || projectLeaders.some((e) => e.id === assignedId)) return projectLeaders;
+    const incumbent = employees.find((e) => e.id === assignedId);
+    return incumbent ? [incumbent, ...projectLeaders] : projectLeaders;
+  }, [projectLeaders, employees, project.projectLeaderId]);
+
+  const leaderName = leaderOptions.find((e) => e.id === project.projectLeaderId)?.name;
 
   // In a sheet the surrounding chrome already supplies the card and the title.
   const Shell = bare ? Box : Card;
@@ -140,6 +180,27 @@ export function ProjectInfoPanel({
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (v !== (workOrder.title ?? "")) onSetTitle(v);
+                }}
+                disabled={busy}
+              />
+            </Field>
+
+            {/* THIS VISIT's own description ("2e verdieping, week 38"). Distinct
+                from the project's description further down: a project groups
+                many werkbonnen, each covering a different part of the job. Left
+                empty, the printed werkbon falls back to the project's. */}
+            <Field label={t("workOrderDetail.info.workOrderDescription")}>
+              <TextField
+                size="small"
+                multiline
+                minRows={2}
+                placeholder={t("workOrderDetail.info.workOrderDescriptionPlaceholder")}
+                defaultValue={workOrder.description ?? ""}
+                key={`wd-${workOrder.id}-${workOrder.description ?? ""}`}
+                onBlur={(e) => {
+                  if (e.target.value !== (workOrder.description ?? "")) {
+                    onSetDescription(e.target.value);
+                  }
                 }}
                 disabled={busy}
               />
@@ -229,6 +290,34 @@ export function ProjectInfoPanel({
                   {t("workOrderDetail.info.daysValue", { count: days })}
                 </Typography>
               ) : null}
+              {/* The visit's times — the same calendar slot the Planning screen
+                  edits (one write path server-side, so they can't diverge).
+                  Only offered once a date exists: a time without a scheduled
+                  visit is meaningless and the backend rejects it. */}
+              {workOrder.plannedDate ? (
+                <Box sx={{ display: "flex", gap: 1.5, mt: 1.5 }}>
+                  <SelectField
+                    label={t("planning.schedule.startTime")}
+                    value={workOrder.startTime ?? ""}
+                    onChange={commitStartTime}
+                    disabled={!canEdit}
+                    nativeBelow={SHEET_BREAKPOINT}
+                    sx={{ flex: 1 }}
+                    options={TIME_SLOTS.map((s) => ({ value: s, label: s }))}
+                  />
+                  <SelectField
+                    label={t("planning.schedule.endTime")}
+                    value={workOrder.endTime ?? ""}
+                    onChange={(v) => { if (v) onSetSchedule({ endTime: v }); }}
+                    disabled={!canEdit}
+                    nativeBelow={SHEET_BREAKPOINT}
+                    sx={{ flex: 1 }}
+                    options={TIME_SLOTS.filter(
+                      (s) => !workOrder.startTime || s > workOrder.startTime,
+                    ).map((s) => ({ value: s, label: s }))}
+                  />
+                </Box>
+              ) : null}
             </Field>
 
             <Divider />
@@ -243,7 +332,7 @@ export function ProjectInfoPanel({
                 nativeBelow={SHEET_BREAKPOINT}
                 options={[
                   { value: "", label: t("workOrderDetail.info.none") },
-                  ...employees.map((e) => ({ value: e.id, label: e.name })),
+                  ...leaderOptions.map((e) => ({ value: e.id, label: e.name })),
                 ]}
               />
             </Field>
@@ -338,7 +427,19 @@ export function ProjectInfoPanel({
               />
             </Field>
 
-            <Field label={t("workOrderDetail.info.description")}>
+            {/* The CUSTOMER's own contact details (read-only here — they're
+                edited on the customer record). Separate from the site contact
+                above, which is per-project and may be someone else entirely. */}
+            {workOrder.customer ? (
+              <Field label={t("workOrderDetail.info.customerContact")}>
+                <CustomerContactBlock customer={workOrder.customer} />
+              </Field>
+            ) : null}
+
+            {/* The PROJECT's description — the generic one, shared by every
+                werkbon under this project. The per-visit text is the werkbon
+                description near the top. */}
+            <Field label={t("workOrderDetail.info.projectDescription")}>
               <TextField
                 size="small"
                 multiline
@@ -372,8 +473,11 @@ export function ProjectInfoPanel({
               <Field label={t("workOrderDetail.info.date")}>
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   {workOrder.plannedDate}
-                  {workOrder.plannedEndDate ? ` – ${project.plannedEndDate}` : ""}
+                  {workOrder.plannedEndDate ? ` – ${workOrder.plannedEndDate}` : ""}
                   {days > 0 ? ` · ${t("workOrderDetail.info.daysValue", { count: days })}` : ""}
+                  {workOrder.startTime && workOrder.endTime
+                    ? ` · ${workOrder.startTime}–${workOrder.endTime}`
+                    : ""}
                 </Typography>
               </Field>
             ) : null}
@@ -396,15 +500,46 @@ export function ProjectInfoPanel({
                 {project.address}, {project.postalCode} {project.city}
               </Typography>
             </Field>
+            {/* Site contact (per-project). The phone is a tel: link — the
+                monteur reading this is on a phone. */}
             {(project.contactName || project.contactPhone) ? (
               <Field label={t("workOrderDetail.info.contact")}>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  {[project.contactName, project.contactPhone].filter(Boolean).join(" · ")}
+                <Box sx={{ display: "flex", flexDirection: "column" }}>
+                  {project.contactName ? (
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      {project.contactName}
+                    </Typography>
+                  ) : null}
+                  {project.contactPhone ? (
+                    <Link
+                      href={`tel:${project.contactPhone.replace(/\s+/g, "")}`}
+                      variant="body2"
+                      underline="hover"
+                      sx={{ alignSelf: "flex-start", py: 0.25 }}
+                    >
+                      {project.contactPhone}
+                    </Link>
+                  ) : null}
+                </Box>
+              </Field>
+            ) : null}
+            {/* The CUSTOMER's contact people — who to call when the site
+                contact doesn't answer. Tappable tel:/mailto: links. */}
+            {workOrder.customer ? (
+              <Field label={t("workOrderDetail.info.customerContact")}>
+                <CustomerContactBlock customer={workOrder.customer} />
+              </Field>
+            ) : null}
+            {/* THIS visit's own description first — it's the specific one. */}
+            {workOrder.description ? (
+              <Field label={t("workOrderDetail.info.workOrderDescription")}>
+                <Typography variant="body2" sx={{ color: "text.secondary", whiteSpace: "pre-line" }}>
+                  {workOrder.description}
                 </Typography>
               </Field>
             ) : null}
             {project.description ? (
-              <Field label={t("workOrderDetail.info.description")}>
+              <Field label={t("workOrderDetail.info.projectDescription")}>
                 <Typography variant="body2" sx={{ color: "text.secondary", whiteSpace: "pre-line" }}>
                   {project.description}
                 </Typography>

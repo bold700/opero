@@ -16,6 +16,12 @@ export const removePhotoSchema = z.object({ photo: z.string().min(1) });
 export const createProjectSchema = z.object({
   customerId: z.string().min(1),
   name: z.string().optional(),
+  // The CLIENT's own reference for this job (their order/PO number). Never
+  // conflated with projectNumber, which is Opero's own internal identity.
+  referenceNumber: z.string().optional(),
+  // Site contact — seeded from the customer's contact details when omitted.
+  contactName: z.string().optional(),
+  contactPhone: z.string().optional(),
   // Work type is chosen from the managed WorkType list (preferred). Free-text
   // insulationType is still accepted for back-compat but workTypeId wins.
   workTypeId: z.string().optional(),
@@ -32,6 +38,8 @@ export const updateProjectSchema = z.object({
   // client portal is scoped by project.customerId, so the old customer's login
   // loses this job and the new one gains it. Admin-only (the route gate).
   customerId: z.string().optional(),
+  // The client's own reference number for this job (their order/PO number).
+  referenceNumber: z.string().optional(),
   description: z.string().optional(),
   address: z.string().optional(),
   postalCode: z.string().optional(),

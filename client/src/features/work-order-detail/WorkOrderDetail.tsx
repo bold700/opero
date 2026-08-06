@@ -29,6 +29,7 @@ import {
   setWorkOrderAssignees,
   setWorkOrderSchedule,
   setWorkOrderTitle,
+  setWorkOrderDescription,
   updateProject,
   addTask,
   updateTask,
@@ -103,7 +104,10 @@ export function WorkOrderDetail() {
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+  // Two role-filtered lists: the project-leader picker and the monteur picker
+  // ask for different job titles, so they can't share one fetch.
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
+  const [projectLeaders, setProjectLeaders] = useState<AssigneeOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingQuote, setExportingQuote] = useState(false);
@@ -118,7 +122,10 @@ export function WorkOrderDetail() {
       const p = await getProject(w.projectId);
       setWo(w);
       setProject(p);
-      getAssignableEmployees().then(setAssignees).catch(() => setAssignees([]));
+      getAssignableEmployees("technician").then(setAssignees).catch(() => setAssignees([]));
+      getAssignableEmployees("project_leader")
+        .then(setProjectLeaders)
+        .catch(() => setProjectLeaders([]));
       return w;
     }, [id]),
     [id],
@@ -197,16 +204,24 @@ export function WorkOrderDetail() {
     canEdit: canEditScope,
     busy,
     employees: assignees,
+    projectLeaders,
     onPatch: (patch: ProjectSidebarPatch) =>
       run(async () => {
         setProject(await updateProject(project.id, patch));
       }),
     onAssignMonteurs: (ids: string[]) =>
       run(async () => { setWo(await setWorkOrderAssignees(wo.id, ids)); }),
-    onSetSchedule: (patch: { plannedDate?: string | null; plannedEndDate?: string | null }) =>
+    onSetSchedule: (patch: {
+      plannedDate?: string | null;
+      plannedEndDate?: string | null;
+      startTime?: string;
+      endTime?: string;
+    }) =>
       run(async () => { setWo(await setWorkOrderSchedule(wo.id, patch)); }),
     onSetTitle: (title: string) =>
       run(async () => { setWo(await setWorkOrderTitle(wo.id, title)); }),
+    onSetDescription: (description: string) =>
+      run(async () => { setWo(await setWorkOrderDescription(wo.id, description)); }),
   };
 
   // Delete the whole werkbon, then leave — the page we're on no longer exists.

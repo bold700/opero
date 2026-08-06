@@ -29,6 +29,9 @@ export function materialSummaryDto(
     key: m.key,
     name: m.name,
     class: m.class,
+    // Installation system (GKW / CV / KW-WW-CIRC / RIOOL-HWA); absent when the
+    // material isn't tied to one.
+    category: m.category ?? undefined,
     supplier: m.supplier,
     thicknessMm: m.thicknessMm ?? undefined,
     pipeMaterial: m.pipeMaterial ?? undefined,
@@ -71,6 +74,7 @@ export function materialDetailDto(
     key: m.key,
     name: m.name,
     class: m.class,
+    category: m.category ?? undefined,
     supplier: m.supplier,
     thicknessMm: m.thicknessMm ?? undefined,
     pipeMaterial: m.pipeMaterial ?? undefined,
@@ -104,6 +108,7 @@ export function variantSearchRowDto(
     name: buildMaterialLineName(v.material, v, "nl"),
     materialName: v.material.name,
     class: v.material.class,
+    category: v.material.category ?? undefined,
     supplier: v.material.supplier,
     size: v.size,
     sizeUnit: v.material.sizeUnit,

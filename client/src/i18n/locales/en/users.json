@@ -2,9 +2,9 @@
   "_comment": "Shared account namespace — there is no Access screen. These keys are used by the account panel and invite dialog embedded in Employees and Customers.",
   "roles": {
     "admin": "Administrator",
-    "office": "Office staff",
-    "foreman": "Foreman",
-    "technician": "Technician",
+    "office": "Office access",
+    "foreman": "Foreman access",
+    "technician": "Technician access",
     "client": "Client"
   },
   "status": {

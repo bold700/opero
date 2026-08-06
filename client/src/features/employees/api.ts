@@ -4,14 +4,12 @@ import type { LinkedAccount, StaffRole } from "../users/api";
 export type EmployeeStatus = "active" | "on_leave" | "inactive";
 
 // The TeamRole enum values (internal English; labels via employees.roles.*).
+// Four on purpose: the office-side titles were consolidated into one Office.
 export const TEAM_ROLES = [
-  "Sales",
-  "WorkPlanner",
-  "Planner",
+  "Office",
+  "ProjectLeader",
   "Foreman",
   "Technician",
-  "Administration",
-  "ProjectLeader",
 ] as const;
 export type TeamRole = (typeof TEAM_ROLES)[number];
 
@@ -27,7 +25,9 @@ export type EmployeeRow = {
   name: string;
   phone: string;
   email?: string;
-  roles: string[];
+  // The single job title (null = none set yet). `function` is the same value
+  // under the name the list column reads; both come from the backend DTO.
+  role: TeamRole | null;
   function: string | null;
   status: EmployeeStatus;
   workOrderCount: number;
@@ -42,7 +42,8 @@ export type EmployeeInput = {
   name: string;
   phone?: string;
   email?: string;
-  roles?: TeamRole[];
+  // null clears the job title; omitted leaves it untouched.
+  role?: TeamRole | null;
   status?: EmployeeStatus;
 };
 

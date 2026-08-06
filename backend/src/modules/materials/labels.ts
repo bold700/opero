@@ -1,4 +1,10 @@
-import type { Material, MaterialClass, MaterialComponent, MaterialVariant } from "@prisma/client";
+import type {
+  Material,
+  MaterialClass,
+  MaterialComponent,
+  MaterialSystemCategory,
+  MaterialVariant,
+} from "@prisma/client";
 
 // Display-label maps for the materials catalog — ENGLISH KEYS, per-locale
 // display strings resolved only at render time (same pattern as pdf.ts
@@ -12,6 +18,20 @@ export const CLASS_LABELS: Record<MaterialClass, Record<DisplayLocale, string>> 
   fitting: { nl: "Hulpstukken", en: "Fittings" },
   tank: { nl: "Buffervaten", en: "Buffer vessels" },
   cladding: { nl: "Plaatwerk", en: "Cladding" },
+};
+
+// Installation-system display names. These are the client's own trade codes, so
+// the "translation" is the same literal string in both locales — they're still
+// routed through the label map (never hardcoded at a call site) so the enum
+// identifiers stay English and the codes live in exactly one place.
+export const CATEGORY_LABELS: Record<
+  MaterialSystemCategory,
+  Record<DisplayLocale, string>
+> = {
+  gkw: { nl: "GKW", en: "GKW" },
+  cv: { nl: "CV", en: "CV" },
+  kw_ww_circ: { nl: "KW/WW/CIRC", en: "KW/WW/CIRC" },
+  riool_hwa: { nl: "RIOOL/HWA", en: "RIOOL/HWA" },
 };
 
 // Variant component display names. `meter`/`area` are priced-by-unit rows and

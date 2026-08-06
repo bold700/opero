@@ -73,8 +73,17 @@ export function getWorkTypes(): Promise<WorkTypeOption[]> {
   return api.get<WorkTypeOption[]>("/materials/work-types");
 }
 
-export function getAssignableEmployees(): Promise<AssigneeOption[]> {
-  return api.get<AssigneeOption[]>("/work-orders/assignable");
+// Assignable staff. `role` narrows the list by job title so a picker only
+// offers people eligible for that slot; omit it for the unfiltered list.
+// Employees with no job title set are always included by the backend, so
+// filtering can never leave a picker empty.
+export type AssignableRole = "project_leader" | "technician";
+
+export function getAssignableEmployees(
+  role?: AssignableRole,
+): Promise<AssigneeOption[]> {
+  const suffix = role ? `?role=${role}` : "";
+  return api.get<AssigneeOption[]>(`/work-orders/assignable${suffix}`);
 }
 
 export type WorkOrderAttachment = {
@@ -86,10 +95,36 @@ export type WorkOrderAttachment = {
   createdAt: string;
 };
 
+// One of the customer's contact people (the multi-contact list on the customer
+// record). Everything but the name is optional.
+export type CustomerContactPerson = {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+};
+
+// The customer's contact details, carried on the werkbon so a monteur on site
+// can reach someone without leaving the screen. Read-only — the customer record
+// is edited under /customers.
+export type WorkOrderCustomer = {
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  contactPersons: CustomerContactPerson[];
+};
+
 export type WorkOrder = {
   id: string;
   projectId: string;
   title: string;
+  // THIS visit's own description ("2e verdieping, week 38"), independent of the
+  // project's — a project groups many werkbonnen.
+  description?: string;
+  // The customer's contact details (phone/email + contact people).
+  customer?: WorkOrderCustomer;
   drawings: PhotoRef[];
   // Job-level uploaded documents (PDFs/images) — quotes, plans, permits.
   attachments: WorkOrderAttachment[];
@@ -112,9 +147,13 @@ export type WorkOrder = {
   signedByName?: string;
   // The monteur(s) assigned to this werkbon (werkbon-level; a crew per job).
   assignees: { id: string; name: string }[];
-  // The werkbon is the scheduled visit — its own date(s), possibly multi-day.
+  // The werkbon is the scheduled visit — its own date(s), possibly multi-day,
+  // plus the visit's times from its calendar slot ("08:00"). Present once the
+  // werkbon is scheduled (a slot always carries times, defaults 08:00–15:30).
   plannedDate?: string;
   plannedEndDate?: string;
+  startTime?: string;
+  endTime?: string;
   tasks: WorkOrderTask[];
 };
 
@@ -253,10 +292,17 @@ export function setWorkOrderAssignees(
   return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { assigneeIds });
 }
 
-// Set the werkbon's schedule (the visit's date(s)). Scheduling is per-werkbon.
+// Set the werkbon's schedule (the visit's date(s) and/or times). Scheduling is
+// per-werkbon; times write to its calendar slot via the shared planning
+// service, so the Planning screen and this detail can never disagree.
 export function setWorkOrderSchedule(
   workOrderId: string,
-  patch: { plannedDate?: string | null; plannedEndDate?: string | null },
+  patch: {
+    plannedDate?: string | null;
+    plannedEndDate?: string | null;
+    startTime?: string;
+    endTime?: string;
+  },
 ): Promise<WorkOrder> {
   return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, patch);
 }
@@ -265,6 +311,15 @@ export function setWorkOrderSchedule(
 // "Werkbon N" (its ordinal), so the werkbon is never left nameless.
 export function setWorkOrderTitle(workOrderId: string, title: string): Promise<WorkOrder> {
   return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { title });
+}
+
+// Set THIS visit's own description. Blanking it is valid — the printed werkbon
+// then falls back to the project's description.
+export function setWorkOrderDescription(
+  workOrderId: string,
+  description: string,
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { description });
 }
 
 export function updateTask(

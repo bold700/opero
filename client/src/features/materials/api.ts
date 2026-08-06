@@ -21,12 +21,20 @@ export type MaterialComponent =
 
 export type MaterialSizeUnit = "pipe_od_mm" | "pipe_dia_mm" | "tank_liters" | "flat";
 
+// Which INSTALLATION SYSTEM a material is for — a different axis from `class`
+// (what kind of object it is). This is how a technician looks material up in the
+// field. Display strings are the client's trade codes (GKW, CV, KW/WW/CIRC,
+// RIOOL/HWA), rendered from i18n; the keys stay English-safe slugs.
+export type MaterialSystemCategory = "gkw" | "cv" | "kw_ww_circ" | "riool_hwa";
+
 // Mirrors the backend materialSummaryDto.
 export type MaterialSummary = {
   id: string;
   key: string;
   name: string;
   class: MaterialClass;
+  // Absent when the material isn't tied to one installation system.
+  category?: MaterialSystemCategory;
   supplier: string;
   thicknessMm?: number;
   pipeMaterial?: "steel" | "copper" | "pvc";
@@ -75,6 +83,7 @@ export type MaterialVariantRow = {
   name: string;
   materialName: string;
   class: MaterialClass;
+  category?: MaterialSystemCategory;
   supplier: string;
   size: string;
   sizeUnit: MaterialSizeUnit;
@@ -86,8 +95,14 @@ export type MaterialVariantRow = {
 };
 
 // The catalog grouped by class (browse mode; 28 materials, no pagination).
-export function getMaterialGroups(): Promise<MaterialGroup[]> {
-  return api.get<MaterialGroup[]>("/materials");
+// `category` narrows to one installation system; omit it (or pass "") for all —
+// materials without a category are only reachable through that "all" default.
+export function getMaterialGroups(
+  category?: MaterialSystemCategory | "",
+): Promise<MaterialGroup[]> {
+  return api.get<MaterialGroup[]>(
+    category ? `/materials?category=${encodeURIComponent(category)}` : "/materials",
+  );
 }
 
 // One material with its full variant set (detail page + picker cascade).
@@ -102,6 +117,8 @@ export function getMaterial(id: string): Promise<MaterialDetail> {
 export type MaterialInput = {
   name: string;
   class: MaterialClass;
+  // null clears the system (the "no category" option in the form).
+  category?: MaterialSystemCategory | null;
   supplier?: string;
   sizeUnit: MaterialSizeUnit;
   thicknessMm?: number | null;
@@ -157,11 +174,12 @@ export function updateVariantCost(
   return api.patch<MaterialVariant>(`/materials/variants/${variantId}`, { costPrice });
 }
 
-// Enum option lists (class / component / sizeUnit / unit) with nl+en labels,
-// server-driven so the forms match the backend's source of truth.
+// Enum option lists (class / category / component / sizeUnit / unit) with nl+en
+// labels, server-driven so the forms match the backend's source of truth.
 export type MetaOption = { value: string; nl: string; en: string };
 export type MaterialMeta = {
   classes: MetaOption[];
+  categories: MetaOption[];
   components: MetaOption[];
   units: MetaOption[];
   sizeUnits: MetaOption[];
@@ -176,15 +194,20 @@ export function getSuppliers(): Promise<string[]> {
 }
 
 // One page of the flat variant search. `search` matches each word against
-// material name, size, or component label; `supplier` filters to one supplier.
+// material name, size, or component label; `supplier` filters to one supplier;
+// `category` to one installation system.
 export function searchVariants(opts: {
   cursor?: string;
   search?: string;
   supplier?: string;
+  category?: MaterialSystemCategory | "";
 }): Promise<Page<MaterialVariantRow>> {
   return api.getPage<MaterialVariantRow>("/materials/variants", {
     cursor: opts.cursor,
     search: opts.search,
-    params: opts.supplier ? { supplier: opts.supplier } : {},
+    params: {
+      ...(opts.supplier ? { supplier: opts.supplier } : {}),
+      ...(opts.category ? { category: opts.category } : {}),
+    },
   });
 }

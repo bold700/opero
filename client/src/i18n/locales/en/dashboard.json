@@ -33,11 +33,12 @@
     "kpis": {
       "assignedProjects": "Assigned projects",
       "openTasks": "Open tasks",
-      "today": "Today"
+      "workOrders": "Work orders"
     },
-    "todayTitle": "Today",
-    "noWorkOrders": "No work orders for today.",
-    "taskCount": "{{count}} tasks"
+    "noWorkOrders": "No work orders assigned.",
+    "taskCount": "{{count}} tasks",
+    "workTitle": "My work orders",
+    "unplanned": "Unplanned"
   },
   "client": {
     "title": "My projects",

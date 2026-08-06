@@ -32,13 +32,10 @@
     "inactive": "Inactive"
   },
   "roles": {
-    "technician": "Technician",
-    "foreman": "Foreman",
-    "workPlanner": "Work planner",
-    "planner": "Planner",
+    "office": "Office",
     "projectLeader": "Project leader",
-    "administration": "Administration",
-    "sales": "Sales"
+    "foreman": "Foreman",
+    "technician": "Technician"
   },
   "dialog": {
     "newTitle": "New employee",
@@ -46,7 +43,8 @@
     "name": "Name",
     "phone": "Phone",
     "email": "Email",
-    "roles": "Roles",
+    "role": "Job title",
+    "noRole": "No job title",
     "status": "Status",
     "account": {
       "title": "Account",

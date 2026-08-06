@@ -14,6 +14,17 @@ export type MaterialClassKey =
   | "tank" // buffer vessels (nl: Buffervaten)
   | "cladding"; // sheet-metal finishing / ducts (nl: Plaatwerk)
 
+// Mirrors the Prisma `MaterialSystemCategory` enum — which INSTALLATION SYSTEM
+// a material is for. A different axis from MaterialClassKey (what KIND of object
+// it is): a technician looks material up by the system being worked on. Display
+// strings are the client's trade codes (GKW, CV, KW/WW/CIRC, RIOOL/HWA), applied
+// via i18n at render time.
+export type MaterialSystemCategoryKey =
+  | "gkw" // gas- en koudwaterleiding (gas / cold water supply)
+  | "cv" // centrale verwarming (central heating)
+  | "kw_ww_circ" // koud water / warm water / circulatie
+  | "riool_hwa"; // riool / hemelwaterafvoer (sewer / rainwater drainage)
+
 // Mirrors the Prisma `MaterialComponent` enum.
 export type MaterialComponentKey =
   | "meter" // per running metre
@@ -46,6 +57,12 @@ export type SupplierMaterial = {
   key: string; // stable english identifier
   name: string; // display/trade name
   class: MaterialClassKey;
+  // Installation system. The AF/Armaflex elastomeric range (incl. its buffer
+  // vessels, Victaulic fittings and dedicated cladding) is the chilled-water
+  // (GKW) programme; Kooltherm FM phenolic shells are heating (CV). Deliberately
+  // UNSET only for generic cladding/jacketing, which goes over any system —
+  // those stay reachable through the picker's "all systems" default.
+  category?: MaterialSystemCategoryKey;
   supplier: string;
   pipeMaterial?: "steel" | "copper" | "pvc";
   thicknessMm?: number; // fixed product thickness; absent when it varies per variant
@@ -65,6 +82,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "armaflex_ultima_19",
     name: "Armaflex Ultima 19 mm",
     class: "insulation",
+    category: "gkw",
     supplier: "W.D.B. Isolatie B.V.",
     pipeMaterial: "steel",
     thicknessMm: 19,
@@ -195,6 +213,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "kooltherm_fm",
     name: "Kooltherm FM",
     class: "insulation",
+    category: "cv",
     supplier: "W.D.B. Isolatie B.V.",
     pipeMaterial: "steel",
     sizeUnit: "pipe_od_mm",
@@ -411,6 +430,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "victaulic_fittings",
     name: "Victaulic hulpstukken",
     class: "fitting",
+    category: "gkw",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "steel",
     sizeUnit: "pipe_od_mm",
@@ -515,6 +535,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af_armaflex_af2_13",
     name: "AF/Armaflex AF/2 13 mm",
     class: "insulation",
+    category: "gkw",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "steel",
     thicknessMm: 13,
@@ -644,6 +665,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af2_buffer_vessels",
     name: "AF/Armaflex AF/2 buffervaten",
     class: "tank",
+    category: "gkw",
     supplier: "Ezron Isolatie BV",
     thicknessMm: 13,
     sizeUnit: "tank_liters",
@@ -665,6 +687,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af_armaflex_af4_19",
     name: "AF/Armaflex AF/4 19 mm",
     class: "insulation",
+    category: "gkw",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "steel",
     thicknessMm: 19,
@@ -794,6 +817,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af4_buffer_vessels",
     name: "AF/Armaflex AF/4 buffervaten",
     class: "tank",
+    category: "gkw",
     supplier: "Ezron Isolatie BV",
     thicknessMm: 19,
     sizeUnit: "tank_liters",
@@ -815,6 +839,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "cv_rockwool_isogenepak",
     name: "Steenwolschalen / Isogenepak SE (wit)",
     class: "insulation",
+    category: "cv",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "steel",
     finish: "white_pvc",
@@ -933,6 +958,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "cv_rockwool_alu_foil",
     name: "Steenwolschalen versterkte alufolie",
     class: "insulation",
+    category: "cv",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "steel",
     finish: "reinforced_alu_foil",
@@ -997,6 +1023,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "thermaflex_hose",
     name: "Thermaflex slangen",
     class: "insulation",
+    category: "kw_ww_circ",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "copper",
     sizeUnit: "pipe_od_mm",
@@ -1024,6 +1051,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "kwc_rockwool_alu_foil",
     name: "Steenwolschalen versterkte alufolie",
     class: "insulation",
+    category: "kw_ww_circ",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "copper",
     finish: "reinforced_alu_foil",
@@ -1065,6 +1093,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "sh_armaflex_glue_a520",
     name: "SH/Armaflex lijm A520",
     class: "insulation",
+    category: "kw_ww_circ",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "copper",
     finish: "none",
@@ -1107,6 +1136,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af_armaflex_glue_a520",
     name: "AF/Armaflex lijm A520",
     class: "insulation",
+    category: "kw_ww_circ",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "copper",
     finish: "none",
@@ -1149,6 +1179,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "pir_shells_no_finish",
     name: "PIR schalen zonder afwerking",
     class: "insulation",
+    category: "kw_ww_circ",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "copper",
     finish: "none",
@@ -1191,6 +1222,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "pir_shells_alu_foil",
     name: "PIR schalen versterkte alufolie",
     class: "insulation",
+    category: "kw_ww_circ",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "copper",
     finish: "reinforced_alu_foil",
@@ -1233,6 +1265,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "isogenepak_kwc",
     name: "Isogenepak",
     class: "insulation",
+    category: "kw_ww_circ",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "copper",
     sizeUnit: "pipe_od_mm",
@@ -1264,6 +1297,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "drainage_rockwool_shells",
     name: "Steenwolschalen",
     class: "insulation",
+    category: "riool_hwa",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "pvc",
     sizeUnit: "pipe_dia_mm",
@@ -1308,6 +1342,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "drainage_af_armaflex",
     name: "AF/Armaflex",
     class: "insulation",
+    category: "riool_hwa",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "pvc",
     sizeUnit: "pipe_dia_mm",
@@ -1342,6 +1377,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "drainage_sonocool",
     name: "Sonocool 15 mm",
     class: "insulation",
+    category: "riool_hwa",
     supplier: "Ezron Isolatie BV",
     pipeMaterial: "pvc",
     thicknessMm: 15,
@@ -1366,6 +1402,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "cladding_af_armaflex",
     name: "Plaatafwerking voor AF/Armaflex",
     class: "cladding",
+    category: "gkw",
     supplier: "Ezron Isolatie BV",
     sizeUnit: "pipe_dia_mm",
     note: "Incl. beschermisolatie, excl. AF/Armaflex",
@@ -1643,6 +1680,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af_armaflex_af5_25",
     name: "AF/Armaflex AF/5 25 mm",
     class: "insulation",
+    category: "gkw",
     supplier: "Intern (aangepast)",
     pipeMaterial: "steel",
     thicknessMm: 25,
@@ -1771,6 +1809,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af5_buffer_vessels",
     name: "AF/Armaflex AF/5 buffervaten",
     class: "tank",
+    category: "gkw",
     supplier: "Intern (aangepast)",
     thicknessMm: 25,
     sizeUnit: "tank_liters",
@@ -1791,6 +1830,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af_armaflex_af6",
     name: "AF/Armaflex AF/6",
     class: "insulation",
+    category: "gkw",
     supplier: "Intern (aangepast)",
     pipeMaterial: "steel",
     finish: "none",
@@ -1918,6 +1958,7 @@ export const supplierMaterials: SupplierMaterial[] = [
     key: "af6_buffer_vessels",
     name: "AF/Armaflex AF/6 buffervaten",
     class: "tank",
+    category: "gkw",
     supplier: "Intern (aangepast)",
     sizeUnit: "tank_liters",
     priceSource: "AF5/AF6 aangepast (intern)",

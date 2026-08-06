@@ -36,6 +36,12 @@ export function ProjectFormDialog({
   onCreate: (input: ProjectInput) => void;
   onUpdate: (patch: {
     name?: string;
+    referenceNumber?: string;
+    contactName?: string;
+    contactPhone?: string;
+    address?: string;
+    postalCode?: string;
+    city?: string;
     description?: string;
     instructions?: string;
     workTypeId?: string | null;
@@ -49,6 +55,16 @@ export function ProjectFormDialog({
   const [workTypes, setWorkTypes] = useState<WorkTypeOption[]>([]);
   const [customerId, setCustomerId] = useState("");
   const [name, setName] = useState("");
+  // The CLIENT's own order/PO/dossier number — never Opero's projectNumber,
+  // which is generated server-side and is not editable here.
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  // Job-site address — edit only. On create it is derived from the chosen
+  // location / the customer (see projects/routes.ts), so the form doesn't ask.
+  const [address, setAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
   const [workTypeId, setWorkTypeId] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -57,6 +73,12 @@ export function ProjectFormDialog({
   const initialValues = useRef<{
     customerId: string;
     name: string;
+    referenceNumber: string;
+    contactName: string;
+    contactPhone: string;
+    address: string;
+    postalCode: string;
+    city: string;
     workTypeId: string;
     description: string;
     instructions: string;
@@ -70,6 +92,12 @@ export function ProjectFormDialog({
     const seeded = {
       customerId: project?.customerId ?? "",
       name: project?.name ?? "",
+      referenceNumber: project?.referenceNumber ?? "",
+      contactName: project?.contactName ?? "",
+      contactPhone: project?.contactPhone ?? "",
+      address: project?.address ?? "",
+      postalCode: project?.postalCode ?? "",
+      city: project?.city ?? "",
       workTypeId: project?.workTypeId ?? "",
       description: project?.description ?? "",
       instructions: project?.instructions ?? "",
@@ -77,13 +105,31 @@ export function ProjectFormDialog({
     initialValues.current = seeded;
     setCustomerId(seeded.customerId);
     setName(seeded.name);
+    setReferenceNumber(seeded.referenceNumber);
+    setContactName(seeded.contactName);
+    setContactPhone(seeded.contactPhone);
+    setAddress(seeded.address);
+    setPostalCode(seeded.postalCode);
+    setCity(seeded.city);
     setWorkTypeId(seeded.workTypeId);
     setDescription(seeded.description);
     setInstructions(seeded.instructions);
   }, [open, project]);
 
   const dirty = useDirty(
-    { customerId, name, workTypeId, description, instructions },
+    {
+      customerId,
+      name,
+      referenceNumber,
+      contactName,
+      contactPhone,
+      address,
+      postalCode,
+      city,
+      workTypeId,
+      description,
+      instructions,
+    },
     initialValues.current,
   );
   // Create needs a customer; edit needs an actual change — this used to be a
@@ -94,6 +140,13 @@ export function ProjectFormDialog({
     if (editing) {
       onUpdate({
         name: name.trim() || undefined,
+        // Sent even when empty so clearing the field clears it server-side.
+        referenceNumber: referenceNumber.trim(),
+        contactName: contactName.trim(),
+        contactPhone: contactPhone.trim(),
+        address: address.trim(),
+        postalCode: postalCode.trim(),
+        city: city.trim(),
         description: description.trim(),
         instructions: instructions.trim(),
         // null clears the work type; undefined leaves it (but we always send it).
@@ -107,6 +160,12 @@ export function ProjectFormDialog({
       onCreate({
         customerId,
         name: name.trim() || undefined,
+        referenceNumber: referenceNumber.trim() || undefined,
+        // Left blank on purpose = "use the customer's own contact details": the
+        // backend seeds contactName/contactPhone from the customer when these
+        // are omitted, so an empty field must not be sent as "".
+        contactName: contactName.trim() || undefined,
+        contactPhone: contactPhone.trim() || undefined,
         workTypeId: workTypeId || undefined,
         notes: description.trim() || undefined,
       });
@@ -158,6 +217,71 @@ export function ProjectFormDialog({
             size="small"
             autoFocus={!editing}
           />
+
+          {/* The CLIENT's own order/PO number, as they quote it on the phone.
+              Opero's own projectNumber is generated server-side and is NOT
+              editable — the helper text spells that difference out. */}
+          <TextField
+            label={t("projects.form.referenceNumber")}
+            helperText={t("projects.form.referenceNumberHelp")}
+            value={referenceNumber}
+            onChange={(e) => setReferenceNumber(e.target.value)}
+            disabled={busy}
+            size="small"
+          />
+
+          {/* Site contact. Left blank on create, the backend copies the
+              customer's own contact details. */}
+          <TextField
+            label={t("projects.form.contactName")}
+            helperText={editing ? undefined : t("projects.form.contactHelp")}
+            value={contactName}
+            onChange={(e) => setContactName(e.target.value)}
+            disabled={busy}
+            size="small"
+          />
+
+          <TextField
+            label={t("projects.form.contactPhone")}
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+            disabled={busy}
+            size="small"
+          />
+
+          {/* Job-site address — edit only. On create it is derived from the
+              chosen customer location / the customer's own address, so asking
+              here would just invite conflicting input. */}
+          {editing ? (
+            <>
+              <TextField
+                label={t("projects.form.address")}
+                helperText={t("projects.form.addressHelp")}
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                disabled={busy}
+                size="small"
+              />
+              <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1.5 }}>
+                <TextField
+                  label={t("projects.form.postalCode")}
+                  value={postalCode}
+                  onChange={(e) => setPostalCode(e.target.value)}
+                  disabled={busy}
+                  size="small"
+                  sx={{ width: { xs: "100%", sm: 140 } }}
+                />
+                <TextField
+                  label={t("projects.form.city")}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  disabled={busy}
+                  size="small"
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+            </>
+          ) : null}
 
           <SelectField
             label={t("projects.form.workType")}

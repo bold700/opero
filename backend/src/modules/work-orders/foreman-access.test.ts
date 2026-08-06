@@ -50,11 +50,11 @@ beforeAll(async () => {
   });
 
   const foremanEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Foreman`, phone: "0600000000", roles: ["Foreman"] },
+    data: { orgId, name: `${TAG} Foreman`, phone: "0600000000", role: "Foreman" },
   });
   foremanEmployeeId = foremanEmp.id;
   const otherEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Other`, phone: "0600000001", roles: ["Technician"] },
+    data: { orgId, name: `${TAG} Other`, phone: "0600000001", role: "Technician" },
   });
   otherEmployeeId = otherEmp.id;
 

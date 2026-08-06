@@ -35,11 +35,14 @@ beforeAll(async () => {
   });
   adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
 
+  // empA fills the project-leader slot below, so it needs a supervisory title:
+  // the write path now refuses an employee whose job title is ineligible.
+  // Foreman is eligible for BOTH slots, so it also works as an installer.
   empA = (await prisma.employee.create({
-    data: { orgId, name: `${TAG}-empA`, phone: "0", roles: ["Technician"], status: "active" },
+    data: { orgId, name: `${TAG}-empA`, phone: "0", role: "Foreman", status: "active" },
   })).id;
   empB = (await prisma.employee.create({
-    data: { orgId, name: `${TAG}-empB`, phone: "0", roles: ["Technician"], status: "active" },
+    data: { orgId, name: `${TAG}-empB`, phone: "0", role: "Technician", status: "active" },
   })).id;
   workTypeId = (await prisma.workType.create({ data: { orgId, name: `${TAG}-wt` } })).id;
 
@@ -86,14 +89,118 @@ describe("project sidebar PATCH", () => {
     expect(res.body.installerIds).toEqual([]);
   });
 
+  it("rejects a project leader whose job title is not supervisory (400)", async () => {
+    // empB is a Technician: the picker never offers them for this slot, so the
+    // write path must refuse the id too.
+    const res = await request(app)
+      .patch(`/api/projects/${projectId}`)
+      .set(auth(adminToken))
+      .send({ projectLeaderId: empB });
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts an employee with no job title in either slot", async () => {
+    // Job title is optional metadata. Narrowing the pickers must never leave an
+    // org that never filled it in unable to assign anyone.
+    const untitled = await prisma.employee.create({
+      data: { orgId, name: `${TAG}-untitled`, phone: "0", status: "active" },
+    });
+    const res = await request(app)
+      .patch(`/api/projects/${projectId}`)
+      .set(auth(adminToken))
+      .send({ projectLeaderId: untitled.id, installerIds: [untitled.id] });
+    expect(res.status).toBe(200);
+    expect(res.body.projectLeaderId).toBe(untitled.id);
+  });
+
   it("rejects an installer from another org (400)", async () => {
     const otherEmp = await prisma.employee.create({
-      data: { orgId: otherOrgId, name: `${TAG}-otherEmp`, phone: "0", roles: ["Technician"], status: "active" },
+      data: { orgId: otherOrgId, name: `${TAG}-otherEmp`, phone: "0", role: "Technician", status: "active" },
     });
     const res = await request(app)
       .patch(`/api/projects/${projectId}`)
       .set(auth(adminToken))
       .send({ installerIds: [otherEmp.id] });
+    expect(res.status).toBe(400);
+  });
+});
+
+// POST /:id/team connected whatever ids it was handed — no org check at all, so
+// an employee from ANOTHER TENANT could be attached to this project. It is the
+// same validation as PATCH /:id now, and it is covered separately because it is
+// a different route with its own schema.
+describe("POST /projects/:id/team", () => {
+  it("assigns an eligible team", async () => {
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/team`)
+      .set(auth(adminToken))
+      .send({ projectLeaderId: empA, installerIds: [empB] });
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects a team member from another org (400)", async () => {
+    const otherEmp = await prisma.employee.create({
+      data: { orgId: otherOrgId, name: `${TAG}-otherTeam`, phone: "0", role: "Technician", status: "active" },
+    });
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/team`)
+      .set(auth(adminToken))
+      .send({ installerIds: [otherEmp.id] });
+    expect(res.status).toBe(400);
+
+    // And nothing was attached as a side effect of the rejected call.
+    const after = await prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+      select: { installers: { select: { id: true } } },
+    });
+    expect(after.installers.map((i) => i.id)).not.toContain(otherEmp.id);
+  });
+
+  it("rejects a technician in the project-leader slot (400)", async () => {
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/team`)
+      .set(auth(adminToken))
+      .send({ projectLeaderId: empB });
+    expect(res.status).toBe(400);
+  });
+});
+
+// The pickers narrow by job title through this endpoint, so what it returns is
+// exactly what the UI offers — and what the write paths above will accept.
+describe("GET /work-orders/assignable?role=", () => {
+  const list = async (query: Record<string, string>) =>
+    request(app).get("/api/work-orders/assignable").query(query).set(auth(adminToken));
+
+  it("narrows to project-leader-eligible staff", async () => {
+    const res = await list({ role: "project_leader" });
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: string }[]).map((r) => r.id);
+    // empA is a Foreman (supervisory), empB a Technician.
+    expect(ids).toContain(empA);
+    expect(ids).not.toContain(empB);
+  });
+
+  it("narrows to technician-eligible staff", async () => {
+    const res = await list({ role: "technician" });
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: string }[]).map((r) => r.id);
+    expect(ids).toContain(empB);
+    // Foreman works alongside the crew, so is assignable as one too.
+    expect(ids).toContain(empA);
+  });
+
+  it("treats an EMPTY role as no filter, not an error", async () => {
+    // `?role=` is what a cleared picker sends. 400-ing on it would empty the
+    // unfiltered list instead of widening it.
+    const res = await list({ role: "" });
+    expect(res.status).toBe(200);
+    const ids = (res.body as { id: string }[]).map((r) => r.id);
+    expect(ids).toContain(empA);
+    expect(ids).toContain(empB);
+  });
+
+  it("rejects an unknown role value (400)", async () => {
+    const res = await list({ role: "bogus" });
     expect(res.status).toBe(400);
   });
 });

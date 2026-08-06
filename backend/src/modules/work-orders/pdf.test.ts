@@ -41,7 +41,7 @@ beforeAll(async () => {
   adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
 
   const techEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Tech`, phone: "0600000000", roles: ["Technician"] },
+    data: { orgId, name: `${TAG} Tech`, phone: "0600000000", role: "Technician" },
   });
   const tech = await prisma.user.create({
     data: { orgId, email: `${TAG}-m@opero.test`, passwordHash: pw, name: "M", role: "technician", status: "active", employeeId: techEmp.id },
@@ -50,7 +50,7 @@ beforeAll(async () => {
 
   // A technician on NO project — must be blocked.
   const outEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Outsider`, phone: "0600000001", roles: ["Technician"] },
+    data: { orgId, name: `${TAG} Outsider`, phone: "0600000001", role: "Technician" },
   });
   const outsider = await prisma.user.create({
     data: { orgId, email: `${TAG}-o@opero.test`, passwordHash: pw, name: "O", role: "technician", status: "active", employeeId: outEmp.id },
@@ -187,5 +187,228 @@ describe("work-order PDF export", () => {
     // Belt and braces: no euro sign anywhere in the admin's copy. This is the
     // assertion that actually fails if prices ever leak back onto the werkbon.
     expect(adminPdf.toString("latin1")).not.toContain("€");
+  });
+});
+
+// The printed werkbon is what a monteur actually takes to site, so the contact
+// details have to be ON it — a tel: link in the app is no use on paper. These
+// drive the builder directly: the rendered page compresses its text streams, so
+// asserting on the HTTP bytes would not see the strings.
+describe("work-order PDF contact block", () => {
+  const render = async (customer: Record<string, string>) => {
+    const { Writable } = await import("node:stream");
+    const { buildWorkOrderPdf } = await import("./pdf.js");
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
+    const chunks: Buffer[] = [];
+    const sink = new Writable({
+      write(c: Buffer, _e: unknown, cb: () => void) {
+        chunks.push(Buffer.from(c));
+        cb();
+      },
+    });
+    await buildWorkOrderPdf(
+      {
+        number: "OP-2026-001",
+        ordinal: 0,
+        title: "T",
+        status: "open",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        customer: { name: "Klant BV", ...customer },
+        tasks: [],
+        prejobCheck: {},
+        prejobLabels: {},
+        prejobPhotos: [],
+      },
+      { org },
+      sink,
+    );
+    await new Promise((r) => sink.end(r));
+    const pdf = Buffer.concat(chunks);
+
+    // Getting at the drawn text takes two steps: PDFKit deflates its content
+    // streams, and then writes each run as hex-encoded glyphs (<48656c6c6f>).
+    // Inflate, then decode those hex runs, so the assertions below are about
+    // real page content instead of incidental bytes.
+    const { inflateSync } = await import("node:zlib");
+    let raw = "";
+    for (const m of pdf.toString("latin1").matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+      try {
+        raw += inflateSync(Buffer.from(m[1], "latin1")).toString("latin1");
+      } catch {
+        // Not a deflate stream (fonts, images) — skip it.
+      }
+    }
+    return [...raw.matchAll(/<([0-9a-fA-F]+)>/g)]
+      .map((m) => Buffer.from(m[1], "hex").toString("latin1"))
+      .join("");
+  };
+
+  it("prints the contact phone and email", async () => {
+    const pdf = await render({
+      contactName: "Jan Jansen",
+      contactPhone: "0612345678",
+      contactEmail: "jan@klant.nl",
+    });
+    expect(pdf).toContain("Jan Jansen");
+    expect(pdf).toContain("0612345678");
+    expect(pdf).toContain("jan@klant.nl");
+  });
+
+  it("omits the lines when there is no phone or email", async () => {
+    // No empty "Tel:" label dangling under the address.
+    const pdf = await render({ contactName: "Jan Jansen" });
+    expect(pdf).toContain("Jan Jansen");
+    expect(pdf).not.toContain("Tel:");
+    expect(pdf).not.toContain("E-mail:");
+  });
+});
+
+// Attachments must reach the PRINTED werkbon: a monteur working from paper
+// cannot open an app link. Images are embedded as bare full pages (no heading,
+// no filename — they are whatever the office attached, not necessarily a
+// tekening). A PDF attachment cannot be merged by pdfkit, so it is named under
+// "Documenten" rather than silently dropped, which would make the sheet look
+// complete when it is not.
+describe("work-order PDF attachments", () => {
+  const renderWith = async (
+    attachments: { key: string; filename: string; contentType: string }[],
+  ) => {
+    const { Writable } = await import("node:stream");
+    const { buildWorkOrderPdf } = await import("./pdf.js");
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
+    const chunks: Buffer[] = [];
+    const sink = new Writable({
+      write(c: Buffer, _e: unknown, cb: () => void) {
+        chunks.push(Buffer.from(c));
+        cb();
+      },
+    });
+    await buildWorkOrderPdf(
+      {
+        number: "OP-2026-001",
+        ordinal: 0,
+        title: "T",
+        status: "open",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        customer: { name: "Klant BV" },
+        tasks: [],
+        prejobCheck: {},
+        prejobLabels: {},
+        prejobPhotos: [],
+        attachments,
+      },
+      { org },
+      sink,
+    );
+    await new Promise((r) => sink.end(r));
+    const pdf = Buffer.concat(chunks);
+    const { inflateSync } = await import("node:zlib");
+    let raw = "";
+    for (const m of pdf.toString("latin1").matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+      try {
+        raw += inflateSync(Buffer.from(m[1], "latin1")).toString("latin1");
+      } catch {
+        /* not a deflate stream */
+      }
+    }
+    const text = [...raw.matchAll(/<([0-9a-fA-F]+)>/g)]
+      .map((m) => Buffer.from(m[1], "hex").toString("latin1"))
+      .join("");
+    // /Type /Page (not /Pages) counts the real pages in the document.
+    const pageCount = (pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+    return { text, pageCount };
+  };
+
+  it("prints each zone's work description (the note field)", async () => {
+    // "Werkomschrijving" in the app is stored as WorkOrderTask.note. It is the
+    // one thing the office types per zone, and it was missing from the printed
+    // werkbon entirely — the sheet showed only the zone's short title.
+    const { Writable } = await import("node:stream");
+    const { buildWorkOrderPdf } = await import("./pdf.js");
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
+    const chunks: Buffer[] = [];
+    const sink = new Writable({
+      write(c: Buffer, _e: unknown, cb: () => void) {
+        chunks.push(Buffer.from(c));
+        cb();
+      },
+    });
+    await buildWorkOrderPdf(
+      {
+        number: "OP-2026-001",
+        ordinal: 0,
+        title: "T",
+        status: "open",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        customer: { name: "Klant BV" },
+        tasks: [
+          {
+            description: "Voorbereiding",
+            note: "Leidingen vrijmaken en afdekken",
+            done: false,
+            materials: [],
+            beforePhotos: [],
+            resultPhotos: [],
+          },
+        ],
+        prejobCheck: {},
+        prejobLabels: {},
+        prejobPhotos: [],
+      },
+      { org },
+      sink,
+    );
+    await new Promise((r) => sink.end(r));
+    const { inflateSync } = await import("node:zlib");
+    let raw = "";
+    for (const m of Buffer.concat(chunks)
+      .toString("latin1")
+      .matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+      try {
+        raw += inflateSync(Buffer.from(m[1], "latin1")).toString("latin1");
+      } catch {
+        /* not a deflate stream */
+      }
+    }
+    const text = [...raw.matchAll(/<([0-9a-fA-F]+)>/g)]
+      .map((m) => Buffer.from(m[1], "hex").toString("latin1"))
+      .join("");
+    expect(text).toContain("Voorbereiding");
+    expect(text).toContain("Leidingen vrijmaken en afdekken");
+  });
+
+  it("never prints an attached image's filename", async () => {
+    // The werkbon goes to the customer and gets signed. "IMG_4032.jpg" above a
+    // an image is an internal detail leaking onto a customer document.
+    const { text } = await renderWith([
+      { key: "k-img", filename: "IMG_4032.jpg", contentType: "image/jpeg" },
+    ]);
+    expect(text).not.toContain("IMG_4032");
+  });
+
+  it("lists PDF attachments by filename", async () => {
+    const { text } = await renderWith([
+      { key: "k1", filename: "tekening-verdieping-2.pdf", contentType: "application/pdf" },
+    ]);
+    expect(text).toContain("DOCUMENTEN"); // sectionTitle uppercases headings
+    expect(text).toContain("tekening-verdieping-2.pdf");
+  });
+
+  it("skips an unreadable image without breaking the export", async () => {
+    // A storage key that cannot be read resolves to null and is skipped, so
+    // this also proves an unreadable object never breaks the export.
+    const base = await renderWith([]);
+    const { text, pageCount } = await renderWith([
+      { key: "missing-key", filename: "plattegrond.png", contentType: "image/png" },
+    ]);
+    // The image is unreadable here, so no extra page is added...
+    expect(pageCount).toBe(base.pageCount);
+    // ...and nothing crashed: the document still rendered.
+    expect(text).toContain("ONDERTEKENING");
+  });
+
+  it("renders nothing extra when there are no attachments", async () => {
+    const { text } = await renderWith([]);
+    expect(text).not.toContain("DOCUMENTEN");
   });
 });

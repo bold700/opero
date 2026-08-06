@@ -20,7 +20,7 @@ import {
   type EmployeeRow,
   type EmployeeInput,
 } from "./api";
-import type { EmployeeFilter } from "./constants";
+import { defaultAccessRole, type EmployeeFilter } from "./constants";
 import { EmployeesActions } from "./components/EmployeesActions";
 import { EmployeesFilterChips } from "./components/EmployeesFilterChips";
 import { EmployeesKpis } from "./components/EmployeesKpis";
@@ -145,7 +145,14 @@ export function Employees() {
 
   const openInvite = (e: EmployeeRow) => {
     setInviteError(null);
-    setInviteTarget({ kind: "employee", id: e.id, name: e.name });
+    setInviteTarget({
+      kind: "employee",
+      id: e.id,
+      name: e.name,
+      // Pre-select the access level from the job title (overridable in the
+      // dialog) so access isn't a second role question for the normal case.
+      defaultRole: defaultAccessRole(e.role),
+    });
   };
 
   const handleInvite = async (input: InviteInput) => {

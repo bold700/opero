@@ -40,7 +40,7 @@ beforeAll(async () => {
       name: `${TAG} Admin`,
       phone: "",
       email: `${TAG}-admin@opero.test`,
-      roles: ["Administration"],
+      role: "Office",
       status: "active",
     },
   });
@@ -75,7 +75,7 @@ describe("soft-deleting a domain record revokes its login", () => {
         name: `${TAG} Monteur`,
         phone: "",
         email: `${TAG}-monteur@opero.test`,
-        roles: ["Technician"],
+        role: "Technician",
         status: "active",
       },
     });
@@ -169,7 +169,7 @@ describe("a disabled account cannot use a still-valid access token", () => {
         name: `${TAG} Ex`,
         phone: "",
         email: `${TAG}-ex@opero.test`,
-        roles: ["Technician"],
+        role: "Technician",
         status: "active",
       },
     });

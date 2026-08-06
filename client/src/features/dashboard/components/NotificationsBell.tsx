@@ -112,8 +112,12 @@ export function NotificationsBell() {
   const load = async () => {
     try {
       setData(await getNotifications());
-    } catch {
-      /* keep whatever we had; the bell degrades quietly */
+    } catch (err) {
+      // The UI still degrades quietly (we keep whatever we had rather than
+      // flashing an error in the header on one failed poll), but the failure is
+      // no longer INVISIBLE: a bare `catch {}` here hid a backend bug that made
+      // the feed permanently empty for monteurs, with nothing to see anywhere.
+      console.error("[notifications] failed to load", err);
     }
   };
 

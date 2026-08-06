@@ -29,6 +29,9 @@ export type TechnicianProjectRow = {
   plannedDate: string | null;
   nextStepKey: string;
   openTaskCount: number;
+  // The werkbon to open on tap. Null when the project has several relevant
+  // ones — there is no single right target, so the row is not a link.
+  workOrderId: string | null;
 };
 
 // The foreman shares the technician's money-free shape, org-wide scoped. Two
@@ -36,8 +39,8 @@ export type TechnicianProjectRow = {
 // can't EXCLUDE a member by negative discriminant checks when the discriminant
 // is itself a union, which broke the AdminView fallthrough in Dashboard.tsx.
 type FieldDashboardBase = {
-  todayProjects: TechnicianProjectRow[];
-  upcomingProjects: TechnicianProjectRow[];
+  /** The assigned work, earliest planned first, undated last. */
+  projects: TechnicianProjectRow[];
   openTaskCount: number;
   assignedProjectCount: number;
 };

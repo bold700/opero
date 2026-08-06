@@ -271,6 +271,10 @@ export function Planning() {
             : null
         }
         defaultDate={defaultDate}
+        // Rescheduling seeds the slot's current times/crew; creating starts blank.
+        defaultStartTime={editing?.startTime}
+        defaultEndTime={editing?.endTime}
+        defaultTeamLeaderId={editing?.teamLeaderId}
         busy={busy}
         error={formError}
         onClose={() => setScheduleOpen(false)}

@@ -18,6 +18,7 @@ import {
   updateMaterialSchema,
   createVariantSchema,
   updateVariantSchema,
+  materialCategoryFilterSchema,
 } from "./schema.js";
 import {
   materialSummaryDto,
@@ -30,10 +31,21 @@ import {
 } from "./dto.js";
 import {
   componentsMatching,
+  CATEGORY_LABELS,
   CLASS_LABELS,
   COMPONENT_LABELS,
   LINE_UNIT_LABELS,
 } from "./labels.js";
+
+// Parse ?category= into a Prisma where-fragment for Material. An absent or empty
+// param means "all" — never a filter — so uncategorised materials stay reachable
+// and the picker can't end up showing nothing. An invalid value is a 400 (zod).
+function categoryWhere(raw: unknown): Prisma.MaterialWhereInput {
+  const value = materialCategoryFilterSchema.parse(
+    raw === undefined ? undefined : String(raw),
+  );
+  return value ? { category: value } : {};
+}
 
 // A Prisma unique-constraint violation (P2002). Kept local so the CRUD routes
 // can translate it into a clean 409 instead of a raw 500.
@@ -403,14 +415,16 @@ async function variantConflict(
 }
 
 // GET / — the catalog grouped by material class. Summaries only (no variant
-// payloads): name, supplier, size range, variant count.
+// payloads): name, supplier, size range, variant count. Optional ?category=
+// narrows to one installation system (GKW / CV / KW-WW-CIRC / RIOOL-HWA) so the
+// werkbon line picker can shrink the list a technician scrolls through.
 materialsRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const user = req.user!;
     assertCanRead(user);
     const rows = await prisma.material.findMany({
-      where: { orgId: user.orgId },
+      where: { orgId: user.orgId, ...categoryWhere(req.query.category) },
       orderBy: { ordinal: "asc" },
       include: { variants: { select: { size: true } } },
     });
@@ -422,7 +436,7 @@ materialsRouter.get(
   }),
 );
 
-// GET /meta — enum option lists (class / component / sizeUnit / unit) with their
+// GET /meta — enum option lists (class / category / component / sizeUnit / unit) with their
 // nl+en display labels, so the create/edit forms are driven by the backend's
 // source of truth instead of hardcoded client lists.
 materialsRouter.get(
@@ -440,6 +454,7 @@ materialsRouter.get(
       }));
     res.json({
       classes: opts(CLASS_LABELS),
+      categories: opts(CATEGORY_LABELS),
       components: opts(COMPONENT_LABELS),
       units: opts(LINE_UNIT_LABELS),
       sizeUnits: [
@@ -469,6 +484,7 @@ materialsRouter.post(
           key,
           name: clampText(input.name),
           class: input.class,
+          category: input.category ?? null,
           supplier: clampText(input.supplier ?? ""),
           sizeUnit: input.sizeUnit,
           thicknessMm: input.thicknessMm ?? null,
@@ -515,8 +531,8 @@ materialsRouter.get(
 // GET /variants — the FLAT, searchable catalog: one row per variant across all
 // the org's materials. Paginated (cursor). Optional ?supplier= filter and
 // ?search= (each word AND-matched against material name, size, OR a component
-// by its Dutch/English label — so "bocht 60" narrows to elbows at Ø60).
-// Prices stripped for technicians.
+// by its Dutch/English label — so "bocht 60" narrows to elbows at Ø60), and
+// ?category= (one installation system). Prices stripped for technicians.
 materialsRouter.get(
   "/variants",
   asyncHandler(async (req, res) => {
@@ -530,6 +546,7 @@ materialsRouter.get(
       material: {
         orgId: user.orgId,
         ...(supplier ? { supplier } : {}),
+        ...categoryWhere(req.query.category),
       },
       ...(words.length
         ? {
@@ -667,6 +684,9 @@ materialsRouter.patch(
         data: {
           name: input.name !== undefined ? clampText(input.name) : undefined,
           class: input.class ?? undefined,
+          // `null` is a real value here (clears the system), so test for
+          // undefined rather than falling back with ??.
+          category: input.category !== undefined ? input.category : undefined,
           supplier: input.supplier !== undefined ? clampText(input.supplier) : undefined,
           sizeUnit: input.sizeUnit ?? undefined,
           thicknessMm: input.thicknessMm !== undefined ? input.thicknessMm : undefined,

@@ -17,8 +17,10 @@ import {
   getSuppliers,
   getMaterialMeta,
   searchVariants,
+  type MaterialSystemCategory,
   type MaterialVariantRow,
 } from "./api";
+import { CATEGORY_ORDER, CATEGORY_LABEL_KEYS } from "./constants";
 import { MaterialsActions } from "./components/MaterialsActions";
 import { MaterialGroupList } from "./components/MaterialGroupList";
 import { VariantSearchTable } from "./components/VariantSearchTable";
@@ -41,6 +43,9 @@ export function Materials() {
 
   const [search, setSearch] = useState("");
   const [supplier, setSupplier] = useState<string>(""); // "" = all suppliers
+  // "" = all systems; narrows server-side so uncategorised materials only
+  // appear under the "all" default (mirrors the technician picker's filter).
+  const [category, setCategory] = useState<MaterialSystemCategory | "">("");
   const [createOpen, setCreateOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0); // bump to refetch groups
   const debouncedSearch = useDebounced(search, 300);
@@ -49,8 +54,8 @@ export function Materials() {
   const { data: suppliers } = useApi(getSuppliers, [reloadKey]);
   const { data: meta } = useApi(() => (isAdmin ? getMaterialMeta() : Promise.resolve(null)), [isAdmin]);
   const { data: groups, loading: groupsLoading, error: groupsError } = useApi(
-    getMaterialGroups,
-    [reloadKey],
+    () => getMaterialGroups(category || undefined),
+    [reloadKey, category],
   );
 
   // Flat variant search — only active while a term is entered.
@@ -68,9 +73,10 @@ export function Materials() {
             cursor,
             search: debouncedSearch,
             supplier: supplier || undefined,
+            category: category || undefined,
           })
         : Promise.resolve({ items: [], nextCursor: null }),
-    [debouncedSearch, supplier, searching],
+    [debouncedSearch, supplier, category, searching],
   );
 
   const visibleGroups = (groups ?? [])
@@ -97,18 +103,29 @@ export function Materials() {
         />
       }
     >
-      {/* Supplier filter (only when there's more than one supplier). */}
-      {suppliers && suppliers.length > 1 ? (
+      {/* System + supplier filters (supplier only when there's more than one). */}
+      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
         <FilterSelect
-          value={supplier}
-          onChange={setSupplier}
+          value={category}
+          onChange={(v) => setCategory(v as MaterialSystemCategory | "")}
           ariaLabel={t("materials.filters.label")}
           options={[
-            { value: "", label: t("materials.filters.allSuppliers") },
-            ...suppliers.map((s) => ({ value: s, label: s })),
+            { value: "", label: t("materials.filters.allCategories") },
+            ...CATEGORY_ORDER.map((c) => ({ value: c, label: t(CATEGORY_LABEL_KEYS[c]) })),
           ]}
         />
-      ) : null}
+        {suppliers && suppliers.length > 1 ? (
+          <FilterSelect
+            value={supplier}
+            onChange={setSupplier}
+            ariaLabel={t("materials.filters.label")}
+            options={[
+              { value: "", label: t("materials.filters.allSuppliers") },
+              ...suppliers.map((s) => ({ value: s, label: s })),
+            ]}
+          />
+        ) : null}
+      </Box>
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

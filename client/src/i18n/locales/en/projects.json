@@ -1,7 +1,7 @@
 {
   "title": "Projects",
   "actions": {
-    "searchPlaceholder": "Search project or customer…",
+    "searchPlaceholder": "Search project, customer or reference number…",
     "newProject": "New project"
   },
   "status": {
@@ -25,6 +25,15 @@
     "create": "Create project",
     "customer": "Customer",
     "name": "Project name",
+    "referenceNumber": "Customer reference number",
+    "referenceNumberHelp": "The customer's own order, PO or file number. Not Opero's project number — that one is assigned automatically.",
+    "contactName": "Contact person",
+    "contactPhone": "Contact phone",
+    "contactHelp": "Leave empty to copy the customer's own contact details.",
+    "address": "Job-site address",
+    "addressHelp": "The address of the job itself. On create it is copied from the chosen location or the customer.",
+    "postalCode": "Postal code",
+    "city": "City",
     "workType": "Work type",
     "workTypeNone": "To be determined",
     "description": "Description",
@@ -42,6 +51,7 @@
     "woDate": "Date",
     "woSigned": "Signed",
     "address": "Address",
+    "referenceShort": "Customer ref.: {{number}}",
     "contact": "Contact",
     "instructions": "Work instructions",
     "total": "Total",

@@ -20,8 +20,10 @@ import { audit } from "../../lib/audit.js";
 type Tx = Prisma.TransactionClient;
 
 // Defaults for a slot created from a bare date (no times/crew supplied).
-const DEFAULT_START_TIME = "08:00";
-const DEFAULT_END_TIME = "15:30";
+// Exported so the werkbon PATCH can validate a one-sided time change against
+// what the slot would actually get.
+export const DEFAULT_START_TIME = "08:00";
+export const DEFAULT_END_TIME = "15:30";
 const DEFAULT_VEHICLE = "Bus - nog toewijzen";
 
 // The werkbon shape the service needs. Callers already load this for their own

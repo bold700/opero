@@ -19,8 +19,11 @@ import {
   getMaterialGroups,
   getMaterial,
   type MaterialVariant,
+  type MaterialSystemCategory,
 } from "../../materials/api";
 import {
+  CATEGORY_LABEL_KEYS,
+  CATEGORY_ORDER,
   CLASS_LABEL_KEYS,
   COMPONENT_LABEL_KEYS,
   COMPONENT_ORDER,
@@ -97,6 +100,10 @@ export function AddTaskLineDialog({
   );
 
   const [source, setSource] = useState<"catalog" | "custom">("catalog");
+  // Installation-system narrowing for the article list. "" = all systems, and
+  // it is the DEFAULT — a material with no category is only reachable here, so
+  // the filter can never hide the whole catalog.
+  const [category, setCategory] = useState<MaterialSystemCategory | "">("");
   const [materialId, setMaterialId] = useState("");
   const [size, setSize] = useState("");
   const [variantId, setVariantId] = useState("");
@@ -111,6 +118,9 @@ export function AddTaskLineDialog({
       // Edit mode seeds from the current line so it opens on the right tab,
       // pre-filled; add mode starts blank on the catalog tab.
       setSource(initial?.custom ? "custom" : "catalog");
+      // Always reopen on "all systems": in edit mode the line's current article
+      // must be visible in the list, whatever system it belongs to.
+      setCategory("");
       setMaterialId(initial?.materialId ?? "");
       setSize(initial?.size ?? "");
       setVariantId(initial?.variantId ?? "");
@@ -142,12 +152,24 @@ export function AddTaskLineDialog({
     [materialId],
   );
 
+  // Article list, narrowed to the chosen installation system. Filtered from the
+  // already-loaded catalog rather than refetching, so switching systems on a
+  // phone is instant and works the same offline-ish as the rest of the cascade.
+  // The currently selected material is always kept in the list, so a filter
+  // change can never leave the select pointing at an option that isn't there.
   const materialOptions: SelectOption[] = (groups ?? []).flatMap((g) =>
-    g.materials.map((m) => ({
-      value: m.id,
-      label: `${t(CLASS_LABEL_KEYS[g.class])} — ${m.name}`,
-    })),
+    g.materials
+      .filter((m) => !category || m.category === category || m.id === materialId)
+      .map((m) => ({
+        value: m.id,
+        label: `${t(CLASS_LABEL_KEYS[g.class])} — ${m.name}`,
+      })),
   );
+
+  const categoryOptions: SelectOption[] = [
+    { value: "", label: t("workOrderDetail.line.allCategories") },
+    ...CATEGORY_ORDER.map((c) => ({ value: c, label: t(CATEGORY_LABEL_KEYS[c]) })),
+  ];
 
   const sizes = useMemo(() => {
     const out: string[] = [];
@@ -334,6 +356,25 @@ export function AddTaskLineDialog({
           </Box>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+            {/* Narrow the article list by installation system — the first step
+                of the cascade, so a technician scrolls one system's materials
+                instead of the whole catalog. SelectField (not FilterSelect)
+                because inside this bottom sheet the picker must be the native
+                one; it's also full-width, matching the fields below it. */}
+            <SelectField
+              label={t("workOrderDetail.line.categoryLabel")}
+              value={category}
+              onChange={(v) => {
+                setCategory(v as MaterialSystemCategory | "");
+                // A material outside the new system would be an option the list
+                // no longer offers, so restart the cascade.
+                setMaterialId("");
+                setSize("");
+                setVariantId("");
+              }}
+              options={categoryOptions}
+              fullWidth
+            />
             <SelectField
               label={t("workOrderDetail.line.articleLabel")}
               value={materialId}

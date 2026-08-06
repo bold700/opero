@@ -84,7 +84,7 @@ async function main() {
             name,
             phone: "",
             email: email!,
-            roles: ["WorkPlanner"] as TeamRole[],
+            role: "Office" as TeamRole,
             status: "active",
           },
         });
@@ -111,7 +111,7 @@ async function main() {
           name,
           phone: "",
           email: email!,
-          roles: ["WorkPlanner"] as TeamRole[],
+          role: "Office" as TeamRole,
           status: "active",
         },
         select: { id: true },

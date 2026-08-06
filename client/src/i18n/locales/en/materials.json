@@ -4,11 +4,13 @@
   "empty": "No materials found.",
   "filters": {
     "label": "Filter",
-    "allSuppliers": "All suppliers"
+    "allSuppliers": "All suppliers",
+    "allCategories": "All systems"
   },
   "columns": {
     "name": "Description",
     "supplier": "Supplier",
+    "system": "System",
     "price": "Price",
     "sizeRange": "Sizes",
     "variantCount": "Prices",
@@ -23,6 +25,12 @@
     "fitting": "Fittings",
     "tank": "Buffer vessels",
     "cladding": "Cladding"
+  },
+  "category": {
+    "gkw": "GKW",
+    "cv": "CV",
+    "kw_ww_circ": "KW/WW/CIRC",
+    "riool_hwa": "RIOOL/HWA"
   },
   "sizeUnit": {
     "pipe_od_mm": "Pipe Ø (mm)",
@@ -77,6 +85,8 @@
     "create": "New material",
     "name": "Name",
     "class": "Class",
+    "category": "System",
+    "categoryNone": "No system",
     "supplier": "Supplier",
     "sizeUnit": "Size unit",
     "thickness": "Thickness (mm)",

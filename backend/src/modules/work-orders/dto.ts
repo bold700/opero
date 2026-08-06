@@ -32,6 +32,24 @@ type TaskWithRelations = WorkOrderTask & {
   assignee?: { id: string; name: string } | null;
 };
 
+// The customer's contact details, carried on the werkbon so a monteur on site
+// can reach someone without leaving the screen. Read-only here: the customer
+// record is edited under /customers. `contactPersons` is the customer's
+// multi-contact list (name + optional role/phone/email).
+type CustomerContactSource = {
+  name: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  contactPersons?: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    role: string | null;
+  }[];
+};
+
 // Shape of a workOrder loaded with its nested tasks → materials, plus the
 // signer (for the sign-off display).
 export type WorkOrderWithRelations = WorkOrder & {
@@ -40,7 +58,31 @@ export type WorkOrderWithRelations = WorkOrder & {
   prejobItems?: WorkOrderPrejobItem[];
   signedBy?: { name: string } | null;
   assignees?: { id: string; name: string }[];
+  // The werkbon's calendar slot (one per werkbon; multi-day = one slot on the
+  // start date + plannedEndDate). Carries the visit's times for the detail.
+  planningItems?: { startTime: string; endTime: string }[];
+  // Present when loaded via workOrderInclude — the parent project's customer,
+  // for the technician's contact block.
+  project?: { customer?: CustomerContactSource | null } | null;
 };
+
+// Map the parent project's customer onto the werkbon payload. Contact data
+// only — no financial or administrative customer fields.
+function customerContactDto(c: CustomerContactSource) {
+  return {
+    name: c.name,
+    contactName: c.contactName || undefined,
+    email: c.email || undefined,
+    phone: c.phone || undefined,
+    contactPersons: (c.contactPersons ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      email: p.email ?? undefined,
+      phone: p.phone ?? undefined,
+      role: p.role ?? undefined,
+    })),
+  };
+}
 
 // Pull the material+size off the (optionally-loaded) variant relation, for
 // edit-dialog prefill. Undefined for free-text rows or when not loaded.
@@ -170,6 +212,12 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     id: wb.id,
     projectId: wb.projectId,
     title: wb.title,
+    // THIS visit's own description. Independent of the project's — a project
+    // groups many werkbonnen, each covering a different part of the job.
+    description: wb.description ?? undefined,
+    // The customer's contact details (phone/email + contact persons), so the
+    // monteur on site can reach someone from the werkbon itself.
+    customer: wb.project?.customer ? customerContactDto(wb.project.customer) : undefined,
     drawings,
     attachments,
     approvedBySupervisor: wb.approvedBySupervisor,
@@ -193,9 +241,12 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     signedByName: wb.signedByName ?? wb.signedBy?.name ?? undefined,
     // The monteur(s) assigned to this werkbon (werkbon-level, not per-zone).
     assignees: (wb.assignees ?? []).map((a) => ({ id: a.id, name: a.name })),
-    // The werkbon is the scheduled visit — its own date(s).
+    // The werkbon is the scheduled visit — its own date(s), plus the visit's
+    // times from its calendar slot (the store the Planning screen edits).
     plannedDate: wb.plannedDate ?? undefined,
     plannedEndDate: wb.plannedEndDate ?? undefined,
+    startTime: wb.planningItems?.[0]?.startTime ?? undefined,
+    endTime: wb.planningItems?.[0]?.endTime ?? undefined,
     tasks,
     // Meerwerk (extra work) is per-WERKBON; prices stripped for non-price roles.
   };
@@ -217,6 +268,28 @@ export const workOrderInclude = {
   prejobItems: { orderBy: { ordinal: "asc" } },
   signedBy: { select: { name: true } },
   assignees: { select: { id: true, name: true } },
+  planningItems: {
+    orderBy: { date: "asc" as const },
+    select: { startTime: true, endTime: true },
+  },
+  // Customer CONTACT data only (name/phone/email + the contact-person list) —
+  // the monteur needs to reach someone, not to read the customer's admin.
+  project: {
+    select: {
+      customer: {
+        select: {
+          name: true,
+          contactName: true,
+          email: true,
+          phone: true,
+          contactPersons: {
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, email: true, phone: true, role: true },
+          },
+        },
+      },
+    },
+  },
 } as const;
 
 // --- List view ------------------------------------------------------------

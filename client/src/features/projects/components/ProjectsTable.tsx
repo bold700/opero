@@ -36,6 +36,25 @@ export function ProjectsTable({
     <StatusBadge label={t(`projects.status.${p.status}`)} tone={PROJECT_STATUS_TONES[p.status]} />
   );
 
+  // Project number + the two optional subtitles under it: the project's own
+  // name, and the CLIENT's reference number (labelled, so the two numbers in
+  // this cell are never confused with each other).
+  const numberCell = (p: ProjectSummary) => (
+    <Box>
+      <Typography sx={{ fontWeight: 600 }}>{p.projectNumber}</Typography>
+      {p.name ? (
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+          {p.name}
+        </Typography>
+      ) : null}
+      {p.referenceNumber ? (
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+          {t("projects.detail.referenceShort", { number: p.referenceNumber })}
+        </Typography>
+      ) : null}
+    </Box>
+  );
+
   const actionsCell = (p: ProjectSummary) =>
     canManage ? (
       <Box sx={{ display: "inline-flex", gap: 0.5 }}>
@@ -66,15 +85,7 @@ export function ProjectsTable({
       onLoadMore={onLoadMore}
       onRowClick={onOpen}
       columns={[
-        {
-          header: t("projects.table.number"),
-          cell: (p) => (
-            <Box>
-              <Typography sx={{ fontWeight: 600 }}>{p.projectNumber}</Typography>
-              {p.name ? <Typography variant="caption" sx={{ color: "text.secondary" }}>{p.name}</Typography> : null}
-            </Box>
-          ),
-        },
+        { header: t("projects.table.number"), cell: numberCell },
         { header: t("projects.table.customer"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.customerName}</Box> },
         { header: t("projects.table.city"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.city}</Box> },
         { header: t("projects.table.workOrders"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.workOrderCount}</Box> },
@@ -89,10 +100,7 @@ export function ProjectsTable({
       renderCard={(p) => (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-            <Box>
-              <Typography sx={{ fontWeight: 600 }}>{p.projectNumber}</Typography>
-              {p.name ? <Typography variant="caption" sx={{ color: "text.secondary" }}>{p.name}</Typography> : null}
-            </Box>
+            {numberCell(p)}
             {actionsCell(p)}
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, color: "text.secondary", fontSize: 13 }}>

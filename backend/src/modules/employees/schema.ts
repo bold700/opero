@@ -5,13 +5,10 @@ import { z } from "zod";
 
 // The TeamRole enum, expressed as zod string literals (matches schema.prisma).
 export const teamRoleSchema = z.enum([
-  "Sales",
-  "WorkPlanner",
-  "Planner",
+  "Office",
+  "ProjectLeader",
   "Foreman",
   "Technician",
-  "Administration",
-  "ProjectLeader",
 ]);
 
 export type TeamRoleValue = z.infer<typeof teamRoleSchema>;
@@ -24,7 +21,9 @@ export const createEmployeeSchema = z.object({
   name: z.string().min(1),
   phone: z.string().default(""),
   email: z.string().optional(),
-  roles: z.array(teamRoleSchema).optional(),
+  // ONE job title, nullable: "no title yet" is a real state, and clearing the
+  // picker must be expressible as an explicit null.
+  role: teamRoleSchema.nullable().optional(),
   status: z.enum(["active", "on_leave", "inactive"]).optional(),
 });
 
@@ -68,7 +67,3 @@ export const updateAbsenceSchema = z
     message: "endDate must not be before startDate",
     path: ["endDate"],
   });
-
-export const toggleRoleSchema = z.object({
-  role: teamRoleSchema,
-});

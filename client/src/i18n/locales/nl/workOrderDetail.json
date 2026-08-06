@@ -24,7 +24,7 @@
   },
   "header": {
     "back": "terug",
-    "info": "Projectinfo",
+    "info": "Gegevens",
     "signed": "Ondertekend",
     "signedBy": "door {{name}}",
     "finish": "Werkbon afronden",
@@ -167,6 +167,8 @@
     "addSubmit": "Taak toevoegen",
     "editTitle": "Regel wijzigen",
     "editSubmit": "Opslaan",
+    "categoryLabel": "Systeem",
+    "allCategories": "Alle systemen",
     "articleLabel": "Type isolatie / artikel",
     "componentLabel": "Onderdeel",
     "quantityLabel": "Aantal",
@@ -189,7 +191,7 @@
     "isExtraWorkHint": "Telt niet mee in de offerte. Komt pas op de factuur na akkoord van kantoor én klant."
   },
   "info": {
-    "title": "Projectinfo",
+    "title": "Gegevens",
     "progress": "Voortgang",
     "progressValue": "{{done}} van {{total}} zones afgerond",
     "urgency": "Urgentie",
@@ -207,14 +209,18 @@
     "contact": "Contact",
     "contactName": "Naam contactpersoon",
     "contactPhone": "Telefoon",
-    "description": "Omschrijving",
+    "workOrderDescription": "Omschrijving werkbon",
+    "workOrderDescriptionPlaceholder": "Bijv. 2e verdieping, week 38",
+    "projectDescription": "Omschrijving project",
     "planning": "Planning",
     "endDateOptional": "Einddatum (optioneel)",
     "sameDay": "zelfde dag",
     "workOrderTitle": "Werkbon",
     "customer": "Klant",
     "customerSwitchTitle": "Klant wijzigen",
-    "customerSwitchBody": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer."
+    "customerSwitchBody": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer.",
+    "customerContact": "Contactpersoon klant",
+    "noContactDetails": "Geen contactgegevens"
   },
   "meerwerkApproval": {
     "title": "Meerwerk — wacht op akkoord ({{count}})",

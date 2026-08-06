@@ -33,11 +33,27 @@ export function visibleWorkOrdersWhere(
   }
 
   // technician — assignment at werkbon level OR at zone level.
-  const employeeId = user.employeeId ?? "__none__";
+  return assignedToEmployeeWhere(user.employeeId);
+}
+
+// "This werkbon is assigned to THIS employee" — werkbon level (assignees, m:n)
+// OR zone level (tasks.assigneeId). Both arms are required: since the
+// Project→WorkOrder migration the office dispatches a monteur to the visit
+// itself, so a query matching only the task arm silently misses him.
+//
+// Separate from visibleWorkOrdersWhere on purpose. That one answers "may this
+// user READ this werkbon", which is org-wide ({}) for admin/office/FOREMAN — a
+// foreman holds real assignments too, so reusing it to build a *personal* feed
+// (notifications) would hand him every werkbon in the org.
+export function assignedToEmployeeWhere(
+  employeeId: string | null | undefined,
+): Prisma.WorkOrderWhereInput {
+  // `__none__` makes the filter match nothing if the user has no employee.
+  const id = employeeId ?? "__none__";
   return {
     OR: [
-      { assignees: { some: { id: employeeId } } },
-      { tasks: { some: { assigneeId: employeeId } } },
+      { assignees: { some: { id } } },
+      { tasks: { some: { assigneeId: id } } },
     ],
   };
 }

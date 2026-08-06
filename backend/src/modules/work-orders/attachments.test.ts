@@ -44,7 +44,7 @@ beforeAll(async () => {
   adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
 
   const techEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Tech`, phone: "0", roles: ["Technician"], status: "active" },
+    data: { orgId, name: `${TAG} Tech`, phone: "0", role: "Technician", status: "active" },
   });
   const tech = await prisma.user.create({
     data: { orgId, email: `${TAG}-m@opero.test`, passwordHash: pw, name: "M", role: "technician", status: "active", employeeId: techEmp.id },
@@ -52,7 +52,7 @@ beforeAll(async () => {
   techToken = signAccessToken({ sub: tech.id, role: "technician", orgId });
 
   const outEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Outsider`, phone: "0", roles: ["Technician"], status: "active" },
+    data: { orgId, name: `${TAG} Outsider`, phone: "0", role: "Technician", status: "active" },
   });
   const outsider = await prisma.user.create({
     data: { orgId, email: `${TAG}-o@opero.test`, passwordHash: pw, name: "O", role: "technician", status: "active", employeeId: outEmp.id },

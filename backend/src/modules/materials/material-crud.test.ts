@@ -215,6 +215,139 @@ describe("material CRUD", () => {
   });
 });
 
+// Material.category = the INSTALLATION SYSTEM (GKW / CV / KW-WW-CIRC /
+// RIOOL-HWA), a different axis from `class`. It exists so a technician can
+// narrow the werkbon line picker to the system being worked on — so the filter
+// must narrow, and must never hide the uncategorised materials by default.
+describe("material category (installation system)", () => {
+  const CAT_TAG = `${TAG} cat`;
+  let cvId: string;
+  let rioolId: string;
+  let uncategorisedId: string;
+
+  beforeAll(async () => {
+    const create = (name: string, category?: string) =>
+      request(app)
+        .post("/api/materials")
+        .set(auth(adminToken))
+        .send({
+          name,
+          class: "insulation",
+          sizeUnit: "flat",
+          ...(category ? { category } : {}),
+        });
+    cvId = (await create(`${CAT_TAG} CV pipe`, "cv")).body.id;
+    rioolId = (await create(`${CAT_TAG} Drain pipe`, "riool_hwa")).body.id;
+    uncategorisedId = (await create(`${CAT_TAG} No system`)).body.id;
+  });
+
+  const groupIds = (body: { materials: { id: string }[] }[]) =>
+    body.flatMap((g) => g.materials.map((m) => m.id));
+
+  it("stores the category on create and returns it in the DTO", async () => {
+    const res = await request(app).get(`/api/materials/${cvId}`).set(auth(adminToken));
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBe("cv");
+  });
+
+  it("omits the category for an uncategorised material", async () => {
+    const res = await request(app).get(`/api/materials/${uncategorisedId}`).set(auth(adminToken));
+    expect(res.status).toBe(200);
+    expect(res.body.category).toBeUndefined();
+  });
+
+  it("?category= narrows the grouped catalog to that system", async () => {
+    const res = await request(app).get("/api/materials?category=cv").set(auth(adminToken));
+    expect(res.status).toBe(200);
+    const ids = groupIds(res.body);
+    expect(ids).toContain(cvId);
+    expect(ids).not.toContain(rioolId);
+    expect(ids).not.toContain(uncategorisedId);
+  });
+
+  it("no ?category= returns everything, uncategorised included", async () => {
+    const res = await request(app).get("/api/materials").set(auth(adminToken));
+    expect(res.status).toBe(200);
+    const ids = groupIds(res.body);
+    expect(ids).toEqual(expect.arrayContaining([cvId, rioolId, uncategorisedId]));
+  });
+
+  it("an empty ?category= means 'all', not 'none' (never hides everything)", async () => {
+    const res = await request(app).get("/api/materials?category=").set(auth(adminToken));
+    expect(res.status).toBe(200);
+    const ids = groupIds(res.body);
+    expect(ids).toEqual(expect.arrayContaining([cvId, rioolId, uncategorisedId]));
+  });
+
+  it("rejects an unknown category (400)", async () => {
+    const res = await request(app).get("/api/materials?category=nonsense").set(auth(adminToken));
+    expect(res.status).toBe(400);
+  });
+
+  it("?category= also filters the flat variant search", async () => {
+    await request(app)
+      .post(`/api/materials/${cvId}/variants`)
+      .set(auth(adminToken))
+      .send({ size: "flat", component: "area", unit: "m2", unitPrice: 3 });
+    await request(app)
+      .post(`/api/materials/${rioolId}/variants`)
+      .set(auth(adminToken))
+      .send({ size: "flat", component: "area", unit: "m2", unitPrice: 4 });
+
+    // Walk every page: the seeded catalog has ~1500 variants, so the CV rows
+    // created here (appended last by ordinal) are well past the first page.
+    const idsFor = async (category: string) => {
+      const seen: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const res = await request(app)
+          .get(
+            `/api/materials/variants?category=${category}&limit=100` +
+              (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""),
+          )
+          .set(auth(adminToken));
+        expect(res.status).toBe(200);
+        for (const i of res.body.items as { materialId: string }[]) seen.push(i.materialId);
+        cursor = res.body.nextCursor ?? undefined;
+      } while (cursor);
+      return seen;
+    };
+
+    const cvIds = await idsFor("cv");
+    expect(cvIds).toContain(cvId);
+    expect(cvIds).not.toContain(rioolId);
+
+    const rioolIds = await idsFor("riool_hwa");
+    expect(rioolIds).toContain(rioolId);
+    expect(rioolIds).not.toContain(cvId);
+  });
+
+  it("admin can change and clear the category", async () => {
+    const changed = await request(app)
+      .patch(`/api/materials/${uncategorisedId}`)
+      .set(auth(adminToken))
+      .send({ category: "gkw" });
+    expect(changed.status).toBe(200);
+    expect(changed.body.category).toBe("gkw");
+
+    // null is a real value here: it puts the material back to "no system".
+    const cleared = await request(app)
+      .patch(`/api/materials/${uncategorisedId}`)
+      .set(auth(adminToken))
+      .send({ category: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.category).toBeUndefined();
+  });
+
+  it("rejects an unknown category on create (400)", async () => {
+    const res = await request(app)
+      .post("/api/materials")
+      .set(auth(adminToken))
+      .send({ name: `${CAT_TAG} bad`, class: "insulation", sizeUnit: "flat", category: "hvac" });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("GET /materials/meta", () => {
   it("returns enum option lists with nl+en labels", async () => {
     const res = await request(app).get("/api/materials/meta").set(auth(adminToken));
@@ -225,6 +358,20 @@ describe("GET /materials/meta", () => {
     const insulation = res.body.classes.find((c: { value: string }) => c.value === "insulation");
     expect(insulation.nl).toBe("Isolatie");
     expect(insulation.en).toBe("Insulation");
+  });
+
+  it("serves the installation-system options with their trade-code labels", async () => {
+    const res = await request(app).get("/api/materials/meta").set(auth(adminToken));
+    expect(res.status).toBe(200);
+    expect(res.body.categories.map((c: { value: string }) => c.value)).toEqual([
+      "gkw",
+      "cv",
+      "kw_ww_circ",
+      "riool_hwa",
+    ]);
+    const kwc = res.body.categories.find((c: { value: string }) => c.value === "kw_ww_circ");
+    expect(kwc.nl).toBe("KW/WW/CIRC");
+    expect(kwc.en).toBe("KW/WW/CIRC");
   });
 
   it("does not swallow /variants under /:id (literal routes win)", async () => {

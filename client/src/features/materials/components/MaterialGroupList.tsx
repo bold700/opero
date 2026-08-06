@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { ResponsiveList } from "../../../components/ResponsiveList";
-import { CLASS_LABEL_KEYS, formatSizeRange } from "../constants";
+import { CATEGORY_LABEL_KEYS, CLASS_LABEL_KEYS, formatSizeRange } from "../constants";
 import type { MaterialGroup, MaterialSummary } from "../api";
 
 // One class section of the catalog: a heading (Isolatie / Hulpstukken /
@@ -56,6 +56,14 @@ export function MaterialGroupList({
             ),
           },
           {
+            header: t("materials.columns.system"),
+            cell: (m) => (
+              <Typography variant="body2" sx={{ color: "text.secondary", whiteSpace: "nowrap" }}>
+                {m.category ? t(CATEGORY_LABEL_KEYS[m.category]) : "—"}
+              </Typography>
+            ),
+          },
+          {
             header: t("materials.columns.sizeRange"),
             cell: (m) => (
               <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
@@ -85,7 +93,9 @@ export function MaterialGroupList({
                 {m.name}
               </Typography>
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {m.supplier} · {formatSizeRange(m.sizeUnit, m.sizeRange)} ·{" "}
+                {m.supplier} ·{" "}
+                {m.category ? `${t(CATEGORY_LABEL_KEYS[m.category])} · ` : ""}
+                {formatSizeRange(m.sizeUnit, m.sizeRange)} ·{" "}
                 {t(
                   showPrices
                     ? "materials.detail.priceCount"

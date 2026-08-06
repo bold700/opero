@@ -11,6 +11,8 @@ export type ProjectUrgency = "normal" | "urgent" | "blocked";
 export type ProjectSummary = {
   id: string;
   projectNumber: string;
+  /** The CLIENT's own reference (their order/PO number) — not projectNumber. */
+  referenceNumber?: string;
   name?: string;
   customerId: string;
   customerName: string;
@@ -38,6 +40,11 @@ export type ProjectWorkOrder = {
 export type ProjectDetail = {
   id: string;
   projectNumber: string;
+  /**
+   * The CLIENT's own reference for this job (their order/PO/dossier number).
+   * Distinct from projectNumber, which is Opero's internal identity.
+   */
+  referenceNumber?: string;
   name?: string;
   customerId: string;
   customerName: string;
@@ -61,6 +68,11 @@ export type ProjectDetail = {
 export type ProjectInput = {
   customerId: string;
   name?: string;
+  /** The client's own order/PO number. Omitted when blank. */
+  referenceNumber?: string;
+  /** Site contact. Omitted when blank — the backend then seeds it from the customer. */
+  contactName?: string;
+  contactPhone?: string;
   locationId?: string;
   workTypeId?: string;
   notes?: string;
@@ -85,6 +97,15 @@ export function updateProject(
   id: string,
   patch: Partial<{
     name: string;
+    // The client's own order/PO number. "" clears it server-side.
+    referenceNumber: string;
+    contactName: string;
+    contactPhone: string;
+    // The job-site address. Editable after create; the create flow derives it
+    // from the chosen customer location instead.
+    address: string;
+    postalCode: string;
+    city: string;
     description: string;
     instructions: string;
     workTypeId: string | null;

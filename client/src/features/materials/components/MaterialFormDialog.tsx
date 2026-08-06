@@ -17,6 +17,7 @@ import {
   type MaterialDetail,
   type MaterialInput,
   type MaterialMeta,
+  type MaterialSystemCategory,
 } from "../api";
 
 // Create or edit a material (the catalog object). One form, two modes: pass a
@@ -43,6 +44,7 @@ export function MaterialFormDialog({
   const [form, setForm] = useState<MaterialInput>({
     name: "",
     class: "insulation",
+    category: null,
     supplier: "",
     sizeUnit: "pipe_od_mm",
   });
@@ -59,6 +61,7 @@ export function MaterialFormDialog({
       ? {
             name: material.name,
             class: material.class,
+            category: material.category ?? null,
             supplier: material.supplier ?? "",
             sizeUnit: material.sizeUnit,
             thicknessMm: material.thicknessMm ?? null,
@@ -70,7 +73,7 @@ export function MaterialFormDialog({
             priceValidTo: material.priceValidTo ?? null,
           priceNote: material.priceNote ?? null,
         }
-      : { name: "", class: "insulation", supplier: "", sizeUnit: "pipe_od_mm" };
+      : { name: "", class: "insulation", category: null, supplier: "", sizeUnit: "pipe_od_mm" };
     initialForm.current = seeded;
     setForm(seeded);
   }, [open, material]);
@@ -131,6 +134,21 @@ export function MaterialFormDialog({
             onChange={(v) => set("class", v as MaterialInput["class"])}
             disabled={submitting || !meta}
             options={(meta?.classes ?? []).map((o) => ({ value: o.value, label: label(o) }))}
+          />
+
+          {/* Installation system (GKW / CV / ...) — the axis technicians search
+              on. Optional: "" maps to null, for a material used across systems. */}
+          <SelectField
+            label={t("materials.form.category")}
+            value={form.category ?? ""}
+            onChange={(v) =>
+              set("category", v === "" ? null : (v as MaterialSystemCategory))
+            }
+            disabled={submitting || !meta}
+            options={[
+              { value: "", label: t("materials.form.categoryNone") },
+              ...(meta?.categories ?? []).map((o) => ({ value: o.value, label: label(o) })),
+            ]}
           />
 
           <TextField

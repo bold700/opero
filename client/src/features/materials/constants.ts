@@ -1,4 +1,9 @@
-import type { MaterialClass, MaterialComponent, MaterialSizeUnit } from "./api";
+import type {
+  MaterialClass,
+  MaterialComponent,
+  MaterialSizeUnit,
+  MaterialSystemCategory,
+} from "./api";
 
 // Class display order — how the four kinds of catalog objects are grouped.
 export const CLASS_ORDER: MaterialClass[] = [
@@ -13,6 +18,24 @@ export const CLASS_LABEL_KEYS: Record<MaterialClass, string> = {
   fitting: "materials.class.fitting",
   tank: "materials.class.tank",
   cladding: "materials.class.cladding",
+};
+
+// Installation-system order for the filters and the material form — the order
+// the client lists their own trade groups in.
+export const CATEGORY_ORDER: MaterialSystemCategory[] = [
+  "gkw",
+  "cv",
+  "kw_ww_circ",
+  "riool_hwa",
+];
+
+// The display strings are the literal trade codes (GKW, CV, ...), but they still
+// go through i18n so no Dutch trade text is baked into a component.
+export const CATEGORY_LABEL_KEYS: Record<MaterialSystemCategory, string> = {
+  gkw: "materials.category.gkw",
+  cv: "materials.category.cv",
+  kw_ww_circ: "materials.category.kw_ww_circ",
+  riool_hwa: "materials.category.riool_hwa",
 };
 
 // Variant/component order for pickers and detail tables — mirrors the source

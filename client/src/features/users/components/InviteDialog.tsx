@@ -24,7 +24,15 @@ import type { InviteInput } from "../api";
 // standalone Toegang screen with a person picker; with it gone, so is the
 // picker — and the GET /users/invitable endpoint that fed it.)
 export type InviteFixedTarget =
-  | { kind: "employee"; id: string; name: string }
+  | {
+      kind: "employee";
+      id: string;
+      name: string;
+      /** Access level to pre-select, derived from the employee's job title
+       *  (defaultAccessRole in employees/constants). Never "admin" — making
+       *  someone owner stays an explicit choice. */
+      defaultRole?: "office" | "foreman" | "technician";
+    }
   | { kind: "customer"; id: string; name: string };
 
 // Ordered least → most privileged. `admin` is the OWNER: everything, including
@@ -62,10 +70,15 @@ export function InviteDialog({
     .filter((r): r is EmployeeRole => r !== "client")
     .reverse();
 
-  // Reset on (re)open.
+  // Reset on (re)open: pre-select the level suggested by the job title so the
+  // normal case is "pick a function, invite, done" — one role question, not
+  // two. Still overridable below, and capped at what this actor may grant.
   useEffect(() => {
     if (!open) return;
-    setRole("technician");
+    const suggested =
+      fixed?.kind === "employee" ? fixed.defaultRole : undefined;
+    setRole(suggested && roleOptions.includes(suggested) ? suggested : "technician");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, fixed]);
 
   const isEmployee = fixed?.kind === "employee";

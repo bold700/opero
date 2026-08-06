@@ -65,6 +65,21 @@ export const materialClassSchema = z.enum([
   "cladding",
 ]);
 
+// Installation-system groups (GKW / CV / KW-WW-CIRC / RIOOL-HWA) — a different
+// axis from `class`. Mirrors the Prisma MaterialSystemCategory enum.
+export const materialSystemCategorySchema = z.enum([
+  "gkw",
+  "cv",
+  "kw_ww_circ",
+  "riool_hwa",
+]);
+
+// ?category= on the list/search routes. "" (or an absent param) means "all",
+// so an uncategorised material is never hidden by default.
+export const materialCategoryFilterSchema = materialSystemCategorySchema
+  .or(z.literal(""))
+  .optional();
+
 export const materialComponentSchema = z.enum([
   "meter",
   "elbow",
@@ -93,6 +108,8 @@ export const variantUnitSchema = z.enum(["m", "piece", "m2"]);
 export const createMaterialSchema = z.object({
   name: z.string().min(1),
   class: materialClassSchema,
+  // Nullable: a material that spans systems (or isn't sorted yet) has none.
+  category: materialSystemCategorySchema.nullable().optional(),
   supplier: z.string().default(""),
   sizeUnit: sizeUnitSchema,
   thicknessMm: z.number().int().nonnegative().nullable().optional(),

@@ -10,7 +10,6 @@ import { requireAuth, requireRole } from "../../auth/middleware.js";
 import {
   createEmployeeSchema,
   updateEmployeeSchema,
-  toggleRoleSchema,
   createAbsenceSchema,
   updateAbsenceSchema,
 } from "./schema.js";
@@ -30,11 +29,10 @@ export const employeesRouter = Router();
 // All employee routes require auth.
 employeesRouter.use(requireAuth);
 
-// The office roles: an employee is "office" if any of their roles intersects
-// this set (mirrors the client's OFFICE_ROLES). Technicians = roles include
-// "Technician". Roles are stored as a TeamRole[] scalar enum array on Employee,
-// so array filters use `has` / `hasSome`.
-const OFFICE_ROLES: TeamRole[] = ["Administration", "Sales", "WorkPlanner", "Planner"];
+// The office bucket: since the 7→4 title consolidation this is the single
+// Office title (mirrors the client's OFFICE_ROLES). Technicians = "Technician";
+// Foreman and ProjectLeader sit in neither bucket, as before the merge.
+const OFFICE_ROLES: TeamRole[] = ["Office"];
 
 // The filter chips shown on the list (English, stable values).
 const EMPLOYEE_FILTERS = ["technicians", "office", "inactive", "no_account"] as const;
@@ -44,9 +42,9 @@ type EmployeeFilter = (typeof EMPLOYEE_FILTERS)[number];
 function employeeFilterWhere(filter: EmployeeFilter): Prisma.EmployeeWhereInput {
   switch (filter) {
     case "technicians":
-      return { roles: { has: "Technician" } };
+      return { role: "Technician" };
     case "office":
-      return { roles: { hasSome: OFFICE_ROLES } };
+      return { role: { in: OFFICE_ROLES } };
     case "inactive":
       return { status: "inactive" };
     // "Who did we forget to invite?" — access is managed from this screen, so
@@ -85,8 +83,8 @@ employeesRouter.get(
     }
 
     // Counts across the whole scoped+searched set (not just the page). Status
-    // buckets come from a groupBy; the role-based buckets (technicians/office)
-    // are separate counts since they filter the roles array, not status.
+    // buckets come from a groupBy; the title-based buckets (technicians/office)
+    // are separate counts since they filter the role column, not status.
     const [grouped, technicians, office, noAccount] = await Promise.all([
       prisma.employee.groupBy({
         by: ["status"],
@@ -297,7 +295,7 @@ employeesRouter.post(
           name: clampText(input.name),
           phone: clampText(input.phone),
           email: input.email ? clampText(input.email) : null,
-          roles: (input.roles ?? []) as TeamRole[],
+          role: (input.role ?? null) as TeamRole | null,
           status: input.status ?? "active",
         },
       });
@@ -333,8 +331,8 @@ employeesRouter.patch(
           name: input.name !== undefined ? clampText(input.name) : undefined,
           phone: input.phone !== undefined ? clampText(input.phone) : undefined,
           email: input.email !== undefined ? clampText(input.email) : undefined,
-          roles:
-            input.roles !== undefined ? (input.roles as TeamRole[]) : undefined,
+          // `null` clears the job title; `undefined` leaves it untouched.
+          role: input.role !== undefined ? (input.role as TeamRole | null) : undefined,
           status: input.status !== undefined ? input.status : undefined,
         },
       });
@@ -345,36 +343,9 @@ employeesRouter.patch(
   }),
 );
 
-// POST /employees/:id/roles — admin only. Toggle a single role on/off.
-// Mirrors store toggleTeamMemberRole: if present remove, else add.
-employeesRouter.post(
-  "/:id/roles",
-  requireRole("admin", "office"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const input = toggleRoleSchema.parse(req.body);
-    const existing = await prisma.employee.findFirst({
-      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-    });
-    if (!existing) throw NotFound("Employee not found");
-    const role = input.role as TeamRole;
-    const nextRoles = existing.roles.includes(role)
-      ? existing.roles.filter((r) => r !== role)
-      : [...existing.roles, role];
-    const updated = await prisma.$transaction(async (tx) => {
-      const e = await tx.employee.update({
-        where: { id: existing.id },
-        data: { roles: nextRoles },
-      });
-      await audit(tx, user, "employee.toggleRole", "employee", e.id, {
-        role,
-        roles: nextRoles,
-      });
-      return e;
-    });
-    res.json(employeeDto(updated));
-  }),
-);
+// The POST /employees/:id/roles toggle route is gone: a job title is now a
+// single value, so "toggle one role on/off" has no meaning. Setting it is a
+// plain field write — PATCH /employees/:id with { role }.
 
 // DELETE /employees/:id — soft delete, office + admin.
 //

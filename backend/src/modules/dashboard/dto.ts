@@ -41,12 +41,19 @@ export type TechnicianProjectRow = {
   plannedDate: string | null;
   nextStepKey: string;
   openTaskCount: number;
+  /**
+   * The werkbon to open when the row is tapped. Field staff cannot reach
+   * /projects/:id (office-only), so the row must link to the werkbon itself.
+   * Null when the project holds several relevant werkbonnen — there is no one
+   * right target then, so the row simply is not a link.
+   */
+  workOrderId: string | null;
 };
 
 export type TechnicianDashboard = {
   role: "technician" | "foreman";
-  todayProjects: TechnicianProjectRow[];
-  upcomingProjects: TechnicianProjectRow[];
+  /** The assigned work, earliest planned first, undated last. */
+  projects: TechnicianProjectRow[];
   openTaskCount: number;
   assignedProjectCount: number;
 };
@@ -78,6 +85,7 @@ type TechnicianProjectSource = {
   stage: Stage;
   plannedDate: string | null;
   nextStepKey: string;
+  workOrderId?: string | null;
 };
 
 export function technicianProjectRow(
@@ -95,6 +103,7 @@ export function technicianProjectRow(
     plannedDate: p.plannedDate ?? null,
     nextStepKey: p.nextStepKey,
     openTaskCount,
+    workOrderId: p.workOrderId ?? null,
   };
 }
 

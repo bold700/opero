@@ -46,7 +46,7 @@ beforeAll(async () => {
   adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
 
   const emp = await prisma.employee.create({
-    data: { orgId, name: `${TAG} Monteur`, phone: "", roles: ["Technician"] },
+    data: { orgId, name: `${TAG} Monteur`, phone: "", role: "Technician" },
   });
   employeeId = emp.id;
 

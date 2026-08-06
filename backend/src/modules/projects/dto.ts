@@ -198,6 +198,10 @@ export function projectSummaryDto(
   return {
     id: p.id,
     projectNumber: p.projectNumber,
+    // The CLIENT's own reference (their order/PO number) — distinct from
+    // projectNumber, which is Opero's internal identity. Shown in the list so
+    // a job can be found by the number the client quotes on the phone.
+    referenceNumber: p.referenceNumber ?? undefined,
     name: p.name ?? undefined,
     customerId: p.customerId,
     customerName: p.customerName,
@@ -225,6 +229,8 @@ export function projectDto(
   return {
     id: p.id,
     projectNumber: p.projectNumber,
+    // The CLIENT's own reference (their order/PO number), never Opero's.
+    referenceNumber: p.referenceNumber ?? undefined,
     name: p.name ?? undefined,
     customerId: p.customerId,
     customerName: p.customerName,

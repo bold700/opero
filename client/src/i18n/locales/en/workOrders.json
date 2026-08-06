@@ -70,6 +70,8 @@
     "locationCity": "City",
     "workOrderTitleLabel": "Work order title (optional)",
     "workOrderTitlePlaceholder": "E.g. Work order 1",
+    "workOrderDescriptionLabel": "Work order description (optional)",
+    "workOrderDescriptionPlaceholder": "E.g. 2nd floor, week 38",
     "cancel": "Cancel",
     "submit": "Create",
     "submitError": "Creation failed"

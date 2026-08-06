@@ -72,6 +72,8 @@
     "cancel": "Annuleren",
     "submit": "Aanmaken",
     "submitError": "Aanmaken mislukt",
-    "workOrderTitlePlaceholder": "Bijv. Werkbon 1"
+    "workOrderTitlePlaceholder": "Bijv. Werkbon 1",
+    "workOrderDescriptionLabel": "Omschrijving werkbon (optioneel)",
+    "workOrderDescriptionPlaceholder": "Bijv. 2e verdieping, week 38"
   }
 }

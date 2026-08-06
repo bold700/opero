@@ -154,7 +154,9 @@ async function main() {
   } // end SEED_DEMO customers
 
   // -----------------------------------------------------------------------
-  // 4. Employees (keep mock ids). roles strings map 1:1 to TeamRole enum.
+  // 4. Employees (keep mock ids). The mock fixtures still carry a roles ARRAY
+  //    (shared/src/mock-data.ts); an Employee now has ONE job title, so take
+  //    the first entry and drop the rest.
   //    DEMO mode seeds the full mock team; otherwise NO mock employees at all —
   //    the demo logins carry their own dedicated Employee records (§9), so
   //    there is nothing here that needs propping up for them to resolve.
@@ -172,7 +174,7 @@ async function main() {
         name: tm.name,
         phone: tm.phone,
         email: tm.email ?? null,
-        roles: tm.roles as TeamRole[],
+        role: (tm.roles[0] ?? null) as TeamRole | null,
         status,
       },
     });
@@ -197,7 +199,7 @@ async function main() {
       name: "Technician Demo",
       phone: "",
       email: "technician@opero.test",
-      roles: ["Technician"] as TeamRole[],
+      role: "Technician" as TeamRole,
       status: "active",
     },
   });
@@ -233,6 +235,7 @@ async function main() {
         key: mat.key,
         name: mat.name,
         class: mat.class,
+        category: mat.category ?? null,
         supplier: mat.supplier,
         pipeMaterial: mat.pipeMaterial ?? null,
         thicknessMm: mat.thicknessMm ?? null,
@@ -748,7 +751,7 @@ async function main() {
       name: "Admin Demo",
       phone: "",
       email: "admin@opero.test",
-      roles: ["Administration"] as TeamRole[],
+      role: "Office" as TeamRole,
       status: "active",
     },
   });
@@ -776,7 +779,7 @@ async function main() {
       name: "Office Demo",
       phone: "",
       email: "office@opero.test",
-      roles: ["WorkPlanner"] as TeamRole[],
+      role: "Office" as TeamRole,
       status: "active",
     },
   });
@@ -833,7 +836,7 @@ async function main() {
         name: "Foreman Demo",
         phone: "",
         email: "foreman@opero.test",
-        roles: ["Foreman"] as TeamRole[],
+        role: "Foreman" as TeamRole,
         status: "active",
       },
     });

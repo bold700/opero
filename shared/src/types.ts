@@ -15,13 +15,10 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
 // Rollen zijn gekoppeld aan projectfases en bijbehorende rechten (zie
 // teamRoleConfig in roles.ts). Iemand kan meerdere rollen hebben.
 export type Role =
-  | "Sales"
-  | "WorkPlanner"
-  | "Planner"
+  | "Office"
+  | "ProjectLeader"
   | "Foreman"
-  | "Technician"
-  | "Administration"
-  | "ProjectLeader";
+  | "Technician";
 
 export type MaterialReadiness =
   | "available"

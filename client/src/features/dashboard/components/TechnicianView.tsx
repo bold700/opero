@@ -1,10 +1,7 @@
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import Divider from "@mui/material/Divider";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { useTranslation } from "react-i18next";
-import { Card } from "../../../components/Card";
 import { KpiCard } from "./KpiCard";
+import { ProjectListCard } from "./ProjectListCard";
 import { TONE } from "../constants";
 import type { ForemanDashboard, TechnicianDashboard } from "../api";
 
@@ -22,35 +19,21 @@ export function TechnicianView({ data }: { data: TechnicianDashboard | ForemanDa
       <Box sx={{ display: "flex", gap: 2.5, flexWrap: "wrap" }}>
         <KpiCard label={projectsLabel} value={data.assignedProjectCount} tone={TONE.primary} />
         <KpiCard label={t("dashboard.technician.kpis.openTasks")} value={data.openTaskCount} tone={TONE.info} />
-        <KpiCard label={t("dashboard.technician.kpis.today")} value={data.todayProjects.length} tone={TONE.success} />
+        <KpiCard
+          label={t("dashboard.technician.kpis.workOrders")}
+          value={data.projects.length}
+          tone={TONE.success}
+        />
       </Box>
 
-      <Card sx={{ p: 2.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-          {t("dashboard.technician.todayTitle")}
-        </Typography>
-        {data.todayProjects.length === 0 ? (
-          <Typography color="text.secondary">{t("dashboard.technician.noWorkOrders")}</Typography>
-        ) : (
-          data.todayProjects.map((p, i, arr) => (
-            <Box key={p.id}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.5 }}>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 700 }}>{p.customerName}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {p.address}, {p.city}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  {t("dashboard.technician.taskCount", { count: p.openTaskCount })}
-                </Typography>
-                <ChevronRightIcon sx={{ color: "text.disabled", fontSize: 20 }} />
-              </Box>
-              {i < arr.length - 1 ? <Divider /> : null}
-            </Box>
-          ))
-        )}
-      </Card>
+      {/* One list of the assigned work, earliest planned first. Date buckets
+          (overdue/today/upcoming) were tried and dropped: they labelled
+          never-closed werkbonnen as "late", and work could fall between them. */}
+      <ProjectListCard
+        title={t("dashboard.technician.workTitle")}
+        rows={data.projects}
+        empty={t("dashboard.technician.noWorkOrders")}
+      />
     </>
   );
 }

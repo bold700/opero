@@ -159,6 +159,13 @@ export function ProjectDetail() {
                 {project.name || project.projectNumber}
               </Typography>
               <Typography variant="body2" sx={{ color: "text.secondary" }}>{project.projectNumber}</Typography>
+              {/* The client's own reference, labelled so it can't be mistaken
+                  for Opero's projectNumber next to it. */}
+              {project.referenceNumber ? (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {t("projects.detail.referenceShort", { number: project.referenceNumber })}
+                </Typography>
+              ) : null}
               <StatusBadge label={t(`projects.status.${project.status}`)} tone={PROJECT_STATUS_TONES[project.status]} />
             </Box>
             <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
@@ -249,6 +256,12 @@ export function ProjectDetail() {
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
               <Field label={t("projects.form.customer")}>{project.customerName}</Field>
               <Field label={t("projects.detail.address")}>{project.address}, {project.postalCode} {project.city}</Field>
+              {/* Opero's own number and the client's reference sit side by side
+                  on purpose — they are different numbers for the same job. */}
+              <Field label={t("projects.table.number")}>{project.projectNumber}</Field>
+              {project.referenceNumber ? (
+                <Field label={t("projects.form.referenceNumber")}>{project.referenceNumber}</Field>
+              ) : null}
               {project.workTypeName ? <Field label={t("projects.form.workType")}>{project.workTypeName}</Field> : null}
               {project.contactName || project.contactPhone ? (
                 <Field label={t("projects.detail.contact")}>{[project.contactName, project.contactPhone].filter(Boolean).join(" · ")}</Field>

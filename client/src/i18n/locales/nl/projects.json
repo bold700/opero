@@ -1,7 +1,7 @@
 {
   "title": "Projecten",
   "actions": {
-    "searchPlaceholder": "Zoek project of klant…",
+    "searchPlaceholder": "Zoek op project, klant of referentienummer…",
     "newProject": "Nieuw project"
   },
   "status": {
@@ -25,6 +25,15 @@
     "create": "Project aanmaken",
     "customer": "Klant",
     "name": "Projectnaam",
+    "referenceNumber": "Referentienummer klant",
+    "referenceNumberHelp": "Het order-, inkoop- of dossiernummer van de klant zelf. Niet het projectnummer van Opero — dat wordt automatisch toegekend.",
+    "contactName": "Contactpersoon",
+    "contactPhone": "Telefoon contactpersoon",
+    "contactHelp": "Laat leeg om de contactgegevens van de klant over te nemen.",
+    "address": "Adres werklocatie",
+    "addressHelp": "Het adres van de klus zelf. Bij aanmaken wordt dit overgenomen van de gekozen locatie of de klant.",
+    "postalCode": "Postcode",
+    "city": "Plaats",
     "workType": "Werksoort",
     "workTypeNone": "Nog te bepalen",
     "description": "Omschrijving",
@@ -42,6 +51,7 @@
     "woDate": "Datum",
     "woSigned": "Ondertekend",
     "address": "Adres",
+    "referenceShort": "Ref. klant: {{number}}",
     "contact": "Contact",
     "instructions": "Uitvoeringsinstructies",
     "total": "Totaal",

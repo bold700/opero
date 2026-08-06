@@ -61,14 +61,23 @@ export async function getProjectsForCustomer(
 export function createProject(input: {
   customerId: string;
   name: string;
+  /** The client's own order/PO number. Omitted when blank. */
+  referenceNumber?: string;
   locationId?: string;
 }): Promise<{ id: string }> {
   return api.post<{ id: string }>("/projects", input);
 }
 
+// Blank title/description are omitted rather than sent as "": the werkbon then
+// falls back to its translated "Werkbon N" label and to the project's
+// description on the printed sheet.
 export function createWorkOrder(
   projectId: string,
-  title?: string,
+  options: { title?: string; description?: string } = {},
 ): Promise<{ id: string }> {
-  return api.post<{ id: string }>("/work-orders", title ? { projectId, title } : { projectId });
+  return api.post<{ id: string }>("/work-orders", {
+    projectId,
+    ...(options.title ? { title: options.title } : {}),
+    ...(options.description ? { description: options.description } : {}),
+  });
 }

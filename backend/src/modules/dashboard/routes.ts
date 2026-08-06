@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { ProjectStatus, Stage } from "@prisma/client";
+import type { Prisma, ProjectStatus, Stage } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../auth/middleware.js";
@@ -159,21 +159,30 @@ dashboardRouter.get(
       const woScope = visibleWorkOrdersWhere(user);
 
       // Visible projects with their open work-order tasks. Scheduling now lives on
-      // the werkbon, so a project is "upcoming" when it has a werkbon planned today
-      // or later, or a werkbon with no date yet. canSeePrices is false for both
-      // roles, so we never select or return any price/value fields.
+      // the werkbon, so a project is relevant when it has a werkbon planned today
+      // or later, a werkbon with no date yet, or an OVERDUE one still not finished
+      // (planned before today and listStatus != "done"). Dropping that last case is
+      // exactly what made a technician's overdue werkbon — and its open tasks —
+      // vanish from the dashboard the day after it was planned.
+      // WorkOrder.listStatus is "open" | "on_the_way" | "urgent" | "done"; only
+      // "done" means signed off, so `not: "done"` is the "still open" predicate.
+      const relevantWorkOrder: Prisma.WorkOrderWhereInput = {
+        AND: [
+          woScope,
+          {
+            OR: [
+              { plannedDate: { gte: today } },
+              { plannedDate: null },
+              { AND: [{ plannedDate: { lt: today } }, { listStatus: { not: "done" } }] },
+            ],
+          },
+        ],
+      };
+
+      // canSeePrices is false for both roles, so we never select or return any
+      // price/value fields.
       const projects = await prisma.project.findMany({
-        where: {
-          AND: [
-            where,
-            {
-              OR: [
-                { workOrders: { some: { AND: [woScope, { plannedDate: { gte: today } }] } } },
-                { workOrders: { some: { AND: [woScope, { plannedDate: null }] } } },
-              ],
-            },
-          ],
-        },
+        where: { AND: [where, { workOrders: { some: relevantWorkOrder } }] },
         select: {
           id: true,
           projectNumber: true,
@@ -184,8 +193,12 @@ dashboardRouter.get(
           stage: true,
           nextStepKey: true,
           workOrders: {
-            where: woScope,
+            // Same predicate as the project filter: a project surfaces because of
+            // its relevant werkbonnen, so its date and open-task count must be
+            // built from exactly those — not from finished or out-of-scope ones.
+            where: relevantWorkOrder,
             select: {
+              id: true,
               plannedDate: true,
               tasks: { where: { done: false }, select: { id: true } },
             },
@@ -196,28 +209,45 @@ dashboardRouter.get(
       const assignedProjectCount = await prisma.project.count({ where });
 
       let openTaskCount = 0;
-      const rows = projects.map((p) => {
-        const open = p.workOrders.reduce((sum, w) => sum + w.tasks.length, 0);
-        openTaskCount += open;
-        // The project's "date" is the earliest scheduled werkbon (null if none set).
-        const plannedDate = p.workOrders
-          .map((w) => w.plannedDate)
-          .filter((d): d is string => d !== null)
-          .sort()[0] ?? null;
-        return technicianProjectRow({ ...p, plannedDate }, open);
-      });
-      // Earliest-scheduled-first, unplanned projects last.
-      rows.sort((a, b) => {
-        if (a.plannedDate === b.plannedDate) return 0;
-        if (a.plannedDate === null) return 1;
-        if (b.plannedDate === null) return -1;
-        return a.plannedDate < b.plannedDate ? -1 : 1;
-      });
+      for (const p of projects) {
+        openTaskCount += p.workOrders.reduce((sum, w) => sum + w.tasks.length, 0);
+      }
+
+      // ONE list of the assigned work, not date buckets.
+      //
+      // Splitting it into overdue/today/upcoming meant labelling a werkbon that
+      // slipped past its date as "late", which points a finger at whoever is
+      // reading the screen — and in practice most past-dated werkbonnen are just
+      // never-closed ones, not missed appointments. It also created the failure
+      // mode where a project with werkbonnen in two buckets fell out of one.
+      // A flat list, earliest first, has neither problem.
+      const rows = projects
+        .map((p) => {
+          const open = p.workOrders.reduce((sum, w) => sum + w.tasks.length, 0);
+          // The project's date here is its earliest still-relevant werkbon.
+          const plannedDate = p.workOrders
+            .map((w) => w.plannedDate)
+            .filter((d): d is string => d !== null)
+            .sort()[0] ?? null;
+          // Tapping the row opens the werkbon — but only when there is exactly
+          // one to open. With several, picking any of them would be a guess, so
+          // the row stays non-interactive rather than sending someone to the
+          // wrong visit.
+          const workOrderId = p.workOrders.length === 1 ? p.workOrders[0].id : null;
+          return technicianProjectRow({ ...p, plannedDate, workOrderId }, open);
+        })
+        // Earliest-scheduled first; undated work last (it has nothing to sort by,
+        // but it is still assigned, so it stays on the list).
+        .sort((a, b) => {
+          if (a.plannedDate === b.plannedDate) return 0;
+          if (a.plannedDate === null) return 1;
+          if (b.plannedDate === null) return -1;
+          return a.plannedDate < b.plannedDate ? -1 : 1;
+        });
 
       const payload: TechnicianDashboard = {
         role: user.role,
-        todayProjects: rows.filter((r) => r.plannedDate === today),
-        upcomingProjects: rows.filter((r) => r.plannedDate !== null && r.plannedDate > today),
+        projects: rows,
         openTaskCount,
         assignedProjectCount,
       };

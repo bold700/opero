@@ -67,7 +67,7 @@ beforeAll(async () => {
       name: `${TAG} Tech`,
       phone: "0600000000",
       email: techEmail,
-      roles: ["Technician"],
+      role: "Technician",
     },
   });
   employeeId = emp.id;
@@ -152,7 +152,7 @@ describe("user provisioning", () => {
 
   it("won't invite a person with no email (400)", async () => {
     const noEmail = await prisma.employee.create({
-      data: { orgId, name: `${TAG} NoEmail`, phone: "0600000001", roles: ["Technician"] },
+      data: { orgId, name: `${TAG} NoEmail`, phone: "0600000001", role: "Technician" },
     });
     const bad = await request(app)
       .post("/api/users/invite")
@@ -210,7 +210,7 @@ describe("user provisioning", () => {
         name: `${TAG} Geen Email`,
         phone: "",
         email: null,
-        roles: ["Technician"],
+        role: "Technician",
         status: "active",
       },
     });
@@ -368,7 +368,7 @@ describe("user provisioning", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} Promote`, phone: "", email: `${TAG}-promote@opero.test`,
-        roles: ["Technician"], status: "active",
+        role: "Technician", status: "active",
       },
     });
     const invited = await request(app)
@@ -420,7 +420,7 @@ describe("user provisioning", () => {
     const emp = await prisma.employee.create({
       data: {
         orgId, name: `${TAG} NotClient`, phone: "", email: `${TAG}-notclient@opero.test`,
-        roles: ["Technician"], status: "active",
+        role: "Technician", status: "active",
       },
     });
     const invited = await request(app)
@@ -447,7 +447,7 @@ describe("user provisioning", () => {
         name: `${TAG} New Owner`,
         phone: "",
         email,
-        roles: ["Administration"],
+        role: "Office",
       });
     expect(created.status).toBe(201);
     // Creating the record grants nothing.
@@ -465,8 +465,8 @@ describe("user provisioning", () => {
   });
 
   // TeamRole is a job description; it must never imply an access level. An
-  // "Administration" job title still gets exactly the level the inviter chose.
-  it("never infers access level from the employee's job roles", async () => {
+  // "Office" job title still gets exactly the level the inviter chose.
+  it("never infers access level from the employee's job title", async () => {
     const email = `${TAG}-default@opero.test`;
     const created = await request(app)
       .post("/api/employees")
@@ -475,7 +475,7 @@ describe("user provisioning", () => {
         name: `${TAG} Default`,
         phone: "",
         email,
-        roles: ["Administration", "Planner"],
+        role: "Office",
       });
     expect(created.status).toBe(201);
 

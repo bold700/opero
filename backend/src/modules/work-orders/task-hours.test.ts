@@ -43,7 +43,7 @@ beforeAll(async () => {
 
   // Technician linked to an employee assigned as installer on the project.
   const employee = await prisma.employee.create({
-    data: { orgId, name: `${TAG}-tech`, phone: "0", roles: ["Technician"], status: "active" },
+    data: { orgId, name: `${TAG}-tech`, phone: "0", role: "Technician", status: "active" },
   });
   employeeId = employee.id;
   const technician = await prisma.user.create({
@@ -56,7 +56,7 @@ beforeAll(async () => {
 
   // A technician with NO assignment on this project.
   const outsiderEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG}-outsider`, phone: "0", roles: ["Technician"], status: "active" },
+    data: { orgId, name: `${TAG}-outsider`, phone: "0", role: "Technician", status: "active" },
   });
   const outsider = await prisma.user.create({
     data: {

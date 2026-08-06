@@ -69,9 +69,16 @@ export function CreateWorkOrderDialog({
   const [customerId, setCustomerId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
+  // The CLIENT's own order/PO number for the new project — same field as the
+  // full project form, so the inline shortcut doesn't create reference-less jobs.
+  const [newProjectReference, setNewProjectReference] = useState("");
   const [locationId, setLocationId] = useState("");
   const [newLocation, setNewLocation] = useState({ label: "", address: "", postalCode: "", city: "" });
   const [title, setTitle] = useState("");
+  // This visit's own description ("2e verdieping, week 38") — werkbon-level,
+  // not the project's. Optional: left blank, the printed werkbon falls back to
+  // the project's description.
+  const [description, setDescription] = useState("");
 
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
@@ -85,10 +92,12 @@ export function CreateWorkOrderDialog({
       setProjects([]);
       setProjectId("");
       setNewProjectName("");
+      setNewProjectReference("");
       setLocationId("");
       setNewLocation({ label: "", address: "", postalCode: "", city: "" });
       setLocations([]);
       setTitle("");
+      setDescription("");
       setError(null);
       return;
     }
@@ -152,11 +161,15 @@ export function CreateWorkOrderDialog({
         const project = await createProject({
           customerId,
           name: newProjectName.trim(),
+          referenceNumber: newProjectReference.trim() || undefined,
           locationId: resolvedLocationId || undefined,
         });
         targetProjectId = project.id;
       }
-      const wo = await createWorkOrder(targetProjectId, title.trim() || undefined);
+      const wo = await createWorkOrder(targetProjectId, {
+        title: title.trim() || undefined,
+        description: description.trim() || undefined,
+      });
       onCreated(wo.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("workOrders.create.submitError"));
@@ -210,6 +223,17 @@ export function CreateWorkOrderDialog({
                 disabled={submitting}
                 size="small"
                 autoFocus
+              />
+
+              {/* Same field as the full project form (projects.form.*): the
+                  client's own order/PO number, never Opero's projectNumber. */}
+              <TextField
+                label={t("projects.form.referenceNumber")}
+                helperText={t("projects.form.referenceNumberHelp")}
+                value={newProjectReference}
+                onChange={(e) => setNewProjectReference(e.target.value)}
+                disabled={submitting}
+                size="small"
               />
 
               <SelectField
@@ -279,6 +303,19 @@ export function CreateWorkOrderDialog({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             disabled={submitting}
+          />
+
+          {/* Optional per-visit description — what THIS werkbon covers. Left
+              blank, the printed werkbon falls back to the project's. */}
+          <TextField
+            label={t("workOrders.create.workOrderDescriptionLabel")}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            disabled={submitting}
+            size="small"
+            multiline
+            minRows={2}
+            placeholder={t("workOrders.create.workOrderDescriptionPlaceholder")}
           />
         </Box>
       </DialogContent>

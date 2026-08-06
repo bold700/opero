@@ -2,9 +2,9 @@
   "_comment": "Shared account namespace — there is no Toegang screen. These keys are used by the account panel and invite dialog embedded in Werknemers and Klanten.",
   "roles": {
     "admin": "Beheerder",
-    "office": "Kantoormedewerker",
-    "foreman": "Uitvoerder",
-    "technician": "Monteur",
+    "office": "Kantoortoegang",
+    "foreman": "Voormantoegang",
+    "technician": "Monteurtoegang",
     "client": "Klant"
   },
   "status": {

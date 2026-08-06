@@ -67,7 +67,7 @@ describe("employee create does not provision or notify", () => {
       name: `${TAG} Nieuwe Monteur`,
       phone: "0612345678",
       email,
-      roles: ["Technician"],
+      role: "Technician",
     });
 
     expect(res.status).toBe(201);

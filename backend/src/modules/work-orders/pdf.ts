@@ -18,13 +18,37 @@ export type WorkOrderPdfData = {
   customer: {
     name: string;
     contactName?: string;
+    // Who to call from site, and their email. The werkbon is printed and taken
+    // to the job, so the contact details have to be ON it — an app-only
+    // tel: link is no use to someone holding a sheet of paper.
+    contactPhone?: string;
+    contactEmail?: string;
     address?: string;
     postalCode?: string;
     city?: string;
   };
   insulationType?: string;
+  // The planned visit — date(s) "YYYY-MM-DD" plus the slot's times ("08:00"),
+  // so the printed werkbon says when the crew is expected, not just when the
+  // document was made.
+  plannedDate?: string;
+  plannedEndDate?: string;
+  startTime?: string;
+  endTime?: string;
+  // What this job is about, in prose — the werkbon's OWN description when it
+  // has one, else the project's (resolved by the route). Printed between the
+  // recipient block and the task list; the numbered task list below stays the
+  // per-zone breakdown, not the job description.
+  jobDescription?: string;
   tasks: {
+    /** The zone's short title — printed as the numbered task line. */
     description: string;
+    /**
+     * The zone's WORK DESCRIPTION ("Werkomschrijving" in the app) — what has to
+     * happen in this zone, in prose. This is the field the office actually
+     * types into, and it was missing from the printed werkbon entirely.
+     */
+    note?: string | null;
     workTypeName?: string;
     assigneeName?: string;
     done: boolean;
@@ -50,6 +74,15 @@ export type WorkOrderPdfData = {
   // any key not present (e.g. an item removed after this werkbon recorded it).
   prejobLabels: Record<string, string>;
   prejobPhotos: string[]; // storage keys
+  // Drawings and documents attached to the werkbon. Image attachments are
+  // embedded as full-width pages so a monteur working from paper HAS the
+  // drawing; PDF attachments cannot be merged by pdfkit, so those are listed by
+  // name instead of silently dropped.
+  attachments?: {
+    key: string;
+    filename: string;
+    contentType: string;
+  }[];
   dispatchedAt?: Date | null;
   signature?: string | null; // storage key of the drawn signature PNG
   signedByName?: string | null;
@@ -67,6 +100,19 @@ const STATUS_NL: Record<string, string> = {
   done: "Afgerond",
 };
 const statusNl = (s: string) => STATUS_NL[s] ?? s;
+
+// Field/section labels, keyed in ENGLISH and rendered to Dutch here (the same
+// rule as the client's i18n: identifiers stay English, Dutch is display-only).
+const LABEL_NL = {
+  subject: "Betreft",
+  planned: "Gepland",
+  jobDescription: "Omschrijving",
+  phone: "Tel",
+  email: "E-mail",
+  documents: "Documenten",
+  imageUnavailable: "Afbeelding kon niet worden weergegeven.",
+} as const;
+const label = (key: keyof typeof LABEL_NL) => LABEL_NL[key];
 // Label a checklist key: the org's configured label, else a humanized fallback
 // (for a key stored before the org's current items, e.g. a removed item).
 const prejobLabel = (k: string, labels: Record<string, string>) =>
@@ -122,10 +168,16 @@ export async function buildWorkOrderPdf(
 
   // Pre-load every image we'll embed (parallel), so layout code stays sync.
   const imageCache = new Map<string, Buffer | null>();
+  // Only IMAGE attachments are fetched: a PDF attachment cannot be drawn onto
+  // the page, so pulling its bytes would be wasted I/O.
+  const imageAttachments = (data.attachments ?? []).filter((a) =>
+    a.contentType.startsWith("image/"),
+  );
   const keysToLoad = [
     ...(data.signature ? [data.signature] : []),
     ...data.prejobPhotos,
     ...data.tasks.flatMap((t) => [...t.beforePhotos, ...t.resultPhotos]),
+    ...imageAttachments.map((a) => a.key),
   ];
   await Promise.all(
     [...new Set(keysToLoad)].map(async (k) => imageCache.set(k, await safeRead(k))),
@@ -157,6 +209,15 @@ export async function buildWorkOrderPdf(
   doc.text(`${data.number} · #${data.ordinal + 1}`, metaX, doc.y, { width: metaW, align: "right" });
   doc.fillColor(MUTED).fontSize(9);
   doc.text(`Datum: ${DATE(data.createdAt)}`, metaX, doc.y, { width: metaW, align: "right" });
+  // The planned visit: single day or range, with the slot's times when set.
+  if (data.plannedDate) {
+    const span = data.plannedEndDate
+      ? `${DATE(new Date(data.plannedDate))} – ${DATE(new Date(data.plannedEndDate))}`
+      : DATE(new Date(data.plannedDate));
+    const times =
+      data.startTime && data.endTime ? ` · ${data.startTime}–${data.endTime}` : "";
+    doc.text(`${label("planned")}: ${span}${times}`, metaX, doc.y, { width: metaW, align: "right" });
+  }
   doc.text(`Status: ${statusNl(data.status)}`, metaX, doc.y, { width: metaW, align: "right" });
   const rightBottom = doc.y;
 
@@ -173,6 +234,10 @@ export async function buildWorkOrderPdf(
   if (c.contactName) line(`t.a.v. ${c.contactName}`, { color: BODY });
   const addr = [c.address, [c.postalCode, c.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
   if (addr) line(addr, { color: BODY });
+  // Contact details for the crew on site. Printed under the address so the
+  // whole "who and where" block stays together.
+  if (c.contactPhone) line(`${label("phone")}: ${c.contactPhone}`, { color: BODY });
+  if (c.contactEmail) line(`${label("email")}: ${c.contactEmail}`, { color: BODY });
   doc.moveDown(0.8);
 
   // --- Subject / reference line (letter-style) ----------------------------
@@ -181,8 +246,20 @@ export async function buildWorkOrderPdf(
     data.insulationType ? `Isolatie: ${data.insulationType}` : null,
   ].filter(Boolean);
   if (subjectBits.length > 0) {
-    line(`Betreft: ${subjectBits.join(" · ")}`, { color: INK, bold: true });
+    line(`${label("subject")}: ${subjectBits.join(" · ")}`, { color: INK, bold: true });
     doc.moveDown(0.6);
+  }
+
+  // --- Job description ----------------------------------------------------
+  // The prose that says what this visit is for ("2e verdieping, week 38"). The
+  // route resolves it: the werkbon's own description, else the project's. This
+  // is the whole-job statement; the numbered task list below is the per-zone
+  // breakdown, so both belong on the document.
+  if (data.jobDescription) {
+    ensureSpace(doc, 40);
+    sectionTitle(doc, label("jobDescription"), LEFT, CONTENT_W);
+    line(data.jobDescription, { color: BODY });
+    doc.moveDown(0.8);
   }
 
   // --- Tasks + materials --------------------------------------------------
@@ -194,6 +271,11 @@ export async function buildWorkOrderPdf(
     line(`${i + 1}. ${task.description || "—"}${task.done ? "  (afgerond)" : ""}`, {
       color: INK, size: 11, bold: true,
     });
+    // The zone's work description, in the office's own words. Printed directly
+    // under its title: this is what the monteur is actually meant to DO here,
+    // so a werkbon without it is missing the instruction it exists to carry.
+    const workDescription = task.note?.trim();
+    if (workDescription) line(workDescription, { color: BODY });
     const meta = [task.workTypeName, task.assigneeName, task.hours != null ? `${task.hours} u` : null]
       .filter(Boolean).join(" · ");
     if (meta) line(meta, { color: MUTED });
@@ -255,6 +337,32 @@ export async function buildWorkOrderPdf(
     doc.moveDown(0.9);
   }
 
+  // --- Drawings & documents ------------------------------------------------
+  // The whole point of printing these: a monteur working from paper needs the
+  // tekening in his hand, not a link in an app he may not have open on site.
+  //
+  // Images are embedded full width, one per page, so a drawing is actually
+  // legible. A PDF attachment cannot be merged in by pdfkit, so it is named
+  // here instead: the name is all a non-image document has to identify it, and
+  // saying "there is another document" beats dropping it silently and letting
+  // someone sign off believing the sheet is complete.
+  const allAttachments = data.attachments ?? [];
+  if (allAttachments.length > 0) {
+    const pdfAttachments = allAttachments.filter((a) => !a.contentType.startsWith("image/"));
+
+    if (pdfAttachments.length > 0) {
+      ensureSpace(doc, 60);
+      hr(doc, LEFT, CONTENT_W);
+      doc.moveDown(0.6);
+      sectionTitle(doc, label("documents"), LEFT, CONTENT_W);
+      for (const a of pdfAttachments) {
+        line(`• ${a.filename}`, { color: BODY });
+      }
+      doc.moveDown(0.6);
+    }
+
+  }
+
   // --- Sign-off -----------------------------------------------------------
   ensureSpace(doc, 130);
   hr(doc, LEFT, CONTENT_W);
@@ -275,6 +383,29 @@ export async function buildWorkOrderPdf(
     }
   } else {
     line("Nog niet ondertekend.", { color: MUTED });
+  }
+
+  // --- Attached image pages (annex) ---------------------------------------
+  // AFTER the sign-off on purpose: the signature closes the werkbon itself, so
+  // it must stay with the job content rather than being pushed behind a stack
+  // of images. Each one then gets a full page, which is the only way it is
+  // actually readable on paper.
+  //
+  // No heading and no filename. These are whatever the office attached — a
+  // tekening, a scan, a photo of a meter — so labelling every page "TEKENING"
+  // would be wrong for most of them, and the picture speaks for itself anyway.
+  for (const a of imageAttachments) {
+    const buf = img(a.key);
+    if (!buf) continue; // unreadable object — never break the whole PDF
+    doc.addPage();
+    const top = doc.y;
+    const availH = doc.page.height - doc.page.margins.bottom - top;
+    try {
+      doc.image(buf, LEFT, top, { fit: [CONTENT_W, availH], align: "center" });
+    } catch {
+      // Corrupt/unsupported image: say so rather than leaving a blank page.
+      line(label("imageUnavailable"), { color: MUTED });
+    }
   }
 
   doc.end();

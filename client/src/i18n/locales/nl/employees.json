@@ -32,13 +32,10 @@
     "inactive": "Inactief"
   },
   "roles": {
-    "technician": "Monteur",
-    "foreman": "Voorman",
-    "workPlanner": "Werkvoorbereider",
-    "planner": "Planner",
+    "office": "Kantoor",
     "projectLeader": "Projectleider",
-    "administration": "Administratie",
-    "sales": "Sales"
+    "foreman": "Voorman",
+    "technician": "Monteur"
   },
   "dialog": {
     "newTitle": "Nieuwe medewerker",
@@ -46,7 +43,8 @@
     "name": "Naam",
     "phone": "Telefoon",
     "email": "E-mail",
-    "roles": "Rollen",
+    "role": "Functie",
+    "noRole": "Geen functie",
     "status": "Status",
     "account": {
       "title": "Account",

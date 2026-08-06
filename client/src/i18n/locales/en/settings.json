@@ -59,9 +59,9 @@
     "role": "Access level",
     "roles": {
       "admin": "Admin",
-      "office": "Office staff",
-      "foreman": "Foreman",
-      "technician": "Technician",
+      "office": "Office access",
+      "foreman": "Foreman access",
+      "technician": "Technician access",
       "client": "Client"
     },
     "saved": "Profile saved",

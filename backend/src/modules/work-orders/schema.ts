@@ -8,20 +8,42 @@ import { z } from "zod";
 export const createWorkOrderSchema = z.object({
   projectId: z.string().min(1),
   title: z.string().optional(),
+  // Optional per-visit description, set straight from the create dialog.
+  description: z.string().optional(),
 });
 
 // PATCH /work-orders/:id — header fields. assigneeIds sets the werkbon's
 // monteur(s) — a full replace of the assigned crew (empty array clears them);
 // all ids are validated against the org in the handler.
-export const updateWorkOrderSchema = z.object({
-  title: z.string().optional(),
-  assigneeIds: z.array(z.string()).optional(),
-  // The werkbon is the scheduled visit — its date(s) live here.
-  plannedDate: z.string().nullable().optional(),
-  plannedEndDate: z.string().nullable().optional(),
-  // Per-werkbon: does dispatch require a pre-job photo? (default: not required)
-  prejobPhotoRequired: z.boolean().optional(),
-});
+// Slot times on the planning calendar ("08:00"). Not nullable: a PlanningItem
+// always has times (defaults 08:00–15:30), so a time can be moved but not
+// cleared — clearing the DATE is what unschedules.
+const slotTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM");
+
+export const updateWorkOrderSchema = z
+  .object({
+    title: z.string().optional(),
+    // This visit's OWN description (the project's is edited on the project).
+    description: z.string().optional(),
+    assigneeIds: z.array(z.string()).optional(),
+    // The werkbon is the scheduled visit — its date(s) live here.
+    plannedDate: z.string().nullable().optional(),
+    plannedEndDate: z.string().nullable().optional(),
+    // The visit's start/end time. Written to the werkbon's calendar slot via
+    // the shared planning service, same store the Planning screen edits.
+    startTime: slotTimeSchema.optional(),
+    endTime: slotTimeSchema.optional(),
+    // Per-werkbon: does dispatch require a pre-job photo? (default: not required)
+    prejobPhotoRequired: z.boolean().optional(),
+  })
+  // Only checkable when both are in the patch; the route re-checks against the
+  // stored slot for a one-sided time change.
+  .refine((v) => !v.startTime || !v.endTime || v.startTime < v.endTime, {
+    message: "endTime must be after startTime",
+    path: ["endTime"],
+  });
 
 // PATCH /work-orders/:id/tasks/:taskId — task fields incl. per-zone work type +
 // assignee (nullable: pass null to clear, omit to leave unchanged).
