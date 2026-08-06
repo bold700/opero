@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -57,7 +57,6 @@ export function EmployeeDialog({
   onResend,
   onDisable,
   onEnable,
-  onChangeRole,
 }: {
   open: boolean;
   employee?: EmployeeRow | null;
@@ -72,18 +71,28 @@ export function EmployeeDialog({
   accountBusy: boolean;
   isSelf: boolean;
   onClose: () => void;
-  onSubmit: (input: EmployeeInput) => void;
+  /**
+   * Save. `accessRole` is the staged account level, present only when it was
+   * actually changed — the caller then commits it alongside the record.
+   */
+  onSubmit: (input: EmployeeInput, accessRole?: StaffRole) => void;
   onDelete: () => void;
   onInvite: () => void;
   onResend: () => void;
   onDisable: () => void;
   onEnable: () => void;
-  onChangeRole: (role: StaffRole) => void;
 }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const { values, setField, onBlur, errorFor, isValid, dirty, reset, touchAll } =
     useForm<Form>(EMPTY, RULES);
+
+  // The account's access level is STAGED like every other field in this dialog:
+  // picking one used to PATCH immediately, so a control that looks like a form
+  // field committed on change and Annuleren could not undo it. It is not part
+  // of `useForm` because it belongs to the linked login, not the employee
+  // record, and is saved through a different endpoint.
+  const [accessRole, setAccessRole] = useState<StaffRole | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -98,11 +107,18 @@ export function EmployeeDialog({
           }
         : EMPTY,
     );
+    // Re-seeded whenever the account changes underneath us too (an invite or a
+    // disable resolves while the dialog is open), so a stale staged level can
+    // never be saved against a login that has moved on.
+    setAccessRole((employee?.account?.role as StaffRole | undefined) ?? null);
   }, [open, employee, reset]);
 
   // The job title is a plain string field now, so useForm tracks its dirtiness
-  // like every other field — no separate baseline needed.
-  const hasChanges = dirty;
+  // like every other field — no separate baseline needed. The staged access
+  // level is tracked separately so it enables Opslaan on its own.
+  const accessRoleChanged =
+    !!employee?.account && !!accessRole && accessRole !== employee.account.role;
+  const hasChanges = dirty || accessRoleChanged;
 
   const err = (key: keyof Form) => {
     const k = errorFor(key);
@@ -114,14 +130,19 @@ export function EmployeeDialog({
       touchAll();
       return;
     }
-    onSubmit({
-      name: values.name.trim(),
-      phone: values.phone,
-      email: values.email.trim(),
-      // "" is "no job title" — send it as an explicit null so clearing sticks.
-      role: values.role ? (values.role as TeamRole) : null,
-      status: values.status as EmployeeStatus,
-    });
+    onSubmit(
+      {
+        name: values.name.trim(),
+        phone: values.phone,
+        email: values.email.trim(),
+        // "" is "no job title" — send it as an explicit null so clearing sticks.
+        role: values.role ? (values.role as TeamRole) : null,
+        status: values.status as EmployeeStatus,
+      },
+      // Only when it actually moved: an unchanged level must not cost a PATCH
+      // on someone the actor may not act on.
+      accessRoleChanged ? accessRole! : undefined,
+    );
   };
 
   return (
@@ -215,11 +236,13 @@ export function EmployeeDialog({
               busy={accountBusy}
               labelKeys="employees.dialog.account"
               isSelf={isSelf}
+              roleValue={accessRole ?? undefined}
               onInvite={onInvite}
               onResend={onResend}
               onDisable={onDisable}
               onEnable={onEnable}
-              onChangeRole={onChangeRole}
+              // Stage only — committed by Opslaan below, with the record.
+              onChangeRole={setAccessRole}
             />
           ) : null}
         </Box>

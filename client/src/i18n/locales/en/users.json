@@ -32,7 +32,6 @@
     "resent": "Invite resent to {{name}}.",
     "disabled": "{{name}}'s access has been disabled.",
     "enabled": "{{name}}'s access has been restored.",
-    "actionError": "Something went wrong. Try again.",
-    "roleChanged": "Access level changed to {{role}}."
+    "actionError": "Something went wrong. Try again."
   }
 }

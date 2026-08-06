@@ -88,6 +88,45 @@ export function PreJobPanel({
     onMoveItem(arrayMove(items, from, to).map((i) => i.id));
   };
 
+  // The checklist is the OFFICE's dispatch gate — every control in it is
+  // admin/office-gated on the backend too, so to a technician (or client) the
+  // full panel is a wall of dead checkboxes plus instructions addressed to
+  // someone else, which reads as broken. The one thing a non-office viewer can
+  // genuinely use is the pre-job PHOTOS: show a minimal photos-only card when
+  // any exist, and otherwise nothing at all.
+  if (!isAdmin) {
+    if (workOrder.prejobPhotos.length === 0) return null;
+    return (
+      <Card noPadding>
+        <Box
+          sx={{
+            px: { xs: 2, md: 3 },
+            py: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: `1px solid ${HAIRLINE}`,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {t("workOrderDetail.prejob.photos")}
+          </Typography>
+          {dispatched ? (
+            <Chip
+              size="small"
+              color="success"
+              icon={<CheckCircleOutlineIcon />}
+              label={t("workOrderDetail.prejob.dispatched")}
+            />
+          ) : null}
+        </Box>
+        <Box sx={{ px: { xs: 2, md: 3 }, py: 2.5 }}>
+          <PhotoGrid photos={workOrder.prejobPhotos} canEdit={false} busy={busy} />
+        </Box>
+      </Card>
+    );
+  }
+
   return (
     <Card noPadding>
       <Box

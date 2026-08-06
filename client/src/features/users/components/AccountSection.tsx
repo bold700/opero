@@ -31,6 +31,7 @@ export function AccountSection({
   busy,
   labelKeys,
   isSelf,
+  roleValue,
   onInvite,
   onResend,
   onDisable,
@@ -43,11 +44,21 @@ export function AccountSection({
   labelKeys: string;
   /** True when this record's login is the signed-in user's own. */
   isSelf: boolean;
+  /**
+   * The level shown in the picker. The owning dialog holds it as STAGED form
+   * state (seeded from `account.role`), so a change here is not saved until
+   * that dialog's Save — unlike the buttons below, which are immediate actions.
+   * Falls back to the account's own role when the parent doesn't stage it.
+   */
+  roleValue?: StaffRole;
   onInvite: () => void;
   onResend: () => void;
   onDisable: () => void;
   onEnable: () => void;
-  /** Omitted where the level can't change (customers are always `client`). */
+  /**
+   * Stage a new level. Omitted where the level can't change (customers are
+   * always `client`). Does NOT persist — see `roleValue`.
+   */
   onChangeRole?: (role: StaffRole) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -174,7 +185,7 @@ export function AccountSection({
           {canChangeRole ? (
             <SelectField
               label={t(`${labelKeys}.role`)}
-              value={account.role}
+              value={roleValue ?? account.role}
               onChange={(v) => onChangeRole!(v as StaffRole)}
               disabled={busy}
               options={roleOptions.map((r) => ({

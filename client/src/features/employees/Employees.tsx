@@ -122,19 +122,35 @@ export function Employees() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = async (input: EmployeeInput) => {
+  // Save. `accessRole` is the dialog's STAGED account level — present only when
+  // the picker actually moved. The record and the login live behind different
+  // endpoints, so this commits them in sequence: the employee first (it is what
+  // the dialog is nominally about), then the level.
+  const handleSubmit = async (input: EmployeeInput, accessRole?: StaffRole) => {
     setBusy(true);
     setFormError(null);
     try {
       if (editing) {
         await updateEmployee(editing.id, input);
-        setDialogOpen(false);
-        setToast(t("employees.toast.updated"));
       } else {
         await createEmployee(input);
-        setDialogOpen(false);
-        setToast(t("employees.toast.created"));
       }
+      // The two writes can't be one transaction. If the level change fails, the
+      // record edit still stands — so keep the dialog OPEN and report it there
+      // rather than closing on a toast that would imply everything saved.
+      if (accessRole && editing?.account) {
+        try {
+          await updateUserRole(editing.account.userId, accessRole);
+        } catch (roleErr) {
+          setFormError(
+            roleErr instanceof Error ? roleErr.message : t("users.toast.actionError"),
+          );
+          refresh();
+          return;
+        }
+      }
+      setDialogOpen(false);
+      setToast(t(editing ? "employees.toast.updated" : "employees.toast.created"));
       refresh();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : t("employees.toast.saveError"));
@@ -224,25 +240,6 @@ export function Employees() {
   // on the record itself). Unlike enable/disable this keeps the dialog open, so
   // the `editing` snapshot is patched in place rather than going stale behind a
   // list refresh.
-  const handleChangeRole = async (e: EmployeeRow, role: StaffRole) => {
-    if (!e.account) return;
-    setAccountBusy(true);
-    try {
-      const updated = await updateUserRole(e.account.userId, role);
-      setEditing((prev) =>
-        prev && prev.account
-          ? { ...prev, account: { ...prev.account, role: updated.role } }
-          : prev,
-      );
-      setToast(t("users.toast.roleChanged", { role: t(`users.roles.${updated.role}`) }));
-      refresh();
-    } catch (err) {
-      setToast(err instanceof Error ? err.message : t("users.toast.actionError"));
-    } finally {
-      setAccountBusy(false);
-    }
-  };
-
   const handleDelete = async () => {
     if (!deleting) return;
     setBusy(true);
@@ -331,7 +328,6 @@ export function Employees() {
           setDisableTarget(editing);
         }}
         onEnable={() => editing && handleEnable(editing)}
-        onChangeRole={(role) => editing && handleChangeRole(editing, role)}
       />
 
       <InviteDialog
