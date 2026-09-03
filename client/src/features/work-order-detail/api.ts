@@ -14,6 +14,17 @@ export type WorkOrderMaterial = {
   name: string;
   quantity: number;
   usedQuantity?: number;
+  // Stock registration: handed out to the monteur / came back to the depot.
+  issuedQuantity?: number;
+  returnedQuantity?: number;
+  // Per-day progress log: sum of entries + the entries themselves.
+  progressTotal: number;
+  progressEntries: {
+    id: string;
+    amount: number;
+    day: string;
+    employeeName?: string;
+  }[];
   unit: string;
   diameter?: number;
   // Set when the line was picked from the materials catalog.
@@ -60,6 +71,8 @@ export type WorkOrderTask = {
   startedAt?: string;
   endedAt?: string;
   hours?: number;
+  // Who last logged the hours (timer end or manual override).
+  hoursEmployeeName?: string;
   note?: string;
   ordinal: number;
   materials: WorkOrderMaterial[];
@@ -92,6 +105,10 @@ export type WorkOrderAttachment = {
   contentType: string;
   size: number;
   url?: string;
+  // "document" (default) or "packing_slip" (pakbon).
+  kind?: string;
+  // Packing slips only: set when receipt was confirmed.
+  receivedAt?: string;
   createdAt: string;
 };
 
@@ -120,6 +137,13 @@ export type WorkOrder = {
   id: string;
   projectId: string;
   title: string;
+  // The werkbon's OWN derived status — same value and vocabulary as the list
+  // (open / on_the_way / urgent / done). The header badge reads this, not the
+  // parent project's stage.
+  status: "open" | "on_the_way" | "urgent" | "done";
+  // THIS visit's priority. Per-werkbon: flagging one visit never touches its
+  // siblings. Feeds `status` above.
+  urgency: "normal" | "urgent";
   // THIS visit's own description ("2e verdieping, week 38"), independent of the
   // project's — a project groups many werkbonnen.
   description?: string;
@@ -128,6 +152,8 @@ export type WorkOrder = {
   drawings: PhotoRef[];
   // Job-level uploaded documents (PDFs/images) — quotes, plans, permits.
   attachments: WorkOrderAttachment[];
+  // The parent project's files, read-only on the werkbon (managed on the project).
+  projectAttachments: WorkOrderAttachment[];
   approvedBySupervisor: boolean;
   ordinal: number;
   // Pre-job check + dispatch gate. `prejobItems` = THIS werkbon's own items
@@ -195,7 +221,11 @@ export type Project = {
   workTypeName?: string;
   stage: string;
   status: string;
+  // Rollup: "urgent" when any unfinished werkbon of this project is urgent.
+  // Urgency itself is per-werkbon and edited on the werkbon.
   urgency: string;
+  // Derived from the project's blocker state — a separate axis from urgency.
+  blocked: boolean;
   plannedDate?: string;
   plannedEndDate?: string;
   projectLeaderId?: string;
@@ -206,8 +236,8 @@ export type Project = {
 };
 
 // Fields the werkbon-detail project sidebar can edit (all project-level).
+// Urgency is NOT here: it is per-werkbon (setWorkOrderUrgency).
 export type ProjectSidebarPatch = {
-  urgency?: "normal" | "urgent" | "blocked";
   // Switch the job to another customer. This MOVES it between client portals
   // (project.customerId gates client access), so confirm before sending.
   customerId?: string;
@@ -277,7 +307,78 @@ export function getProjectActivity(projectId: string): Promise<Activity[]> {
   return api.get<Activity[]>(`/projects/${projectId}/activity`);
 }
 
+// Post a free-text note onto the project's timeline. Returns the refreshed
+// feed (newest first), same shape as getProjectActivity.
+export function addProjectComment(projectId: string, body: string): Promise<Activity[]> {
+  return api.post<Activity[]>(`/projects/${projectId}/comments`, { body });
+}
+
 // --- Tasks (work-order mutations) -----------------------------------------
+
+// Add a line from the ARTICLE catalog (products & services, e.g. labour
+// hours). Name/unit/price resolve server-side from the article.
+export function addMaterialFromArticle(
+  workOrderId: string,
+  taskId: string,
+  input: { articleId: string; quantity: number; isExtraWork?: boolean },
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(
+    `/work-orders/${workOrderId}/tasks/${taskId}/materials/from-article`,
+    input,
+  );
+}
+
+// Register stock on one line: what was handed out, actually used, and what
+// came back. Any subset — send only the numbers being registered.
+export function registerMaterialStock(
+  workOrderId: string,
+  materialId: string,
+  input: { used?: number; issued?: number; returned?: number },
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/materials/${materialId}/usage`, input);
+}
+
+// Log one day's progress on a line (in the line's unit). `day` defaults to
+// today server-side; who logged is recorded from the caller.
+export function logMaterialProgress(
+  workOrderId: string,
+  materialId: string,
+  input: { amount: number; day?: string },
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(
+    `/work-orders/${workOrderId}/materials/${materialId}/progress`,
+    input,
+  );
+}
+
+// Remove a mistyped progress entry (office only).
+export function deleteMaterialProgress(
+  workOrderId: string,
+  materialId: string,
+  entryId: string,
+): Promise<WorkOrder> {
+  return api.delete<WorkOrder>(
+    `/work-orders/${workOrderId}/materials/${materialId}/progress/${entryId}`,
+  );
+}
+
+// --- Task timing (monteur hour logging) -----------------------------------
+
+export function startTask(workOrderId: string, taskId: string): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/tasks/${taskId}/start`, {});
+}
+
+export function endTask(workOrderId: string, taskId: string): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/tasks/${taskId}/end`, {});
+}
+
+export function setTaskHours(
+  workOrderId: string,
+  taskId: string,
+  hours: number,
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}/tasks/${taskId}/hours`, { hours });
+}
 
 export function addTask(workOrderId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/tasks`, {});
@@ -305,6 +406,15 @@ export function setWorkOrderSchedule(
   },
 ): Promise<WorkOrder> {
   return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, patch);
+}
+
+// Set THIS visit's priority (per-werkbon). The derived status comes back in
+// the response, recomputed server-side.
+export function setWorkOrderUrgency(
+  workOrderId: string,
+  urgency: "normal" | "urgent",
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { urgency });
 }
 
 // Rename the werkbon. An empty title is allowed — the header then falls back to
@@ -461,8 +571,24 @@ export function deleteDrawing(workOrderId: string, key: string): Promise<WorkOrd
 
 // --- Attachments (job-level PDFs / images) --------------------------------
 
-export function uploadAttachment(workOrderId: string, file: Blob): Promise<WorkOrder> {
-  return api.upload<WorkOrder>(`/work-orders/${workOrderId}/attachments`, file);
+export function uploadAttachment(
+  workOrderId: string,
+  file: Blob,
+  kind: "document" | "packing_slip" = "document",
+): Promise<WorkOrder> {
+  return api.upload<WorkOrder>(`/work-orders/${workOrderId}/attachments`, file, { kind });
+}
+
+// Confirm (or un-confirm) receipt of a packing slip's delivery.
+export function setAttachmentReceived(
+  workOrderId: string,
+  attachmentId: string,
+  received: boolean,
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(
+    `/work-orders/${workOrderId}/attachments/${attachmentId}/received`,
+    { received },
+  );
 }
 
 export function deleteAttachment(workOrderId: string, attachmentId: string): Promise<WorkOrder> {

@@ -16,6 +16,7 @@ export type StorageScope =
   | "wo-task-result"
   | "wo-drawing"
   | "wo-attachment"
+  | "project-attachment"
   | "wo-signature"
   | "wo-prejob"
   | "survey"
@@ -24,7 +25,7 @@ export type StorageScope =
   | "user-avatar";
 
 // Only allow a small, safe set of extensions through into keys.
-const SAFE_EXT = new Set(["jpg", "jpeg", "png", "webp", "pdf"]);
+const SAFE_EXT = new Set(["jpg", "jpeg", "png", "webp", "pdf", "doc", "docx", "xls", "xlsx"]);
 
 export function normalizeExt(ext: string): string {
   const e = ext.replace(/^\./, "").toLowerCase();

@@ -9,14 +9,15 @@ import type { Prisma } from "@prisma/client";
 export const planningWorkOrderInclude = {
   planningItems: {
     include: {
-      installers: { select: { id: true } },
+      installers: { select: { id: true, name: true } },
       teamLeader: { select: { name: true } },
     },
   },
-  assignees: { select: { id: true } },
+  assignees: { select: { id: true, name: true } },
   project: {
     select: {
       projectNumber: true,
+      name: true,
       customerName: true,
       address: true,
       postalCode: true,
@@ -37,8 +38,10 @@ type PlanningWorkOrder = Prisma.WorkOrderGetPayload<{
 // from the parent project.
 export type PlanningEntry = {
   workOrderId: string;
+  workOrderTitle: string;
   projectId: string;
   projectNumber: string;
+  projectName?: string;
   customerName: string;
   address: string;
   city: string;
@@ -49,6 +52,7 @@ export type PlanningEntry = {
   teamLeaderId?: string;
   teamLeaderName?: string;
   installerIds: string[];
+  installerNames: string[];
   vehicle?: string;
   status: string;
 };
@@ -60,39 +64,44 @@ export type PlanningEntry = {
 export function planningEntriesForWorkOrder(
   wo: PlanningWorkOrder,
 ): PlanningEntry[] {
-  const assigneeIds = wo.assignees.map((a) => a.id);
+  const assignees = wo.assignees.map((a) => ({ id: a.id, name: a.name }));
   const project = wo.project;
 
   if (wo.planningItems.length > 0) {
-    return wo.planningItems.map((item) => ({
-      workOrderId: wo.id,
-      projectId: wo.projectId,
-      projectNumber: project.projectNumber,
-      customerName: project.customerName,
-      address: project.address,
-      city: project.city,
-      date: item.date,
-      startTime: item.startTime || undefined,
-      endTime: item.endTime || undefined,
-      plannedEndDate: wo.plannedEndDate ?? undefined,
-      teamLeaderId: item.teamLeaderId ?? project.teamLeaderId ?? undefined,
-      teamLeaderName:
-        item.teamLeader?.name ?? project.teamLeader?.name ?? undefined,
-      installerIds:
-        item.installers.length > 0
-          ? item.installers.map((i) => i.id)
-          : assigneeIds,
-      vehicle: item.vehicle || undefined,
-      status: wo.listStatus,
-    }));
+    return wo.planningItems.map((item) => {
+      const crew = item.installers.length > 0 ? item.installers : assignees;
+      return {
+        workOrderId: wo.id,
+        workOrderTitle: wo.title,
+        projectId: wo.projectId,
+        projectNumber: project.projectNumber,
+        projectName: project.name ?? undefined,
+        customerName: project.customerName,
+        address: project.address,
+        city: project.city,
+        date: item.date,
+        startTime: item.startTime || undefined,
+        endTime: item.endTime || undefined,
+        plannedEndDate: wo.plannedEndDate ?? undefined,
+        teamLeaderId: item.teamLeaderId ?? project.teamLeaderId ?? undefined,
+        teamLeaderName:
+          item.teamLeader?.name ?? project.teamLeader?.name ?? undefined,
+        installerIds: crew.map((i) => i.id),
+        installerNames: crew.map((i) => i.name),
+        vehicle: item.vehicle || undefined,
+        status: wo.listStatus,
+      };
+    });
   }
 
   if (wo.plannedDate) {
     return [
       {
         workOrderId: wo.id,
+        workOrderTitle: wo.title,
         projectId: wo.projectId,
         projectNumber: project.projectNumber,
+        projectName: project.name ?? undefined,
         customerName: project.customerName,
         address: project.address,
         city: project.city,
@@ -100,7 +109,8 @@ export function planningEntriesForWorkOrder(
         plannedEndDate: wo.plannedEndDate ?? undefined,
         teamLeaderId: project.teamLeaderId ?? undefined,
         teamLeaderName: project.teamLeader?.name ?? undefined,
-        installerIds: assigneeIds,
+        installerIds: assignees.map((a) => a.id),
+        installerNames: assignees.map((a) => a.name),
         status: wo.listStatus,
       },
     ];

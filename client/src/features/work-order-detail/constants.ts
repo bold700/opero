@@ -25,49 +25,6 @@ export function extraWorkBadge(m: {
   return { key: "waitingOffice", tone: STATUS_TONES.warning };
 }
 
-// Resolve an activity row to display text. Comments carry the user's own words
-// in `body`; system/status/scheduled events carry a messageKey + params that we
-// translate via i18n. Internals are English; only the rendered text is localized.
-type TFunc = (key: string, options?: Record<string, unknown>) => string;
-
-export function activityText(
-  t: TFunc,
-  a: {
-    type: string;
-    messageKey?: string;
-    params?: Record<string, unknown>;
-    body?: string;
-  },
-): string {
-  if (a.type === "comment") return a.body ?? "";
-  if (!a.messageKey) return a.body ?? "";
-
-  const params = { ...(a.params ?? {}) };
-
-  // Compose the over/under-plan suffix for usage changes (kept as a separate
-  // keyed fragment so each language phrases it naturally).
-  if (a.messageKey === "material.usageChanged") {
-    const kind = params.deltaKind;
-    params.suffix =
-      kind === "over"
-        ? t("activity.material.usageOver", params)
-        : kind === "under"
-          ? t("activity.material.usageUnder", params)
-          : "";
-  }
-
-  return t(`activity.${a.messageKey}`, params);
-}
-
-export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("nl-NL", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function euro(n: number): string {
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",

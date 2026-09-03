@@ -28,6 +28,7 @@ import type {
 } from "../api";
 import { isZoneComplete } from "./zoneStatus";
 import { CustomerContactBlock } from "./CustomerContactBlock";
+import { AttachmentsPanel } from "../../../components/AttachmentsPanel";
 
 // A labelled block.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -67,6 +68,7 @@ export function ProjectInfoPanel({
   onPatch,
   onAssignMonteurs,
   onSetSchedule,
+  onSetUrgency,
   onSetTitle,
   onSetDescription,
   bare = false,
@@ -87,6 +89,8 @@ export function ProjectInfoPanel({
     startTime?: string;
     endTime?: string;
   }) => void;
+  /** Set THIS visit's priority (per-werkbon). */
+  onSetUrgency: (urgency: "normal" | "urgent") => void;
   /** Rename the werkbon (werkbon-level, not project). */
   onSetTitle: (title: string) => void;
   /**
@@ -220,17 +224,19 @@ export function ProjectInfoPanel({
               />
             </Field>
 
+            {/* THIS visit's priority — per-werkbon, so flagging floor 2's leak
+                never stamps floor 1's routine job. "Blocked" is not an option:
+                that's project workflow state (the blocker), not priority. */}
             <Field label={t("workOrderDetail.info.urgency")}>
               <SelectField
                 label=""
-                value={project.urgency}
-                onChange={(v) => onPatch({ urgency: v as ProjectSidebarPatch["urgency"] })}
+                value={workOrder.urgency}
+                onChange={(v) => onSetUrgency(v as "normal" | "urgent")}
                 disabled={busy}
                 nativeBelow={SHEET_BREAKPOINT}
                 options={[
                   { value: "normal", label: t("workOrderDetail.urgency.normal") },
                   { value: "urgent", label: t("workOrderDetail.urgency.urgent") },
-                  { value: "blocked", label: t("workOrderDetail.urgency.blocked") },
                 ]}
               />
             </Field>
@@ -466,6 +472,22 @@ export function ProjectInfoPanel({
                 disabled={busy}
               />
             </Field>
+
+            {/* The PROJECT's files — reference material shared by every werkbon
+                under this project. Managed on the project page; read-only here. */}
+            <Field label={t("workOrderDetail.info.projectFiles")}>
+              <AttachmentsPanel
+                bare
+                attachments={workOrder.projectAttachments}
+                canWrite={false}
+                busy={busy}
+                title=""
+                emptyText={t("workOrderDetail.info.projectFilesEmpty")}
+                addLabel=""
+                onUpload={() => {}}
+                onDelete={() => {}}
+              />
+            </Field>
           </>
         ) : (
           <>
@@ -550,6 +572,22 @@ export function ProjectInfoPanel({
                 <Typography variant="body2" sx={{ color: "text.secondary", whiteSpace: "pre-line" }}>
                   {project.instructions}
                 </Typography>
+              </Field>
+            ) : null}
+            {/* The PROJECT's files — shared by every werkbon under this project. */}
+            {workOrder.projectAttachments.length > 0 ? (
+              <Field label={t("workOrderDetail.info.projectFiles")}>
+                <AttachmentsPanel
+                  bare
+                  attachments={workOrder.projectAttachments}
+                  canWrite={false}
+                  busy={busy}
+                  title=""
+                  emptyText=""
+                  addLabel=""
+                  onUpload={() => {}}
+                  onDelete={() => {}}
+                />
               </Field>
             ) : null}
           </>

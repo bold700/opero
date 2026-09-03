@@ -40,6 +40,23 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Sales & usage period → lower bound on the line's createdAt. Unknown or
+// missing → all time (epoch).
+export type SalesPeriod = "all" | "month" | "year" | "30d";
+function salesPeriodStart(raw: unknown): Date {
+  const now = new Date();
+  switch (raw) {
+    case "month":
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case "year":
+      return new Date(now.getFullYear(), 0, 1);
+    case "30d":
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    default:
+      return new Date(0);
+  }
+}
+
 function emptyCount<K extends string>(keys: readonly K[]): Record<K, number> {
   return Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;
 }
@@ -60,6 +77,8 @@ dashboardRouter.get(
     if (isOffice(user.role)) {
       const where = projectScopeWhere(user); // all org projects
       const { start, end } = isoWeekRange();
+      // Sales & usage period: lines created since this date ("all" = no bound).
+      const salesSince = salesPeriodStart(req.query.salesPeriod);
 
       const [
         projects,
@@ -70,6 +89,7 @@ dashboardRouter.get(
         recentActivity,
         readyToInvoice,
         activeProjects,
+        salesRows,
       ] = await Promise.all([
         prisma.project.findMany({
           where,
@@ -78,8 +98,14 @@ dashboardRouter.get(
         prisma.project.count({
           where: { ...where, workOrders: { some: { plannedDate: { gte: start, lte: end } } } },
         }),
-        prisma.project.count({ where: { ...where, urgency: "urgent" } }),
-        prisma.project.count({ where: { ...where, urgency: "blocked" } }),
+        // Urgency is per-werkbon now: a project counts as urgent when any of
+        // its unfinished werkbonnen is. Blocked derives from the blocker state.
+        prisma.project.count({
+          where: { ...where, workOrders: { some: { urgency: "urgent", signedAt: null } } },
+        }),
+        prisma.project.count({
+          where: { ...where, OR: [{ blocker: { not: null } }, { blockerKey: { not: null } }] },
+        }),
         // unpaid/overdue: a werkbon invoice sent or not yet paid (anything not "paid").
         prisma.project.count({
           where: {
@@ -112,6 +138,34 @@ dashboardRouter.get(
             ],
           },
         }),
+        // Sales/usage rollup over every werkbon line in the org. SQL because
+        // Prisma's aggregate can't multiply columns. Money rules mirror the
+        // invoice: rejected lines never count; meerwerk counts only once both
+        // office and client approved. "Laid" metres = registered usage, else
+        // the planned quantity of a line ticked done (a proxy until usage is
+        // registered), else 0. Lines carry the unit as the Dutch LABEL
+        // ("meter", from LINE_UNIT_LABELS / the custom-line default), so match
+        // every spelling, never just "m".
+        prisma.$queryRaw<
+          { sold: number | null; cost: number | null; meters: number | null }[]
+        >`
+          SELECT
+            SUM(tm.quantity * COALESCE(tm."unitPrice", 0))                            AS sold,
+            SUM(tm.quantity * COALESCE(tm."costPrice", 0))                            AS cost,
+            SUM(CASE WHEN lower(tm.unit) IN ('m', 'meter', 'metre')
+                  THEN COALESCE(tm."usedQuantity", CASE WHEN tm.done THEN tm.quantity ELSE 0 END)
+                  ELSE 0 END)                                                          AS meters
+          FROM "TaskMaterial" tm
+          JOIN "WorkOrderTask" wt ON wt.id = tm."taskId"
+          JOIN "WorkOrder" wo ON wo.id = wt."workOrderId"
+          JOIN "Project" p ON p.id = wo."projectId"
+          WHERE p."orgId" = ${user.orgId}
+            AND p."deletedAt" IS NULL
+            AND tm."createdAt" >= ${salesSince}
+            AND tm.rejected = false
+            AND (tm."isExtraWork" = false
+                 OR (tm."approvedByOffice" = true AND tm."approvedByClient" = true))
+        `,
       ]);
 
       const byStatus = emptyCount(PROJECT_STATUSES);
@@ -138,6 +192,12 @@ dashboardRouter.get(
         urgentCount,
         blockedCount,
         openInvoices,
+        sales: {
+          sold: Number(salesRows[0]?.sold ?? 0),
+          cost: Number(salesRows[0]?.cost ?? 0),
+          profit: Number(salesRows[0]?.sold ?? 0) - Number(salesRows[0]?.cost ?? 0),
+          metersLaid: Number(salesRows[0]?.meters ?? 0),
+        },
       };
       res.json(payload);
       return;

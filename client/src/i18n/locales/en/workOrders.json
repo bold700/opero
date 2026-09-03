@@ -29,7 +29,8 @@
     "open": "Open",
     "onTheWay": "On the way",
     "urgent": "Urgent",
-    "done": "Done"
+    "done": "Done",
+    "notDispatched": "Not dispatched"
   },
   "actions": {
     "searchPlaceholder": "Search by number or customer...",

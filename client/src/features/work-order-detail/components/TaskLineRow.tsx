@@ -39,6 +39,7 @@ export function TaskLineRow({
   onEdit,
   onDelete,
   onChangeQuantity,
+  onOpen,
 }: {
   material: WorkOrderMaterial;
   canWrite: boolean;
@@ -51,6 +52,9 @@ export function TaskLineRow({
   onEdit?: () => void;
   onDelete: () => void;
   onChangeQuantity: (quantity: number) => void;
+  // Open the line's registration (progress + stock). The description is the
+  // tap target, so the row itself stays quiet.
+  onOpen?: () => void;
 }) {
   const { t } = useTranslation();
   const m = material;
@@ -152,6 +156,12 @@ export function TaskLineRow({
       </Box>
     ) : null;
 
+  // Unaccounted stock only computes against a known issue amount.
+  const unaccounted =
+    m.issuedQuantity != null
+      ? m.issuedQuantity - (m.usedQuantity ?? 0) - (m.returnedQuantity ?? 0)
+      : null;
+
   const actionButtons = canEditScope ? (
     <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
       {onEdit ? (
@@ -181,6 +191,26 @@ export function TaskLineRow({
     </Box>
   ) : null;
 
+  // One quiet caption for what was registered on the line: progress so far
+  // and, when stock was issued, what is still unaccounted for.
+  const registrationParts = [
+    m.progressEntries.length > 0
+      ? t("workOrderDetail.progress.summary", { total: m.progressTotal, target: m.quantity, unit: m.unit })
+      : null,
+    unaccounted !== null && unaccounted > 0
+      ? t("workOrderDetail.stock.unaccountedShort", { quantity: unaccounted, unit: m.unit })
+      : null,
+  ].filter(Boolean);
+  const registrationSummary =
+    registrationParts.length > 0 ? (
+      <Typography
+        variant="caption"
+        sx={{ display: "block", color: unaccounted !== null && unaccounted > 0 ? "warning.main" : "text.secondary" }}
+      >
+        {registrationParts.join(" · ")}
+      </Typography>
+    ) : null;
+
   const descriptionText = (
     <Typography
       variant="body2"
@@ -202,6 +232,32 @@ export function TaskLineRow({
     >
       {description}
     </Typography>
+  );
+
+  // Tapping the description opens the registration dialog (technicians too);
+  // a real button, so it works by keyboard and reads as tappable on hover.
+  const descriptionCell = onOpen ? (
+    <Box
+      component="button"
+      type="button"
+      onClick={onOpen}
+      disabled={busy}
+      sx={{
+        all: "unset",
+        display: "block",
+        width: "100%",
+        cursor: "pointer",
+        "&:hover p:first-of-type": { textDecoration: "underline" },
+      }}
+    >
+      {descriptionText}
+      {registrationSummary}
+    </Box>
+  ) : (
+    <>
+      {descriptionText}
+      {registrationSummary}
+    </>
   );
 
   const checkbox = (
@@ -233,7 +289,7 @@ export function TaskLineRow({
         }}
       >
         {checkbox}
-        <Box sx={{ flex: 1, minWidth: 0 }}>{descriptionText}</Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>{descriptionCell}</Box>
         {statusBadge}
         {meerwerkBadges}
         <Box sx={{ minWidth: 48, textAlign: "right" }}>{quantityCell}</Box>
@@ -250,7 +306,7 @@ export function TaskLineRow({
       <Box sx={{ display: { xs: "block", sm: "none" } }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           {checkbox}
-          <Box sx={{ flex: 1, minWidth: 0 }}>{descriptionText}</Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>{descriptionCell}</Box>
           {actionButtons}
         </Box>
         <Box

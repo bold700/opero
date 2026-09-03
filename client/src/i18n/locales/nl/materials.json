@@ -107,5 +107,30 @@
     "unitPrice": "Verkoopprijs",
     "costPrice": "Inkoopprijs",
     "saveError": "Opslaan mislukt"
+  },
+  "articles": {
+    "title": "Producten & diensten",
+    "add": "Artikel toevoegen",
+    "empty": "Nog geen artikelen. Voeg uurtarieven, logistiek of andere verkoopitems toe.",
+    "newTitle": "Nieuw artikel",
+    "editTitle": "Artikel bewerken",
+    "category": "Categorie",
+    "categories": {
+      "insulation": "Isolatie",
+      "material": "Materiaal",
+      "labor": "Arbeid",
+      "logistics": "Logistiek"
+    },
+    "name": "Naam",
+    "unit": "Eenheid",
+    "unitPrice": "Prijs (€, excl. btw)",
+    "defaultQuantity": "Standaard aantal",
+    "deleteTitle": "Artikel verwijderen?",
+    "deleteBody": "{{name}} verwijderen? Bestaande werkbonregels behouden hun eigen kopie."
+  },
+  "view": {
+    "label": "Catalogus",
+    "materials": "Materialen",
+    "articles": "Producten & diensten"
   }
 }

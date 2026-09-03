@@ -78,5 +78,33 @@
     "deleted": "Customer deleted",
     "saveError": "Save failed",
     "deleteError": "Delete failed"
+  },
+  "contacts": {
+    "title": "Contact persons",
+    "add": "Add contact",
+    "empty": "No contact persons yet.",
+    "role": "Role",
+    "email": "Email address",
+    "phone": "Phone number",
+    "deleteTitle": "Delete contact person?",
+    "deleteBody": "Delete {{name}}? Projects that reference this contact keep their own copy.",
+    "newTitle": "New contact",
+    "editTitle": "Edit contact",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "notes": "Notes"
+  },
+  "detail": {
+    "infoTitle": "Customer details",
+    "contactsTitle": "Contact persons",
+    "addContact": "Add contact person",
+    "kvk": "KVK",
+    "vat": "VAT",
+    "colName": "Name",
+    "colRole": "Role",
+    "colEmail": "Email",
+    "colPhone": "Phone",
+    "colAction": "Action",
+    "notFound": "Customer not found."
   }
 }

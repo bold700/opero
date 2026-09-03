@@ -77,7 +77,7 @@ beforeAll(async () => {
   // Assignment is per WERKBON, not per project — that's what grants access.
   await prisma.workOrder.update({
     where: { id: workOrderId },
-    data: { assignees: { connect: { id: techEmp.id } } },
+    data: { assignees: { connect: { id: techEmp.id } }, dispatchedAt: new Date() },
   });
 });
 

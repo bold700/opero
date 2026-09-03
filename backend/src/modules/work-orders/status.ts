@@ -13,23 +13,23 @@ export type WorkOrderListStatus = "open" | "on_the_way" | "urgent" | "done";
 // delegates we use, so recompute can run inside or outside a $transaction.
 type Db = PrismaClient | Prisma.TransactionClient;
 
-// Inputs needed to derive the status: sign-off, the project's urgency + each
-// task's done/startedAt. Pure function — no I/O.
+// Inputs needed to derive the status: sign-off, the werkbon's OWN urgency +
+// each task's done/startedAt. Pure function — no I/O. Blocked is deliberately
+// NOT an input: it's project workflow state ("cannot proceed"), and mapping it
+// to "urgent" told monteurs to hurry on stalled jobs.
 //
 // SIGN-OFF WINS. A signed work order is finished, full stop — it reports "done"
-// even when the project is urgent/blocked, and even when it has no tasks at all.
-// Without this, an urgent work order could never reach "done" (urgency returned
-// first), and a task-less one stayed "open" forever (the tasks.length check
-// below) — both showed as unfinished in the list after being signed.
-// Urgency is still surfaced on its own badge in the detail header, so ranking
-// completion above it here loses no information.
+// even when urgent, and even when it has no tasks at all. Without this, an
+// urgent work order could never reach "done" (urgency returned first), and a
+// task-less one stayed "open" forever (the tasks.length check below) — both
+// showed as unfinished in the list after being signed.
 export function deriveWorkOrderStatus(input: {
   urgency: string;
   signedAt: Date | string | null;
   tasks: { done: boolean; startedAt: string | null }[];
 }): WorkOrderListStatus {
   if (input.signedAt) return "done";
-  if (input.urgency === "urgent" || input.urgency === "blocked") return "urgent";
+  if (input.urgency === "urgent") return "urgent";
   const { tasks } = input;
   if (tasks.length > 0 && tasks.every((t) => t.done)) return "done";
   if (tasks.some((t) => t.done || t.startedAt)) return "on_the_way";
@@ -48,13 +48,13 @@ export async function recomputeWorkOrderStatus(
     select: {
       id: true,
       signedAt: true,
-      project: { select: { urgency: true } },
+      urgency: true,
       tasks: { select: { done: true, startedAt: true } },
     },
   });
   if (!wb) return null;
   const status = deriveWorkOrderStatus({
-    urgency: wb.project.urgency,
+    urgency: wb.urgency,
     signedAt: wb.signedAt,
     tasks: wb.tasks,
   });
@@ -76,13 +76,13 @@ export async function recomputeWorkOrdersForProject(
     select: {
       id: true,
       signedAt: true,
-      project: { select: { urgency: true } },
+      urgency: true,
       tasks: { select: { done: true, startedAt: true } },
     },
   });
   for (const wb of workOrders) {
     const status = deriveWorkOrderStatus({
-      urgency: wb.project.urgency,
+      urgency: wb.urgency,
       signedAt: wb.signedAt,
       tasks: wb.tasks,
     });

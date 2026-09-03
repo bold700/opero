@@ -1,4 +1,4 @@
-import type { TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem } from "@prisma/client";
+import type { ProjectAttachment, TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem } from "@prisma/client";
 import {
   canSeePrices,
   canSeeMargin,
@@ -23,13 +23,22 @@ import { photoRefs, photoUrl } from "../../lib/photoUrls.js";
 // pre-select the current article in its material→size→variant cascade. Ids/size
 // only; never any price data.
 type VariantRef = { variantMaterialId: string; variantSize: string } | null;
-type MaterialWithVariant = TaskMaterial & { variant: { materialId: string; size: string } | null };
+type MaterialWithVariant = TaskMaterial & {
+  variant: { materialId: string; size: string } | null;
+  progressEntries?: {
+    id: string;
+    amount: number;
+    day: string;
+    employee?: { name: string } | null;
+  }[];
+};
 
 // A task loaded with its materials + the per-zone work type / assignee names.
 type TaskWithRelations = WorkOrderTask & {
   materials: MaterialWithVariant[];
   workType?: { id: string; name: string } | null;
   assignee?: { id: string; name: string } | null;
+  hoursEmployee?: { id: string; name: string } | null;
 };
 
 // The customer's contact details, carried on the werkbon so a monteur on site
@@ -61,9 +70,12 @@ export type WorkOrderWithRelations = WorkOrder & {
   // The werkbon's calendar slot (one per werkbon; multi-day = one slot on the
   // start date + plannedEndDate). Carries the visit's times for the detail.
   planningItems?: { startTime: string; endTime: string }[];
-  // Present when loaded via workOrderInclude — the parent project's customer,
-  // for the technician's contact block.
-  project?: { customer?: CustomerContactSource | null } | null;
+  // Present when loaded via workOrderInclude — the parent project's customer
+  // (for the technician's contact block) and the project-level files.
+  project?: {
+    customer?: CustomerContactSource | null;
+    attachments?: ProjectAttachment[];
+  } | null;
 };
 
 // Map the parent project's customer onto the werkbon payload. Contact data
@@ -116,6 +128,17 @@ async function materialDto(m: MaterialWithVariant, showPrices: boolean, showMarg
     name: m.name,
     quantity: m.quantity,
     usedQuantity: m.usedQuantity ?? undefined,
+    issuedQuantity: m.issuedQuantity ?? undefined,
+    returnedQuantity: m.returnedQuantity ?? undefined,
+    // Per-day progress log (who advanced how much on which day). The total is
+    // the sum of entries — derived here, never stored.
+    progressTotal: (m.progressEntries ?? []).reduce((s, e) => s + e.amount, 0),
+    progressEntries: (m.progressEntries ?? []).map((e) => ({
+      id: e.id,
+      amount: e.amount,
+      day: e.day,
+      employeeName: e.employee?.name ?? undefined,
+    })),
     unit: m.unit,
     diameter: m.diameter ?? undefined,
     // Set when the line was picked from the materials catalog.
@@ -174,6 +197,7 @@ async function taskDto(t: TaskWithRelations, showPrices: boolean, showMargin: bo
     startedAt: t.startedAt ?? undefined,
     endedAt: t.endedAt ?? undefined,
     hours: t.hours ?? undefined,
+    hoursEmployeeName: t.hoursEmployee?.name ?? undefined,
     note: t.note ?? undefined,
     ordinal: t.ordinal,
     materials,
@@ -186,22 +210,37 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
   const showPrices = canSeePrices(role);
   const showMargin = canSeeMargin(role);
   const sortedTasks = [...wb.tasks].sort((a, b) => a.ordinal - b.ordinal);
-  const [drawings, signatureUrl, prejobPhotos, tasks, attachments] = await Promise.all([
-    photoRefs(wb.drawings),
-    photoUrl(wb.signature),
-    photoRefs(wb.prejobPhotos),
-    Promise.all(sortedTasks.map((t) => taskDto(t, showPrices, showMargin))),
-    Promise.all(
-      (wb.attachments ?? []).map(async (a) => ({
-        id: a.id,
-        filename: a.filename,
-        contentType: a.contentType,
-        size: a.size,
-        url: await photoUrl(a.key),
-        createdAt: a.createdAt.toISOString(),
-      })),
-    ),
-  ]);
+  const [drawings, signatureUrl, prejobPhotos, tasks, attachments, projectAttachments] =
+    await Promise.all([
+      photoRefs(wb.drawings),
+      photoUrl(wb.signature),
+      photoRefs(wb.prejobPhotos),
+      Promise.all(sortedTasks.map((t) => taskDto(t, showPrices, showMargin))),
+      Promise.all(
+        (wb.attachments ?? []).map(async (a) => ({
+          id: a.id,
+          filename: a.filename,
+          contentType: a.contentType,
+          size: a.size,
+          url: await photoUrl(a.key),
+          kind: a.kind,
+          receivedAt: a.receivedAt?.toISOString(),
+          createdAt: a.createdAt.toISOString(),
+        })),
+      ),
+      // The parent project's files — read-only from the werkbon (managed on
+      // the project), so every visit sees the same reference documents.
+      Promise.all(
+        (wb.project?.attachments ?? []).map(async (a) => ({
+          id: a.id,
+          filename: a.filename,
+          contentType: a.contentType,
+          size: a.size,
+          url: await photoUrl(a.key),
+          createdAt: a.createdAt.toISOString(),
+        })),
+      ),
+    ]);
   // Per-werkbon checklist: this werkbon's OWN items (with `done`), ordered.
   const items = [...(wb.prejobItems ?? [])].sort((a, b) => a.ordinal - b.ordinal);
   const prejobItemKeys = items.map((i) => i.key);
@@ -220,8 +259,15 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     customer: wb.project?.customer ? customerContactDto(wb.project.customer) : undefined,
     drawings,
     attachments,
+    projectAttachments,
     approvedBySupervisor: wb.approvedBySupervisor,
     ordinal: wb.ordinal,
+    // The werkbon's OWN derived status (same value the list shows) — the detail
+    // header badge reads this, NOT the parent project's stage, which used to
+    // masquerade as this werkbon's state.
+    status: wb.listStatus,
+    // THIS visit's priority (per-werkbon; the sidebar edits it).
+    urgency: wb.urgency,
     // Pre-job check + dispatch gate. `prejobItems` are THIS werkbon's items
     // (key + label + done), editable on the werkbon; snapshotted from the org
     // template at creation.
@@ -258,10 +304,17 @@ export const workOrderInclude = {
   tasks: {
     include: {
       materials: {
-        include: { variant: { select: { materialId: true, size: true } } },
+        include: {
+          variant: { select: { materialId: true, size: true } },
+          progressEntries: {
+            orderBy: { day: "asc" as const },
+            include: { employee: { select: { name: true } } },
+          },
+        },
       },
       workType: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true } },
+      hoursEmployee: { select: { id: true, name: true } },
     },
   },
   attachments: { orderBy: { createdAt: "asc" } },
@@ -288,6 +341,8 @@ export const workOrderInclude = {
           },
         },
       },
+      // Project-level files are visible from every werkbon in the project.
+      attachments: { orderBy: { createdAt: "asc" as const } },
     },
   },
 } as const;
@@ -295,7 +350,7 @@ export const workOrderInclude = {
 // --- List view ------------------------------------------------------------
 // The work-orders list (per the Figma) shows one row per work order with its
 // project context: number, customer, location, work type, technician, status,
-// date. Status is derived from urgency + task completion.
+// date. Status is derived from the werkbon's urgency + task completion.
 
 import { type WorkOrderListStatus } from "./status.js";
 export type { WorkOrderListStatus };
@@ -316,7 +371,6 @@ type WorkOrderListSource = WorkOrder & {
     customerName: string;
     city: string;
     insulationType: string;
-    urgency: string;
     teamLeader: { name: string } | null;
   };
 };
@@ -351,7 +405,6 @@ export const workOrderListInclude = {
       customerName: true,
       city: true,
       insulationType: true,
-      urgency: true,
       teamLeader: { select: { name: true } },
     },
   },
@@ -378,6 +431,10 @@ export function workOrderListDto(wb: WorkOrderListSource) {
     ),
     // Read the denormalized column (kept in sync by recomputeWorkOrderStatus).
     status: wb.listStatus as WorkOrderListStatus,
+    // Release state — the office's "which scheduled jobs haven't we sent out
+    // yet" scan, and the reason a technician's row may be read-only. A separate
+    // axis from `status` on purpose: progress and release are independent.
+    dispatchedAt: wb.dispatchedAt ? wb.dispatchedAt.toISOString() : undefined,
     // WHEN THE WORK HAPPENS, not when the row was typed in. Null until the
     // werkbon is scheduled — the list renders that as "not planned", which is
     // the same answer the planning calendar gives (planning/routes.ts treats a

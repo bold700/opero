@@ -51,6 +51,11 @@ export const notificationPrefsSchema = z.object({
   newWorkOrder: z.boolean(),
   urgentOnSite: z.boolean(),
   extraWorkApproval: z.boolean(),
+  // Office: a monteur logged progress on a line.
+  progressLogged: z.boolean(),
+  // Field staff: a dispatched werkbon planned for today has no progress logged
+  // by you yet — the "don't forget to log" reminder.
+  progressReminder: z.boolean(),
   weeklySummary: z.boolean(),
 });
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
@@ -65,6 +70,8 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   newWorkOrder: true,
   urgentOnSite: true,
   extraWorkApproval: true,
+  progressLogged: true,
+  progressReminder: true,
   weeklySummary: false,
 };
 
@@ -203,12 +210,28 @@ export type CreateCustomerRequest = z.infer<typeof createCustomerSchema>;
 export const updateCustomerSchema = createCustomerSchema.partial();
 export type UpdateCustomerRequest = z.infer<typeof updateCustomerSchema>;
 
-export const contactPersonSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().optional(),
-  phone: z.string().optional(),
+// A contact person: first + last name (the display `name` derives from them
+// server-side). A bare `name` is still accepted for older callers.
+// Digits with the usual separators, at least 6 digits — mirrors the client.
+const phoneNumber = z
+  .string()
+  .regex(/^\+?[0-9 ()./-]{6,}$/, "Invalid phone number")
+  .refine((v) => v.replace(/\D/g, "").length >= 6, "Invalid phone number");
+
+export const contactPersonFieldsSchema = z.object({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  name: z.string().optional(),
+  email: z.string().email().or(z.literal("")).optional(),
+  phone: phoneNumber.or(z.literal("")).optional(),
   role: z.string().optional(),
+  notes: z.string().optional(),
 });
+// Create requires some name; PATCH uses contactPersonFieldsSchema.partial().
+export const contactPersonSchema = contactPersonFieldsSchema.refine(
+  (v) => Boolean(v.firstName?.trim() || v.lastName?.trim() || v.name?.trim()),
+  { message: "A name is required" },
+);
 export type ContactPersonRequest = z.infer<typeof contactPersonSchema>;
 
 export const locationSchema = z.object({

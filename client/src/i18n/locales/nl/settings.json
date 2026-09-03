@@ -104,7 +104,15 @@
       "sub": "Elke maandag een overzicht per e-mail"
     },
     "saved": "Meldingsvoorkeuren opgeslagen",
-    "saveError": "Opslaan mislukt"
+    "saveError": "Opslaan mislukt",
+    "progressLogged": {
+      "label": "Voortgang gelogd",
+      "sub": "Wanneer een monteur voortgang logt op een werkbonregel."
+    },
+    "progressReminder": {
+      "label": "Log-herinnering",
+      "sub": "Een herinnering wanneer je vandaag nog geen voortgang hebt gelogd op een uitgestuurde klus."
+    }
   },
   "preferences": {
     "display": "Weergave",

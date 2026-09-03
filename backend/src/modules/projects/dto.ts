@@ -8,6 +8,7 @@ import type {
   HandoverItem,
   Project,
   ProjectActivity,
+  ProjectAttachment,
   ProjectTask,
   Quote,
   QuoteLineItem,
@@ -43,12 +44,28 @@ export type ProjectWithRelations = Project & {
     ordinal: number;
     title: string;
     listStatus: string;
+    urgency: string;
     plannedDate: string | null;
     value: number;
     signedAt: Date | null;
   }[];
   activity?: (ProjectActivity & { user?: { name: string } | null })[];
+  attachments?: ProjectAttachment[];
+  contacts?: { id: string; name: string; email: string | null; phone: string | null; role: string | null }[];
 };
+
+// One project-level file, url resolved via the prebuilt lookup. Same shape as
+// the werkbon attachment DTO, so the client panel renders both.
+export function projectAttachmentDto(a: ProjectAttachment, urlOf: UrlOf) {
+  return {
+    id: a.id,
+    filename: a.filename,
+    contentType: a.contentType,
+    size: a.size,
+    url: urlOf(a.key) ?? "",
+    createdAt: a.createdAt.toISOString(),
+  };
+}
 
 function intakeDto(i: Intake) {
   return {
@@ -182,12 +199,23 @@ export function activityDto(
   };
 }
 
+// Urgency is PER WERKBON; a project reads "urgent" only as a rollup — any of
+// its unfinished werkbonnen urgent → "urgent". Display/KPI convenience, not a
+// stored field. Blocked is a separate axis entirely (blocker/blockerKey).
+function rollupUrgency(
+  workOrders?: { urgency: string; signedAt: Date | null }[],
+): "normal" | "urgent" {
+  return (workOrders ?? []).some((w) => w.urgency === "urgent" && !w.signedAt)
+    ? "urgent"
+    : "normal";
+}
+
 // Lightweight list/summary DTO. `value` omitted for technicians when the org
 // hides prices from them.
 export function projectSummaryDto(
   p: Project & {
     _count?: { workOrders: number };
-    workOrders?: { value: number }[];
+    workOrders?: { value: number; urgency: string; signedAt: Date | null }[];
   },
   role: UserRole,
 ) {
@@ -208,7 +236,8 @@ export function projectSummaryDto(
     city: p.city,
     status: p.status,
     stage: p.stage,
-    urgency: p.urgency,
+    urgency: rollupUrgency(p.workOrders),
+    blocked: !!(p.blocker || p.blockerKey),
     nextStepKey: p.nextStepKey,
     // How many werkbonnen this project groups (the projects list needs this).
     workOrderCount: p._count?.workOrders ?? 0,
@@ -240,6 +269,14 @@ export function projectDto(
     city: p.city,
     contactName: p.contactName ?? undefined,
     contactPhone: p.contactPhone ?? undefined,
+    // The project's contact persons (from the customer's central list).
+    contacts: (p.contacts ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      email: c.email ?? undefined,
+      phone: c.phone ?? undefined,
+      role: c.role ?? undefined,
+    })),
     instructions: p.instructions ?? undefined,
     workTypeId: p.workTypeId ?? undefined,
     workTypeName: p.workType?.name ?? undefined,
@@ -252,7 +289,8 @@ export function projectDto(
     archived: p.archived,
     stage: p.stage,
     status: p.status,
-    urgency: p.urgency,
+    urgency: rollupUrgency(p.workOrders),
+    blocked: !!(p.blocker || p.blockerKey),
     blocker: p.blocker ?? undefined,
     blockerKey: p.blockerKey ?? undefined,
     nextStepKey: p.nextStepKey,
@@ -285,6 +323,7 @@ export function projectDto(
       .sort((a, b) => a.ordinal - b.ordinal)
       .map(taskDto),
     activity: (p.activity ?? []).map(activityDto),
+    attachments: (p.attachments ?? []).map((a) => projectAttachmentDto(a, urlOf)),
   };
 }
 
@@ -313,6 +352,7 @@ export const projectInclude = {
       ordinal: true,
       title: true,
       listStatus: true,
+      urgency: true,
       plannedDate: true,
       value: true,
       signedAt: true,
@@ -322,6 +362,11 @@ export const projectInclude = {
     orderBy: { createdAt: "desc" as const },
     take: 20,
     include: { user: { select: { name: true } } },
+  },
+  attachments: { orderBy: { createdAt: "asc" as const } },
+  contacts: {
+    orderBy: { name: "asc" as const },
+    select: { id: true, name: true, email: true, phone: true, role: true },
   },
 } as const;
 

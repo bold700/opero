@@ -16,6 +16,8 @@ export type Customer = {
   type: CustomerType;
   workOrderCount: number;
   lastContact: string | null;
+  kvkNumber?: string;
+  vatNumber?: string;
   notes?: string;
   // The linked login account, if any (null = no portal login provisioned yet).
   account: LinkedAccount;
@@ -53,6 +55,14 @@ export function getCustomersPage(opts: {
     search: opts.search,
     params: { filter: opts.filter },
   }) as Promise<CustomerPage>;
+}
+
+// One customer, for the detail page. The detail DTO carries no list stats
+// (workOrderCount/lastContact), so those come back as zero/null here.
+export function getCustomer(id: string): Promise<Customer> {
+  return api
+    .get<Omit<Customer, "workOrderCount" | "lastContact">>(`/customers/${id}`)
+    .then((c) => ({ workOrderCount: 0, lastContact: null, ...c }));
 }
 
 export function createCustomer(input: CustomerInput): Promise<Customer> {
@@ -93,4 +103,52 @@ export function previewSilvasoftImport(file: File): Promise<ImportPreview> {
 // Commit — creates/updates customers from the same file.
 export function commitSilvasoftImport(file: File): Promise<ImportResult> {
   return api.upload<ImportResult>("/customers/import/commit", file);
+}
+
+// --- Contact persons ------------------------------------------------------
+// A customer's centrally managed contacts, reusable across projects.
+
+export type ContactPerson = {
+  id: string;
+  customerId: string;
+  // Display name ("firstName lastName"), what lists and werkbonnen show.
+  name: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  notes?: string;
+};
+
+export type ContactPersonInput = {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  notes?: string;
+};
+
+export function getContacts(customerId: string): Promise<ContactPerson[]> {
+  return api.get<ContactPerson[]>(`/customers/${customerId}/contacts`);
+}
+
+export function createContact(
+  customerId: string,
+  input: ContactPersonInput,
+): Promise<ContactPerson> {
+  return api.post<ContactPerson>(`/customers/${customerId}/contacts`, input);
+}
+
+export function updateContact(
+  customerId: string,
+  contactId: string,
+  input: Partial<ContactPersonInput>,
+): Promise<ContactPerson> {
+  return api.patch<ContactPerson>(`/customers/${customerId}/contacts/${contactId}`, input);
+}
+
+export function deleteContact(customerId: string, contactId: string): Promise<void> {
+  return api.delete(`/customers/${customerId}/contacts/${contactId}`);
 }

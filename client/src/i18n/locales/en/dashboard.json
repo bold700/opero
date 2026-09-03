@@ -22,7 +22,20 @@
     "financialTitle": "Financial",
     "pipelineValue": "Pipeline value",
     "openInvoices": "Open invoices",
-    "recentActivity": "Activity (7 days)"
+    "recentActivity": "Activity (7 days)",
+    "salesTitle": "Sales & usage",
+    "salesSold": "Sold",
+    "salesCost": "Material cost",
+    "salesProfit": "Profit",
+    "metersLaid": "Metres laid",
+    "metersValue": "{{meters}} m",
+    "period": {
+      "label": "Period",
+      "all": "All time",
+      "month": "This month",
+      "year": "This year",
+      "30d": "Last 30 days"
+    }
   },
   "foreman": {
     "kpis": {

@@ -20,6 +20,7 @@ import {
   type ProjectInput,
 } from "./api";
 import { ProjectsActions } from "./components/ProjectsActions";
+import { ProjectsFilterBar } from "./components/ProjectsFilterBar";
 import { ProjectsTable } from "./components/ProjectsTable";
 import { ProjectFormDialog } from "./components/ProjectFormDialog";
 
@@ -32,12 +33,20 @@ export function Projects() {
   const canManage = isOffice(user?.role ?? "client");
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [workTypeFilter, setWorkTypeFilter] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const debouncedSearch = useDebounced(search, 300);
 
   const { items, loading, loadingMore, error, hasMore, loadMore } = usePagedApi<ProjectSummary>(
-    (cursor) => getProjectsPage({ cursor, search: debouncedSearch || undefined }),
-    [debouncedSearch, reloadKey],
+    (cursor) =>
+      getProjectsPage({
+        cursor,
+        search: debouncedSearch || undefined,
+        status: statusFilter || undefined,
+        workTypeId: workTypeFilter || undefined,
+      }),
+    [debouncedSearch, statusFilter, workTypeFilter, reloadKey],
   );
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -96,6 +105,12 @@ export function Projects() {
         />
       }
     >
+      <ProjectsFilterBar
+        status={statusFilter}
+        workTypeId={workTypeFilter}
+        onStatusChange={setStatusFilter}
+        onWorkTypeChange={setWorkTypeFilter}
+      />
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />

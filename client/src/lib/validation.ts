@@ -15,6 +15,16 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const email: Validator = (v) =>
   v.trim() === "" || EMAIL_RE.test(v.trim()) ? null : "common.validation.email";
 
+// Phone: digits with the usual separators (+ space - ( ) .), at least 6
+// digits. Optional in most forms → only invalid when non-empty and malformed.
+const PHONE_RE = /^\+?[0-9 ()./-]{6,}$/;
+export const phone: Validator = (v) => {
+  const s = v.trim();
+  if (s === "") return null;
+  const digits = s.replace(/\D/g, "").length;
+  return PHONE_RE.test(s) && digits >= 6 ? null : "common.validation.phone";
+};
+
 // Number >= 0 (allows empty = optional). Rejects negative / non-numeric.
 export const nonNegativeNumber: Validator = (v) => {
   if (v.trim() === "") return null;

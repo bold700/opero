@@ -36,17 +36,12 @@ export function ProjectsTable({
     <StatusBadge label={t(`projects.status.${p.status}`)} tone={PROJECT_STATUS_TONES[p.status]} />
   );
 
-  // Project number + the two optional subtitles under it: the project's own
-  // name, and the CLIENT's reference number (labelled, so the two numbers in
-  // this cell are never confused with each other).
+  // Project number + the CLIENT's reference number as a labelled subtitle
+  // (labelled, so the two numbers in this cell are never confused with each
+  // other). The project's own name has its own column on desktop.
   const numberCell = (p: ProjectSummary) => (
     <Box>
       <Typography sx={{ fontWeight: 600 }}>{p.projectNumber}</Typography>
-      {p.name ? (
-        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
-          {p.name}
-        </Typography>
-      ) : null}
       {p.referenceNumber ? (
         <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
           {t("projects.detail.referenceShort", { number: p.referenceNumber })}
@@ -86,6 +81,7 @@ export function ProjectsTable({
       onRowClick={onOpen}
       columns={[
         { header: t("projects.table.number"), cell: numberCell },
+        { header: t("projects.table.name"), cell: (p) => (p.name ? <Box>{p.name}</Box> : null) },
         { header: t("projects.table.customer"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.customerName}</Box> },
         { header: t("projects.table.city"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.city}</Box> },
         { header: t("projects.table.workOrders"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.workOrderCount}</Box> },
@@ -103,6 +99,7 @@ export function ProjectsTable({
             {numberCell(p)}
             {actionsCell(p)}
           </Box>
+          {p.name ? <Typography variant="body2">{p.name}</Typography> : null}
           <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, color: "text.secondary", fontSize: 13 }}>
             <span>{p.customerName}</span>
             {p.city ? <><span>·</span><span>{p.city}</span></> : null}

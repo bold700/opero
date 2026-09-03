@@ -31,15 +31,17 @@ uploadsRouter.get(
       throw NotFound("Object not found");
     }
 
-    const ext = key.split(".").pop()?.toLowerCase();
-    const contentType =
-      ext === "png"
-        ? "image/png"
-        : ext === "webp"
-          ? "image/webp"
-          : ext === "pdf"
-            ? "application/pdf"
-            : "image/jpeg";
+    const ext = key.split(".").pop()?.toLowerCase() ?? "";
+    const CONTENT_TYPES: Record<string, string> = {
+      png: "image/png",
+      webp: "image/webp",
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      xls: "application/vnd.ms-excel",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    };
+    const contentType = CONTENT_TYPES[ext] ?? "image/jpeg";
 
     res.setHeader("Content-Type", contentType);
     // Private: these are per-tenant; don't let shared caches hold them.

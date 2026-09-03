@@ -35,7 +35,8 @@
     "required": "Verplicht veld",
     "email": "Ongeldig e-mailadres",
     "number": "Ongeldig getal",
-    "nonNegative": "Mag niet negatief zijn"
+    "nonNegative": "Mag niet negatief zijn",
+    "phone": "Ongeldig telefoonnummer"
   },
   "offline": "Je bent offline. Sommige acties werken pas als je weer verbinding hebt."
 }

@@ -50,9 +50,12 @@ export function contactPersonDto(c: ContactPerson) {
     id: c.id,
     customerId: c.customerId,
     name: c.name,
+    firstName: c.firstName,
+    lastName: c.lastName,
     email: c.email ?? undefined,
     phone: c.phone ?? undefined,
     role: c.role ?? undefined,
+    notes: c.notes ?? undefined,
   };
 }
 

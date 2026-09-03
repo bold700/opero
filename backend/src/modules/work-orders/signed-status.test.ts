@@ -10,7 +10,7 @@ const { deriveWorkOrderStatus } = await import("./status.js");
 
 // Signing off a work order must make it report "done" — the two regressions
 // this covers both left a SIGNED work order looking unfinished in the list:
-//   1. an urgent/blocked project returned "urgent" before any completion check,
+//   1. an urgent werkbon returned "urgent" before any completion check,
 //      so such a work order could never reach "done" at all;
 //   2. a work order with zero tasks stayed "open" (the tasks.length > 0 guard).
 // Reopening must put it back on the derived (unsigned) value.
@@ -34,16 +34,17 @@ async function makeWorkOrder(urgency: "normal" | "urgent"): Promise<string> {
     .set(auth(adminToken))
     .send({ customerId, name: `${TAG} ${urgency} project` });
   const projectId = projRes.body.id as string;
-  if (urgency !== "normal") {
-    await request(app)
-      .patch(`/api/projects/${projectId}`)
-      .set(auth(adminToken))
-      .send({ urgency });
-  }
   const woRes = await request(app)
     .post("/api/work-orders")
     .set(auth(adminToken))
     .send({ projectId });
+  if (urgency !== "normal") {
+    // Urgency is per-werkbon: set it on the visit itself.
+    await request(app)
+      .patch(`/api/work-orders/${woRes.body.id}`)
+      .set(auth(adminToken))
+      .send({ urgency });
+  }
   return woRes.body.id as string;
 }
 
@@ -90,7 +91,7 @@ afterAll(async () => {
 });
 
 describe("deriveWorkOrderStatus — sign-off precedence (pure)", () => {
-  it("signed wins over an urgent project", () => {
+  it("signed wins over an urgent werkbon", () => {
     expect(
       deriveWorkOrderStatus({
         urgency: "urgent",
@@ -104,7 +105,7 @@ describe("deriveWorkOrderStatus — sign-off precedence (pure)", () => {
     expect(deriveWorkOrderStatus({ urgency: "normal", signedAt: new Date(), tasks: [] })).toBe("done");
   });
 
-  it("unsigned behaviour is unchanged: urgent project still reports urgent", () => {
+  it("unsigned behaviour is unchanged: urgent werkbon still reports urgent", () => {
     expect(
       deriveWorkOrderStatus({ urgency: "urgent", signedAt: null, tasks: [{ done: false, startedAt: null }] }),
     ).toBe("urgent");
@@ -116,7 +117,7 @@ describe("deriveWorkOrderStatus — sign-off precedence (pure)", () => {
 });
 
 describe("signing a work order persists listStatus = done", () => {
-  it("REGRESSION 1: work order on an URGENT project becomes done when signed", async () => {
+  it("REGRESSION 1: an URGENT work order becomes done when signed", async () => {
     const id = await makeWorkOrder("urgent");
     expect(await listStatusOf(id)).toBe("urgent");
 

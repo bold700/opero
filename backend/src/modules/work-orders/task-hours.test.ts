@@ -91,7 +91,8 @@ beforeAll(async () => {
   // werkbon's crew, which is what grants them access.
   await prisma.workOrder.update({
     where: { id: workOrderId },
-    data: { assignees: { connect: { id: employeeId } } },
+    // Assigned AND dispatched: technician writes are gated on dispatch.
+    data: { assignees: { connect: { id: employeeId } }, dispatchedAt: new Date() },
   });
   const withTask = await request(app)
     .post(`/api/work-orders/${workOrderId}/tasks`)

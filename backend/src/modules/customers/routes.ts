@@ -4,6 +4,7 @@ import {
   createCustomerSchema,
   updateCustomerSchema,
   contactPersonSchema,
+  contactPersonFieldsSchema,
   locationSchema,
 } from "@opero/shared";
 import { prisma } from "../../db/client.js";
@@ -497,13 +498,20 @@ customersRouter.post(
     });
     if (!customer) throw NotFound("Customer not found");
     const created = await prisma.$transaction(async (tx) => {
+      const firstName = clampText(input.firstName ?? "").trim();
+      const lastName = clampText(input.lastName ?? "").trim();
       const c = await tx.contactPerson.create({
         data: {
           customerId: customer.id,
-          name: clampText(input.name),
+          // Display name derives from first + last when given; a bare `name`
+          // (older callers) is still accepted as-is.
+          name: [firstName, lastName].filter(Boolean).join(" ") || clampText(input.name ?? ""),
+          firstName,
+          lastName,
           email: input.email ? clampText(input.email) : null,
           phone: input.phone ? clampText(input.phone) : null,
           role: input.role ? clampText(input.role) : null,
+          notes: input.notes ? clampText(input.notes) : null,
         },
       });
       await audit(tx, user, "contact.create", "contactPerson", c.id);
@@ -518,19 +526,34 @@ customersRouter.patch(
   requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const input = contactPersonSchema.partial().parse(req.body);
+    const input = contactPersonFieldsSchema.partial().parse(req.body);
     const existing = await prisma.contactPerson.findFirst({
       where: { id: req.params.contactId, customerId: req.params.id },
     });
     if (!existing) throw NotFound("Contact not found");
     const updated = await prisma.$transaction(async (tx) => {
+      const firstName =
+        input.firstName !== undefined ? clampText(input.firstName).trim() : existing.firstName;
+      const lastName =
+        input.lastName !== undefined ? clampText(input.lastName).trim() : existing.lastName;
+      const nameParts = [firstName, lastName].filter(Boolean).join(" ");
       const c = await tx.contactPerson.update({
         where: { id: existing.id },
         data: {
-          name: input.name !== undefined ? clampText(input.name) : undefined,
+          firstName,
+          lastName,
+          // Re-derive the display name when either part changed; else honour
+          // an explicit `name` from older callers; else leave it.
+          name:
+            input.firstName !== undefined || input.lastName !== undefined
+              ? nameParts || existing.name
+              : input.name !== undefined
+                ? clampText(input.name)
+                : undefined,
           email: input.email !== undefined ? clampText(input.email) : undefined,
           phone: input.phone !== undefined ? clampText(input.phone) : undefined,
           role: input.role !== undefined ? clampText(input.role) : undefined,
+          notes: input.notes !== undefined ? clampText(input.notes) : undefined,
         },
       });
       await audit(tx, user, "contact.update", "contactPerson", c.id);

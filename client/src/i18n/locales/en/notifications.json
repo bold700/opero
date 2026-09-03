@@ -5,5 +5,7 @@
   "extraWorkAwaitingClient": "Extra work is waiting for your approval: {{description}} ({{customer}})",
   "projectUrgent": "Urgent: {{number}} · {{customer}}",
   "projectBlocked": "Blocked: {{number}} · {{customer}}",
-  "newWorkOrderAssigned": "New work order assigned: {{title}} ({{customer}})"
+  "newWorkOrderAssigned": "New work order assigned: {{title}} ({{customer}})",
+  "progressLogged": "{{user}} logged progress on {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})",
+  "progressReminder": "No progress logged today on {{title}} ({{number}} · {{customer}})."
 }

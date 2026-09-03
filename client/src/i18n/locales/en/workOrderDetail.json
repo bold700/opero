@@ -1,6 +1,7 @@
 {
   "title": "Work order",
   "notFound": "Work order not found",
+  "notDispatched": "This work order has not been dispatched by the office yet.",
   "actionFailed": "Action failed",
   "exportFailed": "Could not export the PDF",
   "finishedToast": "Work order completed",
@@ -103,9 +104,8 @@
   },
   "attachments": {
     "title": "Attachments",
-    "add": "Add file",
     "empty": "No attachments yet.",
-    "deleteAria": "Delete attachment"
+    "add": "Add file"
   },
   "extraWork": {
     "title": "Extra work",
@@ -149,7 +149,14 @@
     "statusDone": "Done",
     "statusTodo": "To do",
     "empty": "No zones yet.",
-    "reorderAria": "Reorder"
+    "reorderAria": "Reorder",
+    "hoursTitle": "Hours",
+    "startTimer": "Start timer",
+    "stopTimer": "Stop timer",
+    "timerRunning": "Timer running…",
+    "hoursLabel": "Hours",
+    "hoursValue": "{{hours}} h",
+    "loggedBy": "Logged by {{name}}"
   },
   "line": {
     "sectionTitle": "Tasks",
@@ -188,7 +195,9 @@
     "unitM2": "m2",
     "extraWork": "Extra work",
     "isExtraWork": "Extra work",
-    "isExtraWorkHint": "Not counted in the quote. Only invoiced after both office and client approve."
+    "isExtraWorkHint": "Not counted in the quote. Only invoiced after both office and client approve.",
+    "sourceArticles": "Products & services",
+    "articlesLabel": "Product or service"
   },
   "info": {
     "title": "Details",
@@ -220,10 +229,38 @@
     "customerSwitchTitle": "Change customer",
     "customerSwitchBody": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job.",
     "customerContact": "Customer contact",
-    "noContactDetails": "No contact details"
+    "noContactDetails": "No contact details",
+    "projectFiles": "Project files",
+    "projectFilesEmpty": "No project files."
   },
   "meerwerkApproval": {
     "title": "Extra work — awaiting approval ({{count}})",
     "clientHint": "This extra work is approved by the office and is awaiting your approval."
+  },
+  "stock": {
+    "title": "Register stock",
+    "needed": "needed: {{quantity}} {{unit}}",
+    "issued": "Handed out",
+    "used": "Actually used",
+    "returned": "Came back",
+    "unaccounted": "{{quantity}} {{unit}} unaccounted for.",
+    "unaccountedShort": "{{quantity}} {{unit}} unaccounted",
+    "accounted": "Everything is accounted for.",
+    "onSiteHint": "Delivered on location — register what comes back even without a hand-out amount."
+  },
+  "progress": {
+    "title": "Log progress",
+    "status": "{{total}} of {{target}} {{unit}} done",
+    "summary": "Progress {{total}}/{{target}} {{unit}}",
+    "empty": "Nothing logged yet.",
+    "amountLabel": "Amount ({{unit}})",
+    "dayLabel": "Day",
+    "log": "Log"
+  },
+  "packingSlips": {
+    "title": "Packing slips",
+    "empty": "No packing slips yet.",
+    "add": "Add packing slip",
+    "received": "Received"
   }
 }

@@ -25,6 +25,7 @@ import { MaterialsActions } from "./components/MaterialsActions";
 import { MaterialGroupList } from "./components/MaterialGroupList";
 import { VariantSearchTable } from "./components/VariantSearchTable";
 import { MaterialFormDialog } from "./components/MaterialFormDialog";
+import { ArticlesSection } from "./components/ArticlesSection";
 
 // Materials — the company's catalog of real products (28 materials), grouped
 // by class (insulation / fittings / tanks / cladding). Tap a material → its
@@ -46,6 +47,9 @@ export function Materials() {
   // "" = all systems; narrows server-side so uncategorised materials only
   // appear under the "all" default (mirrors the technician picker's filter).
   const [category, setCategory] = useState<MaterialSystemCategory | "">("");
+  // Which catalog: the material catalog, or the article list (products &
+  // services). One page, two views — same FilterSelect the list pages use.
+  const [view, setView] = useState<"materials" | "articles">("materials");
   const [createOpen, setCreateOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0); // bump to refetch groups
   const debouncedSearch = useDebounced(search, 300);
@@ -95,16 +99,29 @@ export function Materials() {
     <PageLayout
       title={t("materials.title")}
       actions={
-        <MaterialsActions
-          search={search}
-          onSearch={setSearch}
-          canCreate={isAdmin}
-          onCreate={() => setCreateOpen(true)}
-        />
+        view === "materials" ? (
+          <MaterialsActions
+            search={search}
+            onSearch={setSearch}
+            canCreate={isAdmin}
+            onCreate={() => setCreateOpen(true)}
+          />
+        ) : undefined
       }
     >
-      {/* System + supplier filters (supplier only when there's more than one). */}
+      {/* View + system + supplier filters (supplier only when there's more than one). */}
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+        <FilterSelect
+          value={view}
+          onChange={(v) => setView(v as "materials" | "articles")}
+          ariaLabel={t("materials.view.label")}
+          options={[
+            { value: "materials", label: t("materials.view.materials") },
+            { value: "articles", label: t("materials.view.articles") },
+          ]}
+        />
+        {view === "materials" ? (
+          <>
         <FilterSelect
           value={category}
           onChange={(v) => setCategory(v as MaterialSystemCategory | "")}
@@ -125,9 +142,13 @@ export function Materials() {
             ]}
           />
         ) : null}
+          </>
+        ) : null}
       </Box>
 
-      {loading ? (
+      {view === "articles" ? (
+        <ArticlesSection canManage={isAdmin} showPrices={showPrices} />
+      ) : loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>

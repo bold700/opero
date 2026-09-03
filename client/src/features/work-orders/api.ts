@@ -11,6 +11,9 @@ export type WorkOrderRow = {
   workType: string;
   technician: string;
   status: WorkOrderStatus;
+  // Release state — undefined until the office dispatches. A separate axis
+  // from `status`: progress and release are independent.
+  dispatchedAt?: string;
   // Planned work date — null until the werkbon is scheduled.
   date: string | null;
 };

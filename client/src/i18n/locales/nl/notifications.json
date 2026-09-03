@@ -5,5 +5,7 @@
   "extraWorkAwaitingClient": "Meerwerk wacht op jouw goedkeuring: {{description}} ({{customer}})",
   "projectUrgent": "Spoed: {{number}} · {{customer}}",
   "projectBlocked": "Geblokkeerd: {{number}} · {{customer}}",
-  "newWorkOrderAssigned": "Nieuwe werkbon toegewezen: {{title}} ({{customer}})"
+  "newWorkOrderAssigned": "Nieuwe werkbon toegewezen: {{title}} ({{customer}})",
+  "progressLogged": "{{user}} heeft voortgang gelogd op {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})",
+  "progressReminder": "Vandaag nog geen voortgang gelogd op {{title}} ({{number}} · {{customer}})."
 }

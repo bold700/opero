@@ -5,9 +5,18 @@ import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import { KpiCard } from "./KpiCard";
 import { TONE, STATUS_LABEL_KEY, euro } from "../constants";
-import type { AdminDashboard } from "../api";
+import { FilterSelect } from "../../../components/FilterSelect";
+import type { AdminDashboard, SalesPeriod } from "../api";
 
-export function AdminView({ data }: { data: AdminDashboard }) {
+export function AdminView({
+  data,
+  salesPeriod,
+  onSalesPeriodChange,
+}: {
+  data: AdminDashboard;
+  salesPeriod: SalesPeriod;
+  onSalesPeriodChange: (p: SalesPeriod) => void;
+}) {
   const { t } = useTranslation();
   const kpis = [
     { label: t("dashboard.admin.kpis.totalProjects"), value: data.kpis.totalProjects, tone: TONE.primary },
@@ -29,22 +38,67 @@ export function AdminView({ data }: { data: AdminDashboard }) {
         ))}
       </Box>
 
-      <Box sx={{ display: "flex", gap: 2.5, flexDirection: { xs: "column", lg: "row" }, alignItems: "stretch" }}>
+      <Box sx={{ display: "flex", gap: 2.5, flexDirection: { xs: "column", lg: "row" }, alignItems: { xs: "stretch", lg: "flex-start" } }}>
         {/* Pipeline by status */}
-        <Card sx={{ flex: 1, minWidth: 0, p: 2.5 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-            {t("dashboard.admin.pipelineTitle")}
-          </Typography>
-          {(["sales", "operations", "closing"] as const).map((s, i, arr) => (
-            <Box key={s}>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 1.5 }}>
-                <Typography sx={{ fontWeight: 600 }}>{t(STATUS_LABEL_KEY[s])}</Typography>
-                <Typography sx={{ fontWeight: 700 }}>{data.byStatus[s] ?? 0}</Typography>
+        <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2.5 }}>
+          <Card sx={{ p: 2.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+              {t("dashboard.admin.pipelineTitle")}
+            </Typography>
+            {(["sales", "operations", "closing"] as const).map((s, i, arr) => (
+              <Box key={s}>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 1.5 }}>
+                  <Typography sx={{ fontWeight: 600 }}>{t(STATUS_LABEL_KEY[s])}</Typography>
+                  <Typography sx={{ fontWeight: 700 }}>{data.byStatus[s] ?? 0}</Typography>
+                </Box>
+                {i < arr.length - 1 ? <Divider /> : null}
               </Box>
-              {i < arr.length - 1 ? <Divider /> : null}
+            ))}
+          </Card>
+
+          {/* Sales & usage — what was sold on werkbon lines, what it cost,
+              what remains, and the metres actually laid. */}
+          <Card sx={{ p: 2.5 }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap", mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {t("dashboard.admin.salesTitle")}
+              </Typography>
+              <FilterSelect
+                value={salesPeriod}
+                onChange={(v) => onSalesPeriodChange(v as SalesPeriod)}
+                ariaLabel={t("dashboard.admin.period.label")}
+                minWidth={140}
+                options={(["all", "month", "year", "30d"] as const).map((p) => ({
+                  value: p,
+                  label: t(`dashboard.admin.period.${p}`),
+                }))}
+              />
             </Box>
-          ))}
-        </Card>
+            <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5 }}>
+              <Typography color="text.secondary">{t("dashboard.admin.salesSold")}</Typography>
+              <Typography sx={{ fontWeight: 700 }}>{euro(data.sales.sold)}</Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5 }}>
+              <Typography color="text.secondary">{t("dashboard.admin.salesCost")}</Typography>
+              <Typography sx={{ fontWeight: 700 }}>{euro(data.sales.cost)}</Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5 }}>
+              <Typography color="text.secondary">{t("dashboard.admin.salesProfit")}</Typography>
+              <Typography sx={{ fontWeight: 700, color: data.sales.profit >= 0 ? "success.main" : "error.main" }}>
+                {euro(data.sales.profit)}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5 }}>
+              <Typography color="text.secondary">{t("dashboard.admin.metersLaid")}</Typography>
+              <Typography sx={{ fontWeight: 700 }}>
+                {t("dashboard.admin.metersValue", { meters: Math.round(data.sales.metersLaid) })}
+              </Typography>
+            </Box>
+          </Card>
+        </Box>
 
         {/* Financials */}
         <Card sx={{ width: { xs: "100%", lg: 360 }, flexShrink: 0, p: 2.5 }}>

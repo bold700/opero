@@ -1,6 +1,7 @@
 {
   "title": "Werkbon",
   "notFound": "Werkbon niet gevonden",
+  "notDispatched": "Deze werkbon is nog niet verzonden door kantoor.",
   "actionFailed": "Actie mislukt",
   "exportFailed": "Kon de PDF niet exporteren",
   "finishedToast": "Werkbon afgerond",
@@ -103,9 +104,8 @@
   },
   "attachments": {
     "title": "Bijlagen",
-    "add": "Bestand toevoegen",
     "empty": "Nog geen bijlagen.",
-    "deleteAria": "Bijlage verwijderen"
+    "add": "Bestand toevoegen"
   },
   "extraWork": {
     "title": "Meerwerk",
@@ -149,7 +149,14 @@
     "statusDone": "Klaar",
     "statusTodo": "Nog te doen",
     "empty": "Nog geen zones.",
-    "reorderAria": "Volgorde wijzigen"
+    "reorderAria": "Volgorde wijzigen",
+    "hoursTitle": "Uren",
+    "startTimer": "Timer starten",
+    "stopTimer": "Timer stoppen",
+    "timerRunning": "Timer loopt…",
+    "hoursLabel": "Uren",
+    "hoursValue": "{{hours}} u",
+    "loggedBy": "Gelogd door {{name}}"
   },
   "line": {
     "sectionTitle": "Taken",
@@ -188,7 +195,9 @@
     "unitM2": "m2",
     "extraWork": "Meerwerk",
     "isExtraWork": "Meerwerk",
-    "isExtraWorkHint": "Telt niet mee in de offerte. Komt pas op de factuur na akkoord van kantoor én klant."
+    "isExtraWorkHint": "Telt niet mee in de offerte. Komt pas op de factuur na akkoord van kantoor én klant.",
+    "sourceArticles": "Producten & diensten",
+    "articlesLabel": "Product of dienst"
   },
   "info": {
     "title": "Gegevens",
@@ -220,10 +229,38 @@
     "customerSwitchTitle": "Klant wijzigen",
     "customerSwitchBody": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer.",
     "customerContact": "Contactpersoon klant",
-    "noContactDetails": "Geen contactgegevens"
+    "noContactDetails": "Geen contactgegevens",
+    "projectFiles": "Projectbestanden",
+    "projectFilesEmpty": "Geen projectbestanden."
   },
   "meerwerkApproval": {
     "title": "Meerwerk — wacht op akkoord ({{count}})",
     "clientHint": "Dit meerwerk is door kantoor goedgekeurd en wacht op uw akkoord."
+  },
+  "stock": {
+    "title": "Voorraad registreren",
+    "needed": "nodig: {{quantity}} {{unit}}",
+    "issued": "Meegegeven",
+    "used": "Werkelijk verbruikt",
+    "returned": "Retour gekomen",
+    "unaccounted": "{{quantity}} {{unit}} niet verantwoord.",
+    "unaccountedShort": "{{quantity}} {{unit}} niet verantwoord",
+    "accounted": "Alles is verantwoord.",
+    "onSiteHint": "Geleverd op locatie — registreer wat terugkomt, ook zonder meegegeven aantal."
+  },
+  "progress": {
+    "title": "Voortgang loggen",
+    "status": "{{total}} van {{target}} {{unit}} gedaan",
+    "summary": "Voortgang {{total}}/{{target}} {{unit}}",
+    "empty": "Nog niets gelogd.",
+    "amountLabel": "Aantal ({{unit}})",
+    "dayLabel": "Dag",
+    "log": "Loggen"
+  },
+  "packingSlips": {
+    "title": "Pakbonnen",
+    "empty": "Nog geen pakbonnen.",
+    "add": "Pakbon toevoegen",
+    "received": "Ontvangen"
   }
 }

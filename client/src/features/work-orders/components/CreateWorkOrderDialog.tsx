@@ -229,7 +229,6 @@ export function CreateWorkOrderDialog({
                   client's own order/PO number, never Opero's projectNumber. */}
               <TextField
                 label={t("projects.form.referenceNumber")}
-                helperText={t("projects.form.referenceNumberHelp")}
                 value={newProjectReference}
                 onChange={(e) => setNewProjectReference(e.target.value)}
                 disabled={submitting}

@@ -36,13 +36,20 @@ export function TasksPanel({
   onDeleteZone,
   onAddLine,
   onAddCustomLine,
+  onAddArticleLine,
   onEditLine,
   onEditCustomLine,
   onDeleteLine,
   onToggleLine,
   onChangeLineQuantity,
+  onRegisterStock,
+  onLogProgress,
+  onDeleteProgress,
   onUploadPhoto,
   onDeletePhoto,
+  onStartTimer,
+  onEndTimer,
+  onSetHours,
 }: {
   workOrder: WorkOrder;
   // Register on-site facts (technicians included). See WorkOrderDetail.
@@ -75,6 +82,10 @@ export function TasksPanel({
       isExtraWork?: boolean;
     },
   ) => void;
+  onAddArticleLine: (
+    taskId: string,
+    input: { articleId: string; quantity: number; isExtraWork?: boolean },
+  ) => void;
   onEditLine: (
     matId: string,
     input: { variantId: string; quantity: number; isExtraWork?: boolean },
@@ -92,8 +103,17 @@ export function TasksPanel({
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
   onChangeLineQuantity: (matId: string, quantity: number) => void;
+  onRegisterStock: (
+    matId: string,
+    input: { used?: number; issued?: number; returned?: number },
+  ) => void;
+  onLogProgress: (matId: string, input: { amount: number; day?: string }) => void;
+  onDeleteProgress: (matId: string, entryId: string) => void;
   onUploadPhoto: (taskId: string, kind: "before" | "result", file: File) => void;
   onDeletePhoto: (taskId: string, key: string) => void;
+  onStartTimer: (taskId: string) => void;
+  onEndTimer: (taskId: string) => void;
+  onSetHours: (taskId: string, hours: number) => void;
 }) {
   const { t } = useTranslation();
   const { tasks } = workOrder;
@@ -127,13 +147,20 @@ export function TasksPanel({
       onDeleteZone={() => onDeleteZone(task.id)}
       onAddLine={(input) => onAddLine(task.id, input)}
       onAddCustomLine={(input) => onAddCustomLine(task.id, input)}
+      onAddArticleLine={(input) => onAddArticleLine(task.id, input)}
       onEditLine={onEditLine}
       onEditCustomLine={onEditCustomLine}
       onDeleteLine={onDeleteLine}
       onToggleLine={onToggleLine}
       onChangeLineQuantity={onChangeLineQuantity}
+      onRegisterStock={onRegisterStock}
+      onLogProgress={onLogProgress}
+      onDeleteProgress={onDeleteProgress}
       onUploadPhoto={(kind, file) => onUploadPhoto(task.id, kind, file)}
       onDeletePhoto={(key) => onDeletePhoto(task.id, key)}
+      onStartTimer={() => onStartTimer(task.id)}
+      onEndTimer={() => onEndTimer(task.id)}
+      onSetHours={(hours) => onSetHours(task.id, hours)}
     />
   );
 

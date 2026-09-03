@@ -472,6 +472,9 @@ async function main() {
         // to a monteur (see work-orders/visibility.ts). Seeding only the
         // project's `installers` would leave every technician with an empty app.
         assignees: { connect: crew },
+        // Urgency is per-werkbon; the mock project's urgency seeds every one
+        // of its visits (mock "blocked" is a blocker, not an urgency).
+        urgency: p.urgency === "urgent" ? ("urgent" as const) : ("normal" as const),
         // Scheduling lives on the werkbon; only the primary inherits the
         // project's planned dates.
         plannedDate: isPrimary ? p.plannedDate ?? null : null,
@@ -609,7 +612,6 @@ async function main() {
         archived: p.archived ?? false,
         stage,
         status: p.status,
-        urgency: p.urgency,
         blocker: p.blocker ?? null,
         blockerKey: p.blockerKey ?? null,
         nextStepKey: p.nextStepKey,
@@ -854,7 +856,17 @@ async function main() {
   }
 
   // -----------------------------------------------------------------------
-  // 10. Summary
+  // 10. Derive every werkbon's listStatus from what was just seeded (urgency,
+  //     sign-off, task progress). Rows are created with the column default
+  //     ("open"), so without this an urgent seeded visit lists as open.
+  // -----------------------------------------------------------------------
+  const { backfillAllWorkOrderStatuses } = await import(
+    "../modules/work-orders/status.js"
+  );
+  await backfillAllWorkOrderStatuses();
+
+  // -----------------------------------------------------------------------
+  // 11. Summary
   // -----------------------------------------------------------------------
   const [
     customers,

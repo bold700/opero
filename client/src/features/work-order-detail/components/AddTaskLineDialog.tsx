@@ -18,6 +18,7 @@ import { useApi } from "../../../lib/api/useApi";
 import {
   getMaterialGroups,
   getMaterial,
+  getArticles,
   type MaterialVariant,
   type MaterialSystemCategory,
 } from "../../materials/api";
@@ -60,6 +61,7 @@ export function AddTaskLineDialog({
   onClose,
   onAdd,
   onAddCustom,
+  onAddArticle,
 }: {
   open: boolean;
   busy: boolean;
@@ -90,6 +92,9 @@ export function AddTaskLineDialog({
     unitPrice?: number;
     isExtraWork?: boolean;
   }) => void;
+  // Omitted → the articles (products & services) tab is not offered. Name /
+  // unit / price resolve server-side from the Article, like the catalog path.
+  onAddArticle?: (input: { articleId: string; quantity: number; isExtraWork?: boolean }) => void;
 }) {
   const { t } = useTranslation();
   const editing = mode === "edit";
@@ -99,7 +104,8 @@ export function AddTaskLineDialog({
     [open],
   );
 
-  const [source, setSource] = useState<"catalog" | "custom">("catalog");
+  const [source, setSource] = useState<"catalog" | "custom" | "articles">("catalog");
+  const [articleId, setArticleId] = useState("");
   // Installation-system narrowing for the article list. "" = all systems, and
   // it is the DEFAULT — a material with no category is only reachable here, so
   // the filter can never hide the whole catalog.
@@ -118,6 +124,7 @@ export function AddTaskLineDialog({
       // Edit mode seeds from the current line so it opens on the right tab,
       // pre-filled; add mode starts blank on the catalog tab.
       setSource(initial?.custom ? "custom" : "catalog");
+      setArticleId("");
       // Always reopen on "all systems": in edit mode the line's current article
       // must be visible in the list, whatever system it belongs to.
       setCategory("");
@@ -209,9 +216,25 @@ export function AddTaskLineDialog({
     label: variantLabel(v),
   }));
 
-  // The custom tab is only offered when the page supplied a handler for it.
+  // The custom / articles tabs are only offered when the page supplied their
+  // handlers. Articles never show in edit mode — an article line is stored as
+  // a plain line and edits open on the custom tab.
   const customEnabled = Boolean(onAddCustom);
+  const articlesEnabled = Boolean(onAddArticle) && !editing;
   const isCustom = customEnabled && source === "custom";
+  const isArticles = articlesEnabled && source === "articles";
+
+  const { data: articles } = useApi(
+    () => (open && articlesEnabled ? getArticles() : Promise.resolve(null)),
+    [open, articlesEnabled],
+  );
+  const articleOptions: SelectOption[] = (articles ?? []).map((a) => ({
+    value: a.id,
+    label:
+      a.unitPrice != null
+        ? `${a.name} — ${formatPrice(a.unitPrice)} / ${a.unit}`
+        : `${a.name} (${a.unit})`,
+  }));
 
   const qty = Number(quantity);
   const qtyOk = Number.isFinite(qty) && qty > 0;
@@ -223,7 +246,11 @@ export function AddTaskLineDialog({
   const canSubmit =
     !busy &&
     qtyOk &&
-    (isCustom ? customName.trim().length > 0 && priceOk : Boolean(variantId));
+    (isCustom
+      ? customName.trim().length > 0 && priceOk
+      : isArticles
+        ? Boolean(articleId)
+        : Boolean(variantId));
 
   const submit = () => {
     if (!canSubmit) return;
@@ -236,6 +263,10 @@ export function AddTaskLineDialog({
         ...(canSetPrice && priceNum !== null ? { unitPrice: priceNum } : {}),
         ...(canFlagExtraWork ? { isExtraWork } : {}),
       });
+      return;
+    }
+    if (isArticles) {
+      onAddArticle?.({ articleId, quantity: qty, ...(canFlagExtraWork ? { isExtraWork } : {}) });
       return;
     }
     onAdd({ variantId, quantity: qty, ...(canFlagExtraWork ? { isExtraWork } : {}) });
@@ -264,14 +295,14 @@ export function AddTaskLineDialog({
 
         {/* Catalog vs custom. Hidden entirely when the page didn't supply a
             custom handler, so nothing changes for callers that don't want it. */}
-        {customEnabled ? (
+        {customEnabled || articlesEnabled ? (
           <ToggleButtonGroup
             exclusive
             fullWidth
             size="small"
             value={source}
             onChange={(_, v) => {
-              if (v) setSource(v as "catalog" | "custom");
+              if (v) setSource(v as "catalog" | "custom" | "articles");
             }}
             sx={{
               mb: 1,
@@ -289,10 +320,45 @@ export function AddTaskLineDialog({
             <ToggleButton value="catalog">
               {t("workOrderDetail.line.sourceCatalog")}
             </ToggleButton>
-            <ToggleButton value="custom">
-              {t("workOrderDetail.line.sourceCustom")}
-            </ToggleButton>
+            {articlesEnabled ? (
+              <ToggleButton value="articles">
+                {t("workOrderDetail.line.sourceArticles")}
+              </ToggleButton>
+            ) : null}
+            {customEnabled ? (
+              <ToggleButton value="custom">
+                {t("workOrderDetail.line.sourceCustom")}
+              </ToggleButton>
+            ) : null}
           </ToggleButtonGroup>
+        ) : null}
+
+        {isArticles ? (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+            {/* Products & services: hours, logistics, misc sales items. Name /
+                unit / price resolve server-side from the article. */}
+            <SelectField
+              label={t("workOrderDetail.line.articlesLabel")}
+              value={articleId}
+              onChange={(v) => {
+                setArticleId(v);
+                const a = (articles ?? []).find((x) => x.id === v);
+                if (a && a.defaultQuantity > 0) setQuantity(String(a.defaultQuantity));
+              }}
+              options={articleOptions}
+              fullWidth
+            />
+            {articleId ? (
+              <TextField
+                label={t("workOrderDetail.line.quantityLabel")}
+                type="number"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                fullWidth
+              />
+            ) : null}
+          </Box>
         ) : null}
 
         {isCustom ? (
@@ -350,7 +416,7 @@ export function AddTaskLineDialog({
               />
             ) : null}
           </Box>
-        ) : groupsLoading ? (
+        ) : isArticles ? null : groupsLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress />
           </Box>

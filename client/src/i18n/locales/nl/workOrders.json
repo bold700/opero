@@ -29,7 +29,8 @@
     "open": "Open",
     "onTheWay": "Onderweg",
     "urgent": "Spoed",
-    "done": "Klaar"
+    "done": "Klaar",
+    "notDispatched": "Niet verzonden"
   },
   "actions": {
     "searchPlaceholder": "Zoek op nummer of klant...",

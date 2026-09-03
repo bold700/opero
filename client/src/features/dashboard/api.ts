@@ -16,6 +16,13 @@ export type AdminDashboard = {
   urgentCount: number;
   blockedCount: number;
   openInvoices: number;
+  // Sales insight over the werkbon lines. See backend dashboard/dto.ts.
+  sales: {
+    sold: number;
+    cost: number;
+    profit: number;
+    metersLaid: number;
+  };
 };
 
 export type TechnicianProjectRow = {
@@ -69,6 +76,9 @@ export type DashboardData =
   | ForemanDashboard
   | ClientDashboard;
 
-export function getDashboard(): Promise<DashboardData> {
-  return api.get<DashboardData>("/dashboard");
+export type SalesPeriod = "all" | "month" | "year" | "30d";
+
+// `salesPeriod` bounds the Sales & usage block only (admin view).
+export function getDashboard(salesPeriod: SalesPeriod = "all"): Promise<DashboardData> {
+  return api.get<DashboardData>(`/dashboard?salesPeriod=${salesPeriod}`);
 }

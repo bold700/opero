@@ -104,18 +104,25 @@ notificationsRouter.get(
 
     // --- Urgent / blocked projects (staff, not clients) -------------------
     if (categoryEnabled("urgentOnSite", prefs) && isStaff(user.role)) {
+      // Urgency is per-werkbon; blocked derives from the blocker columns. A
+      // project surfaces here when it is blocked OR has an unfinished urgent
+      // werkbon.
       const urgent = await prisma.project.findMany({
-        where: {
-          ...projectScopeWhere(user),
-          urgency: { in: ["urgent", "blocked"] },
-        },
+        where: projectScopeWhere(user, {
+          OR: [
+            { blocker: { not: null } },
+            { blockerKey: { not: null } },
+            { workOrders: { some: { urgency: "urgent", signedAt: null } } },
+          ],
+        }),
         orderBy: { createdAt: "desc" },
         take: NOTIFICATIONS_LIMIT,
         select: {
           id: true,
           projectNumber: true,
           customerName: true,
-          urgency: true,
+          blocker: true,
+          blockerKey: true,
           createdAt: true,
           workOrders: { select: { id: true }, take: 1, orderBy: { ordinal: "asc" } },
         },
@@ -126,7 +133,7 @@ notificationsRouter.get(
           id: `urgent:${p.id}`,
           category: "urgentOnSite",
           messageKey:
-            p.urgency === "blocked"
+            p.blocker || p.blockerKey
               ? "notifications.projectBlocked"
               : "notifications.projectUrgent",
           params: { number: p.projectNumber, customer: p.customerName },
@@ -181,6 +188,100 @@ notificationsRouter.get(
           createdAt: w.createdAt.toISOString(),
           route: `/work-orders/${w.id}`,
         });
+      }
+    }
+
+    // --- Progress logged by field staff (office) --------------------------
+    // Derived from the activity feed: every progress log writes a
+    // material.progressLogged activity row (work-orders routes).
+    if (categoryEnabled("progressLogged", prefs) && canApproveAsOffice(user.role)) {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const logged = await prisma.projectActivity.findMany({
+        where: {
+          messageKey: "material.progressLogged",
+          createdAt: { gte: since },
+          project: { is: projectScopeWhere(user) },
+        },
+        orderBy: { createdAt: "desc" },
+        take: NOTIFICATIONS_LIMIT,
+        select: {
+          id: true,
+          params: true,
+          createdAt: true,
+          projectId: true,
+          user: { select: { name: true } },
+        },
+      });
+      for (const a of logged) {
+        const p = (a.params ?? {}) as Record<string, unknown>;
+        items.push({
+          id: `progress:${a.id}`,
+          category: "progressLogged",
+          messageKey: "notifications.progressLogged",
+          params: {
+            user: a.user?.name ?? "—",
+            name: p.name ?? "—",
+            amount: p.amount ?? 0,
+            unit: p.unit ?? "",
+            total: p.total ?? 0,
+            target: p.target ?? 0,
+          },
+          createdAt: a.createdAt.toISOString(),
+          route: `/projects/${a.projectId}`,
+        });
+      }
+    }
+
+    // --- "Don't forget to log" reminder (field staff) ---------------------
+    // A dispatched, unsigned werkbon assigned to me whose planned window
+    // includes (or has passed) today, where I logged NOTHING today. Derived at
+    // poll time — no cron needed; the timestamp is pinned to today's morning
+    // so marking the bell seen silences it until tomorrow.
+    if (
+      categoryEnabled("progressReminder", prefs) &&
+      (user.role === "technician" || user.role === "foreman") &&
+      user.employeeId
+    ) {
+      const today = new Date().toISOString().slice(0, 10);
+      const candidates = await prisma.workOrder.findMany({
+        where: {
+          AND: [
+            { project: { is: projectScopeWhere(user) } },
+            assignedToEmployeeWhere(user.employeeId),
+            { dispatchedAt: { not: null } },
+            { signedAt: null },
+            { plannedDate: { lte: today } },
+          ],
+        },
+        take: NOTIFICATIONS_LIMIT,
+        select: {
+          id: true,
+          title: true,
+          ordinal: true,
+          project: { select: { projectNumber: true, customerName: true } },
+        },
+      });
+      if (candidates.length > 0) {
+        const loggedToday = await prisma.taskProgressEntry.findMany({
+          where: { employeeId: user.employeeId, day: today },
+          select: { material: { select: { task: { select: { workOrderId: true } } } } },
+        });
+        const loggedWoIds = new Set(loggedToday.map((e) => e.material.task.workOrderId));
+        for (const w of candidates) {
+          if (loggedWoIds.has(w.id)) continue;
+          items.push({
+            id: `logreminder:${w.id}:${today}`,
+            category: "progressReminder",
+            messageKey: "notifications.progressReminder",
+            params: {
+              title: w.title || `#${w.ordinal + 1}`,
+              number: w.project.projectNumber,
+              customer: w.project.customerName,
+            },
+            createdAt: `${today}T06:00:00.000Z`,
+            route: `/work-orders/${w.id}`,
+          });
+        }
       }
     }
 

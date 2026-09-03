@@ -37,6 +37,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.workOrder.deleteMany({ where: { title: { startsWith: TAG } } });
+  await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.material.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
   await prisma.$disconnect();
@@ -170,8 +172,14 @@ describe("material CRUD", () => {
       usedVariantId = v.body.id;
 
       // Attach it to a work-order task line so it counts as "in use".
-      const project = await prisma.project.findFirstOrThrow({ where: { orgId, deletedAt: null } });
-      const wo = await prisma.workOrder.create({ data: { projectId: project.id, title: `${TAG} WO`, ordinal: 900 } });
+      // Own customer + project — suites must never borrow seeded data.
+      const customer = await prisma.customer.create({
+        data: { orgId, name: `${TAG} Cust`, contactName: "C", email: "c@c.nl", phone: "", address: "", postalCode: "", city: "" },
+      });
+      const project = await prisma.project.create({
+        data: { orgId, customerId: customer.id, customerName: customer.name, name: `${TAG} Project`, projectNumber: `${TAG}-P1`, insulationType: "", nextStepKey: "sendQuote", address: "", postalCode: "", city: "" },
+      });
+      const wo = await prisma.workOrder.create({ data: { projectId: project.id, title: `${TAG} WO`, ordinal: 0 } });
       const task = await prisma.workOrderTask.create({ data: { workOrderId: wo.id, description: "z", ordinal: 0 } });
       const tm = await prisma.taskMaterial.create({
         data: { taskId: task.id, name: "used line", quantity: 1, unit: "m2", unitPrice: 5, variantId: usedVariantId, ordinal: 0 },

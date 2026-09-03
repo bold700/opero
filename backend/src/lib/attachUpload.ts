@@ -38,16 +38,18 @@ export function sanitizeFilename(raw: string | undefined, ext: string): string {
 
 ///
 
-// Store a work-order attachment (PDF or image) and return its metadata. Unlike
+// Store an attachment (PDF or image) and return its metadata. Unlike
 // storeUpload (which returns only the key), this keeps the original filename +
 // size + content type so the attachments list can show and open real files.
+// Used for work-order attachments (default scope) and project attachments.
 export async function storeAttachment(
   user: AuthUser,
   file: Express.Multer.File | undefined,
   entityId: string,
+  scope: StorageScope = "wo-attachment",
 ): Promise<{ key: string; filename: string; contentType: string; size: number }> {
-  const prepared = await prepareUpload(file, { allowPdf: true });
-  const key = buildObjectKey(user.orgId, "wo-attachment", entityId, prepared.ext);
+  const prepared = await prepareUpload(file, { allowPdf: true, allowDocuments: true });
+  const key = buildObjectKey(user.orgId, scope, entityId, prepared.ext);
   await storage.put(key, prepared.buffer, prepared.contentType);
   return {
     key,

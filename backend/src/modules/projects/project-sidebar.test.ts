@@ -46,25 +46,38 @@ beforeAll(async () => {
   })).id;
   workTypeId = (await prisma.workType.create({ data: { orgId, name: `${TAG}-wt` } })).id;
 
-  projectId = (await prisma.project.findFirstOrThrow({ where: { orgId, deletedAt: null } })).id;
+  // Own project — suites must never borrow (and mutate) seeded data.
+  const customer = await prisma.customer.create({
+    data: { orgId, name: `${TAG} Cust`, contactName: "C", email: "c@c.nl", phone: "", address: "", postalCode: "", city: "" },
+  });
+  const projRes = await request(app)
+    .post("/api/projects")
+    .set(auth(adminToken))
+    .send({ customerId: customer.id, name: `${TAG} Project` });
+  projectId = projRes.body.id;
 });
 
 afterAll(async () => {
+  await prisma.workOrder.deleteMany({ where: { project: { name: { startsWith: TAG } } } });
+  await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
   await prisma.employee.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.workType.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.auditLog.deleteMany({ where: { org: { name: { startsWith: TAG } } } });
   await prisma.organization.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.$disconnect();
 });
 
 describe("project sidebar PATCH", () => {
-  it("sets urgency, project leader and multiple installers", async () => {
+  it("sets project leader and multiple installers (urgency is per-werkbon now)", async () => {
     const res = await request(app)
       .patch(`/api/projects/${projectId}`)
       .set(auth(adminToken))
-      .send({ urgency: "urgent", projectLeaderId: empA, installerIds: [empA, empB] });
+      .send({ projectLeaderId: empA, installerIds: [empA, empB] });
     expect(res.status).toBe(200);
-    expect(res.body.urgency).toBe("urgent");
+    // Urgency is a rollup of the project's werkbonnen — none exist → normal.
+    expect(res.body.urgency).toBe("normal");
     expect(res.body.projectLeaderId).toBe(empA);
     expect([...res.body.installerIds].sort()).toEqual([empA, empB].sort());
   });

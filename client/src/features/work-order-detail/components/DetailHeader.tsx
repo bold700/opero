@@ -19,7 +19,7 @@ import { Card } from "../../../components/Card";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { URGENCY } from "../constants";
-import { humanize } from "../../../lib/labels";
+import { STATUS } from "../../work-orders/constants";
 import { STATUS_TONES } from "../../../theme/tokens";
 import type { Project, WorkOrder } from "../api";
 
@@ -33,6 +33,7 @@ import type { Project, WorkOrder } from "../api";
 export function DetailHeader({
   workOrder,
   project,
+  notDispatched,
   canDelete,
   canFinish,
   canReopen,
@@ -52,6 +53,9 @@ export function DetailHeader({
 }: {
   workOrder: WorkOrder;
   project: Project;
+  /** Staff viewing an undispatched werkbon — shows the "Niet verzonden" chip.
+   *  Computed by the page (role + dispatch state); clients never get it. */
+  notDispatched: boolean;
   canDelete: boolean;
   canFinish: boolean;
   /** Admin-only: undoes a sign-off (clears the customer signature). */
@@ -80,7 +84,9 @@ export function DetailHeader({
   onOpenActivity?: () => void;
 }) {
   const { t } = useTranslation();
-  const urgency = URGENCY[project.urgency] ?? URGENCY.normal;
+  // THIS visit's priority (per-werkbon). Blocked is the project's separate
+  // workflow axis — shown as its own chip, never as an urgency.
+  const urgency = URGENCY[workOrder.urgency] ?? URGENCY.normal;
   // Admin export menu (offerte / werkbon in one button).
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
   const [confirmReopen, setConfirmReopen] = useState(false);
@@ -115,13 +121,34 @@ export function DetailHeader({
               <Typography variant="body2" sx={{ color: "text.disabled" }}>
                 |
               </Typography>
+              {/* The werkbon's OWN status — same map as the list. The parent
+                  project's stage used to sit here unlabeled, so a fresh werkbon
+                  could read "Done" because its project was. */}
               <StatusBadge
-                label={t(`workOrderDetail.stage.${project.stage}`, {
-                  defaultValue: humanize(project.stage),
-                })}
-                tone={STATUS_TONES.open}
+                label={t(STATUS[workOrder.status].labelKey)}
+                tone={STATUS[workOrder.status].tone}
               />
-              <StatusBadge label={t(`workOrderDetail.urgency.${urgency.key}`)} tone={urgency.tone} />
+              {notDispatched ? (
+                <StatusBadge
+                  label={t("workOrders.status.notDispatched")}
+                  tone={STATUS_TONES.warning}
+                />
+              ) : null}
+              {/* The urgency badge exists to preserve urgency when the status
+                  pill says something else (a signed urgent job reads Done +
+                  Urgent). When the status ALREADY reads "urgent" because of
+                  this same urgency, a second identical pill says nothing —
+                  skip it. Blocked stays: status "urgent" + badge "Geblokkeerd"
+                  are different facts. */}
+              {!(workOrder.status === "urgent" && urgency.key === "urgent") ? (
+                <StatusBadge label={t(`workOrderDetail.urgency.${urgency.key}`)} tone={urgency.tone} />
+              ) : null}
+              {project.blocked ? (
+                <StatusBadge
+                  label={t("workOrderDetail.urgency.blocked")}
+                  tone={URGENCY.blocked?.tone ?? STATUS_TONES.danger}
+                />
+              ) : null}
               {finished ? (
                 <StatusBadge label={t("workOrderDetail.header.signed")} tone={STATUS_TONES.success} />
               ) : null}

@@ -77,10 +77,12 @@ enum Stage {
   done
 }
 
-enum ProjectUrgency {
+// Per-WERKBON priority (the visit is the unit of work). Deliberately two
+// values: "blocked" is workflow state, not priority — it lives on the
+// project's blocker/blockerKey columns and derives as Project "blocked".
+enum Urgency {
   normal
   urgent
-  blocked
 }
 
 enum BillingType {
@@ -290,6 +292,7 @@ model User {
   auditLogs         AuditLog[]
   signedWorkOrders  WorkOrder[]      @relation("WorkOrderSignedBy")
   uploadedAttachments WorkOrderAttachment[] @relation("WorkOrderAttachmentUploader")
+  uploadedProjectAttachments ProjectAttachment[] @relation("ProjectAttachmentUploader")
 
   @@index([orgId])
   @@index([customerId])
@@ -410,14 +413,20 @@ model Customer {
 model ContactPerson {
   id         String   @id @default(uuid())
   customerId String
+  // Display name, always "firstName lastName" — kept as one column because
+  // every consumer (werkbon contact block, project checklist, PDFs) reads it.
   name       String
+  firstName  String   @default("")
+  lastName   String   @default("")
   email      String?
   phone      String?
   role       String?
+  notes      String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projects Project[] @relation("ProjectContacts")
 
   @@index([customerId])
 }
@@ -472,6 +481,8 @@ model Employee {
 
   // per-task assignments (work-order zones)
   assignedTasks WorkOrderTask[] @relation("TaskAssignee")
+  loggedTaskHours WorkOrderTask[] @relation("TaskHoursEmployee")
+  progressEntries TaskProgressEntry[] @relation("ProgressLogger")
   assignedWorkOrders WorkOrder[] @relation("WorkOrderAssignees")
 
   absences EmployeeAbsence[]
@@ -696,9 +707,10 @@ model Project {
   archived      Boolean        @default(false)
   stage         Stage          @default(concept)
   status        ProjectStatus  @default(sales)
-  urgency       ProjectUrgency @default(normal)
   // Free-text blocker (a user-entered reason). When the blocker is a system
   // default, blockerKey holds an i18n key instead (rendered client-side).
+  // The project is BLOCKED when either is set — that derived flag is the only
+  // blocked representation (urgency is per-werkbon and never "blocked").
   blocker       String?
   blockerKey    String?
   // The next action, stored as a language-neutral i18n key (e.g. "sendQuote").
@@ -737,6 +749,10 @@ model Project {
   tasks                ProjectTask[]
   activity             ProjectActivity[]
   materialOrders       MaterialOrder[]
+  attachments          ProjectAttachment[]
+  // The customer's contact persons involved in THIS project (picked from the
+  // customer's centrally managed list; a project can have several).
+  contacts             ContactPerson[]       @relation("ProjectContacts")
 
   @@index([orgId])
   @@index([customerId])
@@ -838,8 +854,11 @@ model WorkOrder {
   prejobItems        WorkOrderPrejobItem[]
   dispatchedAt       DateTime?
   dispatchedById     String?
+  // THIS visit's priority. Per-werkbon on purpose: floor 2's leak being urgent
+  // must not stamp floor 1's routine visit. Feeds listStatus below.
+  urgency            Urgency       @default(normal)
   // Denormalized list status ("open" | "on_the_way" | "urgent" | "done"), derived
-  // from project urgency + task completion. Kept in sync by
+  // from the werkbon's OWN urgency + sign-off + task completion. Kept in sync by
   // recomputeWorkOrderStatus() so the list endpoint can filter/count/paginate on a
   // real indexed column instead of computing over the whole table in app code.
   listStatus         String        @default("open")
@@ -907,12 +926,35 @@ model WorkOrderAttachment {
   contentType  String
   size         Int
   uploadedById String?
+  // "document" (default) or "packing_slip" (pakbon). Packing slips get a
+  // "received" confirmation; plain documents don't.
+  kind         String   @default("document")
+  receivedAt   DateTime? // packing slips only: when receipt was confirmed
   createdAt    DateTime @default(now())
 
   workOrder  WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   uploadedBy User?     @relation("WorkOrderAttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([workOrderId])
+}
+
+// A file attached at the PROJECT level (PDF or image), visible from every
+// werkbon in that project. Same shape as WorkOrderAttachment: original
+// filename + size + content type + uploader, so lists show real file names.
+model ProjectAttachment {
+  id           String   @id @default(uuid())
+  projectId    String
+  key          String // storage object key (orgId/scope/entityId/uuid.ext)
+  filename     String // sanitized original name, for display
+  contentType  String
+  size         Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation("ProjectAttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
 }
 
 model WorkOrderTask {
@@ -930,15 +972,36 @@ model WorkOrderTask {
   startedAt    String?
   endedAt      String?
   hours        Float?
+  // Who last logged the hours (timer end or manual override) — the direct FK
+  // the timesheet lacked; the office-only `day` field stays the planning date.
+  hoursEmployeeId String?
   note         String?
   ordinal      Int      @default(0)
 
   workOrder WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   workType  WorkType?      @relation(fields: [workTypeId], references: [id], onDelete: SetNull)
-  assignee  Employee?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  materials TaskMaterial[]
+  assignee      Employee?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  hoursEmployee Employee?      @relation("TaskHoursEmployee", fields: [hoursEmployeeId], references: [id], onDelete: SetNull)
+  materials     TaskMaterial[]
 
   @@index([workOrderId])
+}
+
+// One day's logged progress on one werkbon line: who advanced how much on
+// which day ("Monday 10/100 m"). The line's progress total is the sum of its
+// entries, derived at read time.
+model TaskProgressEntry {
+  id         String   @id @default(uuid())
+  materialId String
+  employeeId String?
+  amount     Float
+  day        String // YYYY-MM-DD
+  createdAt  DateTime @default(now())
+
+  material TaskMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  employee Employee?    @relation("ProgressLogger", fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([materialId])
 }
 
 // The shared line-item row: feeds quote (quantity×price), workOrder (onSite),
@@ -950,6 +1013,11 @@ model TaskMaterial {
   name         String  @default("")
   quantity     Float   @default(0)
   usedQuantity Float?
+  // Stock registration: handed out to the monteur / came back to the depot.
+  // Unaccounted = issued − used − returned, derived at read time. All three
+  // are independent — on-location deliveries have returns without an issue.
+  issuedQuantity   Float?
+  returnedQuantity Float?
   unit         String  @default("")
   diameter     Float?
   // Selling price snapshot (verkoopprijs) at the time the line was added.
@@ -984,8 +1052,9 @@ model TaskMaterial {
   photos           String[]
   createdAt        DateTime             @default(now())
 
-  task    WorkOrderTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  variant MaterialVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  task            WorkOrderTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  variant         MaterialVariant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  progressEntries TaskProgressEntry[]
 
   @@index([taskId])
   @@index([variantId])

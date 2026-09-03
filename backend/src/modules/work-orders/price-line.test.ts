@@ -85,8 +85,15 @@ beforeAll(async () => {
   });
   technicianToken = signAccessToken({ sub: technician.id, role: "technician", orgId });
 
-  const project = await prisma.project.findFirstOrThrow({ where: { orgId, deletedAt: null } });
-  projectId = project.id;
+  // Own project — suites must never borrow (and mutate) seeded data.
+  const customer = await prisma.customer.create({
+    data: { orgId, name: `${TAG} Cust`, contactName: "C", email: "c@c.nl", phone: "", address: "", postalCode: "", city: "" },
+  });
+  const projRes = await request(app)
+    .post("/api/projects")
+    .set(auth(adminToken))
+    .send({ customerId: customer.id, name: `${TAG} Project` });
+  projectId = projRes.body.id;
   await prisma.project.update({
     where: { id: projectId },
     data: { installers: { connect: { id: employeeId } } },
@@ -101,7 +108,7 @@ beforeAll(async () => {
   // Assignment is per WERKBON, not per project — that's what grants access.
   await prisma.workOrder.update({
     where: { id: workOrderId },
-    data: { assignees: { connect: { id: employeeId } } },
+    data: { assignees: { connect: { id: employeeId } }, dispatchedAt: new Date() },
   });
   const withTask = await request(app)
     .post(`/api/work-orders/${workOrderId}/tasks`)
@@ -133,13 +140,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.workOrder.deleteMany({ where: { id: workOrderId } });
+  await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.material.deleteMany({ where: { key: { startsWith: TAG } } });
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { installers: { disconnect: { id: employeeId } } },
-  });
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
   await prisma.employee.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.auditLog.deleteMany({ where: { org: { name: { startsWith: TAG } } } });
   await prisma.organization.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.$disconnect();
 });

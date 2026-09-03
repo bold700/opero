@@ -31,6 +31,8 @@ export const updateWorkOrderSchema = z
     // The werkbon is the scheduled visit — its date(s) live here.
     plannedDate: z.string().nullable().optional(),
     plannedEndDate: z.string().nullable().optional(),
+    // THIS visit's priority (per-werkbon; feeds its own listStatus).
+    urgency: z.enum(["normal", "urgent"]).optional(),
     // The visit's start/end time. Written to the werkbon's calendar slot via
     // the shared planning service, same store the Planning screen edits.
     startTime: slotTimeSchema.optional(),
@@ -98,6 +100,15 @@ export const addMaterialFromCatalogSchema = z.object({
   isExtraWork: z.boolean().optional(),
 });
 
+// POST /work-orders/:id/tasks/:taskId/materials/from-article — add a line from
+// the ARTICLE catalog (other products & services, e.g. labour hours). Same
+// server-side resolution rule as from-catalog.
+export const addMaterialFromArticleSchema = z.object({
+  articleId: z.string().min(1),
+  quantity: z.number().positive().optional(),
+  isExtraWork: z.boolean().optional(),
+});
+
 // POST /work-orders/:id/materials/:matId/reject — who rejected the meerwerk.
 export const rejectMeerwerkSchema = z.object({
   by: z.enum(["office", "client"]).optional(),
@@ -124,8 +135,26 @@ export const updateMaterialSchema = z.object({
 });
 
 // POST /work-orders/:id/materials/:matId/usage — mirror setMaterialUsage.
-export const usageSchema = z.object({
-  used: z.number(),
+// Stock registration on one line. All fields optional — register whichever
+// number is known (issued at hand-out, used/returned at the end of the job).
+export const usageSchema = z
+  .object({
+    used: z.number().min(0).optional(),
+    issued: z.number().min(0).optional(),
+    returned: z.number().min(0).optional(),
+  })
+  .refine((v) => v.used !== undefined || v.issued !== undefined || v.returned !== undefined, {
+    message: "At least one of used/issued/returned is required",
+  });
+
+// POST /work-orders/:id/materials/:matId/progress — one day's progress on a
+// line, in the line's own unit. `day` defaults to today server-side.
+export const progressSchema = z.object({
+  amount: z.number().positive(),
+  day: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 // POST /work-orders/:id/finish — mirror finishWorkOrder (signature required).

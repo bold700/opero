@@ -19,6 +19,8 @@ const KEYS: (keyof NotificationPrefs)[] = [
   "newWorkOrder",
   "urgentOnSite",
   "extraWorkApproval",
+  "progressLogged",
+  "progressReminder",
   "weeklySummary",
 ];
 

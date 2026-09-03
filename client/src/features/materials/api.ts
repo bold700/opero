@@ -211,3 +211,42 @@ export function searchVariants(opts: {
     },
   });
 }
+
+// --- Articles (other products & services: labour, logistics, misc) --------
+// A flat org-scoped price list next to the material catalog. unitPrice is
+// stripped server-side for field staff.
+
+export type ArticleCategory = "insulation" | "material" | "labor" | "logistics";
+
+export type Article = {
+  id: string;
+  category: ArticleCategory;
+  name: string;
+  unit: string;
+  unitPrice?: number;
+  defaultQuantity: number;
+};
+
+export type ArticleInput = {
+  category: ArticleCategory;
+  name: string;
+  unit: string;
+  unitPrice: number;
+  defaultQuantity: number;
+};
+
+export function getArticles(): Promise<Article[]> {
+  return api.get<Article[]>("/materials/articles");
+}
+
+export function createArticle(input: ArticleInput): Promise<Article> {
+  return api.post<Article>("/materials/articles", input);
+}
+
+export function updateArticle(id: string, input: Partial<ArticleInput>): Promise<Article> {
+  return api.patch<Article>(`/materials/articles/${id}`, input);
+}
+
+export function deleteArticle(id: string): Promise<void> {
+  return api.delete<void>(`/materials/articles/${id}`);
+}

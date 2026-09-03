@@ -16,6 +16,7 @@ import { TypeBadge } from "./TypeBadge";
 export function CustomersTable({
   customers,
   canManage,
+  onOpen,
   onEdit,
   hasMore,
   loadingMore,
@@ -23,6 +24,7 @@ export function CustomersTable({
 }: {
   customers: Customer[];
   canManage: boolean;
+  onOpen: (c: Customer) => void;
   onEdit: (c: Customer) => void;
   hasMore?: boolean;
   loadingMore?: boolean;
@@ -46,7 +48,7 @@ export function CustomersTable({
   const actionsCell = (c: Customer) =>
     canManage ? (
       <Box sx={{ display: "inline-flex", gap: 0.5 }}>
-        <IconButton size="small" aria-label={t("common.actions.edit")} onClick={() => onEdit(c)}>
+        <IconButton size="small" aria-label={t("common.actions.edit")} onClick={(e) => { e.stopPropagation(); onEdit(c); }}>
           <EditOutlinedIcon fontSize="small" />
         </IconButton>
         {/* No delete here on purpose: rare and destructive, so it lives in the
@@ -62,6 +64,7 @@ export function CustomersTable({
       hasMore={hasMore}
       loadingMore={loadingMore}
       onLoadMore={onLoadMore}
+      onRowClick={onOpen}
       columns={[
         { header: t("customers.table.name"), cell: nameCell },
         { header: t("customers.table.city"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.city}</Box> },

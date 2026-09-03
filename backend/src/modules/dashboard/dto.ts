@@ -21,6 +21,16 @@ export type AdminDashboard = {
   urgentCount: number;
   blockedCount: number;
   openInvoices: number;
+  // Sales insight over the werkbon lines (the line IS the invoice line):
+  // sold = Σ quantity×unitPrice; cost = Σ quantity×costPrice (where known);
+  // profit = sold − cost; metersLaid = actual usage of "m"-unit lines.
+  // Rejected lines and unapproved meerwerk never count as money.
+  sales: {
+    sold: number;
+    cost: number;
+    profit: number;
+    metersLaid: number;
+  };
 };
 
 // --- technician + foreman -------------------------------------------------

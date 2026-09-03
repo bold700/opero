@@ -1,18 +1,17 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
-import { statusForStage, canSeeAllProjects, type UserRole } from "@opero/shared";
+import { statusForStage, canSeeAllProjects, projectStatusIds, type UserRole } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
 import { clampText, clampNumber } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
-import { storeUpload, deleteStored } from "../../lib/attachUpload.js";
+import { storeUpload, storeAttachment, deleteStored } from "../../lib/attachUpload.js";
 import { uploadSingle } from "../../lib/upload.js";
 import { buildUrlMap } from "../../lib/photoUrls.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
-import { recomputeWorkOrdersForProject } from "../work-orders/status.js";
 import {
   projectDto,
   projectSummaryDto,
@@ -30,6 +29,7 @@ async function projectDtoFor(user: AuthUser, p: ProjectWithRelations) {
   const photoKeys = [
     ...p.surveyPhotos,
     ...(p.handover?.photos ?? []),
+    ...(p.attachments ?? []).map((a) => a.key),
   ];
   const urlOf = await buildUrlMap(photoKeys);
   return projectDto(p, user.role as UserRole, urlOf);
@@ -39,7 +39,7 @@ async function projectSummaryListFor(
   user: AuthUser,
   rows: (import("@prisma/client").Project & {
     _count?: { workOrders: number };
-    workOrders?: { value: number }[];
+    workOrders?: { value: number; urgency: string; signedAt: Date | null }[];
   })[],
 ) {
   return rows.map((p) => projectSummaryDto(p, user.role as UserRole));
@@ -51,7 +51,6 @@ import {
   updateProjectSchema,
   statusSchema,
   stageSchema_,
-  urgencyBodySchema,
   resolveBlockerSchema,
   teamSchema,
   commentSchema,
@@ -148,6 +147,7 @@ async function loadProjectForUser(user: AuthUser, id: string) {
   return project;
 }
 
+
 // =========================================================================
 // LIST + DETAIL
 // =========================================================================
@@ -160,24 +160,42 @@ projectsRouter.get(
     const user = req.user!;
     const params = parsePageParams(req);
 
-    // Combine search with the visibility scope via projectScopeWhere's AND-merge
-    // `extra` arg — never spread its result, which would clobber the OR that
-    // enforces technician visibility.
+    // Combine search + filters with the visibility scope via projectScopeWhere's
+    // AND-merge `extra` arg — never spread its result, which would clobber the
+    // OR that enforces technician visibility.
     const ci = { contains: params.search, mode: "insensitive" as const };
-    const where = params.search
-      ? projectScopeWhere(user, {
-          OR: [
-            { projectNumber: ci },
-            // The client's own reference: they quote THAT number on the phone,
-            // not Opero's, so the search has to match it too.
-            { referenceNumber: ci },
-            { name: ci },
-            { customerName: ci },
-            { city: ci },
-            { address: ci },
-          ],
-        })
-      : projectScopeWhere(user);
+    const filters: Prisma.ProjectWhereInput[] = [];
+    if (params.search) {
+      filters.push({
+        OR: [
+          { projectNumber: ci },
+          // The client's own reference: they quote THAT number on the phone,
+          // not Opero's, so the search has to match it too.
+          { referenceNumber: ci },
+          { name: ci },
+          { customerName: ci },
+          { city: ci },
+          { address: ci },
+        ],
+      });
+    }
+    // Optional list filters. Unknown values are ignored (not an error): a stale
+    // bookmark with an old status must not 500 the list.
+    const status = req.query.status;
+    if (
+      typeof status === "string" &&
+      (projectStatusIds as readonly string[]).includes(status)
+    ) {
+      filters.push({ status: status as (typeof projectStatusIds)[number] });
+    }
+    const workTypeId = req.query.workTypeId;
+    if (typeof workTypeId === "string" && workTypeId) {
+      filters.push({ workTypeId });
+    }
+    const where =
+      filters.length > 0
+        ? projectScopeWhere(user, { AND: filters })
+        : projectScopeWhere(user);
 
     const page = await paginate(params, (args) =>
       prisma.project.findMany({
@@ -186,7 +204,9 @@ projectsRouter.get(
         include: {
           _count: { select: { workOrders: true } },
           // Werkbon values → the project's value is their sum (per-werkbon billing).
-          workOrders: { select: { value: true } },
+          // value → the project's summed value; urgency+signedAt → the urgency
+          // rollup (any unfinished urgent werkbon marks the project urgent).
+          workOrders: { select: { value: true, urgency: true, signedAt: true } },
         },
         ...args,
       }),
@@ -274,10 +294,28 @@ projectsRouter.post(
       workTypeName ?? input.insulationType?.trim() ?? "";
     const notes = input.notes ? clampText(input.notes) : "";
 
-    // Site address: chosen location, else the customer's own address.
-    const siteAddress = location?.address ?? customer.address;
-    const sitePostalCode = location?.postalCode ?? customer.postalCode;
-    const siteCity = location?.city ?? customer.city;
+    // Site address: what the form typed, else the chosen location, else the
+    // customer's own address.
+    const siteAddress =
+      input.address?.trim() ? clampText(input.address).trim() : location?.address ?? customer.address;
+    const sitePostalCode =
+      input.postalCode?.trim() ? clampText(input.postalCode).trim() : location?.postalCode ?? customer.postalCode;
+    const siteCity =
+      input.city?.trim() ? clampText(input.city).trim() : location?.city ?? customer.city;
+
+    // Contact persons must belong to THIS customer — an id from another
+    // customer (or org) is a 400, not a silent connect.
+    let contactIds: string[] = [];
+    if (input.contactIds && input.contactIds.length > 0) {
+      const found = await prisma.contactPerson.findMany({
+        where: { id: { in: input.contactIds }, customerId: customer.id },
+        select: { id: true },
+      });
+      if (found.length !== new Set(input.contactIds).size) {
+        throw BadRequest("Contact person not found for customer");
+      }
+      contactIds = found.map((c) => c.id);
+    }
 
     const created = await prisma.$transaction(async (tx) => {
       const project = await tx.project.create({
@@ -309,11 +347,11 @@ projectsRouter.post(
           workTypeId,
           insulationType: insulation,
           description: notes,
+          contacts: contactIds.length > 0 ? { connect: contactIds.map((id) => ({ id })) } : undefined,
           workTypes: [],
           exclusions: "",
           stage: "concept",
           status: "sales",
-          urgency: "normal",
           nextStepKey: "planIntake",
           materialsReady: false,
           value: 0,
@@ -391,6 +429,18 @@ projectsRouter.patch(
       data.contactName = clampText(input.contactName).trim() || null;
     if (input.contactPhone !== undefined)
       data.contactPhone = clampText(input.contactPhone).trim() || null;
+    if (input.contactIds !== undefined) {
+      // Contacts must belong to the project's (possibly newly set) customer.
+      const customerId = input.customerId ?? existing.customerId;
+      const found = await prisma.contactPerson.findMany({
+        where: { id: { in: input.contactIds }, customerId },
+        select: { id: true },
+      });
+      if (found.length !== new Set(input.contactIds).size) {
+        throw BadRequest("Contact person not found for customer");
+      }
+      data.contacts = { set: found.map((c) => ({ id: c.id })) };
+    }
     if (input.instructions !== undefined)
       data.instructions = clampText(input.instructions).trim() || null;
     if (input.insulationType !== undefined)
@@ -400,7 +450,6 @@ projectsRouter.patch(
     if (input.exclusions !== undefined)
       data.exclusions = clampText(input.exclusions);
     if (input.billingType !== undefined) data.billingType = input.billingType;
-    if (input.urgency !== undefined) data.urgency = input.urgency;
 
     // Switch the project to a different CUSTOMER. This moves the job — and all
     // its werkbonnen, invoices and meerwerk approvals — out of the old
@@ -663,11 +712,10 @@ projectsRouter.post(
             available || existing.blocker ? null : "materialsUnavailable",
           nextStepKey: available ? "planProject" : "createPurchaseList",
           status: "operations",
-          urgency: available ? existing.urgency : "blocked",
         },
       });
-      // Urgency may have flipped to "blocked" → resync work-order statuses.
-      await recomputeWorkOrdersForProject(tx, existing.id);
+      // Blocked-ness derives from blocker/blockerKey — nothing else to sync:
+      // werkbon listStatus no longer reads any project field.
       if (fromStatus !== "operations") {
         await appendActivity(tx, user, existing.id, "status_change", "project.materialCheckStarted", {
           statuses: { fromStatus, toStatus: "operations" },
@@ -799,12 +847,11 @@ projectsRouter.post(
           insulationType,
           squareMeters,
           blocker: blocker ?? existing.blocker,
-          urgency: blocker ? "blocked" : existing.urgency,
           nextStepKey: blocker ? "resolveBlocker" : "sendQuote",
         },
       });
-      // Urgency may have flipped to/from "blocked" → resync work-order statuses.
-      await recomputeWorkOrdersForProject(tx, existing.id);
+      // Blocked-ness derives from blocker/blockerKey — nothing else to sync:
+      // werkbon listStatus no longer reads any project field.
 
       if (blocker) {
         await appendActivity(tx, user, existing.id, "system", "project.intakeCompletedWithBlocker", {
@@ -836,36 +883,6 @@ async function reloadProject(user: AuthUser, projectId: string) {
 // URGENCY / BLOCKER / TEAM
 // =========================================================================
 
-// POST /:id/urgency — admin. {urgency} + activity.
-projectsRouter.post(
-  "/:id/urgency",
-  requireRole("admin", "office"),
-  asyncHandler(async (req, res) => {
-    const user = req.user!;
-    const { urgency } = urgencyBodySchema.parse(req.body);
-    const existing = await loadProjectForUser(user, req.params.id);
-
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.project.update({
-        where: { id: existing.id },
-        data: { urgency },
-      });
-      // Urgency feeds each work order's denormalized listStatus → resync them.
-      await recomputeWorkOrdersForProject(tx, existing.id);
-      await appendActivity(tx, user, existing.id, "system", "project.urgencyChanged", {
-        params: { urgency },
-      });
-      await audit(tx, user, "project.urgency", "project", existing.id, { urgency });
-      return tx.project.findUniqueOrThrow({
-        where: { id: existing.id },
-        include: projectInclude,
-      });
-    });
-
-    res.json(await projectDtoFor(user, updated));
-  }),
-);
-
 // POST /:id/resolve-blocker — admin. {note?} + activity.
 projectsRouter.post(
   "/:id/resolve-blocker",
@@ -874,7 +891,9 @@ projectsRouter.post(
     const user = req.user!;
     const { note } = resolveBlockerSchema.parse(req.body);
     const existing = await loadProjectForUser(user, req.params.id);
-    if (!existing.blocker) throw BadRequest("Project has no blocker");
+    if (!existing.blocker && !existing.blockerKey) {
+      throw BadRequest("Project has no blocker");
+    }
     const trimmed = note ? clampText(note).trim() : "";
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -883,12 +902,9 @@ projectsRouter.post(
         data: {
           blocker: null,
           blockerKey: null,
-          urgency: existing.urgency === "blocked" ? "normal" : existing.urgency,
           nextStepKey: "sendQuote",
         },
       });
-      // Urgency may have flipped from "blocked" → resync work-order statuses.
-      await recomputeWorkOrdersForProject(tx, existing.id);
       await appendActivity(
         tx,
         user,
@@ -1014,6 +1030,59 @@ projectsRouter.post(
       include: { user: { select: { name: true } } },
     });
     res.status(201).json(rows.map(activityDto));
+  }),
+);
+
+// POST /:id/attachments — upload a project-level file (PDF or image). Office
+// only: project files are reference documents the office curates; monteurs
+// read them from every werkbon in the project.
+projectsRouter.post(
+  "/:id/attachments",
+  requireRole("admin", "office"),
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const project = await loadProjectForUser(user, req.params.id);
+    const meta = await storeAttachment(user, req.file, project.id, "project-attachment");
+    await prisma.$transaction(async (tx) => {
+      const row = await tx.projectAttachment.create({
+        data: {
+          projectId: project.id,
+          key: meta.key,
+          filename: meta.filename,
+          contentType: meta.contentType,
+          size: meta.size,
+          uploadedById: user.id,
+        },
+      });
+      await audit(tx, user, "project.attachment.add", "projectAttachment", row.id, {
+        filename: meta.filename,
+      });
+    });
+    res.status(201).json(await reloadProject(user, project.id));
+  }),
+);
+
+// DELETE /:id/attachments/:attachmentId — remove a project-level file.
+projectsRouter.delete(
+  "/:id/attachments/:attachmentId",
+  requireRole("admin", "office"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const project = await loadProjectForUser(user, req.params.id);
+    // Scope the row to THIS project so an id from another project 404s.
+    const row = await prisma.projectAttachment.findFirst({
+      where: { id: req.params.attachmentId, projectId: project.id },
+    });
+    if (!row) throw NotFound("Attachment not found");
+    await prisma.$transaction(async (tx) => {
+      await tx.projectAttachment.delete({ where: { id: row.id } });
+      await audit(tx, user, "project.attachment.remove", "projectAttachment", row.id, {
+        filename: row.filename,
+      });
+    });
+    await deleteStored(row.key);
+    res.json(await reloadProject(user, project.id));
   }),
 );
 

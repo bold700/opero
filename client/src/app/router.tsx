@@ -10,6 +10,7 @@ import { Dashboard } from "../features/dashboard/Dashboard";
 import { WorkOrders } from "../features/work-orders/WorkOrders";
 import { WorkOrderDetail } from "../features/work-order-detail/WorkOrderDetail";
 import { Customers } from "../features/customers/Customers";
+import { CustomerDetail } from "../features/customers/CustomerDetail";
 import { Projects } from "../features/projects/Projects";
 import { ProjectDetail } from "../features/projects/ProjectDetail";
 import { Planning } from "../features/planning/Planning";
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
               { path: "/projects/:id", element: <ProjectDetail /> },
               { path: "/planning", element: <Planning /> },
               { path: "/customers", element: <Customers /> },
+              { path: "/customers/:id", element: <CustomerDetail /> },
               { path: "/employees", element: <Employees /> },
               { path: "/materials", element: <Materials /> },
               { path: "/materials/:id", element: <MaterialDetail /> },

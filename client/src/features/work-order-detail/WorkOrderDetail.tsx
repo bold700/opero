@@ -25,19 +25,28 @@ import {
   exportWorkOrderQuotePdf,
   getProject,
   getProjectActivity,
+  addProjectComment,
   getAssignableEmployees,
   setWorkOrderAssignees,
   setWorkOrderSchedule,
   setWorkOrderTitle,
+  setWorkOrderUrgency,
   setWorkOrderDescription,
   updateProject,
   addTask,
+  startTask,
+  endTask,
+  setTaskHours,
   updateTask,
   deleteTask,
   reorderTasks,
   toggleTask,
   addMaterialFromCatalog,
   addCustomMaterial,
+  addMaterialFromArticle,
+  registerMaterialStock,
+  logMaterialProgress,
+  deleteMaterialProgress,
   updateMaterial,
   deleteMaterial,
   toggleMaterial,
@@ -47,6 +56,7 @@ import {
   reopenWorkOrder,
   uploadAttachment,
   deleteAttachment,
+  setAttachmentReceived,
   approveOffice,
   approveClient,
   rejectExtraWork,
@@ -71,8 +81,8 @@ import { PreJobPanel } from "./components/PreJobPanel";
 import { ProjectInfoPanel } from "./components/ProjectInfoPanel";
 import { ProjectInfoSheet } from "./components/ProjectInfoSheet";
 import { MeerwerkApprovalPanel } from "./components/MeerwerkApprovalPanel";
-import { AttachmentsPanel } from "./components/AttachmentsPanel";
-import { ActivityPanel } from "./components/ActivityPanel";
+import { AttachmentsPanel } from "../../components/AttachmentsPanel";
+import { ActivityPanel } from "../../components/ActivityPanel";
 import { ActivitySheet } from "./components/ActivitySheet";
 import { SignOffDialog } from "./components/SignOffDialog";
 
@@ -145,6 +155,17 @@ export function WorkOrderDetail() {
     if (wo) setProject(await getProject(wo.projectId));
   }, [wo]);
 
+  // Post a note onto the project timeline; the endpoint returns the refreshed
+  // feed, so no second round-trip.
+  const addComment = useCallback(
+    async (body: string) => {
+      if (!project) return;
+      const activity = await addProjectComment(project.id, body);
+      setProject((p) => (p ? { ...p, activity } : p));
+    },
+    [project],
+  );
+
   // Run a mutation, then refresh; surface errors as a toast.
   const run = useCallback(
     async (fn: () => Promise<void>) => {
@@ -186,7 +207,12 @@ export function WorkOrderDetail() {
   // The backend enforces the same split field-by-field (requireQuoteScopeEditor
   // + the *_SCOPE_FIELDS lists in work-orders/routes.ts); this just keeps the UI
   // from offering a technician buttons that would 403.
-  const canWrite = isStaff(role);
+  // Dispatch gate: a technician sees an assigned werkbon before it is
+  // dispatched, but can't register anything on it until the office releases it
+  // ("Monteur op pad sturen"). Mirrors requireWritableWorkOrder server-side;
+  // office/foreman logins are not gated.
+  const dispatchBlocked = role === "technician" && !wo.dispatchedAt;
+  const canWrite = isStaff(role) && !dispatchBlocked;
   const canEditScope = canEditQuoteScope(role);
   // Adding/removing a ZONE is office work — a subset of scope editing.
   const canManageZones = canEditScope;
@@ -218,6 +244,8 @@ export function WorkOrderDetail() {
       endTime?: string;
     }) =>
       run(async () => { setWo(await setWorkOrderSchedule(wo.id, patch)); }),
+    onSetUrgency: (urgency: "normal" | "urgent") =>
+      run(async () => { setWo(await setWorkOrderUrgency(wo.id, urgency)); }),
     onSetTitle: (title: string) =>
       run(async () => { setWo(await setWorkOrderTitle(wo.id, title)); }),
     onSetDescription: (description: string) =>
@@ -261,11 +289,18 @@ export function WorkOrderDetail() {
   return (
     <PageLayout title={t("workOrderDetail.title")}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
+        {/* Why the werkbon is read-only for this monteur, stated before anything
+            else on the page. Office releases it with "Monteur op pad sturen". */}
+        {dispatchBlocked && !finished ? (
+          <Alert severity="info">{t("workOrderDetail.notDispatched")}</Alert>
+        ) : null}
+
         <DetailHeader
           workOrder={wo}
           project={project}
+          notDispatched={isStaff(role) && !wo.dispatchedAt && !finished}
           canDelete={canEditQuoteScope(role)}
-          canFinish={isStaff(role)}
+          canFinish={isStaff(role) && !dispatchBlocked}
           canReopen={canEditQuoteScope(role)}
           canExportQuote={canEditQuoteScope(role)}
           finished={finished}
@@ -333,6 +368,7 @@ export function WorkOrderDetail() {
               onDeleteZone={(taskId) => run(async () => { await deleteTask(wo.id, taskId); await refreshWorkOrder(); })}
               onAddLine={(taskId, input) => run(async () => { await addMaterialFromCatalog(wo.id, taskId, input); await refreshWorkOrder(); })}
               onAddCustomLine={(taskId, input) => run(async () => { await addCustomMaterial(wo.id, taskId, input); await refreshWorkOrder(); })}
+              onAddArticleLine={(taskId, input) => run(async () => { await addMaterialFromArticle(wo.id, taskId, input); await refreshWorkOrder(); })}
               onEditLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, input); await refreshWorkOrder(); })}
               // Editing a free-text line: clear any catalog link and write the
               // typed fields. unitPrice omitted (non-admin) leaves it as-is.
@@ -340,8 +376,14 @@ export function WorkOrderDetail() {
               onDeleteLine={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
               onToggleLine={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
               onChangeLineQuantity={(m, quantity) => run(async () => { await updateMaterial(wo.id, m, { quantity }); await refreshWorkOrder(); })}
+              onRegisterStock={(m, input) => run(async () => { await registerMaterialStock(wo.id, m, input); await refreshWorkOrder(); })}
+              onLogProgress={(m, input) => run(async () => { await logMaterialProgress(wo.id, m, input); await refreshWorkOrder(); })}
+              onDeleteProgress={(m, entryId) => run(async () => { await deleteMaterialProgress(wo.id, m, entryId); await refreshWorkOrder(); })}
               onUploadPhoto={(taskId, kind, file) => run(async () => { setWo(await uploadTaskPhoto(wo.id, taskId, kind, file)); })}
               onDeletePhoto={(taskId, key) => run(async () => { setWo(await deleteTaskPhoto(wo.id, taskId, key)); })}
+              onStartTimer={(taskId) => run(async () => { setWo(await startTask(wo.id, taskId)); })}
+              onEndTimer={(taskId) => run(async () => { await endTask(wo.id, taskId); await refreshWorkOrder(); })}
+              onSetHours={(taskId, hours) => run(async () => { await setTaskHours(wo.id, taskId, hours); await refreshWorkOrder(); })}
             />
 
             {/* Meerwerk awaiting YOUR approval, gathered from every zone. The
@@ -358,12 +400,34 @@ export function WorkOrderDetail() {
               onReject={(matId) => run(async () => { await rejectExtraWork(wo.id, matId); await refreshWorkOrder(); })}
             />
 
+            {/* Bijlagen — this werkbon's own documents. */}
             <AttachmentsPanel
-              attachments={wo.attachments}
+              attachments={wo.attachments.filter((a) => a.kind !== "packing_slip")}
               canWrite={canWrite && !finished}
               busy={busy}
+              title={t("workOrderDetail.attachments.title")}
+              emptyText={t("workOrderDetail.attachments.empty")}
+              addLabel={t("workOrderDetail.attachments.add")}
               onUpload={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file)); })}
               onDelete={(attachmentId) => run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })}
+            />
+
+            {/* Pakbonnen — delivery slips, each confirmed received or not. A
+                different thing from a document: it carries a state. */}
+            <AttachmentsPanel
+              attachments={wo.attachments.filter((a) => a.kind === "packing_slip")}
+              canWrite={canWrite && !finished}
+              busy={busy}
+              title={t("workOrderDetail.packingSlips.title")}
+              emptyText={t("workOrderDetail.packingSlips.empty")}
+              addLabel={t("workOrderDetail.packingSlips.add")}
+              onUpload={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file, "packing_slip")); })}
+              onDelete={(attachmentId) => run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })}
+              receivedToggle={{
+                label: t("workOrderDetail.packingSlips.received"),
+                onToggle: (attachmentId, received) =>
+                  run(async () => { setWo(await setAttachmentReceived(wo.id, attachmentId, received)); }),
+              }}
             />
           </Box>
 
@@ -404,7 +468,9 @@ export function WorkOrderDetail() {
             {sidePanelsInSheet ? null : <ProjectInfoPanel {...projectInfoProps} />}
 
             {/* Same treatment — below lg this is the header's history icon. */}
-            {sidePanelsInSheet ? null : <ActivityPanel activity={project.activity} />}
+            {sidePanelsInSheet ? null : (
+              <ActivityPanel activity={project.activity} onAddComment={addComment} />
+            )}
           </Box>
         </Box>
       </Box>
@@ -420,6 +486,7 @@ export function WorkOrderDetail() {
             open={activityOpen}
             onClose={() => setActivityOpen(false)}
             activity={project.activity}
+            onAddComment={addComment}
           />
         </>
       ) : null}

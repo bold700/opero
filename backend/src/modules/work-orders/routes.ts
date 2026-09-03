@@ -52,6 +52,7 @@ import { buildQuotePdf, type QuotePdfData } from "./quote-pdf.js";
 import { buildMaterialLineName, parseDiameter, LINE_UNIT_LABELS } from "../materials/labels.js";
 import {
   addMaterialFromCatalogSchema,
+  addMaterialFromArticleSchema,
   addMaterialSchema,
   createWorkOrderSchema,
   rejectMeerwerkSchema,
@@ -62,6 +63,7 @@ import {
   updateTaskSchema,
   updateWorkOrderSchema,
   usageSchema,
+  progressSchema,
 } from "./schema.js";
 // Meerwerk (extra work) is a flagged TaskMaterial; it reuses the material schemas.
 import {
@@ -157,12 +159,16 @@ async function loadProjectForWorkOrder(
   workOrder: { id: string; projectId: string };
   project: ProjectForGuard;
   canWrite: boolean;
+  /** True when the ONLY thing between this technician and writing is that the
+   *  office hasn't dispatched the werkbon yet — so the 403 can say so. */
+  dispatchBlocked: boolean;
 }> {
   const workOrder = await prisma.workOrder.findFirst({
     where: { id: workOrderId, project: { orgId: user.orgId, deletedAt: null } },
     select: {
       id: true,
       projectId: true,
+      dispatchedAt: true,
       assignees: { select: { id: true } },
       tasks: { select: { assigneeId: true } },
       project: {
@@ -180,19 +186,32 @@ async function loadProjectForWorkOrder(
   if (!workOrder || !canViewWorkOrder(user, workOrder)) {
     throw NotFound("Work order not found");
   }
+  // Dispatch is the office's release: a technician may VIEW an assigned
+  // werkbon before it is dispatched (planning transparency), but not write to
+  // it — the Controle vooraf checklist gates dispatch, and dispatch gates
+  // field work. Office/admin (and foreman, via canSeeAllProjects) own or lead
+  // that flow, so the gate applies to technician-level logins only.
+  const assignedTechnician =
+    user.role === "technician" && canViewWorkOrder(user, workOrder);
+  const dispatchBlocked = assignedTechnician && workOrder.dispatchedAt === null;
   const canWrite =
-    canSeeAllProjects(user.role) ||
-    (user.role === "technician" && canViewWorkOrder(user, workOrder));
+    canSeeAllProjects(user.role) || (assignedTechnician && !dispatchBlocked);
   return {
     workOrder: { id: workOrder.id, projectId: workOrder.projectId },
     project: workOrder.project,
     canWrite,
+    dispatchBlocked,
   };
 }
 
-// Guard for any write op: load + assert canWrite, else 403.
+// Guard for any write op: load + assert canWrite, else 403. The undispatched
+// case gets its own message so the client can tell "not yours" from "not yet
+// released by the office".
 async function requireWritableWorkOrder(user: AuthUser, workOrderId: string) {
   const loaded = await loadProjectForWorkOrder(user, workOrderId);
+  if (loaded.dispatchBlocked) {
+    throw Forbidden("Work order has not been dispatched yet");
+  }
   if (!loaded.canWrite) throw Forbidden("Not allowed to modify this work order");
   return loaded;
 }
@@ -586,7 +605,6 @@ workOrdersRouter.get(
             postalCode: true,
             city: true,
             insulationType: true,
-            urgency: true,
             // Fallback for the printed job description when this werkbon
             // carries none of its own.
             description: true,
@@ -967,6 +985,9 @@ workOrdersRouter.patch(
           ...(input.assigneeIds !== undefined
             ? { assignees: { set: input.assigneeIds.map((id) => ({ id })) } }
             : {}),
+          // THIS visit's priority. listStatus resyncs via reloadWorkOrder on
+          // the way out — same row, same request, no cross-table sync needed.
+          ...(input.urgency !== undefined ? { urgency: input.urgency } : {}),
           // Per-werkbon photo requirement for the dispatch gate.
           ...(input.prejobPhotoRequired !== undefined
             ? { prejobPhotoRequired: input.prejobPhotoRequired }
@@ -1134,6 +1155,8 @@ workOrdersRouter.post(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     await requireWritableWorkOrder(user, req.params.id);
+    // Optional multipart text field: "document" (default) or "packing_slip".
+    const kind = req.body?.kind === "packing_slip" ? "packing_slip" : "document";
     const meta = await storeAttachment(user, req.file, req.params.id);
     await prisma.$transaction(async (tx) => {
       const row = await tx.workOrderAttachment.create({
@@ -1144,6 +1167,7 @@ workOrdersRouter.post(
           contentType: meta.contentType,
           size: meta.size,
           uploadedById: user.id,
+          kind,
         },
       });
       await audit(tx, user, "workOrder.attachment.add", "workOrderAttachment", row.id, {
@@ -1151,6 +1175,33 @@ workOrdersRouter.post(
       });
     });
     res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/attachments/:attachmentId/received {received} — confirm
+// (or un-confirm) receipt of a packing slip's delivery. Packing slips only.
+workOrdersRouter.post(
+  "/:id/attachments/:attachmentId/received",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWorkOrder(user, req.params.id);
+    const received = req.body?.received === true;
+    const row = await prisma.workOrderAttachment.findFirst({
+      where: { id: req.params.attachmentId, workOrderId: req.params.id },
+    });
+    if (!row) throw NotFound("Attachment not found");
+    if (row.kind !== "packing_slip") throw BadRequest("Not a packing slip");
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrderAttachment.update({
+        where: { id: row.id },
+        data: { receivedAt: received ? new Date() : null },
+      });
+      await audit(tx, user, "workOrder.attachment.received", "workOrderAttachment", row.id, {
+        filename: row.filename,
+        received,
+      });
+    });
+    res.json(await reloadWorkOrder(user, req.params.id));
   }),
 );
 
@@ -1641,7 +1692,15 @@ workOrdersRouter.post(
     await prisma.$transaction(async (tx) => {
       await tx.workOrderTask.update({
         where: { id: task.id },
-        data: { endedAt, done: true, hours: hours ?? null },
+        // Record WHO logged and WHEN it happened: without these, timer-logged
+        // hours had no employee and (unless the office set `day`) no date.
+        data: {
+          endedAt,
+          done: true,
+          hours: hours ?? null,
+          hoursEmployeeId: user.employeeId ?? undefined,
+          day: task.day ?? endedAt.slice(0, 10),
+        },
       });
       if (task.startedAt) {
         await appendActivity(tx, user, project.id, "task.completedViaTimer", {
@@ -1671,7 +1730,12 @@ workOrdersRouter.patch(
     await prisma.$transaction(async (tx) => {
       await tx.workOrderTask.update({
         where: { id: task.id },
-        data: { hours: next },
+        // Same who/when stamping as the timer end (see /end above).
+        data: {
+          hours: next,
+          hoursEmployeeId: user.employeeId ?? undefined,
+          day: task.day ?? new Date().toISOString().slice(0, 10),
+        },
       });
       if ((task.hours ?? 0) !== input.hours) {
         await appendActivity(tx, user, project.id, "task.hoursChanged", {
@@ -1786,6 +1850,66 @@ workOrdersRouter.delete(
 // =========================================================================
 // TASK MATERIALS (shared line item)
 // =========================================================================
+
+// POST /work-orders/:id/tasks/:taskId/materials/from-article — add a line from
+// the ARTICLE catalog (other products & services: labour hours, logistics,
+// miscellaneous sales items). Name/unit/unitPrice resolve SERVER-side from the
+// org-scoped Article, mirroring from-catalog: a technician's responses strip
+// prices, so client-side autofill would create priceless lines.
+workOrdersRouter.post(
+  "/:id/tasks/:taskId/materials/from-article",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = addMaterialFromArticleSchema.parse(req.body);
+    const isExtraWork = input.isExtraWork === true;
+    // Same gate split as the sibling routes: meerwerk is reportable by
+    // technicians; sold scope is office-only.
+    const { project } = isExtraWork
+      ? await requireWritableWorkOrder(user, req.params.id)
+      : await requireQuoteScopeEditor(user, req.params.id);
+    const task = await loadTask(req.params.id, req.params.taskId);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: { title: true },
+    });
+    const scope = taskScopeLabel(task, wb.title);
+
+    const article = await prisma.article.findFirst({
+      where: { id: input.articleId, orgId: user.orgId },
+    });
+    if (!article) throw NotFound("Article not found");
+
+    await prisma.$transaction(async (tx) => {
+      const count = await tx.taskMaterial.count({ where: { taskId: task.id } });
+      const mat = await tx.taskMaterial.create({
+        data: {
+          taskId: task.id,
+          name: article.name,
+          quantity:
+            input.quantity !== undefined
+              ? clampNumber(input.quantity)
+              : article.defaultQuantity || 1,
+          unit: article.unit,
+          unitPrice: article.unitPrice,
+          onSite: false,
+          ordinal: count,
+          isExtraWork,
+        },
+      });
+      await appendActivity(tx, user, project.id, "material.addedTask", {
+        scope,
+        name: article.name,
+      });
+      await audit(tx, user, "workOrder.material.addFromArticle", "taskMaterial", mat.id, {
+        articleId: article.id,
+      });
+      await syncTaskDone(tx, task.id);
+      await recomputeQuoteAmount(tx, req.params.id);
+      await recomputeWorkOrderStatus(tx, req.params.id);
+    });
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
 
 // POST /work-orders/:id/tasks/:taskId/materials — add a CUSTOM (free-text) line:
 // description + quantity + unit typed by hand, for material that isn't in the
@@ -2096,7 +2220,10 @@ workOrdersRouter.delete(
   }),
 );
 
-// POST /work-orders/:id/materials/:matId/usage {used} — set usedQuantity.
+// POST /work-orders/:id/materials/:matId/usage {used?, issued?, returned?} —
+// register stock on the line: what was handed out to the monteur, what was
+// actually used, what came back. Unaccounted = issued − used − returned,
+// derived at read time (never stored).
 workOrdersRouter.post(
   "/:id/materials/:matId/usage",
   asyncHandler(async (req, res) => {
@@ -2104,13 +2231,19 @@ workOrdersRouter.post(
     const input = usageSchema.parse(req.body);
     const { project } = await requireWritableWorkOrder(user, req.params.id);
     const before = await loadMaterial(req.params.id, req.params.matId);
-    const used = clampNumber(input.used);
+    const used = input.used !== undefined ? clampNumber(input.used) : undefined;
+    const issued = input.issued !== undefined ? clampNumber(input.issued) : undefined;
+    const returned = input.returned !== undefined ? clampNumber(input.returned) : undefined;
     await prisma.$transaction(async (tx) => {
       await tx.taskMaterial.update({
         where: { id: before.id },
-        data: { usedQuantity: used },
+        data: {
+          usedQuantity: used,
+          issuedQuantity: issued,
+          returnedQuantity: returned,
+        },
       });
-      if ((before.usedQuantity ?? 0) !== used) {
+      if (used !== undefined && (before.usedQuantity ?? 0) !== used) {
         const diff = used - before.quantity;
         await appendActivity(tx, user, project.id, "material.usageChanged", {
           name: before.name || "—",
@@ -2124,6 +2257,84 @@ workOrdersRouter.post(
       }
       await audit(tx, user, "workOrder.material.usage", "taskMaterial", before.id, {
         used,
+        issued,
+        returned,
+      });
+    });
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// POST /work-orders/:id/materials/:matId/progress {amount, day?} — log one
+// day's progress on the line, in the line's unit ("Monday 10 of the 100 m").
+// Registration, so technicians may log (dispatch-gated). Records WHO (the
+// caller's employee) and WHICH DAY. Reaching the line's target quantity marks
+// the line done, which can complete the zone via syncTaskDone.
+workOrdersRouter.post(
+  "/:id/materials/:matId/progress",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = progressSchema.parse(req.body);
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const before = await loadMaterial(req.params.id, req.params.matId);
+    const day = input.day ?? new Date().toISOString().slice(0, 10);
+    const amount = clampNumber(input.amount);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.taskProgressEntry.create({
+        data: {
+          materialId: before.id,
+          employeeId: user.employeeId ?? null,
+          amount,
+          day,
+        },
+      });
+      const sum = await tx.taskProgressEntry.aggregate({
+        where: { materialId: before.id },
+        _sum: { amount: true },
+      });
+      const total = sum._sum.amount ?? 0;
+      // Target reached → the line is done (same effect as ticking it off).
+      if (!before.done && before.quantity > 0 && total >= before.quantity) {
+        await tx.taskMaterial.update({ where: { id: before.id }, data: { done: true } });
+      }
+      await appendActivity(tx, user, project.id, "material.progressLogged", {
+        name: before.name || "—",
+        amount,
+        total,
+        target: before.quantity,
+        unit: before.unit,
+      });
+      await audit(tx, user, "workOrder.material.progress", "taskMaterial", before.id, {
+        amount,
+        day,
+      });
+      await syncTaskDone(tx, before.taskId);
+      await recomputeWorkOrderStatus(tx, req.params.id);
+    });
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// DELETE /work-orders/:id/materials/:matId/progress/:entryId — correction path
+// (a mistyped amount). Office only: silently rewriting a monteur's log is an
+// office decision, and the audit row keeps the trace.
+workOrdersRouter.delete(
+  "/:id/materials/:matId/progress/:entryId",
+  requireRole("admin", "office"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    await requireWritableWorkOrder(user, req.params.id);
+    const before = await loadMaterial(req.params.id, req.params.matId);
+    const entry = await prisma.taskProgressEntry.findFirst({
+      where: { id: req.params.entryId, materialId: before.id },
+    });
+    if (!entry) throw NotFound("Progress entry not found");
+    await prisma.$transaction(async (tx) => {
+      await tx.taskProgressEntry.delete({ where: { id: entry.id } });
+      await audit(tx, user, "workOrder.material.progress.remove", "taskMaterial", before.id, {
+        amount: entry.amount,
+        day: entry.day,
       });
     });
     res.json(await reloadWorkOrder(user, req.params.id));

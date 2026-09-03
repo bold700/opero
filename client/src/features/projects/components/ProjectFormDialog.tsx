@@ -14,6 +14,7 @@ import { SelectField } from "../../../components/SelectField";
 import { getCustomers, type CustomerOption } from "../../work-orders/create-api";
 import { getWorkTypes, type WorkTypeOption } from "../../work-order-detail/api";
 import type { ProjectDetail, ProjectInput } from "../api";
+import { ProjectContactsSection } from "./ProjectContactsSection";
 
 // Create or edit a project. Create needs a customer + name + optional work type;
 // edit keeps the customer fixed and lets you change name / work type / notes.
@@ -37,8 +38,7 @@ export function ProjectFormDialog({
   onUpdate: (patch: {
     name?: string;
     referenceNumber?: string;
-    contactName?: string;
-    contactPhone?: string;
+    contactIds?: string[];
     address?: string;
     postalCode?: string;
     city?: string;
@@ -58,10 +58,13 @@ export function ProjectFormDialog({
   // The CLIENT's own order/PO/dossier number — never Opero's projectNumber,
   // which is generated server-side and is not editable here.
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
-  // Job-site address — edit only. On create it is derived from the chosen
-  // location / the customer (see projects/routes.ts), so the form doesn't ask.
+  // Contact persons ticked from the customer's central list (several allowed).
+  // No phone field here — a contact's number lives on the contact person
+  // (meeting 28-08: the separate phone field is gone). The list itself, and
+  // adding a missing contact, live in ProjectContactsSection.
+  const [contactIds, setContactIds] = useState<string[]>([]);
+  // Job-site address. On create, blank fields fall back to the chosen
+  // location / the customer's own address (see projects/routes.ts).
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
@@ -74,8 +77,7 @@ export function ProjectFormDialog({
     customerId: string;
     name: string;
     referenceNumber: string;
-    contactName: string;
-    contactPhone: string;
+    contactIds: string;
     address: string;
     postalCode: string;
     city: string;
@@ -89,12 +91,12 @@ export function ProjectFormDialog({
     getCustomers().then(setCustomers).catch(() => setCustomers([]));
     getWorkTypes().then(setWorkTypes).catch(() => setWorkTypes([]));
     // Seed fields from the project when editing; clear when creating.
+    const seededContactIds = (project?.contacts ?? []).map((c) => c.id);
     const seeded = {
       customerId: project?.customerId ?? "",
       name: project?.name ?? "",
       referenceNumber: project?.referenceNumber ?? "",
-      contactName: project?.contactName ?? "",
-      contactPhone: project?.contactPhone ?? "",
+      contactIds: seededContactIds.join(","),
       address: project?.address ?? "",
       postalCode: project?.postalCode ?? "",
       city: project?.city ?? "",
@@ -106,8 +108,7 @@ export function ProjectFormDialog({
     setCustomerId(seeded.customerId);
     setName(seeded.name);
     setReferenceNumber(seeded.referenceNumber);
-    setContactName(seeded.contactName);
-    setContactPhone(seeded.contactPhone);
+    setContactIds(seededContactIds);
     setAddress(seeded.address);
     setPostalCode(seeded.postalCode);
     setCity(seeded.city);
@@ -121,8 +122,7 @@ export function ProjectFormDialog({
       customerId,
       name,
       referenceNumber,
-      contactName,
-      contactPhone,
+      contactIds: contactIds.join(","),
       address,
       postalCode,
       city,
@@ -137,13 +137,13 @@ export function ProjectFormDialog({
   const canSubmit = editing ? dirty : Boolean(customerId);
 
   const submit = () => {
+    const ids = contactIds;
     if (editing) {
       onUpdate({
         name: name.trim() || undefined,
         // Sent even when empty so clearing the field clears it server-side.
         referenceNumber: referenceNumber.trim(),
-        contactName: contactName.trim(),
-        contactPhone: contactPhone.trim(),
+        contactIds: ids,
         address: address.trim(),
         postalCode: postalCode.trim(),
         city: city.trim(),
@@ -164,8 +164,10 @@ export function ProjectFormDialog({
         // Left blank on purpose = "use the customer's own contact details": the
         // backend seeds contactName/contactPhone from the customer when these
         // are omitted, so an empty field must not be sent as "".
-        contactName: contactName.trim() || undefined,
-        contactPhone: contactPhone.trim() || undefined,
+        contactIds: ids.length > 0 ? ids : undefined,
+        address: address.trim() || undefined,
+        postalCode: postalCode.trim() || undefined,
+        city: city.trim() || undefined,
         workTypeId: workTypeId || undefined,
         notes: description.trim() || undefined,
       });
@@ -223,65 +225,49 @@ export function ProjectFormDialog({
               editable — the helper text spells that difference out. */}
           <TextField
             label={t("projects.form.referenceNumber")}
-            helperText={t("projects.form.referenceNumberHelp")}
             value={referenceNumber}
             onChange={(e) => setReferenceNumber(e.target.value)}
             disabled={busy}
             size="small"
           />
 
-          {/* Site contact. Left blank on create, the backend copies the
-              customer's own contact details. */}
+          {/* Contact persons: the customer's central list as a checklist, with
+              an add action at the end. This IS the contact field — the old
+              single free-text contact went with the phone field (28-08). */}
+          <ProjectContactsSection
+            customerId={customerId}
+            selectedIds={contactIds}
+            busy={busy}
+            onChange={setContactIds}
+          />
+
+          {/* Job-site address. On create, blank fields fall back to the
+              customer's own address (which then propagates to the project). */}
           <TextField
-            label={t("projects.form.contactName")}
-            helperText={editing ? undefined : t("projects.form.contactHelp")}
-            value={contactName}
-            onChange={(e) => setContactName(e.target.value)}
+            label={t("projects.form.address")}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
             disabled={busy}
             size="small"
           />
-
-          <TextField
-            label={t("projects.form.contactPhone")}
-            value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value)}
-            disabled={busy}
-            size="small"
-          />
-
-          {/* Job-site address — edit only. On create it is derived from the
-              chosen customer location / the customer's own address, so asking
-              here would just invite conflicting input. */}
-          {editing ? (
-            <>
-              <TextField
-                label={t("projects.form.address")}
-                helperText={t("projects.form.addressHelp")}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                disabled={busy}
-                size="small"
-              />
-              <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1.5 }}>
-                <TextField
-                  label={t("projects.form.postalCode")}
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
-                  disabled={busy}
-                  size="small"
-                  sx={{ width: { xs: "100%", sm: 140 } }}
-                />
-                <TextField
-                  label={t("projects.form.city")}
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  disabled={busy}
-                  size="small"
-                  sx={{ flex: 1 }}
-                />
-              </Box>
-            </>
-          ) : null}
+          <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1.5 }}>
+            <TextField
+              label={t("projects.form.postalCode")}
+              value={postalCode}
+              onChange={(e) => setPostalCode(e.target.value)}
+              disabled={busy}
+              size="small"
+              sx={{ width: { xs: "100%", sm: 140 } }}
+            />
+            <TextField
+              label={t("projects.form.city")}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              disabled={busy}
+              size="small"
+              sx={{ flex: 1 }}
+            />
+          </Box>
 
           <SelectField
             label={t("projects.form.workType")}

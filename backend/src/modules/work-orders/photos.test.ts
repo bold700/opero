@@ -31,9 +31,16 @@ async function login(email: string): Promise<string> {
 }
 
 beforeAll(async () => {
-  const org = (await prisma.organization.findFirst()) ?? null;
-  if (!org) throw new Error("seed org required");
+  // Own org + prejob template — a bare findFirst() picked an arbitrary org
+  // (suites create orgs concurrently), sometimes one without a template.
+  const org = await prisma.organization.create({ data: { name: `${TAG} Org` } });
   orgId = org.id;
+  await prisma.prejobCheckItem.createMany({
+    data: [
+      { orgId, key: "address_confirmed", label: "Adres en toegang bevestigd", ordinal: 0 },
+      { orgId, key: "materials_ready", label: "Benodigde materialen gereed", ordinal: 1 },
+    ],
+  });
   await prisma.user.upsert({
     where: { email: adminEmail },
     update: {},
@@ -48,7 +55,13 @@ beforeAll(async () => {
   adminToken = await login(adminEmail);
 
   // A throwaway project + work order + task to attach photos to.
-  const project = await prisma.project.findFirstOrThrow({ where: { orgId } });
+  // Own customer + project — suites must never borrow seeded data.
+  const customer = await prisma.customer.create({
+    data: { orgId, name: `${TAG} Cust`, contactName: "C", email: "c@c.nl", phone: "", address: "", postalCode: "", city: "" },
+  });
+  const project = await prisma.project.create({
+    data: { orgId, customerId: customer.id, customerName: customer.name, name: `${TAG} Project`, projectNumber: `${TAG}-P1`, insulationType: "", nextStepKey: "sendQuote", address: "", postalCode: "", city: "" },
+  });
   projectId = project.id;
   const wo = await request(app)
     .post("/api/work-orders")
@@ -65,7 +78,12 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.workOrderTask.deleteMany({ where: { workOrderId } });
   await prisma.workOrder.deleteMany({ where: { id: workOrderId } });
+  await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.user.deleteMany({ where: { email: adminEmail } });
+  await prisma.prejobCheckItem.deleteMany({ where: { org: { name: { startsWith: TAG } } } });
+  await prisma.auditLog.deleteMany({ where: { org: { name: { startsWith: TAG } } } });
+  await prisma.organization.deleteMany({ where: { name: { startsWith: TAG } } });
 });
 
 async function pngBuffer(): Promise<Buffer> {

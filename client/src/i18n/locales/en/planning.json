@@ -41,5 +41,6 @@
     "scheduleError": "Scheduling failed",
     "removeError": "Remove failed"
   },
-  "view": "View"
+  "view": "View",
+  "spanDays": "{{days}} days"
 }

@@ -6,6 +6,8 @@ export type NotificationPrefs = {
   newWorkOrder: boolean;
   urgentOnSite: boolean;
   extraWorkApproval: boolean;
+  progressLogged: boolean;
+  progressReminder: boolean;
   weeklySummary: boolean;
 };
 

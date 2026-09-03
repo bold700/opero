@@ -1,4 +1,6 @@
 {
+  "title": "Activity",
+  "empty": "No activity yet.",
   "status": {
     "sales": "Sales",
     "operations": "Operations",
@@ -79,7 +81,8 @@
     "removed": "Product removed: {{name}}",
     "usageChanged": "Usage {{name}}: {{from}} to {{to}} {{unit}}{{suffix}}",
     "usageOver": " ({{delta}} {{unit}} more than planned)",
-    "usageUnder": " ({{delta}} {{unit}} less than planned)"
+    "usageUnder": " ({{delta}} {{unit}} less than planned)",
+    "progressLogged": "Progress logged on {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})"
   },
   "workOrder": {
     "created": "Work order created: {{title}}",
@@ -89,5 +92,7 @@
     "signed": "{{title}} completed and signed",
     "reopened": "{{title}} reopened",
     "dispatched": "{{title}} dispatched"
-  }
+  },
+  "commentPlaceholder": "Add a note…",
+  "commentSend": "Post note"
 }

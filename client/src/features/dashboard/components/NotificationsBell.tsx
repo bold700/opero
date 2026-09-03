@@ -13,6 +13,8 @@ import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
+import AlarmOutlinedIcon from "@mui/icons-material/AlarmOutlined";
 import type { NotificationCategory } from "@opero/shared";
 import {
   getNotifications,
@@ -30,6 +32,8 @@ const CATEGORY_ICON: Record<NotificationCategory, typeof AssignmentOutlinedIcon>
   extraWorkApproval: ReceiptLongOutlinedIcon,
   urgentOnSite: WarningAmberOutlinedIcon,
   newWorkOrder: AssignmentOutlinedIcon,
+  progressLogged: TimelineOutlinedIcon,
+  progressReminder: AlarmOutlinedIcon,
 };
 
 // The scrollable list of notification items — shared by the desktop dropdown and

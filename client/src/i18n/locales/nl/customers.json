@@ -78,5 +78,33 @@
     "deleted": "Klant verwijderd",
     "saveError": "Opslaan mislukt",
     "deleteError": "Verwijderen mislukt"
+  },
+  "contacts": {
+    "title": "Contactpersonen",
+    "add": "Contact toevoegen",
+    "empty": "Nog geen contactpersonen.",
+    "role": "Functie / Rol",
+    "email": "E-mailadres",
+    "phone": "Telefoonnummer",
+    "deleteTitle": "Contactpersoon verwijderen?",
+    "deleteBody": "{{name}} verwijderen? Projecten die deze contactpersoon gebruiken behouden hun eigen kopie.",
+    "newTitle": "Nieuwe contactpersoon",
+    "editTitle": "Contactpersoon bewerken",
+    "firstName": "Voornaam",
+    "lastName": "Achternaam",
+    "notes": "Notities"
+  },
+  "detail": {
+    "infoTitle": "Klantgegevens",
+    "contactsTitle": "Contactpersonen",
+    "addContact": "Contactpersoon toevoegen",
+    "kvk": "KVK",
+    "vat": "BTW",
+    "colName": "Naam",
+    "colRole": "Functie",
+    "colEmail": "E-mail",
+    "colPhone": "Telefoon",
+    "colAction": "Actie",
+    "notFound": "Klant niet gevonden."
   }
 }

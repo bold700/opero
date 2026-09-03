@@ -1,11 +1,15 @@
 import { api, type Page } from "../../lib/api/client";
+import type { ActivityEntry } from "../../components/ActivityPanel";
+import type { AttachmentItem } from "../../components/AttachmentsPanel";
 
 // Projects — the grouping layer above werkbonnen. One project groups a
 // customer's werkbonnen (each werkbon is billed + scheduled on its own).
 
 export type ProjectStatus = "sales" | "operations" | "closing";
 export type ProjectStage = "concept" | "in_progress" | "ready" | "done";
-export type ProjectUrgency = "normal" | "urgent" | "blocked";
+// Rollup only: "urgent" when any unfinished werkbon of the project is urgent.
+// Urgency itself is per-werkbon; blocked is a separate flag (see `blocked`).
+export type ProjectUrgency = "normal" | "urgent";
 
 // Mirrors backend projectSummaryDto (list row).
 export type ProjectSummary = {
@@ -20,6 +24,8 @@ export type ProjectSummary = {
   status: ProjectStatus;
   stage: ProjectStage;
   urgency: ProjectUrgency;
+  // Derived from the project's blocker state — a separate axis from urgency.
+  blocked: boolean;
   nextStepKey: string;
   workOrderCount: number;
   value?: number;
@@ -53,6 +59,7 @@ export type ProjectDetail = {
   city: string;
   contactName?: string;
   contactPhone?: string;
+  contacts: { id: string; name: string; email?: string; phone?: string; role?: string }[];
   instructions?: string;
   description?: string;
   workTypeId?: string;
@@ -60,8 +67,12 @@ export type ProjectDetail = {
   status: ProjectStatus;
   stage: ProjectStage;
   urgency: ProjectUrgency;
+  // Derived from the project's blocker state — a separate axis from urgency.
+  blocked: boolean;
   value?: number;
   workOrders: ProjectWorkOrder[];
+  activity: ActivityEntry[];
+  attachments: AttachmentItem[];
 };
 
 // Editable project fields (create/update).
@@ -72,7 +83,12 @@ export type ProjectInput = {
   referenceNumber?: string;
   /** Site contact. Omitted when blank — the backend then seeds it from the customer. */
   contactName?: string;
-  contactPhone?: string;
+  /** Contact persons from the customer's central list. */
+  contactIds?: string[];
+  /** Site address. Omitted → derived from location / the customer's address. */
+  address?: string;
+  postalCode?: string;
+  city?: string;
   locationId?: string;
   workTypeId?: string;
   notes?: string;
@@ -81,8 +97,30 @@ export type ProjectInput = {
 export function getProjectsPage(opts: {
   cursor?: string;
   search?: string;
+  status?: string;
+  workTypeId?: string;
 }): Promise<Page<ProjectSummary>> {
-  return api.getPage<ProjectSummary>("/projects", { cursor: opts.cursor, search: opts.search });
+  return api.getPage<ProjectSummary>("/projects", {
+    cursor: opts.cursor,
+    search: opts.search,
+    params: { status: opts.status, workTypeId: opts.workTypeId },
+  });
+}
+
+// Post a free-text note onto the project's timeline. Returns the refreshed
+// feed, newest first.
+export function addProjectComment(id: string, body: string): Promise<ActivityEntry[]> {
+  return api.post<ActivityEntry[]>(`/projects/${id}/comments`, { body });
+}
+
+// Project-level files (PDF or image), visible from every werkbon in the
+// project. Both mutations return the refreshed project.
+export function uploadProjectAttachment(id: string, file: Blob): Promise<ProjectDetail> {
+  return api.upload<ProjectDetail>(`/projects/${id}/attachments`, file);
+}
+
+export function deleteProjectAttachment(id: string, attachmentId: string): Promise<ProjectDetail> {
+  return api.delete<ProjectDetail>(`/projects/${id}/attachments/${attachmentId}`);
 }
 
 export function getProject(id: string): Promise<ProjectDetail> {
@@ -101,6 +139,8 @@ export function updateProject(
     referenceNumber: string;
     contactName: string;
     contactPhone: string;
+    // Contact persons from the customer's central list (ids; full replace).
+    contactIds: string[];
     // The job-site address. Editable after create; the create flow derives it
     // from the chosen customer location instead.
     address: string;

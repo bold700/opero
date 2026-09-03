@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../auth/AuthContext";
 import { PageLayout } from "../../components/PageLayout";
 import { useApi } from "../../lib/api/useApi";
-import { getDashboard, type DashboardData } from "./api";
+import { useState } from "react";
+import { getDashboard, type DashboardData, type SalesPeriod } from "./api";
 import { DashboardActions } from "./components/DashboardActions";
 import { AdminView } from "./components/AdminView";
 import { TechnicianView } from "./components/TechnicianView";
@@ -16,7 +17,8 @@ export function Dashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const firstName = (user?.name ?? "").split(" ")[0];
-  const { data, loading, error } = useApi<DashboardData>(getDashboard);
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("all");
+  const { data, loading, error } = useApi<DashboardData>(() => getDashboard(salesPeriod), [salesPeriod]);
 
   return (
     <PageLayout title="Dashboard" actions={<DashboardActions />}>
@@ -44,7 +46,7 @@ export function Dashboard() {
           // office staff get the admin payload. Defaulting here rather than
           // matching "admin" exactly means a new role can never render a blank
           // page.
-          <AdminView data={data} />
+          <AdminView data={data} salesPeriod={salesPeriod} onSalesPeriodChange={setSalesPeriod} />
         )
       ) : null}
     </PageLayout>

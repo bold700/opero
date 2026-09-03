@@ -73,12 +73,15 @@ beforeAll(async () => {
   });
   adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
 
-  const project = await prisma.project.findFirstOrThrow({
-    where: { orgId, deletedAt: null },
-    select: { id: true, customerId: true },
+  // Own customer + project — suites must never borrow seeded data.
+  const customer = await prisma.customer.create({
+    data: { orgId, name: `${TAG} Cust`, contactName: "C", email: "c@c.nl", phone: "", address: "", postalCode: "", city: "" },
+  });
+  const project = await prisma.project.create({
+    data: { orgId, customerId: customer.id, customerName: customer.name, name: `${TAG} Project`, projectNumber: `${TAG}-P1`, insulationType: "", nextStepKey: "sendQuote", address: "", postalCode: "", city: "" },
   });
   projectId = project.id;
-  customerId = project.customerId;
+  customerId = customer.id;
 
   // A client login that owns this project's customer — the only role that can
   // give client approval.
@@ -110,6 +113,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.workOrder.deleteMany({ where: { id: workOrderId } });
+  await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
   await prisma.$disconnect();
 });
@@ -215,7 +220,7 @@ describe("meerwerk invoice totals", () => {
     // Assignment is per WERKBON, not per project — that's what grants access.
     await prisma.workOrder.update({
       where: { id: workOrderId },
-      data: { assignees: { connect: { id: employee.id } } },
+      data: { assignees: { connect: { id: employee.id } }, dispatchedAt: new Date() },
     });
     const techUser = await prisma.user.create({
       data: {

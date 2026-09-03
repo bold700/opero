@@ -11,6 +11,7 @@
   },
   "table": {
     "number": "Project #",
+    "name": "Naam",
     "customer": "Klant",
     "city": "Plaats",
     "workOrders": "Werkbonnen",
@@ -26,18 +27,17 @@
     "customer": "Klant",
     "name": "Projectnaam",
     "referenceNumber": "Referentienummer klant",
-    "referenceNumberHelp": "Het order-, inkoop- of dossiernummer van de klant zelf. Niet het projectnummer van Opero — dat wordt automatisch toegekend.",
-    "contactName": "Contactpersoon",
-    "contactPhone": "Telefoon contactpersoon",
-    "contactHelp": "Laat leeg om de contactgegevens van de klant over te nemen.",
     "address": "Adres werklocatie",
-    "addressHelp": "Het adres van de klus zelf. Bij aanmaken wordt dit overgenomen van de gekozen locatie of de klant.",
     "postalCode": "Postcode",
     "city": "Plaats",
     "workType": "Werksoort",
     "workTypeNone": "Nog te bepalen",
     "description": "Omschrijving",
-    "customerSwitchWarning": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer."
+    "customerSwitchWarning": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer.",
+    "contacts": "Contactpersonen",
+    "contactsPickCustomer": "Kies eerst een klant.",
+    "contactsNone": "Deze klant heeft nog geen contactpersonen.",
+    "contactsAddLink": "Contactpersoon toevoegen"
   },
   "detail": {
     "notFound": "Project niet gevonden",
@@ -68,5 +68,16 @@
     "title": "Project verwijderen?",
     "body_one": "Project {{number}} en de bijbehorende werkbon worden definitief verwijderd. Dit kan niet ongedaan worden gemaakt.",
     "body_other": "Project {{number}} en de {{count}} bijbehorende werkbonnen worden definitief verwijderd. Dit kan niet ongedaan worden gemaakt."
+  },
+  "filters": {
+    "statusLabel": "Filter op status",
+    "workTypeLabel": "Filter op werksoort",
+    "allStatuses": "Alle statussen",
+    "allWorkTypes": "Alle werksoorten"
+  },
+  "attachments": {
+    "title": "Projectbestanden",
+    "empty": "Nog geen bestanden.",
+    "add": "Bestand toevoegen"
   }
 }

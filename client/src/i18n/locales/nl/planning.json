@@ -41,5 +41,6 @@
     "scheduleError": "Inplannen mislukt",
     "removeError": "Verwijderen mislukt"
   },
-  "view": "Weergave"
+  "view": "Weergave",
+  "spanDays": "{{days}} dagen"
 }

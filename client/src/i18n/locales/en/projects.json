@@ -11,6 +11,7 @@
   },
   "table": {
     "number": "Project #",
+    "name": "Name",
     "customer": "Customer",
     "city": "City",
     "workOrders": "Work orders",
@@ -26,18 +27,17 @@
     "customer": "Customer",
     "name": "Project name",
     "referenceNumber": "Customer reference number",
-    "referenceNumberHelp": "The customer's own order, PO or file number. Not Opero's project number — that one is assigned automatically.",
-    "contactName": "Contact person",
-    "contactPhone": "Contact phone",
-    "contactHelp": "Leave empty to copy the customer's own contact details.",
     "address": "Job-site address",
-    "addressHelp": "The address of the job itself. On create it is copied from the chosen location or the customer.",
     "postalCode": "Postal code",
     "city": "City",
     "workType": "Work type",
     "workTypeNone": "To be determined",
     "description": "Description",
-    "customerSwitchWarning": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job."
+    "customerSwitchWarning": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job.",
+    "contacts": "Contact persons",
+    "contactsPickCustomer": "Pick a customer first.",
+    "contactsNone": "This customer has no contacts yet.",
+    "contactsAddLink": "Add contact person"
   },
   "detail": {
     "notFound": "Project not found",
@@ -68,5 +68,16 @@
     "title": "Delete project?",
     "body_one": "Project {{number}} and its 1 work order will be permanently deleted. This cannot be undone.",
     "body_other": "Project {{number}} and its {{count}} work orders will be permanently deleted. This cannot be undone."
+  },
+  "filters": {
+    "statusLabel": "Filter by status",
+    "workTypeLabel": "Filter by work type",
+    "allStatuses": "All statuses",
+    "allWorkTypes": "All work types"
+  },
+  "attachments": {
+    "title": "Project files",
+    "empty": "No files yet.",
+    "add": "Add file"
   }
 }

@@ -1,4 +1,6 @@
 {
+  "title": "Activiteit",
+  "empty": "Nog geen activiteit.",
   "status": {
     "sales": "Verkoop",
     "operations": "Operatie",
@@ -79,7 +81,8 @@
     "removed": "Product verwijderd: {{name}}",
     "usageChanged": "Verbruik {{name}}: {{from}} naar {{to}} {{unit}}{{suffix}}",
     "usageOver": " ({{delta}} {{unit}} meer dan gepland)",
-    "usageUnder": " ({{delta}} {{unit}} minder dan gepland)"
+    "usageUnder": " ({{delta}} {{unit}} minder dan gepland)",
+    "progressLogged": "Voortgang gelogd op {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})"
   },
   "workOrder": {
     "created": "Werkbon aangemaakt: {{title}}",
@@ -89,5 +92,7 @@
     "signed": "{{title}} afgerond en ondertekend",
     "reopened": "{{title}} heropend",
     "dispatched": "{{title}} op pad gestuurd"
-  }
+  },
+  "commentPlaceholder": "Notitie toevoegen…",
+  "commentSend": "Notitie plaatsen"
 }

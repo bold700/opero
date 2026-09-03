@@ -104,7 +104,15 @@
       "sub": "An overview by email every Monday"
     },
     "saved": "Notification preferences saved",
-    "saveError": "Save failed"
+    "saveError": "Save failed",
+    "progressLogged": {
+      "label": "Progress logged",
+      "sub": "When a monteur logs progress on a work order line."
+    },
+    "progressReminder": {
+      "label": "Log reminder",
+      "sub": "A reminder when you have not logged progress today on a dispatched job."
+    }
   },
   "preferences": {
     "display": "Display",

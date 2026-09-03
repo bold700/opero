@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
-import { ActivityPanel } from "./ActivityPanel";
+import { ActivityPanel } from "../../../components/ActivityPanel";
 import type { Activity } from "../api";
 
 // Activiteit as a bottom sheet, for when the werkbon layout has collapsed to a
@@ -14,10 +14,12 @@ export function ActivitySheet({
   open,
   onClose,
   activity,
+  onAddComment,
 }: {
   open: boolean;
   onClose: () => void;
   activity: Activity[];
+  onAddComment?: (body: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
 
@@ -34,7 +36,7 @@ export function ActivitySheet({
           .MuiDialogContent-root scrollable, and a long log is far taller than
           the sheet's height cap. */}
       <DialogContent>
-        <ActivityPanel activity={activity} bare />
+        <ActivityPanel activity={activity} bare onAddComment={onAddComment} />
       </DialogContent>
     </ResponsiveDialog>
   );

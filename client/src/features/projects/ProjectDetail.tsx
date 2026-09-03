@@ -16,6 +16,8 @@ import { Card } from "../../components/Card";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ResponsiveList } from "../../components/ResponsiveList";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { ActivityPanel } from "../../components/ActivityPanel";
+import { AttachmentsPanel } from "../../components/AttachmentsPanel";
 import { STATUS_TONES, SPACING } from "../../theme/tokens";
 import { STATUS as WORK_ORDER_STATUS } from "../../features/work-orders/constants";
 import type { WorkOrderStatus } from "../../features/work-orders/api";
@@ -24,6 +26,9 @@ import { useAuth } from "../../auth/AuthContext";
 import { isOffice } from "@opero/shared";
 import {
   getProject,
+  addProjectComment,
+  uploadProjectAttachment,
+  deleteProjectAttachment,
   updateProject,
   deleteProject,
   createWorkOrderForProject,
@@ -266,6 +271,13 @@ export function ProjectDetail() {
               {project.contactName || project.contactPhone ? (
                 <Field label={t("projects.detail.contact")}>{[project.contactName, project.contactPhone].filter(Boolean).join(" · ")}</Field>
               ) : null}
+              {project.contacts.length > 0 ? (
+                <Field label={t("projects.form.contacts")}>
+                  {project.contacts
+                    .map((c) => [c.name, c.role, c.phone].filter(Boolean).join(" · "))
+                    .join(", ")}
+                </Field>
+              ) : null}
             </Box>
             {project.description ? (
               <Field label={t("projects.form.description")}>
@@ -279,6 +291,40 @@ export function ProjectDetail() {
             ) : null}
           </Box>
         </Card>
+
+        {/* Project files — visible from every werkbon in this project. */}
+        <AttachmentsPanel
+          attachments={project.attachments}
+          canWrite={canManage}
+          busy={busy}
+          title={t("projects.attachments.title")}
+          emptyText={t("projects.attachments.empty")}
+          addLabel={t("projects.attachments.add")}
+          onUpload={(file) => {
+            setBusy(true);
+            uploadProjectAttachment(project.id, file)
+              .then(setProject)
+              .catch((e) => setActionError(e instanceof Error ? e.message : String(e)))
+              .finally(() => setBusy(false));
+          }}
+          onDelete={(attachmentId) => {
+            setBusy(true);
+            deleteProjectAttachment(project.id, attachmentId)
+              .then(setProject)
+              .catch((e) => setActionError(e instanceof Error ? e.message : String(e)))
+              .finally(() => setBusy(false));
+          }}
+        />
+
+        {/* Activity — the project's timeline (comments + system events), the
+            same feed the werkbon detail page shows. */}
+        <ActivityPanel
+          activity={project.activity}
+          onAddComment={async (body) => {
+            const activity = await addProjectComment(project.id, body);
+            setProject((p) => (p ? { ...p, activity } : p));
+          }}
+        />
       </Box>
 
       {canManage ? (

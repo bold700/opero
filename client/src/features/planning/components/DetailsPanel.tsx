@@ -61,8 +61,12 @@ function DetailsBody({
       <Typography variant="h6" sx={{ fontWeight: 700 }}>
         {entry.customerName}
       </Typography>
+      {entry.workOrderTitle ? (
+        <Typography variant="body2">{entry.workOrderTitle}</Typography>
+      ) : null}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {entry.projectNumber}
+        {entry.projectName ? ` · ${entry.projectName}` : ""}
       </Typography>
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2 }}>
@@ -83,6 +87,14 @@ function DetailsBody({
             {entry.teamLeaderName ?? t("planning.schedule.unassigned")}
           </Typography>
         </Box>
+        {entry.installerNames.length > 0 ? (
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", color: "text.secondary" }}>
+            <PersonOutlineIcon fontSize="small" />
+            <Typography variant="body2" sx={{ color: "text.primary" }}>
+              {entry.installerNames.join(", ")}
+            </Typography>
+          </Box>
+        ) : null}
       </Box>
 
       <Box sx={{ mb: 3 }}>

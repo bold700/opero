@@ -35,7 +35,8 @@
     "required": "Required field",
     "email": "Invalid email address",
     "number": "Invalid number",
-    "nonNegative": "Cannot be negative"
+    "nonNegative": "Cannot be negative",
+    "phone": "Invalid phone number"
   },
   "offline": "You're offline. Some actions won't work until you reconnect."
 }

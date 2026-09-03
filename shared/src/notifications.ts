@@ -9,7 +9,9 @@ import type { NotificationPrefs } from "./schemas";
 export type NotificationCategory =
   | "extraWorkApproval"
   | "urgentOnSite"
-  | "newWorkOrder";
+  | "newWorkOrder"
+  | "progressLogged"
+  | "progressReminder";
 
 export type NotificationItem = {
   // Stable-ish id, e.g. `extrawork:<id>` — used as the React key and to dedupe.
@@ -34,6 +36,8 @@ const CATEGORY_TO_PREF: Record<NotificationCategory, keyof NotificationPrefs> = 
   extraWorkApproval: "extraWorkApproval",
   urgentOnSite: "urgentOnSite",
   newWorkOrder: "newWorkOrder",
+  progressLogged: "progressLogged",
+  progressReminder: "progressReminder",
 };
 
 export function categoryEnabled(

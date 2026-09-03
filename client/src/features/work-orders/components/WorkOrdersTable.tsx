@@ -7,26 +7,38 @@ import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { WorkOrderRow } from "../api";
 import { STATUS, formatDate } from "../constants";
+import { STATUS_TONES } from "../../../theme/tokens";
 
 // The work orders list: a dense table on desktop, a stack of cards on mobile
 // (via ResponsiveList). Row / card tap opens the work-order detail.
 export function WorkOrdersTable({
   rows,
   onOpen,
+  showDispatchState,
   hasMore,
   loadingMore,
   onLoadMore,
 }: {
   rows: WorkOrderRow[];
   onOpen: (id: string) => void;
+  /** Staff only: mark undispatched rows. Release state is internal workflow,
+   *  so client logins never get the chip. */
+  showDispatchState?: boolean;
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
 }) {
   const { t } = useTranslation();
 
+  // Status (progress) plus, for staff, the release marker. Two chips, two
+  // axes — dispatch is deliberately NOT a fifth status value.
   const statusCell = (r: WorkOrderRow) => (
-    <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
+    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
+      <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
+      {showDispatchState && !r.dispatchedAt && r.status !== "done" ? (
+        <StatusBadge label={t("workOrders.status.notDispatched")} tone={STATUS_TONES.warning} />
+      ) : null}
+    </Box>
   );
 
   return (

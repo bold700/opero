@@ -3,8 +3,10 @@ import { api } from "../../lib/api/client";
 // Mirrors the backend planning calendar entry (per-werkbon now).
 export type PlanningEntry = {
   workOrderId: string;
+  workOrderTitle: string;
   projectId: string;
   projectNumber: string;
+  projectName?: string;
   customerName: string;
   address: string;
   city: string;
@@ -15,6 +17,7 @@ export type PlanningEntry = {
   teamLeaderId?: string;
   teamLeaderName?: string;
   installerIds: string[];
+  installerNames: string[];
   vehicle?: string;
   status: string;
 };

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -22,7 +23,7 @@ export type CalendarViewName =
   | "listWeek";
 
 // Default slot for a job scheduled on a date with no time yet — so it still
-// appears in the time grid (we don't use an all-day row).
+// appears in the time grid (the all-day row is reserved for multi-day span bars).
 const DEFAULT_START = "08:00";
 const DEFAULT_END = "10:00";
 
@@ -40,6 +41,57 @@ function toEvent(e: PlanningEntry): EventInput {
     allDay: false,
     extendedProps: { entry: e },
   };
+}
+
+// Local-time date arithmetic on YYYY-MM-DD strings (no toISOString — that
+// converts to UTC and can shift the day near midnight).
+function addDays(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${dt.getFullYear()}-${mm}-${dd}`;
+}
+
+function daysBetween(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.split("-").map(Number);
+  const [ty, tm, td] = toIso.split("-").map(Number);
+  const from = new Date(fy, fm - 1, fd).getTime();
+  const to = new Date(ty, tm - 1, td).getTime();
+  return Math.round((to - from) / 86_400_000);
+}
+
+// Backstop for a typo'd end date years out — don't draw a bar across months.
+const MAX_SPAN_DAYS = 31;
+
+// Expand entries into calendar events. A werkbon whose planned span
+// (plannedDate → plannedEndDate) is longer than one day ALSO gets one all-day
+// bar across the whole span — the calendar idiom for "runs Monday to
+// Wednesday" — next to its timed chip on the first day. The bar is display
+// only (not draggable); rescheduling happens on the timed chip or in the panel.
+function buildEvents(entries: PlanningEntry[]): EventInput[] {
+  const out: EventInput[] = [];
+  for (const e of entries) {
+    out.push(toEvent(e));
+    const spanTotal =
+      e.plannedEndDate && e.plannedEndDate > e.date
+        ? Math.min(daysBetween(e.date, e.plannedEndDate) + 1, MAX_SPAN_DAYS)
+        : 1;
+    if (spanTotal > 1) {
+      out.push({
+        id: `${e.workOrderId}-${e.date}-span`,
+        title: e.customerName,
+        start: e.date,
+        // FullCalendar's end is exclusive: the bar must cover the last day too.
+        end: addDays(e.plannedEndDate!, 1),
+        allDay: true,
+        startEditable: false,
+        durationEditable: false,
+        extendedProps: { entry: e, span: true, spanTotal },
+      });
+    }
+  }
+  return out;
 }
 
 // FullCalendar wrapper: views, navigation, and interaction wired to callbacks.
@@ -63,6 +115,7 @@ export function CalendarView({
   onDateClick: (dateIso: string) => void;
   onEventDrop: (entry: PlanningEntry, newDate: string, newStart?: string, newEnd?: string) => void;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<FullCalendar>(null);
 
   // Toolbar toggle changes `view` → tell FullCalendar imperatively.
@@ -239,8 +292,18 @@ export function CalendarView({
           gap: "1px",
         },
         "& .fc-event:hover .opero-chip": { background: "#5840A0" },
+        // A multi-day span bar lives in the all-day row (a daygrid event): it
+        // flows normally instead of filling an absolute harness, and it is
+        // lighter than the timed chip so day 1's block reads as the anchor.
+        "& .fc-daygrid-event .opero-chip": { position: "relative", inset: "auto", padding: "2px 8px" },
+        "& .fc-event .opero-chip.opero-chip--span": { background: "#9C8BCB", boxShadow: "none" },
+        "& .fc-event:hover .opero-chip.opero-chip--span": { background: "#8A76C0" },
+        "& .opero-chip--span .opero-chip-title": { fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
         "& .opero-chip-time": { fontWeight: 600, fontSize: 12, opacity: 0.92 },
-        "& .opero-chip-title": { fontWeight: 700, fontSize: 13, lineHeight: 1.25 },
+        // Long customer names ("Tandartspraktijk") must break, not clip, when two
+        // chips share a column.
+        "& .opero-chip-title": { fontWeight: 700, fontSize: 13, lineHeight: 1.25, overflowWrap: "anywhere" },
+        "& .opero-chip-meta": { fontWeight: 500, fontSize: 11, lineHeight: 1.3, opacity: 0.85, overflowWrap: "anywhere" },
 
         // ── Month view ──
         "& .fc .fc-daygrid-day-frame": { padding: "2px" },
@@ -268,9 +331,12 @@ export function CalendarView({
         // Month cells are small (especially on a phone) — cap events per day and
         // show a themed "+N" link instead of overflowing the cell.
         dayMaxEvents={3}
-        // Full 24-hour day, European 24-hour clock everywhere. No all-day row —
-        // every job has a time (date-only jobs get a default slot in toEvent).
-        allDaySlot={false}
+        // Full 24-hour day, European 24-hour clock everywhere. The all-day row
+        // holds only multi-day span bars (every job itself has a time; date-only
+        // jobs get a default slot in toEvent).
+        allDaySlot
+        allDayText=""
+
         slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
         scrollTime="07:00:00"
@@ -281,13 +347,41 @@ export function CalendarView({
         eventDurationEditable={editable}
         editable={editable}
         // Render our own chip — guarantees the visual fills the harness (inset:0).
-        eventContent={(arg) => (
-          <div className="opero-chip">
-            {arg.timeText ? <span className="opero-chip-time">{arg.timeText}</span> : null}
-            <span className="opero-chip-title">{arg.event.title}</span>
-          </div>
-        )}
-        events={events.map(toEvent)}
+        eventContent={(arg) => {
+          const entry = arg.event.extendedProps.entry as PlanningEntry;
+          const spanTotal = arg.event.extendedProps.spanTotal as number | undefined;
+          const crew =
+            entry.installerNames.length > 0
+              ? entry.installerNames.join(", ")
+              : entry.teamLeaderName;
+          // The all-day span bar: one line, customer + werkbon + length.
+          if (arg.event.extendedProps.span) {
+            return (
+              <div className="opero-chip opero-chip--span">
+                <span className="opero-chip-title">
+                  {arg.event.title}
+                  {entry.workOrderTitle ? ` · ${entry.workOrderTitle}` : ""}
+                  {" · "}
+                  {t("planning.spanDays", { days: spanTotal ?? 1 })}
+                </span>
+              </div>
+            );
+          }
+          return (
+            <div className="opero-chip">
+              {arg.timeText ? <span className="opero-chip-time">{arg.timeText}</span> : null}
+              <span className="opero-chip-title">{arg.event.title}</span>
+              {entry.workOrderTitle ? (
+                <span className="opero-chip-meta">{entry.workOrderTitle}</span>
+              ) : null}
+              {entry.projectName ? (
+                <span className="opero-chip-meta">{entry.projectName}</span>
+              ) : null}
+              {crew ? <span className="opero-chip-meta">{crew}</span> : null}
+            </div>
+          );
+        }}
+        events={buildEvents(events)}
         datesSet={(arg: DatesSetArg) =>
           onDatesSet(arg.startStr.slice(0, 10), arg.endStr.slice(0, 10))
         }

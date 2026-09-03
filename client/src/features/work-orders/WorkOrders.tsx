@@ -7,7 +7,7 @@ import Alert from "@mui/material/Alert";
 import { PageLayout } from "../../components/PageLayout";
 import { FilterSelect } from "../../components/FilterSelect";
 import { useAuth } from "../../auth/AuthContext";
-import { isOffice } from "@opero/shared";
+import { isOffice, isStaff } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -163,6 +163,7 @@ export function WorkOrders() {
         <WorkOrdersTable
           rows={items}
           onOpen={(id) => navigate(`/work-orders/${id}`)}
+          showDispatchState={isStaff(user?.role ?? "client")}
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}

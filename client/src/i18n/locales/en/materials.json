@@ -107,5 +107,30 @@
     "unitPrice": "Selling price",
     "costPrice": "Cost price",
     "saveError": "Save failed"
+  },
+  "articles": {
+    "title": "Products & services",
+    "add": "Add article",
+    "empty": "No articles yet. Add labour rates, logistics, or other sales items.",
+    "newTitle": "New article",
+    "editTitle": "Edit article",
+    "category": "Category",
+    "categories": {
+      "insulation": "Insulation",
+      "material": "Material",
+      "labor": "Labour",
+      "logistics": "Logistics"
+    },
+    "name": "Name",
+    "unit": "Unit",
+    "unitPrice": "Price (€, excl. VAT)",
+    "defaultQuantity": "Default quantity",
+    "deleteTitle": "Delete article?",
+    "deleteBody": "Delete {{name}}? Existing work order lines keep their own copy."
+  },
+  "view": {
+    "label": "Catalog",
+    "materials": "Materials",
+    "articles": "Products & services"
   }
 }

@@ -6,7 +6,6 @@ import { z } from "zod";
 
 const projectStatusSchema = z.enum(["sales", "operations", "closing"]);
 const stageSchema = z.enum(["concept", "in_progress", "ready", "done"]);
-const urgencySchema = z.enum(["normal", "urgent", "blocked"]);
 
 // DELETE photo routes carry the object key to remove in the body.
 export const removePhotoSchema = z.object({ photo: z.string().min(1) });
@@ -22,6 +21,13 @@ export const createProjectSchema = z.object({
   // Site contact — seeded from the customer's contact details when omitted.
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
+  // Contact persons picked from the customer's central list (several allowed).
+  contactIds: z.array(z.string()).optional(),
+  // Site address typed at creation. Omitted → derived from the chosen location,
+  // else the customer's own address (the pre-existing fallback).
+  address: z.string().optional(),
+  postalCode: z.string().optional(),
+  city: z.string().optional(),
   // Work type is chosen from the managed WorkType list (preferred). Free-text
   // insulationType is still accepted for back-compat but workTypeId wins.
   workTypeId: z.string().optional(),
@@ -46,13 +52,13 @@ export const updateProjectSchema = z.object({
   city: z.string().optional(),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
+  contactIds: z.array(z.string()).optional(),
   instructions: z.string().optional(),
   insulationType: z.string().optional(),
   materialsReady: z.boolean().optional(),
   exclusions: z.string().optional(),
   billingType: z.enum(["fixed", "time_and_materials"]).nullable().optional(),
   // Sidebar fields surfaced from the werkbon detail (all project-level).
-  urgency: z.enum(["normal", "urgent", "blocked"]).optional(),
   projectLeaderId: z.string().nullable().optional(),
   installerIds: z.array(z.string()).optional(),
   workTypeId: z.string().nullable().optional(),
@@ -70,7 +76,6 @@ export const stageSchema_ = z
     message: "Provide a stage or advance:true",
   });
 
-export const urgencyBodySchema = z.object({ urgency: urgencySchema });
 
 export const resolveBlockerSchema = z.object({ note: z.string().optional() });
 

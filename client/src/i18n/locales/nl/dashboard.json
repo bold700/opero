@@ -22,7 +22,20 @@
     "financialTitle": "Financieel",
     "pipelineValue": "Pipeline waarde",
     "openInvoices": "Openstaande facturen",
-    "recentActivity": "Activiteit (7 dagen)"
+    "recentActivity": "Activiteit (7 dagen)",
+    "salesTitle": "Verkoop & verbruik",
+    "salesSold": "Verkocht",
+    "salesCost": "Materiaalkosten",
+    "salesProfit": "Winst",
+    "metersLaid": "Gelegde meters",
+    "metersValue": "{{meters}} m",
+    "period": {
+      "label": "Periode",
+      "all": "Alles",
+      "month": "Deze maand",
+      "year": "Dit jaar",
+      "30d": "Laatste 30 dagen"
+    }
   },
   "foreman": {
     "kpis": {

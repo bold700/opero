@@ -15,6 +15,8 @@ import { STATUS_TONES } from "../../../theme/tokens";
 import { euro } from "../constants";
 import type { WorkOrderMaterial, WorkOrderTask } from "../api";
 import { TaskLineRow } from "./TaskLineRow";
+import { TaskHoursControl } from "./TaskHoursControl";
+import { LineRegistrationDialog } from "./LineRegistrationDialog";
 import { AddTaskLineDialog } from "./AddTaskLineDialog";
 import { isZoneComplete } from "./zoneStatus";
 
@@ -40,13 +42,20 @@ export function ZoneCard({
   onDeleteZone,
   onAddLine,
   onAddCustomLine,
+  onAddArticleLine,
   onEditLine,
   onEditCustomLine,
   onDeleteLine,
   onToggleLine,
   onChangeLineQuantity,
+  onRegisterStock,
+  onLogProgress,
+  onDeleteProgress,
   onUploadPhoto,
   onDeletePhoto,
+  onStartTimer,
+  onEndTimer,
+  onSetHours,
 }: {
   task: WorkOrderTask;
   // Register what happened on site: tick lines, notes, photos. Technicians too.
@@ -76,6 +85,7 @@ export function ZoneCard({
     unitPrice?: number;
     isExtraWork?: boolean;
   }) => void;
+  onAddArticleLine: (input: { articleId: string; quantity: number; isExtraWork?: boolean }) => void;
   onEditLine: (
     matId: string,
     input: { variantId: string; quantity: number; isExtraWork?: boolean },
@@ -93,12 +103,25 @@ export function ZoneCard({
   onDeleteLine: (matId: string) => void;
   onToggleLine: (matId: string) => void;
   onChangeLineQuantity: (matId: string, quantity: number) => void;
+  onRegisterStock: (
+    matId: string,
+    input: { used?: number; issued?: number; returned?: number },
+  ) => void;
+  onLogProgress: (matId: string, input: { amount: number; day?: string }) => void;
+  onDeleteProgress: (matId: string, entryId: string) => void;
   onUploadPhoto: (kind: "before" | "result", file: File) => void;
   onDeletePhoto: (key: string) => void;
+  onStartTimer: () => void;
+  onEndTimer: () => void;
+  onSetHours: (hours: number) => void;
 }) {
   const { t } = useTranslation();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editingLine, setEditingLine] = useState<WorkOrderMaterial | null>(null);
+  // Track by id (not row object) so the open dialog re-renders with fresh
+  // data after each mutation — the task prop is replaced on every refetch.
+  const [registrationLineId, setRegistrationLineId] = useState<string | null>(null);
+  const registrationLine = task.materials.find((m) => m.id === registrationLineId) ?? null;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const complete = isZoneComplete(task);
@@ -166,18 +189,39 @@ export function ZoneCard({
           )}
         </Box>
 
-        {/* STATUS — derived badge, its own labelled block (matches old layout). */}
-        <Box>
-          <Typography
-            variant="caption"
-            sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
-          >
-            {t("workOrderDetail.zone.statusLabel")}
-          </Typography>
-          <StatusBadge
-            label={complete ? t("workOrderDetail.zone.statusDone") : t("workOrderDetail.zone.statusTodo")}
-            tone={complete ? STATUS_TONES.success : STATUS_TONES.neutral}
-          />
+        {/* STATUS — derived badge — and UREN, the zone's hours, side by side:
+            both are "where does this zone stand", so they share a row. */}
+        <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "flex-start" }}>
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+            >
+              {t("workOrderDetail.zone.statusLabel")}
+            </Typography>
+            <StatusBadge
+              label={complete ? t("workOrderDetail.zone.statusDone") : t("workOrderDetail.zone.statusTodo")}
+              tone={complete ? STATUS_TONES.success : STATUS_TONES.neutral}
+            />
+          </Box>
+          {canWrite || task.hours != null ? (
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{ display: "block", mb: 0.5, color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}
+              >
+                {t("workOrderDetail.zone.hoursTitle")}
+              </Typography>
+              <TaskHoursControl
+                task={task}
+                canWrite={canWrite}
+                busy={busy}
+                onStart={onStartTimer}
+                onEnd={onEndTimer}
+                onSetHours={onSetHours}
+              />
+            </Box>
+          ) : null}
         </Box>
 
         {/* WERKOMSCHRIJVING — the zone note. Second-from-top in the old layout,
@@ -257,6 +301,7 @@ export function ZoneCard({
                 onEdit={() => setEditingLine(m)}
                 onDelete={() => onDeleteLine(m.id)}
                 onChangeQuantity={(q) => onChangeLineQuantity(m.id, q)}
+                onOpen={canWrite ? () => setRegistrationLineId(m.id) : undefined}
               />
             ))
           )}
@@ -335,6 +380,10 @@ export function ZoneCard({
           onAddCustomLine(input);
           setPickerOpen(false);
         }}
+        onAddArticle={(input) => {
+          onAddArticleLine(input);
+          setPickerOpen(false);
+        }}
       />
 
       {/* Edit an existing line — the same dialog, seeded from the line. A
@@ -388,6 +437,27 @@ export function ZoneCard({
           );
         })()
       ) : null}
+
+      {/* Registration on one line: progress per day + stock in/out. */}
+      <LineRegistrationDialog
+        material={registrationLine}
+        canWrite={canWrite}
+        canDeleteEntries={canEditScope}
+        busy={busy}
+        onClose={() => setRegistrationLineId(null)}
+        onLogProgress={(input) => {
+          if (registrationLine) onLogProgress(registrationLine.id, input);
+        }}
+        onDeleteProgress={(entryId) => {
+          if (registrationLine) onDeleteProgress(registrationLine.id, entryId);
+        }}
+        onSaveStock={(input) => {
+          if (registrationLine) {
+            onRegisterStock(registrationLine.id, input);
+            setRegistrationLineId(null);
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDelete}

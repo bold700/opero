@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
@@ -37,6 +38,7 @@ import {
 
 export function Customers() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const role = user?.role ?? "client";
   // The customer RECORD is office work; the customer's LOGIN is not — see the
@@ -230,6 +232,7 @@ export function Customers() {
         <CustomersTable
           customers={items}
           canManage={canManage}
+          onOpen={(c) => navigate(`/customers/${c.id}`)}
           onEdit={openEdit}
           hasMore={hasMore}
           loadingMore={loadingMore}
