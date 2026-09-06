@@ -12,12 +12,11 @@ import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { useDirty } from "../../../lib/isDirty";
 import { SelectField } from "../../../components/SelectField";
 import { getCustomers, type CustomerOption } from "../../work-orders/create-api";
-import { getWorkTypes, type WorkTypeOption } from "../../work-order-detail/api";
 import type { ProjectDetail, ProjectInput } from "../api";
 import { ProjectContactsSection } from "./ProjectContactsSection";
 
-// Create or edit a project. Create needs a customer + name + optional work type;
-// edit keeps the customer fixed and lets you change name / work type / notes.
+// Create or edit a project. Create needs a customer (+ optional name, contacts,
+// address, description); edit changes the same fields.
 // A werkbon is added later from the project detail screen.
 export function ProjectFormDialog({
   open,
@@ -44,7 +43,6 @@ export function ProjectFormDialog({
     city?: string;
     description?: string;
     instructions?: string;
-    workTypeId?: string | null;
     customerId?: string;
   }) => void;
 }) {
@@ -52,7 +50,6 @@ export function ProjectFormDialog({
   const editing = Boolean(project);
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [workTypes, setWorkTypes] = useState<WorkTypeOption[]>([]);
   const [customerId, setCustomerId] = useState("");
   const [name, setName] = useState("");
   // The CLIENT's own order/PO/dossier number — never Opero's projectNumber,
@@ -68,7 +65,6 @@ export function ProjectFormDialog({
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
-  const [workTypeId, setWorkTypeId] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
 
@@ -81,7 +77,6 @@ export function ProjectFormDialog({
     address: string;
     postalCode: string;
     city: string;
-    workTypeId: string;
     description: string;
     instructions: string;
   } | null>(null);
@@ -89,7 +84,6 @@ export function ProjectFormDialog({
   useEffect(() => {
     if (!open) return;
     getCustomers().then(setCustomers).catch(() => setCustomers([]));
-    getWorkTypes().then(setWorkTypes).catch(() => setWorkTypes([]));
     // Seed fields from the project when editing; clear when creating.
     const seededContactIds = (project?.contacts ?? []).map((c) => c.id);
     const seeded = {
@@ -100,7 +94,6 @@ export function ProjectFormDialog({
       address: project?.address ?? "",
       postalCode: project?.postalCode ?? "",
       city: project?.city ?? "",
-      workTypeId: project?.workTypeId ?? "",
       description: project?.description ?? "",
       instructions: project?.instructions ?? "",
     };
@@ -112,7 +105,6 @@ export function ProjectFormDialog({
     setAddress(seeded.address);
     setPostalCode(seeded.postalCode);
     setCity(seeded.city);
-    setWorkTypeId(seeded.workTypeId);
     setDescription(seeded.description);
     setInstructions(seeded.instructions);
   }, [open, project]);
@@ -126,7 +118,6 @@ export function ProjectFormDialog({
       address,
       postalCode,
       city,
-      workTypeId,
       description,
       instructions,
     },
@@ -149,8 +140,6 @@ export function ProjectFormDialog({
         city: city.trim(),
         description: description.trim(),
         instructions: instructions.trim(),
-        // null clears the work type; undefined leaves it (but we always send it).
-        workTypeId: workTypeId || null,
         // Only send the customer when it actually changed — the backend treats
         // a switch as an access change (audit + activity entry), so an
         // unchanged id shouldn't look like one.
@@ -168,7 +157,6 @@ export function ProjectFormDialog({
         address: address.trim() || undefined,
         postalCode: postalCode.trim() || undefined,
         city: city.trim() || undefined,
-        workTypeId: workTypeId || undefined,
         notes: description.trim() || undefined,
       });
     }
@@ -268,17 +256,6 @@ export function ProjectFormDialog({
               sx={{ flex: 1 }}
             />
           </Box>
-
-          <SelectField
-            label={t("projects.form.workType")}
-            value={workTypeId}
-            onChange={setWorkTypeId}
-            disabled={busy}
-            options={[
-              { value: "", label: t("projects.form.workTypeNone") },
-              ...workTypes.map((w) => ({ value: w.id, label: w.name })),
-            ]}
-          />
 
           <TextField
             label={t("projects.form.description")}

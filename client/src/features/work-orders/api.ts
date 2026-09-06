@@ -37,7 +37,8 @@ export type WorkOrderPage = Page<WorkOrderRow> & { counts: WorkOrderCounts };
 export type WorkOrderFilters = {
   customerId?: string;
   assigneeId?: string;
-  workTypeId?: string;
+  // "Type werk": a material on the werkbon's lines (what the column shows).
+  materialId?: string;
   dateFrom?: string;
   dateTo?: string;
 };
@@ -58,7 +59,7 @@ export function getWorkOrdersPage(
       status: opts.status,
       customerId: opts.customerId,
       assigneeId: opts.assigneeId,
-      workTypeId: opts.workTypeId,
+      materialId: opts.materialId,
       dateFrom: opts.dateFrom,
       dateTo: opts.dateTo,
     },
@@ -72,7 +73,7 @@ export type FilterOption = { id: string; name: string };
 export function getWorkOrderFilterOptions(): Promise<{
   customers: FilterOption[];
   assignees: FilterOption[];
-  workTypes: FilterOption[];
+  materials: FilterOption[];
 }> {
   return api.get("/work-orders/filter-options");
 }

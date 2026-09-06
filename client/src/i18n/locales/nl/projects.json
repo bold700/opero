@@ -30,8 +30,6 @@
     "address": "Adres werklocatie",
     "postalCode": "Postcode",
     "city": "Plaats",
-    "workType": "Werksoort",
-    "workTypeNone": "Nog te bepalen",
     "description": "Omschrijving",
     "customerSwitchWarning": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer.",
     "contacts": "Contactpersonen",
@@ -71,9 +69,7 @@
   },
   "filters": {
     "statusLabel": "Filter op status",
-    "workTypeLabel": "Filter op werksoort",
-    "allStatuses": "Alle statussen",
-    "allWorkTypes": "Alle werksoorten"
+    "allStatuses": "Alle statussen"
   },
   "attachments": {
     "title": "Projectbestanden",

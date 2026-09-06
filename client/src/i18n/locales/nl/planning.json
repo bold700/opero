@@ -42,5 +42,5 @@
     "removeError": "Verwijderen mislukt"
   },
   "view": "Weergave",
-  "spanDays": "{{days}} dagen"
+  "spanDay": "Dag {{day}} van {{total}}"
 }

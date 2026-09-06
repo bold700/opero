@@ -21,9 +21,9 @@ let customerAId: string;
 let customerBId: string;
 let employeeAId: string;
 let employeeBId: string;
-let workTypeId: string;
-let woA: string; // customer A, employee A, 2026-08-10, has workType
-let woB: string; // customer B, employee B, 2026-09-20, no workType
+let materialId: string;
+let woA: string; // customer A, employee A, 2026-08-10, has a line of the material
+let woB: string; // customer B, employee B, 2026-09-20, no such line
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
@@ -52,7 +52,7 @@ beforeAll(async () => {
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
   await prisma.employee.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
-  await prisma.workType.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.material.deleteMany({ where: { key: { startsWith: TAG } } });
 
   const pw = await hashPassword("x");
   const admin = await prisma.user.create({
@@ -97,10 +97,27 @@ beforeAll(async () => {
   employeeAId = empA.id;
   employeeBId = empB.id;
 
-  const wt = await prisma.workType.create({
-    data: { orgId, name: `${TAG} Dakisolatie` },
+  // "Type werk" is the MATERIAL on a werkbon's lines (what the list column
+  // shows), so the filter axis is a catalog material with one variant.
+  const material = await prisma.material.create({
+    data: {
+      orgId,
+      key: `${TAG}_dakisolatie`,
+      name: `${TAG} Dakisolatie`,
+      class: "insulation",
+      supplier: `${TAG}-supplier`,
+      pipeMaterial: "steel",
+      thicknessMm: 13,
+      finish: "none",
+      sizeUnit: "pipe_od_mm",
+      priceSource: `${TAG}-source`,
+      ordinal: 999,
+      variants: { create: [{ size: "60", component: "meter", unit: "m", unitPrice: 10, ordinal: 0 }] },
+    },
+    include: { variants: true },
   });
-  workTypeId = wt.id;
+  materialId = material.id;
+  const variantId = material.variants[0].id;
 
   // Two work orders that differ on every filterable axis.
   const projA = await request(app)
@@ -132,22 +149,22 @@ beforeAll(async () => {
     data: { plannedDate: "2026-09-20", assignees: { connect: { id: employeeBId } } },
   });
 
-  // Work type is per zone, so tag one of A's zones with it.
+  // Lines live per zone, so put a line of that material on one of A's zones.
   const zone = await request(app)
     .post(`/api/work-orders/${woA}/tasks`)
     .set(auth(adminToken))
     .send({});
   const zoneId = zone.body.tasks[zone.body.tasks.length - 1].id;
   await request(app)
-    .patch(`/api/work-orders/${woA}/tasks/${zoneId}`)
+    .post(`/api/work-orders/${woA}/tasks/${zoneId}/materials/from-catalog`)
     .set(auth(adminToken))
-    .send({ workTypeId });
+    .send({ variantId, quantity: 5 });
 });
 
 afterAll(async () => {
   await prisma.workOrder.deleteMany({ where: { project: { name: { startsWith: TAG } } } });
   await prisma.project.deleteMany({ where: { name: { startsWith: TAG } } });
-  await prisma.workType.deleteMany({ where: { name: { startsWith: TAG } } });
+  await prisma.material.deleteMany({ where: { key: { startsWith: TAG } } });
   await prisma.employee.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.customer.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
@@ -171,8 +188,8 @@ describe("work-order list filters", () => {
     expect(ids(res.body)).not.toContain(woA);
   });
 
-  it("filters by work type (matched via any zone)", async () => {
-    const res = await list(adminToken, { workTypeId, search: TAG });
+  it("filters by type werk — a material on any zone's lines", async () => {
+    const res = await list(adminToken, { materialId, search: TAG });
     expect(ids(res.body)).toContain(woA);
     expect(ids(res.body)).not.toContain(woB);
   });
@@ -222,7 +239,7 @@ describe("work-order list filters", () => {
 });
 
 describe("GET /work-orders/filter-options", () => {
-  it("returns customers, assignees and work types for an admin", async () => {
+  it("returns customers, assignees and materials for an admin", async () => {
     const res = await request(app)
       .get("/api/work-orders/filter-options")
       .set(auth(adminToken));
@@ -232,7 +249,7 @@ describe("GET /work-orders/filter-options", () => {
     expect(res.body.assignees.map((a: { id: string }) => a.id)).toEqual(
       expect.arrayContaining([employeeAId, employeeBId]),
     );
-    expect(res.body.workTypes.map((w: { id: string }) => w.id)).toContain(workTypeId);
+    expect(res.body.materials.map((m: { id: string }) => m.id)).toContain(materialId);
   });
 
   it("scopes the customer list for a client, and offers them no assignees", async () => {

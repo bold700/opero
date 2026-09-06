@@ -13,6 +13,7 @@ import type {
   DatesSetArg,
   EventInput,
 } from "@fullcalendar/core";
+import LinkIcon from "@mui/icons-material/Link";
 import { Card } from "../../../components/Card";
 import type { PlanningEntry } from "../api";
 
@@ -23,7 +24,7 @@ export type CalendarViewName =
   | "listWeek";
 
 // Default slot for a job scheduled on a date with no time yet — so it still
-// appears in the time grid (the all-day row is reserved for multi-day span bars).
+// appears in the time grid (we don't use an all-day row).
 const DEFAULT_START = "08:00";
 const DEFAULT_END = "10:00";
 
@@ -61,33 +62,50 @@ function daysBetween(fromIso: string, toIso: string): number {
   return Math.round((to - from) / 86_400_000);
 }
 
-// Backstop for a typo'd end date years out — don't draw a bar across months.
+// Backstop for a typo'd end date years out — don't render hundreds of chips.
 const MAX_SPAN_DAYS = 31;
 
-// Expand entries into calendar events. A werkbon whose planned span
-// (plannedDate → plannedEndDate) is longer than one day ALSO gets one all-day
-// bar across the whole span — the calendar idiom for "runs Monday to
-// Wednesday" — next to its timed chip on the first day. The bar is display
-// only (not draggable); rescheduling happens on the timed chip or in the panel.
+// Expand each entry into calendar events. A werkbon whose planned span
+// (plannedDate → plannedEndDate) is longer than one day gets a chip on EVERY
+// day of the span, same colour and same times, labelled "Dag n van m" with a
+// link mark — the way the client's previous app showed a multi-day job. Only
+// day 1 is draggable (it reschedules the whole span); the other days skip
+// dates where the same werkbon already has its own planning item.
 function buildEvents(entries: PlanningEntry[]): EventInput[] {
+  const datesByWorkOrder = new Map<string, Set<string>>();
+  for (const e of entries) {
+    const set = datesByWorkOrder.get(e.workOrderId) ?? new Set<string>();
+    set.add(e.date);
+    datesByWorkOrder.set(e.workOrderId, set);
+  }
+
   const out: EventInput[] = [];
   for (const e of entries) {
-    out.push(toEvent(e));
     const spanTotal =
       e.plannedEndDate && e.plannedEndDate > e.date
         ? Math.min(daysBetween(e.date, e.plannedEndDate) + 1, MAX_SPAN_DAYS)
         : 1;
+
+    const first = toEvent(e);
     if (spanTotal > 1) {
+      first.extendedProps = { ...first.extendedProps, spanDay: 1, spanTotal };
+    }
+    out.push(first);
+
+    for (let i = 1; i < spanTotal; i++) {
+      const day = addDays(e.date, i);
+      if (datesByWorkOrder.get(e.workOrderId)?.has(day)) continue;
+      const startTime = e.startTime ?? DEFAULT_START;
+      const endTime = e.endTime ?? (e.startTime ? undefined : DEFAULT_END);
       out.push({
-        id: `${e.workOrderId}-${e.date}-span`,
+        id: `${e.workOrderId}-${e.date}-day-${i + 1}`,
         title: e.customerName,
-        start: e.date,
-        // FullCalendar's end is exclusive: the bar must cover the last day too.
-        end: addDays(e.plannedEndDate!, 1),
-        allDay: true,
+        start: `${day}T${startTime}`,
+        end: endTime ? `${day}T${endTime}` : undefined,
+        allDay: false,
         startEditable: false,
         durationEditable: false,
-        extendedProps: { entry: e, span: true, spanTotal },
+        extendedProps: { entry: e, spanDay: i + 1, spanTotal },
       });
     }
   }
@@ -124,6 +142,21 @@ export function CalendarView({
   }, [view]);
 
   return (
+    <>
+    {/* Raw <style> on purpose: a plain media query that nothing rewrites. */}
+    <style>{`
+      /* Chip text follows the chip's width (container units on the harness):
+         full size in a wide chip, down to a 9px floor in a narrow one — the
+         two-jobs-overlap case on a laptop, the day view on a small phone. */
+      .fc .fc-timegrid-event-harness { container-type: inline-size; }
+      .fc .fc-timegrid-event .opero-chip-title { font-size: clamp(9px, 9.5cqw, 13px); }
+      .fc .fc-timegrid-event .opero-chip-time  { font-size: clamp(9px, 8.5cqw, 12px); }
+      .fc .fc-timegrid-event .opero-chip-meta,
+      .fc .fc-timegrid-event .opero-chip-span { font-size: clamp(9px, 8cqw, 11px); }
+      /* A phone's week: seven ~40px columns, never room for text even at the
+         floor — the chips are colour only, details one tap away in the sheet. */
+      @media (max-width: 600px) { .fc-timeGridWeek-view .opero-chip > * { display: none; } }
+    `}</style>
     <Card
       sx={{
         p: { xs: 1.5, md: 2.5 },
@@ -138,10 +171,16 @@ export function CalendarView({
         // the time-axis stay usable at ~360px. ──
         "& .fc .fc-toolbar.fc-header-toolbar": { flexWrap: "wrap", rowGap: "8px" },
         "@media (max-width:600px)": {
+          // Week on a phone: a chip shows the time and the customer only, both
+          // wrapping (never cut); the rest is one tap away in the sheet.
+          "& .fc-timeGridWeek-view .opero-chip": { padding: "3px 4px", gap: 0 },
+          "& .fc-timeGridWeek-view .opero-chip-time": { fontSize: 10, overflowWrap: "break-word" },
+          "& .fc-timeGridWeek-view .opero-chip-title": { fontSize: 11, overflowWrap: "break-word" },
+          "& .fc-timeGridWeek-view .opero-chip-span, & .fc-timeGridWeek-view .opero-chip-meta": {
+            display: "none",
+          },
           "& .fc .fc-toolbar-title": { fontSize: "0.9rem" },
           "& .fc .fc-button": { padding: "4px 10px", fontSize: 12 },
-          // Narrow the time-axis gutter so day/week columns get more width.
-          "& .fc .fc-timegrid-axis-cushion, & .fc .fc-timegrid-slot-label-cushion": { fontSize: 10, px: 0.5 },
           "& .fc .fc-col-header-cell-cushion": { fontSize: 11 },
         },
         // ── Theme FullCalendar to the app design system (M3 / lavender) ──
@@ -292,18 +331,14 @@ export function CalendarView({
           gap: "1px",
         },
         "& .fc-event:hover .opero-chip": { background: "#5840A0" },
-        // A multi-day span bar lives in the all-day row (a daygrid event): it
-        // flows normally instead of filling an absolute harness, and it is
-        // lighter than the timed chip so day 1's block reads as the anchor.
-        "& .fc-daygrid-event .opero-chip": { position: "relative", inset: "auto", padding: "2px 8px" },
-        "& .fc-event .opero-chip.opero-chip--span": { background: "#9C8BCB", boxShadow: "none" },
-        "& .fc-event:hover .opero-chip.opero-chip--span": { background: "#8A76C0" },
-        "& .opero-chip--span .opero-chip-title": { fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
         "& .opero-chip-time": { fontWeight: 600, fontSize: 12, opacity: 0.92 },
         // Long customer names ("Tandartspraktijk") must break, not clip, when two
         // chips share a column.
-        "& .opero-chip-title": { fontWeight: 700, fontSize: 13, lineHeight: 1.25, overflowWrap: "anywhere" },
-        "& .opero-chip-meta": { fontWeight: 500, fontSize: 11, lineHeight: 1.3, opacity: 0.85, overflowWrap: "anywhere" },
+        "& .opero-chip-title": { fontWeight: 700, fontSize: 13, lineHeight: 1.25, overflowWrap: "break-word" },
+        "& .opero-chip-meta": { fontWeight: 500, fontSize: 11, lineHeight: 1.3, opacity: 0.85, overflowWrap: "break-word" },
+        // "Dag 2 van 3" + link mark: the multi-day marker, a little more present
+        // than the meta lines but under the title.
+        "& .opero-chip-span": { fontWeight: 600, fontSize: 11, lineHeight: 1.4, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" },
 
         // ── Month view ──
         "& .fc .fc-daygrid-day-frame": { padding: "2px" },
@@ -331,12 +366,10 @@ export function CalendarView({
         // Month cells are small (especially on a phone) — cap events per day and
         // show a themed "+N" link instead of overflowing the cell.
         dayMaxEvents={3}
-        // Full 24-hour day, European 24-hour clock everywhere. The all-day row
-        // holds only multi-day span bars (every job itself has a time; date-only
-        // jobs get a default slot in toEvent).
-        allDaySlot
-        allDayText=""
-
+        // Full 24-hour day, European 24-hour clock everywhere. No all-day row —
+        // every job has a time (date-only jobs get a default slot in toEvent),
+        // and a multi-day job is a chip per day (see buildEvents).
+        allDaySlot={false}
         slotMinTime="00:00:00"
         slotMaxTime="24:00:00"
         scrollTime="07:00:00"
@@ -349,35 +382,31 @@ export function CalendarView({
         // Render our own chip — guarantees the visual fills the harness (inset:0).
         eventContent={(arg) => {
           const entry = arg.event.extendedProps.entry as PlanningEntry;
+          const spanDay = arg.event.extendedProps.spanDay as number | undefined;
           const spanTotal = arg.event.extendedProps.spanTotal as number | undefined;
           const crew =
             entry.installerNames.length > 0
               ? entry.installerNames.join(", ")
               : entry.teamLeaderName;
-          // The all-day span bar: one line, customer + werkbon + length.
-          if (arg.event.extendedProps.span) {
-            return (
-              <div className="opero-chip opero-chip--span">
-                <span className="opero-chip-title">
-                  {arg.event.title}
-                  {entry.workOrderTitle ? ` · ${entry.workOrderTitle}` : ""}
-                  {" · "}
-                  {t("planning.spanDays", { days: spanTotal ?? 1 })}
-                </span>
-              </div>
-            );
-          }
+          // Werkbon title + project name on one secondary line (the meeting
+          // asked for both in the planning view).
+          // Deduped: a werkbon often carries the project's name as its title.
+          const context = [...new Set([entry.workOrderTitle, entry.projectName].filter(Boolean))].join(" · ");
           return (
             <div className="opero-chip">
+              {/* Same order as the client's reference: time, customer, day
+                  marker, monteurs — then werkbon · project (the meeting asked
+                  for those two) as the last line. */}
               {arg.timeText ? <span className="opero-chip-time">{arg.timeText}</span> : null}
               <span className="opero-chip-title">{arg.event.title}</span>
-              {entry.workOrderTitle ? (
-                <span className="opero-chip-meta">{entry.workOrderTitle}</span>
-              ) : null}
-              {entry.projectName ? (
-                <span className="opero-chip-meta">{entry.projectName}</span>
+              {spanDay && spanTotal ? (
+                <span className="opero-chip-span">
+                  {t("planning.spanDay", { day: spanDay, total: spanTotal })}
+                  <LinkIcon sx={{ fontSize: 14, ml: 0.5 }} />
+                </span>
               ) : null}
               {crew ? <span className="opero-chip-meta">{crew}</span> : null}
+              {context ? <span className="opero-chip-meta">{context}</span> : null}
             </div>
           );
         }}
@@ -404,5 +433,6 @@ export function CalendarView({
         }}
       />
     </Card>
+    </>
   );
 }

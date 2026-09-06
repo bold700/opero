@@ -34,7 +34,6 @@ export function Projects() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [workTypeFilter, setWorkTypeFilter] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const debouncedSearch = useDebounced(search, 300);
 
@@ -44,9 +43,8 @@ export function Projects() {
         cursor,
         search: debouncedSearch || undefined,
         status: statusFilter || undefined,
-        workTypeId: workTypeFilter || undefined,
       }),
-    [debouncedSearch, statusFilter, workTypeFilter, reloadKey],
+    [debouncedSearch, statusFilter, reloadKey],
   );
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -105,12 +103,7 @@ export function Projects() {
         />
       }
     >
-      <ProjectsFilterBar
-        status={statusFilter}
-        workTypeId={workTypeFilter}
-        onStatusChange={setStatusFilter}
-        onWorkTypeChange={setWorkTypeFilter}
-      />
+      <ProjectsFilterBar status={statusFilter} onStatusChange={setStatusFilter} />
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />

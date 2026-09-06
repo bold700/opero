@@ -352,8 +352,11 @@ workOrdersRouter.get(
       typeof req.query.customerId === "string" ? req.query.customerId : undefined;
     const assigneeId =
       typeof req.query.assigneeId === "string" ? req.query.assigneeId : undefined;
-    const workTypeId =
-      typeof req.query.workTypeId === "string" ? req.query.workTypeId : undefined;
+    // "Type werk" filter: the MATERIAL on the werkbon's lines — the same thing
+    // the list's "Type werk" column shows (derived from line articles), so
+    // column and filter agree. Not the WorkType table.
+    const materialId =
+      typeof req.query.materialId === "string" ? req.query.materialId : undefined;
     // Date range on plannedDate, inclusive both ends. plannedDate is a plain
     // "YYYY-MM-DD" STRING column, not a DateTime — that format sorts and
     // compares lexicographically, so gte/lte on the raw string is correct and
@@ -408,10 +411,12 @@ workOrdersRouter.get(
       });
     }
 
-    // Work type lives per ZONE (WorkOrderTask.workTypeId), not on the werkbon,
-    // so a werkbon matches when any of its zones does.
-    if (workTypeId) {
-      filters.push({ tasks: { some: { workTypeId } } });
+    // Lines live per zone, so a werkbon matches when any zone has a line on
+    // that material.
+    if (materialId) {
+      filters.push({
+        tasks: { some: { materials: { some: { variant: { is: { materialId } } } } } },
+      });
     }
 
     if (dateFrom || dateTo) {
@@ -536,7 +541,7 @@ workOrdersRouter.get(
 );
 
 // GET /work-orders/filter-options — the dropdown contents for the overview's
-// filter bar: customers, assignable staff, and work types. Must precede "/:id",
+// filter bar: customers, assignable staff, and materials. Must precede "/:id",
 // or Express matches this path as an id.
 //
 // Each list is scoped the same way the work-order list itself is, so the filter
@@ -553,7 +558,7 @@ workOrdersRouter.get(
     // on werkbonnen they're actually on.
     const visibleWorkOrders = workOrderScopeWhere(user);
 
-    const [customers, assignees, workTypes] = await Promise.all([
+    const [customers, assignees, materials] = await Promise.all([
       prisma.customer.findMany({
         where: {
           orgId: user.orgId,
@@ -572,14 +577,21 @@ workOrdersRouter.get(
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           }),
-      prisma.workType.findMany({
-        where: { orgId: user.orgId },
+      // Materials that appear on a visible werkbon's lines — the values the
+      // "Type werk" column can show, so the filter offers exactly those.
+      prisma.material.findMany({
+        where: {
+          orgId: user.orgId,
+          variants: {
+            some: { taskMaterials: { some: { task: { is: { workOrder: { is: visibleWorkOrders } } } } } },
+          },
+        },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
     ]);
 
-    res.json({ customers, assignees, workTypes });
+    res.json({ customers, assignees, materials });
   }),
 );
 

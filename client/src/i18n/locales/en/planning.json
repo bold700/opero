@@ -42,5 +42,5 @@
     "removeError": "Remove failed"
   },
   "view": "View",
-  "spanDays": "{{days}} days"
+  "spanDay": "Day {{day}} of {{total}}"
 }

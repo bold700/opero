@@ -69,7 +69,7 @@ export function WorkOrders() {
 
   // Every filter is a dep, so changing one restarts the paged list at page 1
   // rather than appending onto a stale cursor.
-  const { customerId, assigneeId, workTypeId, dateFrom, dateTo } = filters;
+  const { customerId, assigneeId, materialId, dateFrom, dateTo } = filters;
   const { items, meta, loading, loadingMore, error, hasMore, loadMore } =
     usePagedApi<WorkOrderRow, { counts: WorkOrderCounts }>(
       (cursor) =>
@@ -79,7 +79,7 @@ export function WorkOrders() {
           status: statusFilter,
           customerId,
           assigneeId,
-          workTypeId,
+          materialId,
           dateFrom,
           dateTo,
         }),
@@ -88,7 +88,7 @@ export function WorkOrders() {
         statusFilter,
         customerId,
         assigneeId,
-        workTypeId,
+        materialId,
         dateFrom,
         dateTo,
       ],

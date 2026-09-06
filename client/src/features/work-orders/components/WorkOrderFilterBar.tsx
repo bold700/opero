@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Collapse from "@mui/material/Collapse";
 import { DateField } from "../../../components/DateField";
 import { SelectField, type SelectOption } from "../../../components/SelectField";
 import type { FilterOption, WorkOrderFilters } from "../api";
@@ -10,13 +9,15 @@ import type { FilterOption, WorkOrderFilters } from "../api";
 // Status chips + a text search were the only way to find a werkbon, which is
 // fine while a job is live and useless months later ("improve the filters in
 // the work order overview, so work orders can easily be found afterwards" —
-// WOB Isolatie, 17-07-2026). This adds customer, monteur, work type and a
-// planned-date range.
+// WOB Isolatie, 17-07-2026). This adds customer, monteur, type werk (the
+// material on the lines, as the column shows it) and a planned-date range.
 //
-// This is the collapsible PANEL only. Its trigger lives in
-// WorkOrderFilterToggle, which rides on the status-chip row (far right) so the
-// filters cost no vertical space while collapsed — the common case is "look at
-// Open, scan the list", and the panel used to push the table down by a whole row.
+// This is the PANEL only. Its trigger lives in WorkOrderFilterToggle, which
+// rides on the status-chip row (far right) so the filters cost no vertical
+// space while closed — the common case is "look at Open, scan the list".
+// Shown/hidden with a plain conditional like every other section in the app:
+// the animated Collapse it used to be left a stray gap row while closed and
+// mis-sized against the table on the client's machine.
 export function WorkOrderFilterBar({
   open,
   filters,
@@ -30,7 +31,7 @@ export function WorkOrderFilterBar({
   options: {
     customers: FilterOption[];
     assignees: FilterOption[];
-    workTypes: FilterOption[];
+    materials: FilterOption[];
   } | null;
   loading: boolean;
 }) {
@@ -50,18 +51,18 @@ export function WorkOrderFilterBar({
     ...(rows ?? []).map((r) => ({ value: r.id, label: r.name })),
   ];
 
+  if (!open) return null;
+
   return (
-    <Collapse in={open} unmountOnExit>
-      <Box
-        sx={{
-          display: "grid",
-          gap: 2,
-          // One column on a phone, up to three on a desktop — the monteur's
-          // phone is a first-class target for this screen.
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "repeat(3, 1fr)" },
-          pt: 0.5,
-        }}
-      >
+    <Box
+      sx={{
+        display: "grid",
+        gap: 2,
+        // One column on a phone, two on a tablet, all five in one row on a
+        // desktop — the monteur's phone is a first-class target for this screen.
+        gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(5, 1fr)" },
+      }}
+    >
         <SelectField
           label={t("workOrders.filterBar.customer")}
           value={filters.customerId ?? ""}
@@ -80,9 +81,9 @@ export function WorkOrderFilterBar({
         />
         <SelectField
           label={t("workOrders.filterBar.workType")}
-          value={filters.workTypeId ?? ""}
-          onChange={(v) => set({ workTypeId: v || undefined })}
-          options={toOptions(options?.workTypes)}
+          value={filters.materialId ?? ""}
+          onChange={(v) => set({ materialId: v || undefined })}
+          options={toOptions(options?.materials)}
           disabled={loading}
           fullWidth
         />
@@ -100,7 +101,6 @@ export function WorkOrderFilterBar({
           onChange={(e) => set({ dateTo: e.target.value || undefined })}
           fullWidth
         />
-      </Box>
-    </Collapse>
+    </Box>
   );
 }

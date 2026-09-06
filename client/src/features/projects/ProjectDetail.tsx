@@ -267,7 +267,6 @@ export function ProjectDetail() {
               {project.referenceNumber ? (
                 <Field label={t("projects.form.referenceNumber")}>{project.referenceNumber}</Field>
               ) : null}
-              {project.workTypeName ? <Field label={t("projects.form.workType")}>{project.workTypeName}</Field> : null}
               {project.contactName || project.contactPhone ? (
                 <Field label={t("projects.detail.contact")}>{[project.contactName, project.contactPhone].filter(Boolean).join(" · ")}</Field>
               ) : null}

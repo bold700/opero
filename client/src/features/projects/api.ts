@@ -62,8 +62,6 @@ export type ProjectDetail = {
   contacts: { id: string; name: string; email?: string; phone?: string; role?: string }[];
   instructions?: string;
   description?: string;
-  workTypeId?: string;
-  workTypeName?: string;
   status: ProjectStatus;
   stage: ProjectStage;
   urgency: ProjectUrgency;
@@ -90,7 +88,6 @@ export type ProjectInput = {
   postalCode?: string;
   city?: string;
   locationId?: string;
-  workTypeId?: string;
   notes?: string;
 };
 
@@ -98,12 +95,11 @@ export function getProjectsPage(opts: {
   cursor?: string;
   search?: string;
   status?: string;
-  workTypeId?: string;
 }): Promise<Page<ProjectSummary>> {
   return api.getPage<ProjectSummary>("/projects", {
     cursor: opts.cursor,
     search: opts.search,
-    params: { status: opts.status, workTypeId: opts.workTypeId },
+    params: { status: opts.status },
   });
 }
 
@@ -148,7 +144,6 @@ export function updateProject(
     city: string;
     description: string;
     instructions: string;
-    workTypeId: string | null;
     // Reassign the job to another customer. This MOVES it between client
     // portals (project.customerId gates client access), so confirm first.
     customerId: string;

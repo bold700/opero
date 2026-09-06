@@ -188,10 +188,6 @@ projectsRouter.get(
     ) {
       filters.push({ status: status as (typeof projectStatusIds)[number] });
     }
-    const workTypeId = req.query.workTypeId;
-    if (typeof workTypeId === "string" && workTypeId) {
-      filters.push({ workTypeId });
-    }
     const where =
       filters.length > 0
         ? projectScopeWhere(user, { AND: filters })
