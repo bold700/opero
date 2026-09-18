@@ -93,6 +93,7 @@ export const materialComponentSchema = z.enum([
   "reducer",
   "alu_cap",
   "buffer_vessel",
+  "set",
   "area",
 ]);
 

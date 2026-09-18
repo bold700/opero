@@ -49,6 +49,7 @@ export const COMPONENT_LABELS: Record<MaterialComponent, Record<DisplayLocale, s
   reducer: { nl: "Verloop", en: "Reducer" },
   alu_cap: { nl: "Alu-kap", en: "Aluminium cap" },
   buffer_vessel: { nl: "Buffervat", en: "Buffer vessel" },
+  set: { nl: "Set", en: "Set" },
   area: { nl: "Per m²", en: "Per m²" },
 };
 

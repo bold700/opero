@@ -183,6 +183,7 @@ enum MaterialComponent {
   alu_cap
   buffer_vessel
   area // per m2 flat rate
+  set // one complete assembly sold per piece (e.g. an insulated afleverset)
 }
 
 // ---------------------------------------------------------------------------

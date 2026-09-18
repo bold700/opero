@@ -17,7 +17,8 @@ export type MaterialComponent =
   | "reducer"
   | "alu_cap"
   | "buffer_vessel"
-  | "area";
+  | "area"
+  | "set";
 
 export type MaterialSizeUnit = "pipe_od_mm" | "pipe_dia_mm" | "tank_liters" | "flat";
 

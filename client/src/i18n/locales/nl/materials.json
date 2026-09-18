@@ -51,7 +51,8 @@
     "reducer": "Verloop",
     "alu_cap": "Alu-kap",
     "buffer_vessel": "Buffervat",
-    "area": "Per m²"
+    "area": "Per m²",
+    "set": "Set"
   },
   "finish": {
     "none": "Geen afwerking",

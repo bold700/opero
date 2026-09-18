@@ -53,6 +53,7 @@ export const COMPONENT_ORDER: MaterialComponent[] = [
   "reducer",
   "alu_cap",
   "buffer_vessel",
+  "set",
   "area",
 ];
 
@@ -69,6 +70,7 @@ export const COMPONENT_LABEL_KEYS: Record<MaterialComponent, string> = {
   reducer: "materials.component.reducer",
   alu_cap: "materials.component.alu_cap",
   buffer_vessel: "materials.component.buffer_vessel",
+  set: "materials.component.set",
   area: "materials.component.area",
 };
 

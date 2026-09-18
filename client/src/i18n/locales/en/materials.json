@@ -51,6 +51,7 @@
     "reducer": "Reducer",
     "alu_cap": "Aluminium cap",
     "buffer_vessel": "Buffer vessel",
+    "set": "Set",
     "area": "Per m²"
   },
   "finish": {
