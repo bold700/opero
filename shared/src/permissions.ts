@@ -42,9 +42,11 @@ export type Access = "full" | "limited" | "none";
 
 // The matrix itself. `limited` is coarse — see the per-cell notes above.
 //
-// foreman (meewerkend uitvoerder) — the client's spec is "alleen toegang
-// werkbonnen en planning van iedereen": every werkbon and the whole team's
-// planning, nothing commercial. So: work orders limited = ALL of them, with
+// foreman (meewerkend uitvoerder / projectleider) — the client's spec is
+// "alleen toegang werkbonnen en planning van iedereen": every werkbon and the
+// whole team's planning, nothing commercial. Later widened: he also READS the
+// projects list + detail (all of them, no prices, no edits) so he can see which
+// projects are running. So: work orders limited = ALL of them, with
 // technician-style registration rights (never quote scope / prices); planning
 // limited = view everyone, read-only; materials limited = catalog READ via the
 // API only (werkbon material registration needs variant search) but NO nav

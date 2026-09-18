@@ -11,8 +11,8 @@ import type { TechnicianProjectRow } from "../api";
 // The field-staff work list: one flat, date-ordered list of the werkbonnen
 // assigned to this person.
 //
-// Rows link to the WERKBON, not the project — /projects/:id is office-only, so
-// sending a monteur there would bounce them off the route guard. A row with no
+// Rows link to the WERKBON, not the project — /projects/:id is not open to
+// technicians, so sending a monteur there would bounce them off the route guard. A row with no
 // single werkbon to open (several under one project) renders as plain text
 // instead of a button, so the chevron only ever appears where tapping works.
 export function ProjectListCard({

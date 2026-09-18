@@ -10,10 +10,13 @@ import type { ProjectSummary } from "../api";
 import { PROJECT_STATUS_TONES, euro } from "../constants";
 
 // The projects list: table on desktop, cards on mobile. A row opens the project
-// detail; edit/delete are admin row actions.
+// detail; edit/delete are admin row actions. `showPrices` false (field staff)
+// drops the value column entirely — the server already omits `value` for those
+// roles, so without this the column would render as an empty "Waarde" header.
 export function ProjectsTable({
   projects,
   canManage,
+  showPrices,
   onOpen,
   onEdit,
   onDelete,
@@ -23,6 +26,7 @@ export function ProjectsTable({
 }: {
   projects: ProjectSummary[];
   canManage: boolean;
+  showPrices: boolean;
   onOpen: (p: ProjectSummary) => void;
   onEdit: (p: ProjectSummary) => void;
   onDelete: (p: ProjectSummary) => void;
@@ -86,11 +90,13 @@ export function ProjectsTable({
         { header: t("projects.table.city"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.city}</Box> },
         { header: t("projects.table.workOrders"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.workOrderCount}</Box> },
         { header: t("projects.table.status"), cell: statusCell },
-        {
-          header: t("projects.table.value"),
-          align: "right",
-          cell: (p) => (p.value != null ? <Box sx={{ fontWeight: 600 }}>{euro(p.value)}</Box> : null),
-        },
+        ...(showPrices
+          ? [{
+              header: t("projects.table.value"),
+              align: "right" as const,
+              cell: (p: ProjectSummary) => (p.value != null ? <Box sx={{ fontWeight: 600 }}>{euro(p.value)}</Box> : null),
+            }]
+          : []),
         { header: t("projects.table.action"), align: "right", cell: actionsCell },
       ]}
       renderCard={(p) => (
@@ -108,7 +114,7 @@ export function ProjectsTable({
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
             {statusCell(p)}
-            {p.value != null ? <Typography sx={{ fontWeight: 600 }}>{euro(p.value)}</Typography> : null}
+            {showPrices && p.value != null ? <Typography sx={{ fontWeight: 600 }}>{euro(p.value)}</Typography> : null}
           </Box>
         </Box>
       )}

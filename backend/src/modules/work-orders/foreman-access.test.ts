@@ -152,6 +152,46 @@ describe("permissions predicates (shared)", () => {
 });
 
 describe("foreman org-wide visibility", () => {
+  // The projectleider's ask: see WHICH projects are running, never what they
+  // are worth. The client opens /projects for him on the strength of this.
+  it("lists BOTH projects (unassigned) and the list carries NO value", async () => {
+    const res = await request(app).get(`/api/projects?search=${TAG}`).set(auth(foremanToken));
+    expect(res.status).toBe(200);
+    const items = res.body.items as { id: string; value?: number }[];
+    const ids = new Set(items.map((p) => p.id));
+    expect(ids.has(projectAId)).toBe(true);
+    expect(ids.has(projectBId)).toBe(true);
+    for (const p of items) expect(p).not.toHaveProperty("value");
+    // Same list for the admin DOES carry the value.
+    const adminRes = await request(app).get(`/api/projects?search=${TAG}`).set(auth(adminToken));
+    expect(adminRes.status).toBe(200);
+    expect((adminRes.body.items as { value?: number }[])[0]).toHaveProperty("value");
+  });
+
+  it("opens a project detail without value on the project or its werkbonnen", async () => {
+    const res = await request(app).get(`/api/projects/${projectAId}`).set(auth(foremanToken));
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("value");
+    const wos = res.body.workOrders as { id: string; value?: number }[];
+    expect(wos.length).toBeGreaterThan(0);
+    for (const w of wos) expect(w).not.toHaveProperty("value");
+  });
+
+  it("CANNOT create, edit or delete a project", async () => {
+    const create = await request(app)
+      .post("/api/projects")
+      .set(auth(foremanToken))
+      .send({ customerId: "x", name: `${TAG} nope` });
+    expect(create.status).toBe(403);
+    const edit = await request(app)
+      .patch(`/api/projects/${projectAId}`)
+      .set(auth(foremanToken))
+      .send({ name: `${TAG} renamed` });
+    expect(edit.status).toBe(403);
+    const del = await request(app).delete(`/api/projects/${projectAId}`).set(auth(foremanToken));
+    expect(del.status).toBe(403);
+  });
+
   it("sees BOTH projects' work orders without any assignment", async () => {
     const res = await request(app).get("/api/work-orders").set(auth(foremanToken));
     expect(res.status).toBe(200);

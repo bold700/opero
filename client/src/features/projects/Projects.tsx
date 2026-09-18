@@ -8,7 +8,7 @@ import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAuth } from "../../auth/AuthContext";
-import { isOffice } from "@opero/shared";
+import { isOffice, canSeePrices } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -25,12 +25,15 @@ import { ProjectsTable } from "./components/ProjectsTable";
 import { ProjectFormDialog } from "./components/ProjectFormDialog";
 
 // Projects — the grouping layer. List every project; open one to see its
-// werkbonnen. Admin-only (technicians/clients work at the werkbon level).
+// werkbonnen. The office manages; the foreman reads (all projects, no prices).
+// Technicians/clients work at the werkbon level.
 export function Projects() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canManage = isOffice(user?.role ?? "client");
+  const role = user?.role ?? "client";
+  const canManage = isOffice(role);
+  const showPrices = canSeePrices(role);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -114,6 +117,7 @@ export function Projects() {
         <ProjectsTable
           projects={items}
           canManage={canManage}
+          showPrices={showPrices}
           onOpen={(p) => navigate(`/projects/${p.id}`)}
           onEdit={(p) => navigate(`/projects/${p.id}`)}
           onDelete={setDeleting}

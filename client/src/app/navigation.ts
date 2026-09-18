@@ -36,8 +36,11 @@ const FIELD: UserRole[] = ["foreman", "technician"];
 export const NAV_ITEMS: NavItem[] = [
   { path: "/", labelKey: "nav.dashboard", icon: DashboardIcon, roles: ALL },
   { path: "/work-orders", labelKey: "nav.workOrders", icon: WorkOrdersIcon, roles: ALL },
-  // Projects — the grouping layer above werkbonnen (an office task).
-  { path: "/projects", labelKey: "nav.projects", icon: ProjectsIcon, roles: OFFICE },
+  // Projects — the grouping layer above werkbonnen. Managed by the office; the
+  // foreman (projectleider on site) gets the same list and detail READ-ONLY and
+  // without prices, so he sees which projects are running, not only his
+  // werkbonnen. Technicians stay at the werkbon level.
+  { path: "/projects", labelKey: "nav.projects", icon: ProjectsIcon, roles: [...OFFICE, "foreman"] },
   { path: "/planning", labelKey: "nav.planning", icon: PlanningIcon, roles: [...OFFICE, ...FIELD] },
   // Customers is the office's customer DATABASE — not for clients. A client's own
   // record is business data owned by the office (read-only to them); their

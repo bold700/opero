@@ -23,7 +23,7 @@ import { STATUS as WORK_ORDER_STATUS } from "../../features/work-orders/constant
 import type { WorkOrderStatus } from "../../features/work-orders/api";
 import { useApi } from "../../lib/api/useApi";
 import { useAuth } from "../../auth/AuthContext";
-import { isOffice } from "@opero/shared";
+import { isOffice, canSeePrices } from "@opero/shared";
 import {
   getProject,
   addProjectComment,
@@ -41,13 +41,16 @@ import { ProjectFormDialog } from "./components/ProjectFormDialog";
 
 // Project detail — the grouping view: header + info + the project's werkbonnen.
 // Open a werkbon → its detail. Add a werkbon under this project. Admin edits /
-// deletes the project (delete cascades all its werkbonnen).
+// deletes the project (delete cascades all its werkbonnen). The foreman reads
+// it without the value column (the server omits prices for him anyway).
 export function ProjectDetail() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canManage = isOffice(user?.role ?? "client");
+  const role = user?.role ?? "client";
+  const canManage = isOffice(role);
+  const showPrices = canSeePrices(role);
 
   const [project, setProject] = useState<ProjectDetailType | null>(null);
   const { loading, error } = useApi(
@@ -208,7 +211,13 @@ export function ProjectDetail() {
               { header: t("projects.detail.woTitle"), cell: (w) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography> },
               { header: t("projects.detail.woStatus"), cell: (w) => woBadge(w) },
               { header: t("projects.detail.woDate"), cell: (w) => <Box sx={{ color: "text.secondary" }}>{w.plannedDate ?? "—"}</Box> },
-              { header: t("projects.table.value"), align: "right", cell: (w) => (w.value != null ? <Box sx={{ fontWeight: 600 }}>{euro(w.value)}</Box> : null) },
+              ...(showPrices
+                ? [{
+                    header: t("projects.table.value"),
+                    align: "right" as const,
+                    cell: (w: ProjectWorkOrder) => (w.value != null ? <Box sx={{ fontWeight: 600 }}>{euro(w.value)}</Box> : null),
+                  }]
+                : []),
               ...(canManage
                 ? [{
                     header: "",
@@ -231,7 +240,7 @@ export function ProjectDetail() {
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    {w.value != null ? <Typography variant="body2" sx={{ fontWeight: 600 }}>{euro(w.value)}</Typography> : null}
+                    {showPrices && w.value != null ? <Typography variant="body2" sx={{ fontWeight: 600 }}>{euro(w.value)}</Typography> : null}
                     {canManage ? (
                       <IconButton
                         size="small"
