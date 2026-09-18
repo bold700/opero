@@ -31,13 +31,15 @@ const EMPTY: ContactPersonDraft = {
 };
 
 // Same validators as the customer dialog: required + email format, plus a
-// phone format. Errors show per field once touched; Save also surfaces them
-// all (touchAll). The shared zod schema enforces the same rules server-side.
+// phone format. Phone is optional: an empty value passes, a non-empty value
+// must look like a phone number. Errors show per field once touched; Save
+// also surfaces them all (touchAll). The shared zod schema enforces the same
+// rules server-side.
 const RULES = {
   firstName: [required],
   lastName: [required],
   email: [required, email],
-  phone: [required, phone],
+  phone: [phone],
 };
 
 // Create / edit one contact person: first + last name side by side, role,
@@ -142,7 +144,6 @@ export function ContactPersonDialog({
             onChange={setField("phone")}
             onBlur={onBlur("phone")}
             disabled={busy}
-            required
             size="small"
             fullWidth
             {...err("phone")}
