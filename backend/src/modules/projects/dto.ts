@@ -2,7 +2,6 @@ import type {
   DeliveryChecklist,
   DeliveryChecklistItem,
   Intake,
-  Invoice,
   MaterialRequirement,
   Handover,
   HandoverItem,
@@ -10,8 +9,6 @@ import type {
   ProjectActivity,
   ProjectAttachment,
   ProjectTask,
-  Quote,
-  QuoteLineItem,
 } from "@prisma/client";
 import { canSeePrices, type UserRole } from "@opero/shared";
 import { refsFrom } from "../../lib/photoUrls.js";
@@ -87,53 +84,6 @@ function intakeDto(i: Intake) {
     risks: i.risks,
     estimatedMaterials: i.estimatedMaterials,
     estimatedLaborHours: i.estimatedLaborHours,
-  };
-}
-
-function quoteLineDto(l: QuoteLineItem, showPrices: boolean) {
-  return {
-    id: l.id,
-    catalogItemId: l.catalogItemId ?? undefined,
-    workType: l.workType ?? undefined,
-    description: l.description,
-    size: l.size ?? undefined,
-    quantity: l.quantity,
-    unit: l.unit,
-    ...(showPrices ? { unitPrice: l.unitPrice } : {}),
-    ordinal: l.ordinal,
-  };
-}
-
-function quoteDto(
-  q: Quote & { lineItems: QuoteLineItem[] },
-  showPrices: boolean,
-) {
-  return {
-    id: q.id,
-    status: q.status,
-    ...(showPrices ? { amount: q.amount } : {}),
-    sentDate: q.sentDate ?? undefined,
-    acceptedDate: q.acceptedDate ?? undefined,
-    lineItems: [...q.lineItems]
-      .sort((a, b) => a.ordinal - b.ordinal)
-      .map((l) => quoteLineDto(l, showPrices)),
-  };
-}
-
-function invoiceDto(inv: Invoice, showPrices: boolean) {
-  return {
-    id: inv.id,
-    status: inv.status,
-    sentDate: inv.sentDate ?? undefined,
-    paidDate: inv.paidDate ?? undefined,
-    ...(showPrices
-      ? {
-          acceptedQuoteAmount: inv.acceptedQuoteAmount,
-          extraWorkAmount: inv.extraWorkAmount,
-          materialsAmount: inv.materialsAmount,
-          laborAmount: inv.laborAmount,
-        }
-      : {}),
   };
 }
 
@@ -236,11 +186,13 @@ export function projectSummaryDto(
     city: p.city,
     status: p.status,
     stage: p.stage,
+    archived: p.archived,
     urgency: rollupUrgency(p.workOrders),
     blocked: !!(p.blocker || p.blockerKey),
     nextStepKey: p.nextStepKey,
     // How many werkbonnen this project groups (the projects list needs this).
     workOrderCount: p._count?.workOrders ?? 0,
+    canArchive: (p.workOrders ?? []).every((workOrder) => workOrder.signedAt !== null),
     ...(showPrices ? { value } : {}),
   };
 }

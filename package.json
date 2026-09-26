@@ -10,7 +10,7 @@
     "dev:client": "pnpm --filter @opero/client dev",
     "dev:backend": "pnpm --filter @opero/backend dev",
     "predev": "bash scripts/dev-db.sh",
-    "dev": "concurrently -n api,client -c blue,magenta \"corepack pnpm --filter @opero/backend dev\" \"corepack pnpm --filter @opero/client dev\"",
+    "dev": "node scripts/dev.mjs",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
@@ -20,6 +20,21 @@
     "db:seed": "pnpm --filter @opero/backend db:seed"
   },
   "devDependencies": {
-    "concurrently": "^10.0.3"
+    "@eslint/js": "10.0.1",
+    "concurrently": "^10.0.3",
+    "eslint": "10.0.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "16.5.0",
+    "typescript-eslint": "8.70.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "body-parser@1.20.5": "1.20.6",
+      "brace-expansion@1.1.15": "1.1.18",
+      "brace-expansion@2.1.1": "2.1.4",
+      "deepmerge-ts@7.1.5": "8.0.0",
+      "qs@6.15.2": "6.16.0"
+    }
   }
 }

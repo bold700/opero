@@ -3,11 +3,14 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
+import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
+import UnarchiveOutlinedIcon from "@mui/icons-material/UnarchiveOutlined";
 import { useTranslation } from "react-i18next";
 import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { ProjectSummary } from "../api";
 import { PROJECT_STATUS_TONES, euro } from "../constants";
+import { STATUS_TONES } from "../../../theme/tokens";
 
 // The projects list: table on desktop, cards on mobile. A row opens the project
 // detail; edit/delete are admin row actions. `showPrices` false (field staff)
@@ -19,6 +22,8 @@ export function ProjectsTable({
   showPrices,
   onOpen,
   onEdit,
+  onArchive,
+  onRestore,
   onDelete,
   hasMore,
   loadingMore,
@@ -29,6 +34,8 @@ export function ProjectsTable({
   showPrices: boolean;
   onOpen: (p: ProjectSummary) => void;
   onEdit: (p: ProjectSummary) => void;
+  onArchive: (p: ProjectSummary) => void;
+  onRestore: (p: ProjectSummary) => void;
   onDelete: (p: ProjectSummary) => void;
   hasMore?: boolean;
   loadingMore?: boolean;
@@ -37,7 +44,10 @@ export function ProjectsTable({
   const { t } = useTranslation();
 
   const statusCell = (p: ProjectSummary) => (
-    <StatusBadge label={t(`projects.status.${p.status}`)} tone={PROJECT_STATUS_TONES[p.status]} />
+    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+      <StatusBadge label={t(`projects.status.${p.status}`)} tone={PROJECT_STATUS_TONES[p.status]} />
+      {p.archived ? <StatusBadge label={t("projects.archived")} tone={STATUS_TONES.neutral} /> : null}
+    </Box>
   );
 
   // Project number + the CLIENT's reference number as a labelled subtitle
@@ -57,13 +67,28 @@ export function ProjectsTable({
   const actionsCell = (p: ProjectSummary) =>
     canManage ? (
       <Box sx={{ display: "inline-flex", gap: 0.5 }}>
-        <IconButton
-          size="small"
-          aria-label={t("common.actions.edit")}
-          onClick={(e) => { e.stopPropagation(); onEdit(p); }}
-        >
-          <EditOutlinedIcon fontSize="small" />
-        </IconButton>
+        {!p.archived ? (
+          <IconButton
+            size="small"
+            aria-label={t("common.actions.edit")}
+            onClick={(e) => { e.stopPropagation(); onEdit(p); }}
+          >
+            <EditOutlinedIcon fontSize="small" />
+          </IconButton>
+        ) : null}
+        {p.archived || p.canArchive ? (
+          <IconButton
+            size="small"
+            aria-label={t(p.archived ? "projects.actions.restore" : "projects.actions.archive")}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (p.archived) onRestore(p);
+              else onArchive(p);
+            }}
+          >
+            {p.archived ? <UnarchiveOutlinedIcon fontSize="small" /> : <ArchiveOutlinedIcon fontSize="small" />}
+          </IconButton>
+        ) : null}
         <IconButton
           size="small"
           aria-label={t("common.actions.delete")}

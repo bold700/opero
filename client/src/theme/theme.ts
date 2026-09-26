@@ -3,7 +3,7 @@ import { createTheme } from "@mui/material/styles";
 // Roboto is loaded via @fontsource in main.tsx; reference it by family name here.
 const ROBOTO_FONT_FAMILY = "Roboto, Helvetica, Arial, sans-serif";
 
-// Material 3 theme. Purple primary matching the WerkbonApp login mockup.
+// Material 3 theme. Purple primary matching the Opero login mockup.
 // (Full M3 token palette can be generated later from a brand color — Kenny said
 // the final color stylesheet comes afterwards.)
 export const theme = createTheme({

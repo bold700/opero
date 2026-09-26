@@ -2,8 +2,11 @@
   "title": "Projects",
   "actions": {
     "searchPlaceholder": "Search project, customer or reference number…",
-    "newProject": "New project"
+    "newProject": "New project",
+    "archive": "Archive",
+    "restore": "Restore"
   },
+  "archived": "Archived",
   "status": {
     "sales": "Sales",
     "operations": "In progress",
@@ -39,6 +42,7 @@
   },
   "detail": {
     "notFound": "Project not found",
+    "archivedNotice": "This project is in history. Restore it to make changes.",
     "info": "Project info",
     "workOrders": "Work orders",
     "newWorkOrder": "New work order",
@@ -59,8 +63,16 @@
   "toast": {
     "created": "Project created",
     "deleted": "Project deleted",
+    "archived": "Project moved to history",
+    "restored": "Project restored to active projects",
     "saveError": "Save failed",
-    "deleteError": "Delete failed"
+    "deleteError": "Delete failed",
+    "archiveError": "Archive failed",
+    "restoreError": "Restore failed"
+  },
+  "archive": {
+    "title": "Complete and archive project?",
+    "body": "Project {{number}} will leave the active list and remain available under History."
   },
   "delete": {
     "title": "Delete project?",
@@ -69,7 +81,11 @@
   },
   "filters": {
     "statusLabel": "Filter by status",
-    "allStatuses": "All statuses"
+    "allStatuses": "All statuses",
+    "visibilityLabel": "Project view",
+    "active": "Active projects",
+    "history": "History",
+    "allProjects": "All projects"
   },
   "attachments": {
     "title": "Project files",

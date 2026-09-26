@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"(no lint configured for shared yet)\"",
+    "lint": "eslint src",
     "build": "echo \"(shared is consumed as source; no build step)\""
   },
   "dependencies": {

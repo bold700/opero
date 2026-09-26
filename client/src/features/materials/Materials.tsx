@@ -51,7 +51,7 @@ export function Materials() {
   // services). One page, two views — same FilterSelect the list pages use.
   const [view, setView] = useState<"materials" | "articles">("materials");
   const [createOpen, setCreateOpen] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0); // bump to refetch groups
+  const reloadKey = 0;
   const debouncedSearch = useDebounced(search, 300);
   const searching = debouncedSearch.trim().length > 0;
 

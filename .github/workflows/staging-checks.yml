@@ -1,0 +1,47 @@
+name: Staging checks
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [staging]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: opero
+          POSTGRES_PASSWORD: opero_test_pw
+          POSTGRES_DB: opero
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opero -d opero"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://opero:opero_test_pw@localhost:5432/opero?schema=public
+      JWT_SECRET: staging-checks-only-secret-at-least-32-characters
+      NODE_ENV: test
+      APP_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:deploy
+      - run: pnpm db:seed
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm --filter @opero/client build
+      - run: pnpm --filter @opero/backend build
+      - run: pnpm --filter @opero/backend test

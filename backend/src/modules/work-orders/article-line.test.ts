@@ -18,7 +18,6 @@ const linesOf = (body: { tasks: { materials: Line[] }[] }): Line[] =>
 let orgId: string;
 let adminToken: string;
 let techToken: string;
-let outsiderToken: string;
 let projectId: string;
 let workOrderId: string;
 let taskId: string;
@@ -43,13 +42,6 @@ async function setup(TAG: string) {
     data: { orgId, email: `${TAG}-t@opero.test`, passwordHash: pw, name: "T", role: "technician", status: "active", employeeId: techEmp.id },
   });
   techToken = signAccessToken({ sub: tech.id, role: "technician", orgId });
-  const outEmp = await prisma.employee.create({
-    data: { orgId, name: `${TAG}-out`, phone: "0", role: "Technician", status: "active" },
-  });
-  const outsider = await prisma.user.create({
-    data: { orgId, email: `${TAG}-o@opero.test`, passwordHash: pw, name: "O", role: "technician", status: "active", employeeId: outEmp.id },
-  });
-  outsiderToken = signAccessToken({ sub: outsider.id, role: "technician", orgId });
   const customer = await prisma.customer.create({
     data: { orgId, name: `${TAG} Cust`, contactName: "C", email: "c@c.nl", phone: "", address: "", postalCode: "", city: "" },
   });

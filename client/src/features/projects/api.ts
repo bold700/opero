@@ -10,6 +10,7 @@ export type ProjectStage = "concept" | "in_progress" | "ready" | "done";
 // Rollup only: "urgent" when any unfinished werkbon of the project is urgent.
 // Urgency itself is per-werkbon; blocked is a separate flag (see `blocked`).
 export type ProjectUrgency = "normal" | "urgent";
+export type ProjectVisibility = "active" | "archived" | "all";
 
 // Mirrors backend projectSummaryDto (list row).
 export type ProjectSummary = {
@@ -23,11 +24,13 @@ export type ProjectSummary = {
   city: string;
   status: ProjectStatus;
   stage: ProjectStage;
+  archived: boolean;
   urgency: ProjectUrgency;
   // Derived from the project's blocker state — a separate axis from urgency.
   blocked: boolean;
   nextStepKey: string;
   workOrderCount: number;
+  canArchive: boolean;
   value?: number;
 };
 
@@ -64,6 +67,7 @@ export type ProjectDetail = {
   description?: string;
   status: ProjectStatus;
   stage: ProjectStage;
+  archived: boolean;
   urgency: ProjectUrgency;
   // Derived from the project's blocker state — a separate axis from urgency.
   blocked: boolean;
@@ -95,11 +99,12 @@ export function getProjectsPage(opts: {
   cursor?: string;
   search?: string;
   status?: string;
+  archived?: ProjectVisibility;
 }): Promise<Page<ProjectSummary>> {
   return api.getPage<ProjectSummary>("/projects", {
     cursor: opts.cursor,
     search: opts.search,
-    params: { status: opts.status },
+    params: { status: opts.status, archived: opts.archived },
   });
 }
 
@@ -154,6 +159,14 @@ export function updateProject(
 
 export function deleteProject(id: string): Promise<void> {
   return api.delete<void>(`/projects/${id}`);
+}
+
+export function archiveProject(id: string): Promise<ProjectDetail> {
+  return api.post<ProjectDetail>(`/projects/${id}/archive`, {});
+}
+
+export function restoreProject(id: string): Promise<ProjectDetail> {
+  return api.post<ProjectDetail>(`/projects/${id}/restore`, {});
 }
 
 // Create a new werkbon under this project (from the project detail screen).

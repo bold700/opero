@@ -21,10 +21,10 @@ const { signAccessToken } = await import("../../auth/tokens.js");
 const TAG = "office-role-test";
 let orgId: string;
 let officeToken: string;
-let adminToken: string;
 let adminEmployeeId: string;
 let targetEmployeeId: string;
 let someUserId: string;
+let unassignedProjectId: string;
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
@@ -51,7 +51,6 @@ beforeAll(async () => {
       role: "admin", status: "active", employeeId: adminEmployee.id,
     },
   });
-  adminToken = signAccessToken({ sub: admin.id, role: "admin", orgId });
   someUserId = admin.id;
 
   const officeEmployee = await prisma.employee.create({
@@ -75,9 +74,26 @@ beforeAll(async () => {
     },
   });
   targetEmployeeId = target.id;
+
+  const customer = await prisma.customer.create({
+    data: {
+      orgId, name: `${TAG} Customer`, contactName: "", email: "", phone: "",
+      address: "", postalCode: "", city: "",
+    },
+  });
+  const project = await prisma.project.create({
+    data: {
+      orgId, customerId: customer.id, customerName: customer.name,
+      projectNumber: `${TAG}-P1`, address: "", postalCode: "", city: "",
+      insulationType: "", nextStepKey: "sendQuote",
+    },
+  });
+  unassignedProjectId = project.id;
 });
 
 afterAll(async () => {
+  await prisma.project.deleteMany({ where: { projectNumber: `${TAG}-P1` } });
+  await prisma.customer.deleteMany({ where: { name: `${TAG} Customer` } });
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
   await prisma.employee.deleteMany({ where: { name: { startsWith: TAG } } });
   await prisma.$disconnect();
@@ -445,13 +461,9 @@ describe("office CAN run the operational app", () => {
   // "assigned only" branch, and office has no assignments — so a regression
   // here is an empty app with HTTP 200, not an error.
   it("sees ALL projects, not just assigned ones", async () => {
-    const seeded = await prisma.project.count({
-      where: { orgId, deletedAt: null },
-    });
     const res = await request(app).get("/api/projects").set(auth(officeToken));
     expect(res.status).toBe(200);
-    expect(res.body.items.length).toBeGreaterThan(0);
-    expect(res.body.items.length).toBe(Math.min(seeded, res.body.items.length));
+    expect(res.body.items.some((item: { id: string }) => item.id === unassignedProjectId)).toBe(true);
   });
 
   it("gets the operational dashboard, not a blank one", async () => {

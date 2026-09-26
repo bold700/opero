@@ -21,6 +21,7 @@
     "created": "Project aangemaakt",
     "deleted": "Project verwijderd",
     "archived": "Project gearchiveerd",
+    "restored": "Project teruggezet",
     "teamAssigned": "Team toegewezen",
     "statusChanged": "Status van $t(activity.status.{{from}}) naar $t(activity.status.{{to}})",
     "stageChanged": "Fase gewijzigd naar $t(activity.stage.{{stage}})",

@@ -60,7 +60,7 @@
     "roles": {
       "admin": "Admin",
       "office": "Office access",
-      "foreman": "Foreman access",
+      "foreman": "Project leader access",
       "technician": "Technician access",
       "client": "Client"
     },

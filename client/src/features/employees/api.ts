@@ -1,5 +1,5 @@
 import { api, type Page } from "../../lib/api/client";
-import type { LinkedAccount, StaffRole } from "../users/api";
+import type { LinkedAccount } from "../users/api";
 
 export type EmployeeStatus = "active" | "on_leave" | "inactive";
 

@@ -5,13 +5,14 @@ import { prisma } from "../../db/client.js";
 import { hashPassword } from "../../auth/service.js";
 
 // The notifications feed is derived + role-scoped + preference-gated. This test
-// drives the admin path (urgent projects) and the seen flow against the seeded
-// data, plus a preference-gating check.
+// drives the admin path (blocked projects) and the seen flow against its own
+// fixture, plus a preference-gating check.
 
 const TAG = "notiftest";
 const adminEmail = `${TAG}-admin@opero.test`;
 let adminToken: string;
 let orgId: string;
+let projectId: string;
 
 async function login(email: string): Promise<string> {
   const res = await request(app).post("/api/auth/login").send({ email, password: "pw-notif-123" });
@@ -22,6 +23,20 @@ beforeAll(async () => {
   const org = await prisma.organization.findFirst();
   if (!org) throw new Error("seed org required");
   orgId = org.id;
+  const customer = await prisma.customer.create({
+    data: {
+      orgId, name: `${TAG} Customer`, contactName: "", email: "", phone: "",
+      address: "", postalCode: "", city: "",
+    },
+  });
+  const project = await prisma.project.create({
+    data: {
+      orgId, customerId: customer.id, customerName: customer.name,
+      projectNumber: `${TAG}-P1`, address: "", postalCode: "", city: "",
+      insulationType: "", nextStepKey: "sendQuote", blocker: "Waiting for access",
+    },
+  });
+  projectId = project.id;
   await prisma.user.upsert({
     where: { email: adminEmail },
     update: { notificationsSeenAt: null, preferences: undefined },
@@ -37,6 +52,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await prisma.project.deleteMany({ where: { projectNumber: `${TAG}-P1` } });
+  await prisma.customer.deleteMany({ where: { name: `${TAG} Customer` } });
   await prisma.user.deleteMany({ where: { email: adminEmail } });
 });
 
@@ -47,8 +64,7 @@ describe("GET /notifications", () => {
       .set("authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.items)).toBe(true);
-    // Seeded data has urgent/blocked projects → admin should see some.
-    expect(res.body.items.length).toBeGreaterThan(0);
+    expect(res.body.items.some((item: { id: string }) => item.id === `urgent:${projectId}`)).toBe(true);
     expect(res.body.unreadCount).toBe(res.body.items.length); // never seen yet
     // Every item is shaped correctly.
     for (const item of res.body.items) {

@@ -18,7 +18,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "icon.svg"],
       manifest: {
-        name: "Opero — Werkbonnen",
+        name: "Opero",
         short_name: "Opero",
         description: "Werkbonnen, planning en klanten voor je isolatiebedrijf.",
         lang: "nl",

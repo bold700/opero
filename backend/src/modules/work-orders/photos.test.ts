@@ -170,7 +170,7 @@ describe("pre-job dispatch gate", () => {
     const authAdmin = { authorization: `Bearer ${adminToken}` };
 
     // The werkbon snapshotted its own items from the org template at creation.
-    let wo = (await request(app).get(`/api/work-orders/${workOrderId}`).set(authAdmin)).body as {
+    const wo = (await request(app).get(`/api/work-orders/${workOrderId}`).set(authAdmin)).body as {
       prejobItems: { id: string; done: boolean }[];
     };
     expect(wo.prejobItems.length).toBeGreaterThan(0);

@@ -2,8 +2,11 @@
   "title": "Projecten",
   "actions": {
     "searchPlaceholder": "Zoek op project, klant of referentienummer…",
-    "newProject": "Nieuw project"
+    "newProject": "Nieuw project",
+    "archive": "Archiveren",
+    "restore": "Terugzetten"
   },
+  "archived": "Archief",
   "status": {
     "sales": "Verkoop",
     "operations": "In uitvoering",
@@ -39,6 +42,7 @@
   },
   "detail": {
     "notFound": "Project niet gevonden",
+    "archivedNotice": "Dit project staat in de geschiedenis. Zet het terug om wijzigingen te maken.",
     "info": "Projectinfo",
     "workOrders": "Werkbonnen",
     "newWorkOrder": "Nieuwe werkbon",
@@ -59,8 +63,16 @@
   "toast": {
     "created": "Project aangemaakt",
     "deleted": "Project verwijderd",
+    "archived": "Project naar de geschiedenis verplaatst",
+    "restored": "Project teruggezet naar actieve projecten",
     "saveError": "Opslaan mislukt",
-    "deleteError": "Verwijderen mislukt"
+    "deleteError": "Verwijderen mislukt",
+    "archiveError": "Archiveren mislukt",
+    "restoreError": "Terugzetten mislukt"
+  },
+  "archive": {
+    "title": "Project afronden en archiveren?",
+    "body": "Project {{number}} verdwijnt uit de actieve lijst en blijft beschikbaar onder Geschiedenis."
   },
   "delete": {
     "title": "Project verwijderen?",
@@ -69,7 +81,11 @@
   },
   "filters": {
     "statusLabel": "Filter op status",
-    "allStatuses": "Alle statussen"
+    "allStatuses": "Alle statussen",
+    "visibilityLabel": "Projectweergave",
+    "active": "Actieve projecten",
+    "history": "Geschiedenis",
+    "allProjects": "Alle projecten"
   },
   "attachments": {
     "title": "Projectbestanden",

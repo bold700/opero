@@ -11,6 +11,8 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import AddIcon from "@mui/icons-material/Add";
+import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
+import UnarchiveOutlinedIcon from "@mui/icons-material/UnarchiveOutlined";
 import { PageLayout } from "../../components/PageLayout";
 import { Card } from "../../components/Card";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -31,6 +33,8 @@ import {
   deleteProjectAttachment,
   updateProject,
   deleteProject,
+  archiveProject,
+  restoreProject,
   createWorkOrderForProject,
   deleteWorkOrder,
   type ProjectDetail as ProjectDetailType,
@@ -38,6 +42,7 @@ import {
 } from "./api";
 import { PROJECT_STATUS_TONES, euro } from "./constants";
 import { ProjectFormDialog } from "./components/ProjectFormDialog";
+import { ProjectInfoField } from "./components/ProjectInfoField";
 
 // Project detail — the grouping view: header + info + the project's werkbonnen.
 // Open a werkbon → its detail. Add a werkbon under this project. Admin edits /
@@ -64,6 +69,7 @@ export function ProjectDetail() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [deletingWo, setDeletingWo] = useState<ProjectWorkOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -87,6 +93,7 @@ export function ProjectDetail() {
 
   const woLabel = (w: ProjectWorkOrder) =>
     w.title.trim() || t("projects.detail.workOrderDefault", { n: w.ordinal + 1 });
+  const canArchive = project.workOrders.every((workOrder) => workOrder.signed);
 
   // Werkbon status badge — reuses the SAME label + colour map as the werkbonnen
   // list (open=lavender, on the way=blue, urgent=red, done=green); "signed" wins.
@@ -126,6 +133,31 @@ export function ProjectDetail() {
     }
   };
 
+  const runArchive = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      setProject(await archiveProject(project.id));
+      setArchiveOpen(false);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("projects.toast.archiveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runRestore = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      setProject(await restoreProject(project.id));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t("projects.toast.restoreError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // Delete one werkbon, then refetch the project so its list + count update.
   const runDeleteWorkOrder = async () => {
     if (!deletingWo) return;
@@ -142,19 +174,11 @@ export function ProjectDetail() {
     }
   };
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
-      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
-        {label}
-      </Typography>
-      <Typography variant="body2">{children}</Typography>
-    </Box>
-  );
-
   return (
     <PageLayout title={t("projects.title")}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
         {actionError ? <Alert severity="error" onClose={() => setActionError(null)}>{actionError}</Alert> : null}
+        {project.archived ? <Alert severity="info">{t("projects.detail.archivedNotice")}</Alert> : null}
 
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
@@ -182,9 +206,20 @@ export function ProjectDetail() {
           </Box>
           {canManage ? (
             <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
-              <IconButton aria-label={t("common.actions.edit")} onClick={() => setEditOpen(true)} disabled={busy}>
-                <EditOutlinedIcon />
-              </IconButton>
+              {!project.archived ? (
+                <IconButton aria-label={t("common.actions.edit")} onClick={() => setEditOpen(true)} disabled={busy}>
+                  <EditOutlinedIcon />
+                </IconButton>
+              ) : null}
+              {project.archived || canArchive ? (
+                <IconButton
+                  aria-label={t(project.archived ? "projects.actions.restore" : "projects.actions.archive")}
+                  onClick={project.archived ? runRestore : () => setArchiveOpen(true)}
+                  disabled={busy}
+                >
+                  {project.archived ? <UnarchiveOutlinedIcon /> : <ArchiveOutlinedIcon />}
+                </IconButton>
+              ) : null}
               <IconButton aria-label={t("common.actions.delete")} onClick={() => setDeleteOpen(true)} disabled={busy}>
                 <DeleteOutlineIcon />
               </IconButton>
@@ -196,7 +231,7 @@ export function ProjectDetail() {
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>{t("projects.detail.workOrders")}</Typography>
-            {canManage ? (
+            {canManage && !project.archived ? (
               <Button size="small" startIcon={<AddIcon />} onClick={addWorkOrder} disabled={busy}>
                 {t("projects.detail.newWorkOrder")}
               </Button>
@@ -218,7 +253,7 @@ export function ProjectDetail() {
                     cell: (w: ProjectWorkOrder) => (w.value != null ? <Box sx={{ fontWeight: 600 }}>{euro(w.value)}</Box> : null),
                   }]
                 : []),
-              ...(canManage
+              ...(canManage && !project.archived
                 ? [{
                     header: "",
                     align: "right" as const,
@@ -241,7 +276,7 @@ export function ProjectDetail() {
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     {showPrices && w.value != null ? <Typography variant="body2" sx={{ fontWeight: 600 }}>{euro(w.value)}</Typography> : null}
-                    {canManage ? (
+                    {canManage && !project.archived ? (
                       <IconButton
                         size="small"
                         aria-label={t("common.actions.delete")}
@@ -268,34 +303,34 @@ export function ProjectDetail() {
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>{t("projects.detail.info")}</Typography>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-              <Field label={t("projects.form.customer")}>{project.customerName}</Field>
-              <Field label={t("projects.detail.address")}>{project.address}, {project.postalCode} {project.city}</Field>
+              <ProjectInfoField label={t("projects.form.customer")}>{project.customerName}</ProjectInfoField>
+              <ProjectInfoField label={t("projects.detail.address")}>{project.address}, {project.postalCode} {project.city}</ProjectInfoField>
               {/* Opero's own number and the client's reference sit side by side
                   on purpose — they are different numbers for the same job. */}
-              <Field label={t("projects.table.number")}>{project.projectNumber}</Field>
+              <ProjectInfoField label={t("projects.table.number")}>{project.projectNumber}</ProjectInfoField>
               {project.referenceNumber ? (
-                <Field label={t("projects.form.referenceNumber")}>{project.referenceNumber}</Field>
+                <ProjectInfoField label={t("projects.form.referenceNumber")}>{project.referenceNumber}</ProjectInfoField>
               ) : null}
               {project.contactName || project.contactPhone ? (
-                <Field label={t("projects.detail.contact")}>{[project.contactName, project.contactPhone].filter(Boolean).join(" · ")}</Field>
+                <ProjectInfoField label={t("projects.detail.contact")}>{[project.contactName, project.contactPhone].filter(Boolean).join(" · ")}</ProjectInfoField>
               ) : null}
               {project.contacts.length > 0 ? (
-                <Field label={t("projects.form.contacts")}>
+                <ProjectInfoField label={t("projects.form.contacts")}>
                   {project.contacts
                     .map((c) => [c.name, c.role, c.phone].filter(Boolean).join(" · "))
                     .join(", ")}
-                </Field>
+                </ProjectInfoField>
               ) : null}
             </Box>
             {project.description ? (
-              <Field label={t("projects.form.description")}>
+              <ProjectInfoField label={t("projects.form.description")}>
                 <Box component="span" sx={{ whiteSpace: "pre-line" }}>{project.description}</Box>
-              </Field>
+              </ProjectInfoField>
             ) : null}
             {project.instructions ? (
-              <Field label={t("projects.detail.instructions")}>
+              <ProjectInfoField label={t("projects.detail.instructions")}>
                 <Box component="span" sx={{ whiteSpace: "pre-line" }}>{project.instructions}</Box>
-              </Field>
+              </ProjectInfoField>
             ) : null}
           </Box>
         </Card>
@@ -303,7 +338,7 @@ export function ProjectDetail() {
         {/* Project files — visible from every werkbon in this project. */}
         <AttachmentsPanel
           attachments={project.attachments}
-          canWrite={canManage}
+          canWrite={canManage && !project.archived}
           busy={busy}
           title={t("projects.attachments.title")}
           emptyText={t("projects.attachments.empty")}
@@ -328,14 +363,18 @@ export function ProjectDetail() {
             same feed the werkbon detail page shows. */}
         <ActivityPanel
           activity={project.activity}
-          onAddComment={async (body) => {
-            const activity = await addProjectComment(project.id, body);
-            setProject((p) => (p ? { ...p, activity } : p));
-          }}
+          onAddComment={
+            project.archived
+              ? undefined
+              : async (body) => {
+                  const activity = await addProjectComment(project.id, body);
+                  setProject((p) => (p ? { ...p, activity } : p));
+                }
+          }
         />
       </Box>
 
-      {canManage ? (
+      {canManage && !project.archived ? (
         <ProjectFormDialog
           open={editOpen}
           project={project}
@@ -357,6 +396,15 @@ export function ProjectDetail() {
           }}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={archiveOpen}
+        title={t("projects.archive.title")}
+        body={t("projects.archive.body", { number: project.projectNumber })}
+        busy={busy}
+        onClose={() => setArchiveOpen(false)}
+        onConfirm={runArchive}
+      />
 
       <ConfirmDialog
         open={deleteOpen}

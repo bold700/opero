@@ -7,7 +7,6 @@ import { clampText } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
-import { projectScopeWhere } from "../projects/visibility.js";
 import { workOrderScopeWhere as sharedWorkOrderScopeWhere } from "../work-orders/visibility.js";
 import { absencesInRange } from "../employees/absence.js";
 import {

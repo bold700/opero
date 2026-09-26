@@ -49,7 +49,7 @@ export function BrandPanel() {
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
         <Typography sx={{ fontSize: 40, fontWeight: 400, color: "#1D1B20", letterSpacing: "-0.5px" }}>
-          WerkbonApp
+          {t("auth.brand.name")}
         </Typography>
         <Typography variant="h6" sx={{ fontWeight: 400, color: "text.secondary" }}>
           {t("auth.brand.tagline")}

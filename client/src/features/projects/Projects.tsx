@@ -16,8 +16,11 @@ import {
   getProjectsPage,
   createProject,
   deleteProject,
+  archiveProject,
+  restoreProject,
   type ProjectSummary,
   type ProjectInput,
+  type ProjectVisibility,
 } from "./api";
 import { ProjectsActions } from "./components/ProjectsActions";
 import { ProjectsFilterBar } from "./components/ProjectsFilterBar";
@@ -37,6 +40,7 @@ export function Projects() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [visibility, setVisibility] = useState<ProjectVisibility>("active");
   const [reloadKey, setReloadKey] = useState(0);
   const debouncedSearch = useDebounced(search, 300);
 
@@ -46,12 +50,14 @@ export function Projects() {
         cursor,
         search: debouncedSearch || undefined,
         status: statusFilter || undefined,
+        archived: visibility,
       }),
-    [debouncedSearch, statusFilter, reloadKey],
+    [debouncedSearch, statusFilter, visibility, reloadKey],
   );
 
   const [createOpen, setCreateOpen] = useState(false);
   const [deleting, setDeleting] = useState<ProjectSummary | null>(null);
+  const [archiving, setArchiving] = useState<ProjectSummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -94,6 +100,34 @@ export function Projects() {
     }
   };
 
+  const handleArchive = async () => {
+    if (!archiving) return;
+    setBusy(true);
+    try {
+      await archiveProject(archiving.id);
+      setArchiving(null);
+      setToast(t("projects.toast.archived"));
+      refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("projects.toast.archiveError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRestore = async (project: ProjectSummary) => {
+    setBusy(true);
+    try {
+      await restoreProject(project.id);
+      setToast(t("projects.toast.restored"));
+      refresh();
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("projects.toast.restoreError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <PageLayout
       title={t("projects.title")}
@@ -106,7 +140,12 @@ export function Projects() {
         />
       }
     >
-      <ProjectsFilterBar status={statusFilter} onStatusChange={setStatusFilter} />
+      <ProjectsFilterBar
+        status={statusFilter}
+        onStatusChange={setStatusFilter}
+        visibility={visibility}
+        onVisibilityChange={setVisibility}
+      />
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
@@ -120,6 +159,8 @@ export function Projects() {
           showPrices={showPrices}
           onOpen={(p) => navigate(`/projects/${p.id}`)}
           onEdit={(p) => navigate(`/projects/${p.id}`)}
+          onArchive={setArchiving}
+          onRestore={handleRestore}
           onDelete={setDeleting}
           hasMore={hasMore}
           loadingMore={loadingMore}
@@ -134,6 +175,15 @@ export function Projects() {
         onClose={() => setCreateOpen(false)}
         onCreate={handleCreate}
         onUpdate={() => {}}
+      />
+
+      <ConfirmDialog
+        open={archiving !== null}
+        title={t("projects.archive.title")}
+        body={archiving ? t("projects.archive.body", { number: archiving.projectNumber }) : undefined}
+        busy={busy}
+        onClose={() => setArchiving(null)}
+        onConfirm={handleArchive}
       />
 
       <ConfirmDialog

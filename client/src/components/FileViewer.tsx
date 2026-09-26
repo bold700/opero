@@ -52,19 +52,20 @@ export function FileViewer({
 }) {
   const { t } = useTranslation();
   const isPdf = file?.contentType === "application/pdf";
+  const fileUrl = file?.url;
 
   // An <img>/<iframe> that never fires `load` is indistinguishable from a slow
   // one, so a stuck spinner would be the whole UI. Treat "still loading after a
   // while" as failure and show the recovery actions.
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   useEffect(() => {
-    if (!file) return;
+    if (!fileUrl) return;
     setState("loading");
     const timer = setTimeout(() => {
       setState((s) => (s === "loading" ? "error" : s));
     }, 12000);
     return () => clearTimeout(timer);
-  }, [file?.url]);
+  }, [fileUrl]);
 
   const openExternally = () => {
     if (file) window.open(file.url, "_blank", "noopener,noreferrer");

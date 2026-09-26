@@ -17,8 +17,7 @@ import { useAuth } from "../../../auth/AuthContext";
 import { login as apiLogin, loginWith2fa } from "../../../lib/api/auth";
 import { ApiError } from "../../../lib/api/client";
 
-// Right-side login form. Wired to POST /api/auth/login. Demo accounts:
-// admin@opero.test / technician@opero.test / client@opero.test, password "opero123".
+// Right-side Opero login form. Wired to POST /api/auth/login.
 export function LoginForm() {
   const { t } = useTranslation();
   const navigate = useNavigate();

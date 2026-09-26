@@ -22,6 +22,7 @@ export const RADIUS = {
 
 // Spacing scale (MUI units; 1 = 8px). Pick from these, don't invent.
 export const SPACING = {
+  fieldLabelGap: 0.25,
   pagePadding: 4, // 32px — the content padding on every page (kills tab-jump)
   sectionGap: 3, // 24px — gap between major sections on a page
   cardPadding: 3, // 24px — padding inside a card

@@ -40,7 +40,44 @@ import type {
 // for local UI work). Everything is still wiped first either way.
 const SEED_DEMO = process.env.SEED_DEMO === "1" || process.env.SEED_DEMO === "true";
 
+type SeedAccountRole = "admin" | "office" | "technician" | "client" | "foreman";
+const seedPasswordVariables: Record<SeedAccountRole, string> = {
+  admin: "SEED_ADMIN_PASSWORD",
+  office: "SEED_OFFICE_PASSWORD",
+  technician: "SEED_TECHNICIAN_PASSWORD",
+  client: "SEED_CLIENT_PASSWORD",
+  foreman: "SEED_FOREMAN_PASSWORD",
+};
+
+function seedAccountPasswords(): Record<SeedAccountRole, string> {
+  const railwayEnvironment = process.env.RAILWAY_ENVIRONMENT_NAME;
+  if ((railwayEnvironment && railwayEnvironment !== "staging") ||
+      (process.env.NODE_ENV === "production" && railwayEnvironment !== "staging")) {
+    throw new Error("Seeding is disabled outside the Railway staging environment in production.");
+  }
+
+  const passwords = {} as Record<SeedAccountRole, string>;
+  const roles: SeedAccountRole[] = SEED_DEMO
+    ? ["admin", "office", "technician", "client", "foreman"]
+    : ["admin", "office", "technician"];
+  for (const role of roles) {
+    const variable = seedPasswordVariables[role];
+    const value = process.env[variable];
+    if (railwayEnvironment === "staging" && (!value || value.length < 16)) {
+      throw new Error(`${variable} must be set to at least 16 characters before seeding staging.`);
+    }
+    passwords[role] = value || "opero123";
+  }
+  if (railwayEnvironment === "staging" &&
+      new Set(roles.map((role) => passwords[role])).size !== roles.length) {
+    throw new Error("Staging seed account passwords must be unique per role.");
+  }
+  return passwords;
+}
+
 async function main() {
+  // Validate credentials before the destructive reset below.
+  const passwords = seedAccountPasswords();
   // -----------------------------------------------------------------------
   // 1. Wipe everything in FK-safe order (children → parents). deleteMany on
   //    every model so the seed is fully idempotent.
@@ -737,7 +774,13 @@ async function main() {
   // -----------------------------------------------------------------------
   // 9. Demo users
   // -----------------------------------------------------------------------
-  const passwordHash = await bcrypt.hash("opero123", 12);
+  const passwordHashes = {
+    admin: await bcrypt.hash(passwords.admin, 12),
+    office: await bcrypt.hash(passwords.office, 12),
+    technician: await bcrypt.hash(passwords.technician, 12),
+    client: SEED_DEMO ? await bcrypt.hash(passwords.client, 12) : "",
+    foreman: SEED_DEMO ? await bcrypt.hash(passwords.foreman, 12) : "",
+  };
 
   // THE INVARIANT: every login links to an Employee or a Customer. Access is
   // managed from the Werknemers / Klanten screens, so an unlinked login would be
@@ -765,7 +808,7 @@ async function main() {
     data: {
       orgId,
       email: "admin@opero.test",
-      passwordHash,
+      passwordHash: passwordHashes.admin,
       name: "Admin Demo",
       role: "admin",
       totpEnabled: false,
@@ -789,7 +832,7 @@ async function main() {
     data: {
       orgId,
       email: "office@opero.test",
-      passwordHash,
+      passwordHash: passwordHashes.office,
       name: "Office Demo",
       role: "office",
       totpEnabled: false,
@@ -804,7 +847,7 @@ async function main() {
     data: {
       orgId,
       email: "technician@opero.test",
-      passwordHash,
+      passwordHash: passwordHashes.technician,
       name: "Technician Demo",
       role: "technician",
       totpEnabled: false,
@@ -819,7 +862,7 @@ async function main() {
       data: {
         orgId,
         email: "client@opero.test",
-        passwordHash,
+        passwordHash: passwordHashes.client,
         name: "Client Demo",
         role: "client",
         totpEnabled: false,
@@ -846,7 +889,7 @@ async function main() {
       data: {
         orgId,
         email: "foreman@opero.test",
-        passwordHash,
+        passwordHash: passwordHashes.foreman,
         name: "Foreman Demo",
         role: "foreman",
         totpEnabled: false,

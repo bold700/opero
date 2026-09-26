@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "echo \"(no lint configured for backend yet)\"",
+    "lint": "eslint src",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
@@ -38,7 +38,7 @@
     "pino-http": "^10.4.0",
     "qrcode": "^1.5.4",
     "resend": "^6.16.0",
-    "sharp": "^0.33",
+    "sharp": "^0.35.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {

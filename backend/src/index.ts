@@ -3,6 +3,8 @@ import express, {
   type Request,
   type Response,
 } from "express";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import cors from "cors";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
@@ -116,7 +118,7 @@ app.use(errorHandler);
 // Only listen when run directly (not when imported by tests).
 const isMain =
   process.argv[1] !== undefined &&
-  import.meta.url === `file://${process.argv[1]}`;
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
 
 if (isMain) {
   const server = app.listen(env.PORT, () => {

@@ -21,6 +21,7 @@
     "created": "Project created",
     "deleted": "Project deleted",
     "archived": "Project archived",
+    "restored": "Project restored",
     "teamAssigned": "Team assigned",
     "statusChanged": "Status from $t(activity.status.{{from}}) to $t(activity.status.{{to}})",
     "stageChanged": "Stage changed to $t(activity.stage.{{stage}})",

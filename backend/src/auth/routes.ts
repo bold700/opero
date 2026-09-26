@@ -14,7 +14,6 @@ import {
   requestEmailChangeSchema,
   confirmEmailChangeSchema,
 } from "@opero/shared";
-import { env } from "../env.js";
 import { prisma } from "../db/client.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { audit } from "../lib/audit.js";

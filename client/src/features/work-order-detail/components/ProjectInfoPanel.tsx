@@ -4,7 +4,6 @@ import { TIME_SLOTS, suggestEndTime } from "../../../lib/timeSlots";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Autocomplete from "@mui/material/Autocomplete";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";

@@ -3,7 +3,6 @@ import type { Prisma } from "@prisma/client";
 import {
   type UserRole,
   canDispatch,
-  canSeePrices,
   canSeeAllProjects,
   canEditQuoteScope,
   canApproveAsOffice,
@@ -21,7 +20,6 @@ import { storeUpload, storeAttachment, deleteStored, storeSignature } from "../.
 import { uploadSingle } from "../../lib/upload.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
 import type { AuthUser } from "../../auth/types.js";
-import { canViewProject } from "../projects/visibility.js";
 import {
   canViewWorkOrder,
   visibleWorkOrdersWhere,
@@ -65,10 +63,6 @@ import {
   usageSchema,
   progressSchema,
 } from "./schema.js";
-// Meerwerk (extra work) is a flagged TaskMaterial; it reuses the material schemas.
-import {
-} from "../projects/schema.js";
-
 export const workOrdersRouter = Router();
 
 type Tx = Prisma.TransactionClient;
@@ -298,16 +292,6 @@ function taskScopeLabel(
 // Work-order display label for activity: its title, or "#N" when untitled.
 function woLabel(wb: { title: string; ordinal: number }): string {
   return wb.title.trim() || `#${wb.ordinal + 1}`;
-}
-
-// Date-only ISO (YYYY-MM-DD) for the extra-work createdAt column.
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-// Format a euro amount for activity params (nl display, English-keyed).
-function formatEuro(value: number): string {
-  return `€ ${Math.round(value).toLocaleString("nl-NL")}`;
 }
 
 // =========================================================================

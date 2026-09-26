@@ -1,7 +1,7 @@
 # Opero
 
-Werkbon management application — work orders, planning, customers, and materials
-for an insulation company.
+Opero manages projects, work orders, planning, customers, and materials for
+insulation companies.
 
 ## Stack
 
@@ -25,7 +25,12 @@ The local Postgres container is handled automatically — `pnpm dev` runs
 `scripts/dev-db.sh`, which creates `opero-postgres` if it is missing, starts it
 if it is stopped, and waits until it accepts connections. Data lives in the
 `opero-postgres-data` Docker volume, so it survives removing the container.
-Docker Desktop does need to be running.
+For the Docker option, Docker Desktop needs to be running.
+
+On Windows, `pnpm dev` can also start a local PostgreSQL 16 installation when
+Docker is unavailable. It looks for the binaries in
+`%LOCALAPPDATA%\OperoDev\PostgreSQL16\pgsql` and the database files in
+`%LOCALAPPDATA%\OperoDev\pgdata`.
 
 Copy the backend environment file and adjust as needed:
 

@@ -56,8 +56,6 @@ import {
   commentSchema,
   updateIntakeSchema,
   completeIntakeSchema,
-  addExtraWorkSchema,
-  rejectExtraWorkSchema,
   restpuntenSchema,
   signHandoverSchema,
   removePhotoSchema,
@@ -89,10 +87,6 @@ const NEXT_STEP_BY_STATUS: Record<string, string> = {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatEuro(value: number): string {
-  return `€ ${Math.round(value).toLocaleString("nl-NL")}`;
 }
 
 // Append a ProjectActivity row inside a transaction (replaces makeActivity +
@@ -165,6 +159,14 @@ projectsRouter.get(
     // OR that enforces technician visibility.
     const ci = { contains: params.search, mode: "insensitive" as const };
     const filters: Prisma.ProjectWhereInput[] = [];
+    const archived = req.query.archived;
+    if (archived === "archived") {
+      filters.push({ archived: true });
+    } else if (archived !== "all") {
+      // Keep completed work out of the operational list by default. It remains
+      // available through the explicit history filter.
+      filters.push({ archived: false });
+    }
     if (params.search) {
       filters.push({
         OR: [
@@ -565,12 +567,43 @@ projectsRouter.post(
     const user = req.user!;
     const existing = await loadProjectForUser(user, req.params.id);
     const updated = await prisma.$transaction(async (tx) => {
+      const unfinishedWorkOrders = await tx.workOrder.count({
+        where: { projectId: existing.id, signedAt: null },
+      });
+      if (unfinishedWorkOrders > 0) {
+        throw BadRequest("Finish all work orders before archiving the project");
+      }
       await tx.project.update({
         where: { id: existing.id },
         data: { archived: true, stage: "done", status: "closing" },
       });
       await appendActivity(tx, user, existing.id, "system", "project.archived");
       await audit(tx, user, "project.archive", "project", existing.id);
+      return tx.project.findUniqueOrThrow({
+        where: { id: existing.id },
+        include: projectInclude,
+      });
+    });
+    res.json(await projectDtoFor(user, updated));
+  }),
+);
+
+// POST /:id/restore — office. Return an archived project to the active list.
+// Its closing/done status is retained because restoring visibility should not
+// invent a previous workflow state.
+projectsRouter.post(
+  "/:id/restore",
+  requireRole("admin", "office"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const existing = await loadProjectForUser(user, req.params.id);
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id: existing.id },
+        data: { archived: false },
+      });
+      await appendActivity(tx, user, existing.id, "system", "project.restored");
+      await audit(tx, user, "project.restore", "project", existing.id);
       return tx.project.findUniqueOrThrow({
         where: { id: existing.id },
         include: projectInclude,

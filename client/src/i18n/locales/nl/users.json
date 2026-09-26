@@ -3,7 +3,7 @@
   "roles": {
     "admin": "Beheerder",
     "office": "Kantoortoegang",
-    "foreman": "Voormantoegang",
+    "foreman": "Projectleidertoegang",
     "technician": "Monteurtoegang",
     "client": "Klant"
   },

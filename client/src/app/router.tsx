@@ -1,25 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { RequireAuth, RequireRouteAccess } from "../auth/guards";
 import { AppShell } from "./AppShell";
-import { Login } from "../features/auth/Login";
-import { ForgotPassword } from "../features/auth/ForgotPassword";
-import { ResetPassword } from "../features/auth/ResetPassword";
-import { AcceptInvite } from "../features/auth/AcceptInvite";
-import { VerifyEmail } from "../features/auth/VerifyEmail";
-import { Dashboard } from "../features/dashboard/Dashboard";
-import { WorkOrders } from "../features/work-orders/WorkOrders";
-import { WorkOrderDetail } from "../features/work-order-detail/WorkOrderDetail";
-import { Customers } from "../features/customers/Customers";
-import { CustomerDetail } from "../features/customers/CustomerDetail";
-import { Projects } from "../features/projects/Projects";
-import { ProjectDetail } from "../features/projects/ProjectDetail";
-import { Planning } from "../features/planning/Planning";
-import { Employees } from "../features/employees/Employees";
-import { Materials } from "../features/materials/Materials";
-import { MaterialDetail } from "../features/materials/MaterialDetail";
-import { Reports } from "../features/reports/Reports";
-import { Timesheet } from "../features/timesheet/Timesheet";
-import { Settings } from "../features/settings/Settings";
 import { Placeholder } from "../pages/Placeholder";
 
 // Route tree. English paths, 1:1 with the backend modules. /login is standalone;
@@ -27,23 +8,23 @@ import { Placeholder } from "../pages/Placeholder";
 export const router = createBrowserRouter([
   {
     path: "/login",
-    element: <Login />,
+    lazy: async () => ({ Component: (await import("../features/auth/Login")).Login }),
   },
   {
     path: "/forgot-password",
-    element: <ForgotPassword />,
+    lazy: async () => ({ Component: (await import("../features/auth/ForgotPassword")).ForgotPassword }),
   },
   {
     path: "/reset-password",
-    element: <ResetPassword />,
+    lazy: async () => ({ Component: (await import("../features/auth/ResetPassword")).ResetPassword }),
   },
   {
     path: "/accept-invite",
-    element: <AcceptInvite />,
+    lazy: async () => ({ Component: (await import("../features/auth/AcceptInvite")).AcceptInvite }),
   },
   {
     path: "/verify-email",
-    element: <VerifyEmail />,
+    lazy: async () => ({ Component: (await import("../features/auth/VerifyEmail")).VerifyEmail }),
   },
   {
     element: <RequireAuth />,
@@ -54,24 +35,24 @@ export const router = createBrowserRouter([
           {
             element: <RequireRouteAccess />,
             children: [
-              { path: "/", element: <Dashboard /> },
-              { path: "/work-orders", element: <WorkOrders /> },
-              { path: "/work-orders/:id", element: <WorkOrderDetail /> },
-              { path: "/projects", element: <Projects /> },
-              { path: "/projects/:id", element: <ProjectDetail /> },
-              { path: "/planning", element: <Planning /> },
-              { path: "/customers", element: <Customers /> },
-              { path: "/customers/:id", element: <CustomerDetail /> },
-              { path: "/employees", element: <Employees /> },
-              { path: "/materials", element: <Materials /> },
-              { path: "/materials/:id", element: <MaterialDetail /> },
-              { path: "/reports", element: <Reports /> },
-              { path: "/timesheet", element: <Timesheet /> },
+              { path: "/", lazy: async () => ({ Component: (await import("../features/dashboard/Dashboard")).Dashboard }) },
+              { path: "/work-orders", lazy: async () => ({ Component: (await import("../features/work-orders/WorkOrders")).WorkOrders }) },
+              { path: "/work-orders/:id", lazy: async () => ({ Component: (await import("../features/work-order-detail/WorkOrderDetail")).WorkOrderDetail }) },
+              { path: "/projects", lazy: async () => ({ Component: (await import("../features/projects/Projects")).Projects }) },
+              { path: "/projects/:id", lazy: async () => ({ Component: (await import("../features/projects/ProjectDetail")).ProjectDetail }) },
+              { path: "/planning", lazy: async () => ({ Component: (await import("../features/planning/Planning")).Planning }) },
+              { path: "/customers", lazy: async () => ({ Component: (await import("../features/customers/Customers")).Customers }) },
+              { path: "/customers/:id", lazy: async () => ({ Component: (await import("../features/customers/CustomerDetail")).CustomerDetail }) },
+              { path: "/employees", lazy: async () => ({ Component: (await import("../features/employees/Employees")).Employees }) },
+              { path: "/materials", lazy: async () => ({ Component: (await import("../features/materials/Materials")).Materials }) },
+              { path: "/materials/:id", lazy: async () => ({ Component: (await import("../features/materials/MaterialDetail")).MaterialDetail }) },
+              { path: "/reports", lazy: async () => ({ Component: (await import("../features/reports/Reports")).Reports }) },
+              { path: "/timesheet", lazy: async () => ({ Component: (await import("../features/timesheet/Timesheet")).Timesheet }) },
               // No /users route: access is managed from Werknemers / Klanten.
               // The route had to go, not just the nav entry — canAccessPath
               // returns true for paths absent from NAV_ITEMS, so leaving it
               // would have opened it to every role.
-              { path: "/settings", element: <Settings /> },
+              { path: "/settings", lazy: async () => ({ Component: (await import("../features/settings/Settings")).Settings }) },
             ],
           },
         ],
