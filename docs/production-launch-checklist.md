@@ -9,7 +9,8 @@ Never paste secrets into this document or commit handover data.
 - Local verification: client and backend type checks and builds passed.
 - Backend verification: 385 tests across 50 files passed.
 - Local API verification: `/healthz` returned `ok` with `db: up`.
-- GitHub transfer: pending company repository selection and authentication.
+- GitHub transfer: completed to `bold700/opero` on the `main` branch.
+- Repository visibility: public until the owner changes it to private.
 - Cloud deployment: pending company sign-in for Supabase, Railway, Vercel,
   Resend, plus confirmation of the final product name and domain.
 

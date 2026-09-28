@@ -558,8 +558,8 @@ files that changed.
   migration applied locally; the handover restored into an isolated database;
   all 51 active-organization files passed import validation; and the restarted
   local API returned a healthy database status.
-- **Status:** Committed locally as release `b1b7e60`; cloud transfer is pending
-  company repository and hosting-account authentication.
+- **Status:** Application release `b1b7e60` transferred to `bold700/opero` on
+  `main`; hosting-account setup and production deployment remain pending.
 - **Review:** Production migration, DNS, and go-live acceptance remain pending.
 - **Billable time:** To reconcile.
 
