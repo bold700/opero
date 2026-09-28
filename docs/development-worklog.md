@@ -558,8 +558,9 @@ files that changed.
   migration applied locally; the handover restored into an isolated database;
   all 51 active-organization files passed import validation; and the restarted
   local API returned a healthy database status.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Review required before production migration or domain changes.
+- **Status:** Committed locally as release `b1b7e60`; cloud transfer is pending
+  company repository and hosting-account authentication.
+- **Review:** Production migration, DNS, and go-live acceptance remain pending.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation

@@ -3,6 +3,16 @@
 Use company-controlled accounts with MFA and at least two recovery owners.
 Never paste secrets into this document or commit handover data.
 
+## Release checkpoint
+
+- Source release: `b1b7e60` (`feat: prepare Opero production release`)
+- Local verification: client and backend type checks and builds passed.
+- Backend verification: 385 tests across 50 files passed.
+- Local API verification: `/healthz` returned `ok` with `db: up`.
+- GitHub transfer: pending company repository selection and authentication.
+- Cloud deployment: pending company sign-in for Supabase, Railway, Vercel,
+  Resend, plus confirmation of the final product name and domain.
+
 ## Confirmed workspace
 
 - Organization: W.D.B. Isolatie B.V.
