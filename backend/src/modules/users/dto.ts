@@ -11,11 +11,12 @@ export const accountSelect = {
   id: true,
   email: true,
   role: true,
+  roles: true,
   status: true,
   activatedAt: true,
 } as const;
 
-type LinkedUser = Pick<User, "id" | "email" | "role" | "status" | "activatedAt">;
+type LinkedUser = Pick<User, "id" | "email" | "role" | "roles" | "status" | "activatedAt">;
 
 // A domain record has AT MOST one login. The relation is one-to-many in Prisma
 // (the FK lives on User) and the invite routes reject a second, so taking the
@@ -28,6 +29,7 @@ export function accountDto(users: LinkedUser[] | undefined) {
         userId: u.id,
         email: u.email,
         role: u.role,
+        roles: u.roles.length > 0 ? u.roles : [u.role],
         status: u.status,
         activatedAt: u.activatedAt ? u.activatedAt.toISOString() : undefined,
       }

@@ -10,6 +10,7 @@ export type AuthUser = {
   name: string;
   phone: string | null;
   role: UserRole;
+  roles: UserRole[];
   customerId: string | null;
   employeeId: string | null;
   totpEnabled: boolean;

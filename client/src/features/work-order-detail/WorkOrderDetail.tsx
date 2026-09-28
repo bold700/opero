@@ -5,8 +5,6 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
 import {
   canSeePrices,
   canSeeMargin,
@@ -25,9 +23,11 @@ import {
   exportWorkOrderQuotePdf,
   getProject,
   getProjectActivity,
+  getMentionCandidates,
   addProjectComment,
   getAssignableEmployees,
   setWorkOrderAssignees,
+  setWorkOrderContacts,
   setWorkOrderSchedule,
   setWorkOrderTitle,
   setWorkOrderUrgency,
@@ -53,6 +53,10 @@ import {
   deleteTaskPhoto,
   finishWorkOrder,
   reopenWorkOrder,
+  approveWorkOrder,
+  prepareWorkOrderInvoice,
+  sendWorkOrderInvoice,
+  markWorkOrderInvoicePaid,
   uploadAttachment,
   deleteAttachment,
   setAttachmentReceived,
@@ -70,17 +74,17 @@ import {
   type WorkOrder,
   type Project,
   type AssigneeOption,
+  type MentionCandidate,
   type ProjectSidebarPatch,
 } from "./api";
 import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
 import { PreJobPanel } from "./components/PreJobPanel";
-import { ProjectInfoPanel } from "./components/ProjectInfoPanel";
 import { ProjectInfoSheet } from "./components/ProjectInfoSheet";
 import { MeerwerkApprovalPanel } from "./components/MeerwerkApprovalPanel";
-import { AttachmentsPanel } from "../../components/AttachmentsPanel";
-import { ActivityPanel } from "../../components/ActivityPanel";
 import { ActivitySheet } from "./components/ActivitySheet";
+import { NotesSheet } from "./components/NotesSheet";
+import { AttachmentsSheet } from "./components/AttachmentsSheet";
 import { SignOffDialog } from "./components/SignOffDialog";
 
 // Work-order detail: header + tasks + meerwerk (extra-work approval) + activity.
@@ -104,9 +108,9 @@ export function WorkOrderDetail() {
   // reachable from the header. Matches the breakpoint of the layout itself
   // (see the flexDirection below), NOT the usual sm "mobile" — on a tablet the
   // sidebar is already gone and the panels are just as buried.
-  const theme = useTheme();
-  const sidePanelsInSheet = useMediaQuery(theme.breakpoints.down("lg"));
   const [infoOpen, setInfoOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
@@ -115,6 +119,7 @@ export function WorkOrderDetail() {
   // ask for different job titles, so they can't share one fetch.
   const [assignees, setAssignees] = useState<AssigneeOption[]>([]);
   const [projectLeaders, setProjectLeaders] = useState<AssigneeOption[]>([]);
+  const [mentionCandidates, setMentionCandidates] = useState<MentionCandidate[]>([]);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingQuote, setExportingQuote] = useState(false);
@@ -129,6 +134,7 @@ export function WorkOrderDetail() {
       const p = await getProject(w.projectId);
       setWo(w);
       setProject(p);
+      getMentionCandidates(p.id).then(setMentionCandidates).catch(() => setMentionCandidates([]));
       getAssignableEmployees("technician").then(setAssignees).catch(() => setAssignees([]));
       getAssignableEmployees("project_leader")
         .then(setProjectLeaders)
@@ -155,12 +161,15 @@ export function WorkOrderDetail() {
   // Post a note onto the project timeline; the endpoint returns the refreshed
   // feed, so no second round-trip.
   const addComment = useCallback(
-    async (body: string) => {
-      if (!project) return;
-      const activity = await addProjectComment(project.id, body);
+    async (body: string, mentionUserIds: string[] = []) => {
+      if (!project || !wo) return;
+      const activity = await addProjectComment(project.id, body, {
+        mentionUserIds,
+        workOrderId: wo.id,
+      });
       setProject((p) => (p ? { ...p, activity } : p));
     },
-    [project],
+    [project, wo],
   );
 
   // Run a mutation, then refresh; surface errors as a toast.
@@ -216,6 +225,57 @@ export function WorkOrderDetail() {
   // Finished/locked is a property of THIS work order (signedAt), not the
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
+  const canFinish =
+    isStaff(role) &&
+    !dispatchBlocked &&
+    ["released", "in_progress", "ready_for_review"].includes(wo.status);
+
+  const workflowAction = canEditScope
+    ? wo.status === "ready_for_review" && finished
+      ? {
+          label: t("workOrderDetail.header.approve"),
+          onClick: () =>
+            run(async () => {
+              setWo(await approveWorkOrder(wo.id));
+              await refreshProject();
+              setToast(t("workOrderDetail.header.approvedToast"));
+            }),
+        }
+      : wo.status === "approved"
+        ? {
+            label: t("workOrderDetail.header.prepareInvoice"),
+            onClick: () =>
+              run(async () => {
+                await prepareWorkOrderInvoice(wo.id);
+                await refreshWorkOrder();
+                await refreshProject();
+                setToast(t("workOrderDetail.header.invoicePreparedToast"));
+              }),
+          }
+        : wo.status === "ready_to_invoice"
+          ? {
+              label: t("workOrderDetail.header.sendInvoice"),
+              onClick: () =>
+                run(async () => {
+                  await sendWorkOrderInvoice(wo.id);
+                  await refreshWorkOrder();
+                  await refreshProject();
+                  setToast(t("workOrderDetail.header.invoiceSentToast"));
+                }),
+            }
+          : wo.status === "invoiced"
+            ? {
+                label: t("workOrderDetail.header.markPaid"),
+                onClick: () =>
+                  run(async () => {
+                    await markWorkOrderInvoicePaid(wo.id);
+                    await refreshWorkOrder();
+                    await refreshProject();
+                    setToast(t("workOrderDetail.header.paidToast"));
+                  }),
+              }
+            : undefined
+    : undefined;
 
   // One definition, two possible homes — the sidebar or the sheet — so the two
   // can't drift. Rendered in exactly ONE of them: the panel has uncontrolled
@@ -247,6 +307,8 @@ export function WorkOrderDetail() {
       run(async () => { setWo(await setWorkOrderTitle(wo.id, title)); }),
     onSetDescription: (description: string) =>
       run(async () => { setWo(await setWorkOrderDescription(wo.id, description)); }),
+    onSetContacts: (contactPersonIds: string[]) =>
+      run(async () => { setWo(await setWorkOrderContacts(wo.id, contactPersonIds)); }),
   };
 
   // Delete the whole werkbon, then leave — the page we're on no longer exists.
@@ -295,19 +357,28 @@ export function WorkOrderDetail() {
         <DetailHeader
           workOrder={wo}
           project={project}
-          notDispatched={isStaff(role) && !wo.dispatchedAt && !finished}
           canDelete={canEditQuoteScope(role)}
-          canFinish={isStaff(role) && !dispatchBlocked}
-          canReopen={canEditQuoteScope(role)}
+          canFinish={canFinish}
+          canReopen={canEditQuoteScope(role) && wo.status === "ready_for_review"}
           canExportQuote={canEditQuoteScope(role)}
           finished={finished}
           busy={busy}
           exporting={exporting}
           exportingQuote={exportingQuote}
           onBack={() => navigate("/work-orders")}
-          // Only where the panels aren't on screen; the icons hide themselves at lg+.
-          onOpenInfo={sidePanelsInSheet ? () => setInfoOpen(true) : undefined}
-          onOpenActivity={sidePanelsInSheet ? () => setActivityOpen(true) : undefined}
+          onOpenInfo={() => setInfoOpen(true)}
+          onOpenAttachments={() => setAttachmentsOpen(true)}
+          onOpenNotes={() => setNotesOpen(true)}
+          onOpenActivity={() => setActivityOpen(true)}
+          attachmentCount={
+            wo.attachments.length +
+            wo.tasks.reduce(
+              (count, task) => count + task.beforePhotos.length + task.resultPhotos.length,
+              0,
+            )
+          }
+          noteCount={project.activity.filter((entry) => entry.type === "comment").length}
+          workflowAction={workflowAction}
           onDelete={handleDelete}
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
@@ -321,12 +392,8 @@ export function WorkOrderDetail() {
           }
         />
 
-        {/* Stacked below lg, two columns above.
-            `alignItems` is per-direction on purpose: it targets the CROSS axis,
-            so "flex-start" (which we want on desktop, to stop the columns
-            stretching to equal height) means "shrink to content WIDTH" once the
-            container is a column — that's what left a ragged gap on the right
-            and made the cards size to their content instead of the screen. */}
+        {/* Tasks and controls stay on the page. Reference information opens in
+            focused side sheets from the compact header navigation. */}
         <Box
           sx={{
             display: "flex",
@@ -335,14 +402,10 @@ export function WorkOrderDetail() {
             alignItems: { xs: "stretch", lg: "flex-start" },
           }}
         >
-          {/* Left / main: the werkbon body (zones + extra work).
-              Same trap for `flex`: the shorthand sets flex-basis, which is the
-              MAIN axis — height while stacked. Only apply the 3:2 ratio at lg,
-              and pin width:100% below it so the column can never be sized by
-              its widest child. */}
           <Box
             sx={{
               flex: { xs: "0 0 auto", lg: 3 },
+              order: { xs: 1, lg: 0 },
               width: { xs: "100%", lg: "auto" },
               minWidth: 0,
               display: "flex",
@@ -366,16 +429,14 @@ export function WorkOrderDetail() {
               onAddLine={(taskId, input) => run(async () => { await addMaterialFromCatalog(wo.id, taskId, input); await refreshWorkOrder(); })}
               onAddCustomLine={(taskId, input) => run(async () => { await addCustomMaterial(wo.id, taskId, input); await refreshWorkOrder(); })}
               onAddArticleLine={(taskId, input) => run(async () => { await addMaterialFromArticle(wo.id, taskId, input); await refreshWorkOrder(); })}
-              onEditLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, input); await refreshWorkOrder(); })}
-              // Editing a free-text line: clear any catalog link and write the
-              // typed fields. unitPrice omitted (non-admin) leaves it as-is.
-              onEditCustomLine={(m, input) => run(async () => { await updateMaterial(wo.id, m, { variantId: null, name: input.name, label: input.name, quantity: input.quantity, unit: input.unit, ...(input.unitPrice !== undefined ? { unitPrice: input.unitPrice } : {}), ...(input.isExtraWork !== undefined ? { isExtraWork: input.isExtraWork } : {}) }); await refreshWorkOrder(); })}
-              onDeleteLine={(m) => run(async () => { await deleteMaterial(wo.id, m); await refreshWorkOrder(); })}
-              onToggleLine={(m) => run(async () => { await toggleMaterial(wo.id, m); await refreshWorkOrder(); })}
-              onChangeLineQuantity={(m, quantity) => run(async () => { await updateMaterial(wo.id, m, { quantity }); await refreshWorkOrder(); })}
-              onRegisterStock={(m, input) => run(async () => { await registerMaterialStock(wo.id, m, input); await refreshWorkOrder(); })}
-              onLogProgress={(m, input) => run(async () => { await logMaterialProgress(wo.id, m, input); await refreshWorkOrder(); })}
-              onDeleteProgress={(m, entryId) => run(async () => { await deleteMaterialProgress(wo.id, m, entryId); await refreshWorkOrder(); })}
+              onEditLine={(material, input) => run(async () => { await updateMaterial(wo.id, material, input); await refreshWorkOrder(); })}
+              onEditCustomLine={(material, input) => run(async () => { await updateMaterial(wo.id, material, { variantId: null, name: input.name, label: input.name, quantity: input.quantity, unit: input.unit, ...(input.unitPrice !== undefined ? { unitPrice: input.unitPrice } : {}), ...(input.isExtraWork !== undefined ? { isExtraWork: input.isExtraWork } : {}) }); await refreshWorkOrder(); })}
+              onDeleteLine={(material) => run(async () => { await deleteMaterial(wo.id, material); await refreshWorkOrder(); })}
+              onToggleLine={(material) => run(async () => { await toggleMaterial(wo.id, material); await refreshWorkOrder(); })}
+              onChangeLineQuantity={(material, quantity) => run(async () => { await updateMaterial(wo.id, material, { quantity }); await refreshWorkOrder(); })}
+              onRegisterStock={(material, input) => run(async () => { await registerMaterialStock(wo.id, material, input); await refreshWorkOrder(); })}
+              onLogProgress={(material, input) => run(async () => { await logMaterialProgress(wo.id, material, input); await refreshWorkOrder(); })}
+              onDeleteProgress={(material, entryId) => run(async () => { await deleteMaterialProgress(wo.id, material, entryId); await refreshWorkOrder(); })}
               onUploadPhoto={(taskId, kind, file) => run(async () => { setWo(await uploadTaskPhoto(wo.id, taskId, kind, file)); })}
               onDeletePhoto={(taskId, key) => run(async () => { setWo(await deleteTaskPhoto(wo.id, taskId, key)); })}
               onStartTimer={(taskId) => run(async () => { setWo(await startTask(wo.id, taskId)); })}
@@ -383,66 +444,29 @@ export function WorkOrderDetail() {
               onSetHours={(taskId, hours) => run(async () => { await setTaskHours(wo.id, taskId, hours); await refreshWorkOrder(); })}
             />
 
-            {/* Meerwerk awaiting YOUR approval, gathered from every zone. The
-                lines themselves live inline in their zone; this is the action
-                surface (and the client's only one), so it renders only when
-                something is actually waiting. */}
             <MeerwerkApprovalPanel
               workOrder={wo}
               role={role}
               showPrices={showPrices}
               busy={busy}
-              onApproveOffice={(matId) => run(async () => { await approveOffice(wo.id, matId); await refreshWorkOrder(); })}
-              onApproveClient={(matId) => run(async () => { await approveClient(wo.id, matId); await refreshWorkOrder(); })}
-              onReject={(matId) => run(async () => { await rejectExtraWork(wo.id, matId); await refreshWorkOrder(); })}
-            />
-
-            {/* Bijlagen — this werkbon's own documents. */}
-            <AttachmentsPanel
-              attachments={wo.attachments.filter((a) => a.kind !== "packing_slip")}
-              canWrite={canWrite && !finished}
-              busy={busy}
-              title={t("workOrderDetail.attachments.title")}
-              emptyText={t("workOrderDetail.attachments.empty")}
-              addLabel={t("workOrderDetail.attachments.add")}
-              onUpload={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file)); })}
-              onDelete={(attachmentId) => run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })}
-            />
-
-            {/* Pakbonnen — delivery slips, each confirmed received or not. A
-                different thing from a document: it carries a state. */}
-            <AttachmentsPanel
-              attachments={wo.attachments.filter((a) => a.kind === "packing_slip")}
-              canWrite={canWrite && !finished}
-              busy={busy}
-              title={t("workOrderDetail.packingSlips.title")}
-              emptyText={t("workOrderDetail.packingSlips.empty")}
-              addLabel={t("workOrderDetail.packingSlips.add")}
-              onUpload={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file, "packing_slip")); })}
-              onDelete={(attachmentId) => run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })}
-              receivedToggle={{
-                label: t("workOrderDetail.packingSlips.received"),
-                onToggle: (attachmentId, received) =>
-                  run(async () => { setWo(await setAttachmentReceived(wo.id, attachmentId, received)); }),
-              }}
+              onApproveOffice={(materialId) => run(async () => { await approveOffice(wo.id, materialId); await refreshWorkOrder(); })}
+              onApproveClient={(materialId) => run(async () => { await approveClient(wo.id, materialId); await refreshWorkOrder(); })}
+              onReject={(materialId) => run(async () => { await rejectExtraWork(wo.id, materialId); await refreshWorkOrder(); })}
             />
           </Box>
 
-          {/* Right / side: separate cards — Controle vooraf, Projectinfo, Activiteit. */}
-          {/* Same per-direction flex as the main column — see the note above. */}
           <Box
             sx={{
               flex: { xs: "0 0 auto", lg: 2 },
+              order: { xs: 0, lg: 1 },
               width: "100%",
               minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: SPACING.sectionGap,
             }}
           >
             <PreJobPanel
               workOrder={wo}
               isAdmin={canEditQuoteScope(role)}
+              canComplete={isStaff(role)}
               busy={busy}
               onToggleCheck={(itemId, done) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { done })); })}
               onRenameItem={(itemId, label) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { label })); })}
@@ -459,35 +483,39 @@ export function WorkOrderDetail() {
                 })
               }
             />
-
-            {/* Below lg this lives in a sheet behind the header's info icon —
-                inline it would sit ~3 screens down, past the whole werkbon. */}
-            {sidePanelsInSheet ? null : <ProjectInfoPanel {...projectInfoProps} />}
-
-            {/* Same treatment — below lg this is the header's history icon. */}
-            {sidePanelsInSheet ? null : (
-              <ActivityPanel activity={project.activity} onAddComment={addComment} />
-            )}
           </Box>
         </Box>
       </Box>
 
-      {sidePanelsInSheet ? (
-        <>
-          <ProjectInfoSheet
-            open={infoOpen}
-            onClose={() => setInfoOpen(false)}
-            {...projectInfoProps}
-          />
-          <ActivitySheet
-            open={activityOpen}
-            onClose={() => setActivityOpen(false)}
-            activity={project.activity}
-            onAddComment={addComment}
-          />
-        </>
-      ) : null}
-
+      <ProjectInfoSheet
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        {...projectInfoProps}
+      />
+      <AttachmentsSheet
+        open={attachmentsOpen}
+        onClose={() => setAttachmentsOpen(false)}
+        attachments={wo.attachments}
+        tasks={wo.tasks}
+        canWrite={canWrite && !finished}
+        busy={busy}
+        onUploadAttachment={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file)); })}
+        onUploadPackingSlip={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file, "packing_slip")); })}
+        onDelete={(attachmentId) => run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })}
+        onSetReceived={(attachmentId, received) => run(async () => { setWo(await setAttachmentReceived(wo.id, attachmentId, received)); })}
+      />
+      <NotesSheet
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        notes={project.activity.filter((entry) => entry.type === "comment")}
+        mentionCandidates={mentionCandidates}
+        onAddNote={addComment}
+      />
+      <ActivitySheet
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        activity={project.activity.filter((entry) => entry.type !== "comment")}
+      />
       <SignOffDialog
         open={signOpen}
         busy={busy}

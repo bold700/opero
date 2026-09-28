@@ -1,4 +1,5 @@
 import { STATUS_TONES, type StatusTone } from "../../theme/tokens";
+import type { ProjectLifecycleStatus } from "@opero/shared";
 import type { ProjectStatus, ProjectStage } from "./api";
 
 // Project lifecycle status → badge tone. Sales (starting) → open (lavender),
@@ -7,6 +8,20 @@ export const PROJECT_STATUS_TONES: Record<ProjectStatus, StatusTone> = {
   sales: STATUS_TONES.open,
   operations: STATUS_TONES.info,
   closing: STATUS_TONES.success,
+};
+
+export const PROJECT_LIFECYCLE_STATUS_TONES: Record<
+  ProjectLifecycleStatus,
+  StatusTone
+> = {
+  new: STATUS_TONES.neutral,
+  work_preparation: STATUS_TONES.open,
+  scheduled: STATUS_TONES.info,
+  in_progress: STATUS_TONES.warning,
+  ready_to_invoice: STATUS_TONES.success,
+  invoiced: STATUS_TONES.info,
+  completed: STATUS_TONES.success,
+  history: STATUS_TONES.neutral,
 };
 
 // Stage → tone (concept → neutral … done → success).

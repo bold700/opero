@@ -105,7 +105,7 @@ describe("work-orders pagination", () => {
   it("toggling a task's done flips the denormalized listStatus, and ?status filters on it", async () => {
     const targetId = workOrderIds[0];
 
-    // Add one task, then toggle it done → status should derive to "done".
+    // Add one task, then toggle it done → status should derive to "ready_for_review".
     const addTask = await request(app)
       .post(`/api/work-orders/${targetId}/tasks`)
       .set(auth(adminToken))
@@ -117,24 +117,24 @@ describe("work-orders pagination", () => {
       .post(`/api/work-orders/${targetId}/tasks/${taskId}/toggle`)
       .set(auth(adminToken));
 
-    // The persisted column is now "done".
+    // The persisted column is now "ready_for_review".
     const row = await prisma.workOrder.findUnique({
       where: { id: targetId },
       select: { listStatus: true },
     });
-    expect(row?.listStatus).toBe("done");
+    expect(row?.listStatus).toBe("ready_for_review");
 
-    // Server-side ?status=done returns this work order; the untouched ones (open)
+    // Server-side ?status=ready_for_review returns this work order; the untouched ones (open)
     // are excluded — proving the filter runs on the denormalized column.
     const doneList = await request(app)
-      .get(`/api/work-orders?projectId=${projectId}&status=done&limit=50`)
+      .get(`/api/work-orders?projectId=${projectId}&status=ready_for_review&limit=50`)
       .set(auth(adminToken));
     expect(doneList.status).toBe(200);
     const doneIds = (doneList.body.items as { id: string }[]).map((w) => w.id);
     expect(doneIds).toContain(targetId);
     expect(doneIds.length).toBe(1);
-    // Counts still reflect the whole set: 1 done, 4 open.
-    expect(doneList.body.counts.done).toBe(1);
+    // Counts still reflect the whole set: 1 ready for review, 4 open.
+    expect(doneList.body.counts.ready_for_review).toBe(1);
     expect(doneList.body.counts.open).toBe(4);
   });
 });

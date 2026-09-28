@@ -1,5 +1,10 @@
 {
   "title": "Klanten",
+  "view": {
+    "label": "Weergave",
+    "customers": "Klanten",
+    "contacts": "Contactpersonen"
+  },
   "filters": {
     "label": "Filter",
     "all": "Alle",
@@ -12,6 +17,7 @@
   },
   "actions": {
     "searchPlaceholder": "Zoek op naam of stad...",
+    "searchContactsPlaceholder": "Zoek contactpersoon of klant...",
     "newCustomer": "Nieuwe klant",
     "import": "Importeren"
   },
@@ -58,6 +64,8 @@
       "resend": "Uitnodiging opnieuw versturen",
       "needsEmail": "Voeg eerst een e-mailadres toe om deze klant uit te nodigen.",
       "role": "Toegangsniveau",
+      "roles": "Accountrollen",
+      "rolesHint": "Kies één of meer rollen.",
       "email": "E-mail",
       "activatedAt": "Actief sinds",
       "disable": "Uitschakelen",
@@ -84,15 +92,27 @@
     "add": "Contact toevoegen",
     "empty": "Nog geen contactpersonen.",
     "role": "Functie / Rol",
+    "linkExisting": "Koppelen",
+    "linked": "Bestaande contactpersoon aan deze klant gekoppeld",
     "email": "E-mailadres",
     "phone": "Telefoonnummer",
-    "deleteTitle": "Contactpersoon verwijderen?",
-    "deleteBody": "{{name}} verwijderen? Projecten die deze contactpersoon gebruiken behouden hun eigen kopie.",
+    "deleteTitle": "Contactpersoon bij deze klant verwijderen?",
+    "deleteBody": "{{name}} wordt bij deze klant weggehaald. Koppelingen met andere klanten blijven bestaan.",
     "newTitle": "Nieuwe contactpersoon",
     "editTitle": "Contactpersoon bewerken",
     "firstName": "Voornaam",
     "lastName": "Achternaam",
-    "notes": "Notities"
+    "notes": "Notities",
+    "customer": "Klant",
+    "projects": "Projecten",
+    "overviewEmpty": "Geen contactpersonen gevonden.",
+    "unnamed": "Naam nog onbekend",
+    "duplicate": "{{fields}} is al gebruikt door {{name}} bij {{customer}}. Kies die contactpersoon of pas de gegevens aan.",
+    "duplicateAnd": "en",
+    "duplicateField": {
+      "email": "Dit e-mailadres",
+      "phone": "Dit telefoonnummer"
+    }
   },
   "detail": {
     "infoTitle": "Klantgegevens",

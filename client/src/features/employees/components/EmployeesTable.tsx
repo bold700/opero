@@ -9,6 +9,7 @@ import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { AccountStatusChip } from "../../users/components/AccountStatusChip";
+import { STATUS_TONES } from "../../../theme/tokens";
 import type { EmployeeRow } from "../api";
 import { STATUS, ROLE_LABEL_KEY, initials } from "../constants";
 
@@ -51,6 +52,24 @@ export function EmployeesTable({
   // next to the rest of the employee's data.
   const accountCell = (r: EmployeeRow) => <AccountStatusChip account={r.account} />;
 
+  const rolesCell = (r: EmployeeRow) => {
+    const roles = r.account?.roles?.length
+      ? r.account.roles
+      : r.account
+        ? [r.account.role]
+        : [];
+
+    return roles.length > 0 ? (
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+        {roles.map((role) => (
+          <StatusBadge key={role} label={t(`users.roles.${role}`)} tone={STATUS_TONES.neutral} />
+        ))}
+      </Box>
+    ) : (
+      <Box sx={{ color: "text.secondary" }}>—</Box>
+    );
+  };
+
   const actionsCell = (r: EmployeeRow) =>
     canManage ? (
       <Box sx={{ display: "inline-flex", gap: 0.5 }}>
@@ -84,6 +103,7 @@ export function EmployeesTable({
       columns={[
         { header: t("employees.table.name"), cell: nameCell },
         { header: t("employees.table.function"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{fn(r)}</Box> },
+        { header: t("employees.table.roles"), cell: rolesCell },
         { header: t("employees.table.workOrders"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workOrderCount}</Box> },
         { header: t("employees.table.status"), cell: (r) => <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} /> },
         { header: t("employees.table.account"), cell: accountCell },
@@ -102,6 +122,7 @@ export function EmployeesTable({
             <span>·</span>
             <span>{t("employees.table.workOrders")}: {r.workOrderCount}</span>
           </Box>
+          {rolesCell(r)}
           {/* Status + login row */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
             <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />

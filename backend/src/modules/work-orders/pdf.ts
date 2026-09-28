@@ -95,9 +95,14 @@ const DATE = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month:
 // (server-side; the client's i18next is not in scope). Mirrors the nl locale.
 const STATUS_NL: Record<string, string> = {
   open: "Open",
-  on_the_way: "Onderweg",
-  urgent: "Spoed",
-  done: "Afgerond",
+  planned: "Gepland",
+  released: "Vrijgegeven",
+  in_progress: "In uitvoering",
+  ready_for_review: "Klaar voor controle",
+  approved: "Goedgekeurd",
+  ready_to_invoice: "Klaar voor facturatie",
+  invoiced: "Gefactureerd",
+  completed: "Afgerond",
 };
 const statusNl = (s: string) => STATUS_NL[s] ?? s;
 
@@ -331,7 +336,7 @@ export async function buildWorkOrderPdf(
     for (const k of checkKeys) {
       line(`${data.prejobCheck[k] ? "[x]" : "[ ]"}  ${prejobLabel(k, data.prejobLabels)}`, { color: BODY });
     }
-    if (data.dispatchedAt) line(`Verzonden: ${DATE(data.dispatchedAt)}`, { color: MUTED });
+    if (data.dispatchedAt) line(`Vrijgegeven: ${DATE(data.dispatchedAt)}`, { color: MUTED });
     const pj = data.prejobPhotos.map(img).filter((b): b is Buffer => b != null);
     if (pj.length > 0) imageRow(doc, pj, LEFT, CONTENT_W);
     doc.moveDown(0.9);

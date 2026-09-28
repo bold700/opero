@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -14,13 +13,13 @@ import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import HistoryIcon from "@mui/icons-material/History";
+import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
+import NotesOutlinedIcon from "@mui/icons-material/NotesOutlined";
 import Tooltip from "@mui/material/Tooltip";
-import { Card } from "../../../components/Card";
-import { StatusBadge } from "../../../components/StatusBadge";
+import Badge from "@mui/material/Badge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
-import { URGENCY } from "../constants";
-import { STATUS } from "../../work-orders/constants";
-import { STATUS_TONES } from "../../../theme/tokens";
+import { TAP_TARGET } from "../../../theme/tokens";
+import { WorkOrderHeaderSummary } from "./WorkOrderHeaderSummary";
 import type { Project, WorkOrder } from "../api";
 
 // Detail header — mirrors opero-old's project-detail header (the layout the
@@ -33,7 +32,6 @@ import type { Project, WorkOrder } from "../api";
 export function DetailHeader({
   workOrder,
   project,
-  notDispatched,
   canDelete,
   canFinish,
   canReopen,
@@ -49,13 +47,17 @@ export function DetailHeader({
   onExportPdf,
   onExportQuotePdf,
   onOpenInfo,
+  onOpenAttachments,
+  onOpenNotes,
   onOpenActivity,
+  attachmentCount,
+  noteCount,
+  workflowAction,
 }: {
   workOrder: WorkOrder;
   project: Project;
   /** Staff viewing an undispatched werkbon — shows the "Niet verzonden" chip.
    *  Computed by the page (role + dispatch state); clients never get it. */
-  notDispatched: boolean;
   canDelete: boolean;
   canFinish: boolean;
   /** Admin-only: undoes a sign-off (clears the customer signature). */
@@ -72,21 +74,17 @@ export function DetailHeader({
   onReopen: () => void;
   onExportPdf: () => void;
   onExportQuotePdf: () => void;
-  /**
-   * Opens the Projectinfo sheet. Only passed where the layout has collapsed to
-   * one column and the panel isn't on screen; omit it and no icon renders.
-   */
-  onOpenInfo?: () => void;
-  /**
-   * Opens the Activiteit sheet. Same rule as `onOpenInfo`: only passed where the
-   * layout has collapsed to one column; omit it and no icon renders.
-   */
-  onOpenActivity?: () => void;
+  onOpenInfo: () => void;
+  onOpenAttachments: () => void;
+  onOpenNotes: () => void;
+  onOpenActivity: () => void;
+  attachmentCount: number;
+  noteCount: number;
+  workflowAction?: { label: string; onClick: () => void };
 }) {
   const { t } = useTranslation();
   // THIS visit's priority (per-werkbon). Blocked is the project's separate
   // workflow axis — shown as its own chip, never as an urgency.
-  const urgency = URGENCY[workOrder.urgency] ?? URGENCY.normal;
   // Admin export menu (offerte / werkbon in one button).
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
   const [confirmReopen, setConfirmReopen] = useState(false);
@@ -94,11 +92,11 @@ export function DetailHeader({
   const anyExporting = exporting || exportingQuote;
 
   return (
-    <Card>
+    <>
       <Box
         sx={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: 1.5,
           flexWrap: "wrap",
@@ -106,59 +104,14 @@ export function DetailHeader({
       >
         {/* Left: back · title · meta line (customer | stage). */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-          <IconButton aria-label={t("workOrderDetail.header.back")} onClick={onBack} sx={{ ml: -1 }}>
+          <IconButton
+            aria-label={t("workOrderDetail.header.back")}
+            onClick={onBack}
+            sx={{ mt: -0.5, ml: -1 }}
+          >
             <ArrowBackIcon />
           </IconButton>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-              {workOrder.title ||
-                t("workOrderDetail.header.defaultTitle", { n: workOrder.ordinal + 1 })}
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25, flexWrap: "wrap" }}>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                {project.customerName}
-              </Typography>
-              <Typography variant="body2" sx={{ color: "text.disabled" }}>
-                |
-              </Typography>
-              {/* The werkbon's OWN status — same map as the list. The parent
-                  project's stage used to sit here unlabeled, so a fresh werkbon
-                  could read "Done" because its project was. */}
-              <StatusBadge
-                label={t(STATUS[workOrder.status].labelKey)}
-                tone={STATUS[workOrder.status].tone}
-              />
-              {notDispatched ? (
-                <StatusBadge
-                  label={t("workOrders.status.notDispatched")}
-                  tone={STATUS_TONES.warning}
-                />
-              ) : null}
-              {/* The urgency badge exists to preserve urgency when the status
-                  pill says something else (a signed urgent job reads Done +
-                  Urgent). When the status ALREADY reads "urgent" because of
-                  this same urgency, a second identical pill says nothing —
-                  skip it. Blocked stays: status "urgent" + badge "Geblokkeerd"
-                  are different facts. */}
-              {!(workOrder.status === "urgent" && urgency.key === "urgent") ? (
-                <StatusBadge label={t(`workOrderDetail.urgency.${urgency.key}`)} tone={urgency.tone} />
-              ) : null}
-              {project.blocked ? (
-                <StatusBadge
-                  label={t("workOrderDetail.urgency.blocked")}
-                  tone={URGENCY.blocked?.tone ?? STATUS_TONES.danger}
-                />
-              ) : null}
-              {finished ? (
-                <StatusBadge label={t("workOrderDetail.header.signed")} tone={STATUS_TONES.success} />
-              ) : null}
-              {finished && workOrder.signedByName ? (
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  {t("workOrderDetail.header.signedBy", { name: workOrder.signedByName })}
-                </Typography>
-              ) : null}
-            </Box>
-          </Box>
+          <WorkOrderHeaderSummary workOrder={workOrder} project={project} finished={finished} />
         </Box>
 
         {/* Right: icon actions (export, add-zone) then the primary button.
@@ -178,47 +131,75 @@ export function DetailHeader({
           {/* Projectinfo — only below lg, where the sidebar has collapsed and the
               panel would otherwise sit ~3 screens down. Hidden by CSS (not
               unmounted) since it's a pure visibility toggle. */}
-          {onOpenInfo ? (
+          <Box
+            role="group"
+            aria-label={t("workOrderDetail.header.sections")}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              flexWrap: "wrap",
+            }}
+          >
             <Tooltip title={t("workOrderDetail.header.info")}>
               <IconButton
                 aria-label={t("workOrderDetail.header.info")}
                 onClick={onOpenInfo}
-                sx={{ display: { xs: "inline-flex", lg: "none" } }}
+                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
               >
                 <InfoOutlinedIcon />
               </IconButton>
             </Tooltip>
-          ) : null}
-
-          {/* Activiteit — same story as Projectinfo above: below lg the log falls
-              to the very bottom of the page, so it moves into a sheet. */}
-          {onOpenActivity ? (
+            <Tooltip title={t("workOrderDetail.header.attachments")}>
+              <IconButton
+                aria-label={t("workOrderDetail.header.attachments")}
+                onClick={onOpenAttachments}
+                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
+              >
+                <Badge badgeContent={attachmentCount} color="primary" max={99}>
+                  <AttachFileOutlinedIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t("workOrderDetail.header.notes")}>
+              <IconButton
+                aria-label={t("workOrderDetail.header.notes")}
+                onClick={onOpenNotes}
+                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
+              >
+                <Badge badgeContent={noteCount} color="primary" max={99}>
+                  <NotesOutlinedIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
             <Tooltip title={t("workOrderDetail.activity.title")}>
               <IconButton
                 aria-label={t("workOrderDetail.activity.title")}
                 onClick={onOpenActivity}
-                sx={{ display: { xs: "inline-flex", lg: "none" } }}
+                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
               >
                 <HistoryIcon />
               </IconButton>
             </Tooltip>
-          ) : null}
 
           {/* Export — ICON button like the old app. Technicians export the
               werkbon PDF directly; admins get the offerte/werkbon menu. */}
           {canExportQuote ? (
             <>
-              <IconButton
-                aria-label={t("workOrderDetail.header.export")}
-                onClick={(e) => setExportAnchor(e.currentTarget)}
-                disabled={anyExporting}
-              >
-                {anyExporting ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <PictureAsPdfOutlinedIcon />
-                )}
-              </IconButton>
+              <Tooltip title={t("workOrderDetail.header.export")}>
+                <IconButton
+                  aria-label={t("workOrderDetail.header.export")}
+                  onClick={(e) => setExportAnchor(e.currentTarget)}
+                  disabled={anyExporting}
+                  sx={{ width: TAP_TARGET, height: TAP_TARGET }}
+                >
+                  {anyExporting ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <PictureAsPdfOutlinedIcon />
+                  )}
+                </IconButton>
+              </Tooltip>
               <Menu
                 anchorEl={exportAnchor}
                 open={exportAnchor !== null}
@@ -249,17 +230,20 @@ export function DetailHeader({
               </Menu>
             </>
           ) : (
-            <IconButton
-              aria-label={t("workOrderDetail.header.exportPdf")}
-              onClick={onExportPdf}
-              disabled={exporting}
-            >
-              {exporting ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : (
-                <PictureAsPdfOutlinedIcon />
-              )}
-            </IconButton>
+            <Tooltip title={t("workOrderDetail.header.exportPdf")}>
+              <IconButton
+                aria-label={t("workOrderDetail.header.exportPdf")}
+                onClick={onExportPdf}
+                disabled={exporting}
+                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
+              >
+                {exporting ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <PictureAsPdfOutlinedIcon />
+                )}
+              </IconButton>
+            </Tooltip>
           )}
 
           {/* Delete the whole werkbon — admin only, and destructive, so it's a
@@ -270,12 +254,19 @@ export function DetailHeader({
                 aria-label={t("workOrderDetail.header.delete")}
                 onClick={() => setConfirmDelete(true)}
                 disabled={busy}
-                sx={{ color: "text.secondary", "&:hover": { color: "error.main" } }}
+                sx={{
+                  width: TAP_TARGET,
+                  height: TAP_TARGET,
+                  color: "text.secondary",
+                  "&:hover": { color: "error.main" },
+                }}
               >
                 <DeleteOutlineIcon />
               </IconButton>
             </Tooltip>
           ) : null}
+
+          </Box>
 
           {canFinish && !finished ? (
             <Button variant="contained" onClick={onFinish} disabled={busy}>
@@ -285,6 +276,11 @@ export function DetailHeader({
           {canReopen && finished ? (
             <Button variant="outlined" onClick={() => setConfirmReopen(true)} disabled={busy}>
               {t("workOrderDetail.header.reopen")}
+            </Button>
+          ) : null}
+          {workflowAction ? (
+            <Button variant="contained" onClick={workflowAction.onClick} disabled={busy}>
+              {workflowAction.label}
             </Button>
           ) : null}
         </Box>
@@ -323,6 +319,6 @@ export function DetailHeader({
           setConfirmDelete(false);
         }}
       />
-    </Card>
+    </>
   );
 }

@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
+import Box from "@mui/material/Box";
+import { PAGE_PADDING_RESPONSIVE } from "../../../theme/tokens";
 import { ProjectInfoPanel } from "./ProjectInfoPanel";
+import { WorkOrderSideSheet } from "./WorkOrderSideSheet";
 import type { ComponentProps } from "react";
 
 // Projectinfo as a bottom sheet, for when the werkbon layout has collapsed to a
@@ -23,20 +23,15 @@ export function ProjectInfoSheet({
   const { t } = useTranslation();
 
   return (
-    <ResponsiveDialog
+    <WorkOrderSideSheet
       open={open}
       onClose={onClose}
-      sheetBelow="lg"
-      stableHeight
       title={t("workOrderDetail.info.title")}
+      closeLabel={t("common.actions.close")}
     >
-      <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrderDetail.info.title")}</DialogTitle>
-      {/* DialogContent is load-bearing, not decoration: the sheet only makes
-          .MuiDialogContent-root scrollable, and this panel is far taller than
-          the sheet's 92dvh cap. */}
-      <DialogContent>
+      <Box sx={{ p: PAGE_PADDING_RESPONSIVE }}>
         <ProjectInfoPanel bare {...panel} />
-      </DialogContent>
-    </ResponsiveDialog>
+      </Box>
+    </WorkOrderSideSheet>
   );
 }

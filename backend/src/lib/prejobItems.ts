@@ -8,7 +8,12 @@ export async function getPrejobItems(orgId: string): Promise<PrejobItem[]> {
   const rows = await prisma.prejobCheckItem.findMany({
     where: { orgId, active: true },
     orderBy: { ordinal: "asc" },
-    select: { key: true, label: true },
+    select: {
+      key: true,
+      label: true,
+      reminderEnabled: true,
+      reminderTime: true,
+    },
   });
   return rows.length > 0 ? rows : DEFAULT_PREJOB_ITEMS;
 }

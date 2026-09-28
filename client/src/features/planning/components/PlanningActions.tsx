@@ -1,69 +1,131 @@
 import { useTranslation } from "react-i18next";
+import Box from "@mui/material/Box";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import { LAVENDER, LAVENDER_HOVER } from "../../../theme/tokens";
 import { NewButton } from "../../../components/NewButton";
-import type { CalendarViewName } from "./CalendarView";
+import {
+  LAVENDER,
+  LAVENDER_HOVER,
+  SPACING,
+} from "../../../theme/tokens";
+import type { PlanningDisplay, PlanningPeriod } from "./CalendarView";
 
-// Top-bar actions: the day/week/month/agenda view switcher + new appointment.
-// The switcher is available on EVERY screen size (feature parity with desktop) —
-// on desktop it's a 4-button toggle group; on mobile (`compact`) it's a compact
-// dropdown offering the same four views so the phone header stays tidy.
-const VIEWS: { value: CalendarViewName; labelKey: string }[] = [
-  { value: "timeGridDay", labelKey: "planning.views.day" },
-  { value: "timeGridWeek", labelKey: "planning.views.week" },
-  { value: "dayGridMonth", labelKey: "planning.views.month" },
-  { value: "listWeek", labelKey: "planning.views.list" },
+const PERIODS: { value: PlanningPeriod; labelKey: string }[] = [
+  { value: "day", labelKey: "planning.views.day" },
+  { value: "week", labelKey: "planning.views.week" },
+  { value: "month", labelKey: "planning.views.month" },
 ];
 
+const DISPLAYS: { value: PlanningDisplay; labelKey: string }[] = [
+  { value: "agenda", labelKey: "planning.views.agenda" },
+  { value: "list", labelKey: "planning.views.list" },
+];
+
+const toggleSx = {
+  "& .MuiToggleButton-root": {
+    textTransform: "none",
+    px: SPACING.itemGap,
+    "&.Mui-selected": {
+      bgcolor: LAVENDER,
+      color: "primary.main",
+      "&:hover": { bgcolor: LAVENDER_HOVER },
+    },
+  },
+};
+
 export function PlanningActions({
-  view,
-  onView,
+  period,
+  display,
+  onPeriod,
+  onDisplay,
   onCreate,
   canCreate,
   compact = false,
 }: {
-  view: CalendarViewName;
-  onView: (v: CalendarViewName) => void;
+  period: PlanningPeriod;
+  display: PlanningDisplay;
+  onPeriod: (period: PlanningPeriod) => void;
+  onDisplay: (display: PlanningDisplay) => void;
   onCreate: () => void;
   canCreate: boolean;
   compact?: boolean;
 }) {
   const { t } = useTranslation();
+
   return (
     <>
-      {compact ? (
-        // Mobile: a compact dropdown — all four views, fits the phone header.
-        <Select
-          value={view}
-          onChange={(e) => onView(e.target.value as CalendarViewName)}
-          size="small"
-          aria-label={t("planning.view")}
-          sx={{ flex: 1, minWidth: 0, bgcolor: "background.paper" }}
-        >
-          {VIEWS.map((v) => (
-            <MenuItem key={v.value} value={v.value}>
-              {t(v.labelKey)}
-            </MenuItem>
-          ))}
-        </Select>
-      ) : (
-        <ToggleButtonGroup
-          value={view}
-          exclusive
-          size="small"
-          onChange={(_e, v) => v && onView(v as CalendarViewName)}
-          sx={{ "& .MuiToggleButton-root": { textTransform: "none", px: 2, "&.Mui-selected": { bgcolor: LAVENDER, color: "primary.main", "&:hover": { bgcolor: LAVENDER_HOVER } } } }}
-        >
-          {VIEWS.map((v) => (
-            <ToggleButton key={v.value} value={v.value}>
-              {t(v.labelKey)}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      )}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: SPACING.itemGap,
+          flexWrap: "wrap",
+        }}
+      >
+        {compact ? (
+          <>
+            <Select
+              value={period}
+              onChange={(event) => onPeriod(event.target.value as PlanningPeriod)}
+              size="small"
+              aria-label={t("planning.period")}
+              sx={{ minWidth: "max-content", bgcolor: "background.paper" }}
+            >
+              {PERIODS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </MenuItem>
+              ))}
+            </Select>
+            <Select
+              value={display}
+              onChange={(event) => onDisplay(event.target.value as PlanningDisplay)}
+              size="small"
+              aria-label={t("planning.display")}
+              sx={{ minWidth: "max-content", bgcolor: "background.paper" }}
+            >
+              {DISPLAYS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </MenuItem>
+              ))}
+            </Select>
+          </>
+        ) : (
+          <>
+            <ToggleButtonGroup
+              value={period}
+              exclusive
+              size="small"
+              onChange={(_event, value) => value && onPeriod(value as PlanningPeriod)}
+              aria-label={t("planning.period")}
+              sx={toggleSx}
+            >
+              {PERIODS.map((option) => (
+                <ToggleButton key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            <ToggleButtonGroup
+              value={display}
+              exclusive
+              size="small"
+              onChange={(_event, value) => value && onDisplay(value as PlanningDisplay)}
+              aria-label={t("planning.display")}
+              sx={toggleSx}
+            >
+              {DISPLAYS.map((option) => (
+                <ToggleButton key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </>
+        )}
+      </Box>
       {canCreate ? (
         <NewButton label={t("planning.newAppointment")} onClick={onCreate} />
       ) : null}

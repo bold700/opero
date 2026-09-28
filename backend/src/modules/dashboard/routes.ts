@@ -3,9 +3,16 @@ import type { Prisma, ProjectStatus, Stage } from "@prisma/client";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { requireAuth } from "../../auth/middleware.js";
-import { isOffice } from "@opero/shared";
+import {
+  deriveProjectLifecycleStatus,
+  isOffice,
+  projectLifecycleStatusIds,
+  workOrderStatusIds,
+  type WorkOrderStatus,
+} from "@opero/shared";
 import { projectScopeWhere } from "../projects/visibility.js";
 import { visibleWorkOrdersWhere } from "../work-orders/visibility.js";
+import { projectLifecycleSelect } from "../projects/dto.js";
 import {
   type AdminDashboard,
   type ClientDashboard,
@@ -87,13 +94,18 @@ dashboardRouter.get(
         blockedCount,
         openInvoices,
         recentActivity,
-        readyToInvoice,
         activeProjects,
         salesRows,
       ] = await Promise.all([
         prisma.project.findMany({
           where,
-          select: { status: true, stage: true, value: true },
+          select: {
+            archived: true,
+            status: true,
+            stage: true,
+            value: true,
+            workOrders: { select: projectLifecycleSelect },
+          },
         }),
         prisma.project.count({
           where: { ...where, workOrders: { some: { plannedDate: { gte: start, lte: end } } } },
@@ -118,15 +130,6 @@ dashboardRouter.get(
           where: {
             project: { is: where },
             createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-          },
-        }),
-        prisma.project.count({
-          where: {
-            ...where,
-            status: "closing",
-            workOrders: {
-              some: { invoice: { is: { status: { in: ["not_started", "draft"] } } } },
-            },
           },
         }),
         prisma.project.count({
@@ -169,13 +172,27 @@ dashboardRouter.get(
       ]);
 
       const byStatus = emptyCount(PROJECT_STATUSES);
+      const byLifecycleStatus = emptyCount(projectLifecycleStatusIds);
+      const byWorkOrderStatus = emptyCount(workOrderStatusIds);
       const byStage = emptyCount(STAGES);
       let pipelineValue = 0;
       for (const p of projects) {
         byStatus[p.status] += 1;
+        byLifecycleStatus[
+          deriveProjectLifecycleStatus({
+            archived: p.archived,
+            workOrders: p.workOrders,
+          })
+        ] += 1;
         byStage[p.stage] += 1;
         pipelineValue += p.value;
+        for (const workOrder of p.workOrders) {
+          if (workOrderStatusIds.includes(workOrder.listStatus as WorkOrderStatus)) {
+            byWorkOrderStatus[workOrder.listStatus as WorkOrderStatus] += 1;
+          }
+        }
       }
+      const readyToInvoice = byLifecycleStatus.ready_to_invoice;
 
       const payload: AdminDashboard = {
         role: "admin",
@@ -187,6 +204,8 @@ dashboardRouter.get(
           recentActivity,
         },
         byStatus,
+        byLifecycleStatus,
+        byWorkOrderStatus,
         byStage,
         pipelineValue,
         urgentCount,
@@ -221,11 +240,10 @@ dashboardRouter.get(
       // Visible projects with their open work-order tasks. Scheduling now lives on
       // the werkbon, so a project is relevant when it has a werkbon planned today
       // or later, a werkbon with no date yet, or an OVERDUE one still not finished
-      // (planned before today and listStatus != "done"). Dropping that last case is
+      // (planned before today and not yet submitted for control). Dropping that last case is
       // exactly what made a technician's overdue werkbon — and its open tasks —
       // vanish from the dashboard the day after it was planned.
-      // WorkOrder.listStatus is "open" | "on_the_way" | "urgent" | "done"; only
-      // "done" means signed off, so `not: "done"` is the "still open" predicate.
+      // Once a visit is ready for review it leaves the technician's active work.
       const relevantWorkOrder: Prisma.WorkOrderWhereInput = {
         AND: [
           woScope,
@@ -233,7 +251,22 @@ dashboardRouter.get(
             OR: [
               { plannedDate: { gte: today } },
               { plannedDate: null },
-              { AND: [{ plannedDate: { lt: today } }, { listStatus: { not: "done" } }] },
+              {
+                AND: [
+                  { plannedDate: { lt: today } },
+                  {
+                    listStatus: {
+                      notIn: [
+                        "ready_for_review",
+                        "approved",
+                        "ready_to_invoice",
+                        "invoiced",
+                        "completed",
+                      ],
+                    },
+                  },
+                ],
+              },
             ],
           },
         ],
@@ -326,11 +359,16 @@ dashboardRouter.get(
       select: {
         id: true,
         projectNumber: true,
+        archived: true,
         status: true,
         stage: true,
         nextStepKey: true,
         // Scheduling lives on the werkbon; the project's date is its earliest one.
-        workOrders: { select: { plannedDate: true } },
+        workOrders: {
+          select: {
+            ...projectLifecycleSelect,
+          },
+        },
       },
     });
 
@@ -343,7 +381,11 @@ dashboardRouter.get(
           .map((w) => w.plannedDate)
           .filter((d): d is string => d !== null)
           .sort()[0] ?? null;
-        return clientProjectRow({ ...p, plannedDate });
+        const lifecycleStatus = deriveProjectLifecycleStatus({
+          archived: p.archived,
+          workOrders: p.workOrders,
+        });
+        return clientProjectRow({ ...p, lifecycleStatus, plannedDate });
       })
       // Group by status, then earliest-scheduled first within a group (unplanned last).
       .sort((a, b) => {

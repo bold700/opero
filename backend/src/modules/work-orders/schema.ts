@@ -7,6 +7,10 @@ import { z } from "zod";
 // POST /work-orders — create a workOrder under a project.
 export const createWorkOrderSchema = z.object({
   projectId: z.string().min(1),
+  // Multiple visit contacts; optional because the office may not know any yet.
+  contactPersonIds: z.array(z.string().min(1)).optional(),
+  // Backward-compatible singular input for older integrations.
+  contactPersonId: z.string().min(1).optional(),
   title: z.string().optional(),
   // Optional per-visit description, set straight from the create dialog.
   description: z.string().optional(),
@@ -28,6 +32,7 @@ export const updateWorkOrderSchema = z
     // This visit's OWN description (the project's is edited on the project).
     description: z.string().optional(),
     assigneeIds: z.array(z.string()).optional(),
+    contactPersonIds: z.array(z.string()).optional(),
     // The werkbon is the scheduled visit — its date(s) live here.
     plannedDate: z.string().nullable().optional(),
     plannedEndDate: z.string().nullable().optional(),

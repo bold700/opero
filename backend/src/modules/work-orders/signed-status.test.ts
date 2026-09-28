@@ -90,67 +90,83 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("deriveWorkOrderStatus — sign-off precedence (pure)", () => {
-  it("signed wins over an urgent werkbon", () => {
+const lifecycleInput = (
+  patch: Partial<Parameters<typeof deriveWorkOrderStatus>[0]> = {},
+): Parameters<typeof deriveWorkOrderStatus>[0] => ({
+  plannedDate: null,
+  assigneeCount: 0,
+  dispatchedAt: null,
+  signedAt: null,
+  approvedBySupervisor: false,
+  invoiceStatus: "not_started",
+  tasks: [],
+  ...patch,
+});
+
+describe("deriveWorkOrderStatus ? sign-off transition (pure)", () => {
+  it("signed work is ready for office review regardless of priority", () => {
     expect(
-      deriveWorkOrderStatus({
-        urgency: "urgent",
-        signedAt: new Date(),
-        tasks: [{ done: true, startedAt: null }],
-      }),
-    ).toBe("done");
+      deriveWorkOrderStatus(
+        lifecycleInput({
+          signedAt: new Date(),
+          tasks: [{ done: true, startedAt: null }],
+        }),
+      ),
+    ).toBe("ready_for_review");
   });
 
   it("signed wins with zero tasks", () => {
-    expect(deriveWorkOrderStatus({ urgency: "normal", signedAt: new Date(), tasks: [] })).toBe("done");
+    expect(deriveWorkOrderStatus(lifecycleInput({ signedAt: new Date() }))).toBe(
+      "ready_for_review",
+    );
   });
 
-  it("unsigned behaviour is unchanged: urgent werkbon still reports urgent", () => {
+  it("priority does not alter the lifecycle", () => {
     expect(
-      deriveWorkOrderStatus({ urgency: "urgent", signedAt: null, tasks: [{ done: false, startedAt: null }] }),
-    ).toBe("urgent");
+      deriveWorkOrderStatus(
+        lifecycleInput({ tasks: [{ done: false, startedAt: null }] }),
+      ),
+    ).toBe("open");
   });
 
-  it("unsigned, no tasks → open", () => {
-    expect(deriveWorkOrderStatus({ urgency: "normal", signedAt: null, tasks: [] })).toBe("open");
+  it("unsigned, no tasks ? open", () => {
+    expect(deriveWorkOrderStatus(lifecycleInput())).toBe("open");
   });
 });
 
-describe("signing a work order persists listStatus = done", () => {
-  it("REGRESSION 1: an URGENT work order becomes done when signed", async () => {
+describe("signing a work order persists listStatus = ready_for_review", () => {
+  it("an urgent work order keeps priority separate from lifecycle", async () => {
     const id = await makeWorkOrder("urgent");
-    expect(await listStatusOf(id)).toBe("urgent");
+    expect(await listStatusOf(id)).toBe("open");
 
     const res = await finish(id);
     expect(res.status).toBe(200);
-    expect(await listStatusOf(id)).toBe("done");
+    expect(await listStatusOf(id)).toBe("ready_for_review");
 
-    // And it now shows up under the done filter (the user-visible symptom).
     const list = await request(app)
-      .get(`/api/work-orders?status=done&limit=50`)
+      .get(`/api/work-orders?status=ready_for_review&limit=50`)
       .set(auth(adminToken));
     expect((list.body.items as { id: string }[]).map((w) => w.id)).toContain(id);
   });
 
-  it("REGRESSION 2: work order with ZERO tasks becomes done when signed", async () => {
+  it("work order with zero tasks becomes ready for review when signed", async () => {
     const id = await makeWorkOrder("normal");
     expect(await listStatusOf(id)).toBe("open");
 
     const res = await finish(id);
     expect(res.status).toBe(200);
-    expect(await listStatusOf(id)).toBe("done");
+    expect(await listStatusOf(id)).toBe("ready_for_review");
   });
 
-  it("reopening reverts to the derived (unsigned) status", async () => {
+  it("reopening keeps completed tasks ready for review", async () => {
     const id = await makeWorkOrder("urgent");
     await finish(id);
-    expect(await listStatusOf(id)).toBe("done");
+    expect(await listStatusOf(id)).toBe("ready_for_review");
 
     const res = await request(app)
       .post(`/api/work-orders/${id}/reopen`)
       .set(auth(adminToken));
     expect(res.status).toBe(200);
-    // Back to urgent: the project is still urgent and it is no longer signed.
-    expect(await listStatusOf(id)).toBe("urgent");
+    expect(await listStatusOf(id)).toBe("open");
   });
 });

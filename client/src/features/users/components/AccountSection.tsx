@@ -3,10 +3,11 @@ import Button from "@mui/material/Button";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
 import { canActOnAccount, grantableRoles, type UserRole } from "@opero/shared";
 import { useAuth } from "../../../auth/AuthContext";
-import { SelectField } from "../../../components/SelectField";
 import { HAIRLINE, RADIUS } from "../../../theme/tokens";
 import { AccountStatusChip } from "./AccountStatusChip";
 import type { LinkedAccount, StaffRole } from "../api";
@@ -31,12 +32,12 @@ export function AccountSection({
   busy,
   labelKeys,
   isSelf,
-  roleValue,
+  rolesValue,
   onInvite,
   onResend,
   onDisable,
   onEnable,
-  onChangeRole,
+  onChangeRoles,
 }: {
   account: LinkedAccount;
   email: string;
@@ -50,7 +51,7 @@ export function AccountSection({
    * that dialog's Save — unlike the buttons below, which are immediate actions.
    * Falls back to the account's own role when the parent doesn't stage it.
    */
-  roleValue?: StaffRole;
+  rolesValue?: StaffRole[];
   onInvite: () => void;
   onResend: () => void;
   onDisable: () => void;
@@ -59,7 +60,7 @@ export function AccountSection({
    * Stage a new level. Omitted where the level can't change (customers are
    * always `client`). Does NOT persist — see `roleValue`.
    */
-  onChangeRole?: (role: StaffRole) => void;
+  onChangeRoles?: (roles: StaffRole[]) => void;
 }) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -72,7 +73,10 @@ export function AccountSection({
   // An existing account at or above the actor's level is read-only: office may
   // not resend/disable/enable an admin or another office user. Note this is
   // about the ACCOUNT's role, not the person's job title.
-  const outranked = !!account && !canActOnAccount(actorRole, account.role as UserRole);
+  const accountRoles = account?.roles?.length ? account.roles : account ? [account.role] : [];
+  const outranked = accountRoles.some(
+    (role) => !canActOnAccount(actorRole, role as UserRole),
+  );
 
   // Levels the actor may move this account to. `client` is excluded because it
   // isn't a level — it pairs with a Customer record — so a customer login shows
@@ -83,9 +87,9 @@ export function AccountSection({
 
   // Changing your OWN level is refused by the backend too: the only admin
   // demoting themselves would leave nobody able to promote anyone back.
-  const canChangeRole =
+  const canChangeRoles =
     !!account &&
-    !!onChangeRole &&
+    !!onChangeRoles &&
     !outranked &&
     !isSelf &&
     account.role !== "client" &&
@@ -182,19 +186,31 @@ export function AccountSection({
       {/* What this login actually is. Only meaningful once one exists. */}
       {account ? (
         <Box sx={{ display: "grid", gap: 0.25 }}>
-          {canChangeRole ? (
-            <SelectField
-              label={t(`${labelKeys}.role`)}
-              value={roleValue ?? account.role}
-              onChange={(v) => onChangeRole!(v as StaffRole)}
+          {canChangeRoles ? (
+            <Autocomplete
+              multiple
+              disableCloseOnSelect
+              size="small"
+              options={roleOptions}
+              value={rolesValue ?? (accountRoles as StaffRole[])}
+              getOptionLabel={(role) => t(`users.roles.${role}`)}
+              onChange={(_event, roles) => {
+                if (roles.length > 0) onChangeRoles!(roles);
+              }}
               disabled={busy}
-              options={roleOptions.map((r) => ({
-                value: r,
-                label: t(`users.roles.${r}`),
-              }))}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t(`${labelKeys}.roles`)}
+                  helperText={t(`${labelKeys}.rolesHint`)}
+                />
+              )}
             />
           ) : (
-            <DetailRow label={t(`${labelKeys}.role`)} value={t(`users.roles.${account.role}`)} />
+            <DetailRow
+              label={t(`${labelKeys}.roles`)}
+              value={accountRoles.map((role) => t(`users.roles.${role}`)).join(", ")}
+            />
           )}
           <DetailRow label={t(`${labelKeys}.email`)} value={account.email} />
           {activatedAt ? (

@@ -3,17 +3,27 @@
   "counts": {
     "total": "Totaal",
     "open": "Open",
-    "onTheWay": "Onderweg",
-    "urgent": "Spoed",
-    "done": "Klaar"
+    "planned": "Gepland",
+    "released": "Vrijgegeven",
+    "inProgress": "In uitvoering",
+    "readyForReview": "Klaar voor controle",
+    "approved": "Goedgekeurd",
+    "readyToInvoice": "Klaar voor facturatie",
+    "invoiced": "Gefactureerd",
+    "completed": "Afgerond"
   },
   "filters": {
     "label": "Filter",
     "all": "Alle",
     "open": "Open",
-    "onTheWay": "Onderweg",
-    "urgent": "Spoed",
-    "done": "Klaar"
+    "planned": "Gepland",
+    "released": "Vrijgegeven",
+    "inProgress": "In uitvoering",
+    "readyForReview": "Klaar voor controle",
+    "approved": "Goedgekeurd",
+    "readyToInvoice": "Klaar voor facturatie",
+    "invoiced": "Gefactureerd",
+    "completed": "Afgerond"
   },
   "filterBar": {
     "toggle": "Filters",
@@ -27,10 +37,14 @@
   },
   "status": {
     "open": "Open",
-    "onTheWay": "Onderweg",
-    "urgent": "Spoed",
-    "done": "Klaar",
-    "notDispatched": "Niet verzonden"
+    "planned": "Gepland",
+    "released": "Vrijgegeven",
+    "inProgress": "In uitvoering",
+    "readyForReview": "Klaar voor controle",
+    "approved": "Goedgekeurd",
+    "readyToInvoice": "Klaar voor facturatie",
+    "invoiced": "Gefactureerd",
+    "completed": "Afgerond"
   },
   "actions": {
     "searchPlaceholder": "Zoek op nummer of klant...",
@@ -38,6 +52,7 @@
   },
   "table": {
     "number": "Werkbon #",
+    "name": "Werkbonnaam",
     "customer": "Klant",
     "location": "Locatie",
     "workType": "Type werk",
@@ -59,6 +74,18 @@
     "projectHelperPickCustomer": "Kies eerst een klant",
     "projectHelper": "Kies een project of maak een nieuw aan",
     "projectsLoadError": "Kon projecten niet laden",
+    "contactLabel": "Contactpersonen voor deze werkbon",
+    "contactEmpty": "Nog geen contactpersonen. Maak hieronder direct een nieuwe aan.",
+    "contactOptional": "Optioneel — je kunt meerdere contactpersonen kiezen.",
+    "newContact": "+ Nieuwe contactpersoon",
+    "projectContact": "gekoppeld aan project",
+    "contactCreateError": "Kon de contactpersoon niet aanmaken",
+    "contactDuplicate": "Dit {{fields}} wordt al gebruikt door {{name}} bij {{customer}}. Kies die bestaande contactpersoon om dubbele gegevens te voorkomen.",
+    "contactDuplicateAnd": "en",
+    "contactDuplicateField": {
+      "email": "e-mailadres",
+      "phone": "telefoonnummer"
+    },
     "newProject": "+ Nieuw project",
     "newProjectSection": "Nieuw project",
     "projectNameLabel": "Projectnaam",

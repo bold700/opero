@@ -15,6 +15,7 @@ export type UserAccount = {
   email: string;
   name: string;
   role: UserRole;
+  roles: UserRole[];
   status: AccountStatus;
   employeeId?: string;
   customerId?: string;
@@ -28,6 +29,7 @@ export type LinkedAccount = {
   userId: string;
   email: string;
   role: UserRole;
+  roles: UserRole[];
   status: AccountStatus;
   activatedAt?: string;
 } | null;
@@ -47,8 +49,8 @@ export function inviteUser(input: InviteInput): Promise<UserAccount> {
 // pairs structurally with a Customer record, so it's not a level you move to.
 export type StaffRole = "admin" | "office" | "foreman" | "technician";
 
-export function updateUserRole(id: string, role: StaffRole): Promise<UserAccount> {
-  return api.patch<UserAccount>(`/users/${id}`, { role });
+export function updateUserRoles(id: string, roles: StaffRole[]): Promise<UserAccount> {
+  return api.patch<UserAccount>(`/users/${id}`, { roles });
 }
 
 export function resendInvite(id: string): Promise<void> {

@@ -7,14 +7,12 @@ import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { WorkOrderRow } from "../api";
 import { STATUS, formatDate } from "../constants";
-import { STATUS_TONES } from "../../../theme/tokens";
 
 // The work orders list: a dense table on desktop, a stack of cards on mobile
 // (via ResponsiveList). Row / card tap opens the work-order detail.
 export function WorkOrdersTable({
   rows,
   onOpen,
-  showDispatchState,
   hasMore,
   loadingMore,
   onLoadMore,
@@ -23,7 +21,6 @@ export function WorkOrdersTable({
   onOpen: (id: string) => void;
   /** Staff only: mark undispatched rows. Release state is internal workflow,
    *  so client logins never get the chip. */
-  showDispatchState?: boolean;
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
@@ -35,9 +32,6 @@ export function WorkOrdersTable({
   const statusCell = (r: WorkOrderRow) => (
     <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
       <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} />
-      {showDispatchState && !r.dispatchedAt && r.status !== "done" ? (
-        <StatusBadge label={t("workOrders.status.notDispatched")} tone={STATUS_TONES.warning} />
-      ) : null}
     </Box>
   );
 
@@ -52,6 +46,10 @@ export function WorkOrdersTable({
       onLoadMore={onLoadMore}
       columns={[
         { header: t("workOrders.table.number"), cell: (r) => <Box sx={{ fontWeight: 700 }}>{r.number}</Box> },
+        {
+          header: t("workOrders.table.name"),
+          cell: (r) => r.title || <Box sx={{ color: "text.disabled" }}>—</Box>,
+        },
         { header: t("workOrders.table.customer"), cell: (r) => r.customerName },
         { header: t("workOrders.table.location"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.city}</Box> },
         { header: t("workOrders.table.workType"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workType}</Box> },
@@ -79,7 +77,14 @@ export function WorkOrdersTable({
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           {/* Top line: work order number + status */}
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-            <Typography sx={{ fontWeight: 700 }}>{r.number}</Typography>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700 }}>{r.number}</Typography>
+              {r.title ? (
+                <Typography variant="body2" sx={{ color: "text.secondary" }} noWrap>
+                  {r.title}
+                </Typography>
+              ) : null}
+            </Box>
             {statusCell(r)}
           </Box>
           {/* Customer + city */}

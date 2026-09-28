@@ -24,7 +24,9 @@ import {
   updateCustomer,
   deleteCustomer,
   getContacts,
+  checkDuplicateContact,
   createContact,
+  linkContact,
   updateContact,
   deleteContact,
   type Customer,
@@ -96,6 +98,7 @@ export function CustomerDetail() {
   // Contact persons: "new" opens an empty dialog, a contact opens it pre-filled.
   const [contactEditing, setContactEditing] = useState<"new" | ContactPerson | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
+  const [duplicateContact, setDuplicateContact] = useState<ContactPerson | null>(null);
   const [contactDeleting, setContactDeleting] = useState<ContactPerson | null>(null);
   // Arriving with ?create=1 (e.g. the link from the project form) opens the
   // new-contact dialog right away.
@@ -146,11 +149,47 @@ export function CustomerDetail() {
     if (!customer || !contactEditing) return;
     setBusy(true);
     setContactError(null);
+    setDuplicateContact(null);
     try {
-      if (contactEditing === "new") await createContact(customer.id, toInput(draft));
-      else await updateContact(customer.id, contactEditing.id, toInput(draft));
+      const input = toInput(draft);
+      const duplicate = await checkDuplicateContact(customer.id, {
+        email: input.email,
+        phone: input.phone,
+        ...(contactEditing === "new" ? {} : { excludeId: contactEditing.id }),
+      });
+      if (duplicate) {
+        if (contactEditing === "new") setDuplicateContact(duplicate.contact);
+        setContactError(
+          t("customers.contacts.duplicate", {
+            fields: duplicate.matchedFields
+              .map((field) => t(`customers.contacts.duplicateField.${field}`))
+              .join(` ${t("customers.contacts.duplicateAnd")} `),
+            name: duplicate.contact.name || t("customers.contacts.unnamed"),
+            customer: duplicate.customer.name,
+          }),
+        );
+        return;
+      }
+      if (contactEditing === "new") await createContact(customer.id, input);
+      else await updateContact(customer.id, contactEditing.id, input);
       setContactEditing(null);
       await reloadContacts();
+    } catch (e) {
+      setContactError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const linkDuplicateContact = async () => {
+    if (!customer || !duplicateContact) return;
+    setBusy(true);
+    try {
+      await linkContact(customer.id, duplicateContact.id);
+      setContactEditing(null);
+      setDuplicateContact(null);
+      await reloadContacts();
+      setToast(t("customers.contacts.linked"));
     } catch (e) {
       setContactError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -286,7 +325,7 @@ export function CustomerDetail() {
             {canManage ? (
               <NewButton
                 label={t("customers.detail.addContact")}
-                onClick={() => { setContactError(null); setContactEditing("new"); }}
+                onClick={() => { setContactError(null); setDuplicateContact(null); setContactEditing("new"); }}
               />
             ) : null}
           </Box>
@@ -305,7 +344,15 @@ export function CustomerDetail() {
         initial={contactEditing && contactEditing !== "new" ? toDraft(contactEditing) : null}
         busy={busy}
         error={contactError}
-        onClose={() => setContactEditing(null)}
+        errorAction={
+          duplicateContact && contactEditing === "new"
+            ? {
+                label: t("customers.contacts.linkExisting"),
+                onClick: () => void linkDuplicateContact(),
+              }
+            : undefined
+        }
+        onClose={() => { setContactEditing(null); setDuplicateContact(null); }}
         onSave={saveContact}
       />
 

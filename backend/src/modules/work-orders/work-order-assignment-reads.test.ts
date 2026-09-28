@@ -268,10 +268,10 @@ describe("technician dashboard", () => {
     expect(row?.workOrderId).toBe(werkbonOverdueId);
   });
 
-  it("drops a past-dated werkbon once it is signed off (done)", async () => {
+  it("drops a past-dated werkbon once it is ready for review", async () => {
     await prisma.workOrder.update({
       where: { id: werkbonOverdueId },
-      data: { listStatus: "done" },
+      data: { listStatus: "ready_for_review" },
     });
     const res = await request(app).get("/api/dashboard").set(auth(techToken));
     expect(listedIds(res.body).has(overdueProjectId)).toBe(false);

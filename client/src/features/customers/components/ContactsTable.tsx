@@ -28,10 +28,12 @@ export function ContactsTable({
 
   const nameCell = (c: ContactPerson) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-      <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(c.name), fontSize: 13, fontWeight: 700 }}>
-        {initials(c.name)}
+      <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(c.name || t("customers.contacts.unnamed")), fontSize: 13, fontWeight: 700 }}>
+        {initials(c.name || t("customers.contacts.unnamed"))}
       </Avatar>
-      <Typography sx={{ fontWeight: 600 }}>{c.name}</Typography>
+      <Typography sx={{ fontWeight: 600 }}>
+        {c.name || t("customers.contacts.unnamed")}
+      </Typography>
     </Box>
   );
 

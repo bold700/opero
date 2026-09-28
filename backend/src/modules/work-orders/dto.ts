@@ -5,6 +5,8 @@ import {
   type UserRole,
   isPrejobChecklistComplete,
   canDispatch,
+  workOrderPhaseForStatus,
+  type WorkOrderStatus,
 } from "@opero/shared";
 import { photoRefs, photoUrl } from "../../lib/photoUrls.js";
 
@@ -46,11 +48,19 @@ type TaskWithRelations = WorkOrderTask & {
 // record is edited under /customers. `contactPersons` is the customer's
 // multi-contact list (name + optional role/phone/email).
 type CustomerContactSource = {
+  id: string;
   name: string;
   contactName: string;
   email: string;
   phone: string;
   contactPersons?: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    role: string | null;
+  }[];
+  sharedContactPersons?: {
     id: string;
     name: string;
     email: string | null;
@@ -70,6 +80,14 @@ export type WorkOrderWithRelations = WorkOrder & {
   // The werkbon's calendar slot (one per werkbon; multi-day = one slot on the
   // start date + plannedEndDate). Carries the visit's times for the detail.
   planningItems?: { startTime: string; endTime: string }[];
+  invoice?: { status: string } | null;
+  contacts?: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    role: string | null;
+  }[];
   // Present when loaded via workOrderInclude — the parent project's customer
   // (for the technician's contact block) and the project-level files.
   project?: {
@@ -81,12 +99,14 @@ export type WorkOrderWithRelations = WorkOrder & {
 // Map the parent project's customer onto the werkbon payload. Contact data
 // only — no financial or administrative customer fields.
 function customerContactDto(c: CustomerContactSource) {
+  const contacts = [...(c.contactPersons ?? []), ...(c.sharedContactPersons ?? [])];
   return {
+    id: c.id,
     name: c.name,
     contactName: c.contactName || undefined,
     email: c.email || undefined,
     phone: c.phone || undefined,
-    contactPersons: (c.contactPersons ?? []).map((p) => ({
+    contactPersons: [...new Map(contacts.map((p) => [p.id, p])).values()].map((p) => ({
       id: p.id,
       name: p.name,
       email: p.email ?? undefined,
@@ -257,6 +277,13 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     // The customer's contact details (phone/email + contact persons), so the
     // monteur on site can reach someone from the werkbon itself.
     customer: wb.project?.customer ? customerContactDto(wb.project.customer) : undefined,
+    contactPersons: (wb.contacts ?? []).map((contact) => ({
+      id: contact.id,
+      name: contact.name,
+      email: contact.email ?? undefined,
+      phone: contact.phone ?? undefined,
+      role: contact.role ?? undefined,
+    })),
     drawings,
     attachments,
     projectAttachments,
@@ -266,12 +293,22 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     // header badge reads this, NOT the parent project's stage, which used to
     // masquerade as this werkbon's state.
     status: wb.listStatus,
+    phase: workOrderPhaseForStatus(wb.listStatus as WorkOrderStatus),
+    invoiceStatus: wb.invoice?.status ?? "not_started",
     // THIS visit's priority (per-werkbon; the sidebar edits it).
     urgency: wb.urgency,
     // Pre-job check + dispatch gate. `prejobItems` are THIS werkbon's items
     // (key + label + done), editable on the werkbon; snapshotted from the org
     // template at creation.
-    prejobItems: items.map((i) => ({ key: i.key, label: i.label, done: i.done, ordinal: i.ordinal, id: i.id })),
+    prejobItems: items.map((i) => ({
+      key: i.key,
+      label: i.label,
+      done: i.done,
+      reminderEnabled: i.reminderEnabled,
+      reminderTime: i.reminderTime ?? undefined,
+      ordinal: i.ordinal,
+      id: i.id,
+    })),
     prejobCheck,
     prejobPhotos,
     prejobPhotoRequired: requirePhoto,
@@ -320,22 +357,32 @@ export const workOrderInclude = {
   attachments: { orderBy: { createdAt: "asc" } },
   prejobItems: { orderBy: { ordinal: "asc" } },
   signedBy: { select: { name: true } },
+  contacts: {
+    orderBy: { name: "asc" as const },
+    select: { id: true, name: true, email: true, phone: true, role: true },
+  },
   assignees: { select: { id: true, name: true } },
   planningItems: {
     orderBy: { date: "asc" as const },
     select: { startTime: true, endTime: true },
   },
+  invoice: { select: { status: true } },
   // Customer CONTACT data only (name/phone/email + the contact-person list) —
   // the monteur needs to reach someone, not to read the customer's admin.
   project: {
     select: {
       customer: {
         select: {
+          id: true,
           name: true,
           contactName: true,
           email: true,
           phone: true,
           contactPersons: {
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, email: true, phone: true, role: true },
+          },
+          sharedContactPersons: {
             orderBy: { name: "asc" },
             select: { id: true, name: true, email: true, phone: true, role: true },
           },
@@ -414,6 +461,7 @@ export function workOrderListDto(wb: WorkOrderListSource) {
   return {
     id: wb.id,
     number: wb.project.projectNumber,
+    title: wb.title,
     customerName: wb.project.customerName,
     city: wb.project.city,
     // Work type is DERIVED from the distinct material names across all the
@@ -431,6 +479,7 @@ export function workOrderListDto(wb: WorkOrderListSource) {
     ),
     // Read the denormalized column (kept in sync by recomputeWorkOrderStatus).
     status: wb.listStatus as WorkOrderListStatus,
+    phase: workOrderPhaseForStatus(wb.listStatus as WorkOrderStatus),
     // Release state — the office's "which scheduled jobs haven't we sent out
     // yet" scan, and the reason a technician's row may be read-only. A separate
     // axis from `status` on purpose: progress and release are independent.

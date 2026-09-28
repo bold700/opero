@@ -39,6 +39,7 @@ export async function toAuthUser(user: User): Promise<AuthUser> {
     name: user.name,
     phone: user.phone,
     role: user.role,
+    roles: user.roles.length > 0 ? user.roles : [user.role],
     customerId: user.customerId,
     employeeId: user.employeeId,
     totpEnabled: user.totpEnabled,

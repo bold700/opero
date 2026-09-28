@@ -9,7 +9,7 @@ import {
 } from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
-import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
+import { BadRequest, Forbidden, HttpError, NotFound } from "../../lib/httpError.js";
 import { clampText } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { parsePageParams, paginate } from "../../lib/pagination.js";
@@ -30,6 +30,68 @@ function deriveCustomerType(name: string): "business" | "private" {
   return /\b(bv|b\.v\.|vve|vastgoed|beheer|holding|groep|&|zn|nv|n\.v\.)\b/i.test(name)
     ? "business"
     : "private";
+}
+
+function normalizeContactEmail(value?: string | null): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+// Dutch phone numbers are commonly entered as 06..., +31 6..., or 0031 6....
+// Canonicalising those forms catches duplicates even when formatting differs.
+function normalizeContactPhone(value?: string | null): string {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("0031")) return `31${digits.slice(4)}`;
+  if (digits.startsWith("31")) return digits;
+  if (digits.startsWith("0")) return `31${digits.slice(1)}`;
+  return digits;
+}
+
+async function findDuplicateContact(input: {
+  orgId: string;
+  email?: string | null;
+  phone?: string | null;
+  excludeId?: string;
+}) {
+  const email = normalizeContactEmail(input.email);
+  const phone = normalizeContactPhone(input.phone);
+  if (!email && !phone) return null;
+
+  const candidates = await prisma.contactPerson.findMany({
+    where: {
+      id: input.excludeId ? { not: input.excludeId } : undefined,
+      customer: { orgId: input.orgId, deletedAt: null },
+      OR: [
+        ...(email
+          ? [{ email: { equals: email, mode: "insensitive" as const } }]
+          : []),
+        ...(phone ? [{ phone: { not: null } }] : []),
+      ],
+    },
+    include: {
+      customer: { select: { id: true, name: true } },
+      sharedCustomers: { select: { id: true, name: true } },
+    },
+  });
+
+  for (const candidate of candidates) {
+    const emailMatches =
+      Boolean(email) && normalizeContactEmail(candidate.email) === email;
+    const phoneMatches =
+      Boolean(phone) && normalizeContactPhone(candidate.phone) === phone;
+    if (emailMatches || phoneMatches) {
+      return {
+        contact: contactPersonDto(candidate),
+        customer: candidate.customer,
+        customers: [candidate.customer, ...candidate.sharedCustomers],
+        matchedFields: [
+          ...(emailMatches ? (["email"] as const) : []),
+          ...(phoneMatches ? (["phone"] as const) : []),
+        ],
+      };
+    }
+  }
+  return null;
 }
 
 // All customer routes require auth.
@@ -137,6 +199,66 @@ customersRouter.get(
       items: page.items.map(customerListDto),
       nextCursor: page.nextCursor,
       counts,
+    });
+  }),
+);
+
+// GET /customers/contacts — organization-wide contact overview, with the
+// owning customer and linked projects. Registered before /:id.
+customersRouter.get(
+  "/contacts",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    if (!isOffice(user.role) && user.role !== "client") {
+      throw Forbidden("Not available");
+    }
+    const { limit, cursor, search } = parsePageParams(req);
+    const visibleCustomer = {
+      orgId: user.orgId,
+      deletedAt: null,
+      ...(user.role === "client" ? { id: user.customerId ?? "__none__" } : {}),
+    };
+    const baseWhere: Prisma.ContactPersonWhereInput = {
+      OR: [
+        { customer: visibleCustomer },
+        { sharedCustomers: { some: visibleCustomer } },
+      ],
+    };
+    if (search) {
+      const ci = { contains: search, mode: "insensitive" as const };
+      baseWhere.AND = [{ OR: [
+        { name: ci },
+        { email: ci },
+        { phone: ci },
+        { role: ci },
+        { customer: { name: ci } },
+        { sharedCustomers: { some: { name: ci } } },
+      ] }];
+    }
+    const page = await paginate({ limit, cursor, search }, (args) =>
+      prisma.contactPerson.findMany({
+        where: baseWhere,
+        include: {
+          customer: { select: { id: true, name: true } },
+          sharedCustomers: { select: { id: true, name: true } },
+          projects: {
+            where: { deletedAt: null },
+            select: { id: true, projectNumber: true, name: true },
+            orderBy: { projectNumber: "asc" },
+          },
+        },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        ...args,
+      }),
+    );
+    res.json({
+      items: page.items.map((contact) => ({
+        ...contactPersonDto(contact),
+        customer: contact.customer,
+        customers: [contact.customer, ...contact.sharedCustomers],
+        projects: contact.projects,
+      })),
+      nextCursor: page.nextCursor,
     });
   }),
 );
@@ -454,6 +576,28 @@ customersRouter.delete(
       throw BadRequest("You can't delete your own customer record");
     }
     await prisma.$transaction(async (tx) => {
+      // Preserve contacts that are also used by another active customer. Move
+      // ownership before this customer disappears from the active dataset.
+      const sharedOwnedContacts = await tx.contactPerson.findMany({
+        where: { customerId: existing.id },
+        include: {
+          sharedCustomers: {
+            where: { deletedAt: null },
+            select: { id: true },
+          },
+        },
+      });
+      for (const contact of sharedOwnedContacts) {
+        const nextOwner = contact.sharedCustomers[0];
+        if (!nextOwner) continue;
+        await tx.contactPerson.update({
+          where: { id: contact.id },
+          data: {
+            customerId: nextOwner.id,
+            sharedCustomers: { disconnect: { id: nextOwner.id } },
+          },
+        });
+      }
       await tx.customer.update({
         where: { id: existing.id },
         data: { deletedAt: new Date() },
@@ -480,10 +624,37 @@ customersRouter.get(
     const user = req.user!;
     assertCanAccessCustomer(user, req.params.id);
     const rows = await prisma.contactPerson.findMany({
-      where: { customerId: req.params.id },
+      where: {
+        OR: [
+          { customerId: req.params.id },
+          { sharedCustomers: { some: { id: req.params.id } } },
+        ],
+      },
       orderBy: { name: "asc" },
     });
     res.json(rows.map(contactPersonDto));
+  }),
+);
+
+customersRouter.post(
+  "/:id/contacts/check-duplicate",
+  requireRole("admin", "office"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = contactPersonFieldsSchema.partial().parse(req.body);
+    const customer = await prisma.customer.findFirst({
+      where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!customer) throw NotFound("Customer not found");
+    const duplicate = await findDuplicateContact({
+      orgId: user.orgId,
+      email: input.email,
+      phone: input.phone,
+      excludeId:
+        typeof req.body?.excludeId === "string" ? req.body.excludeId : undefined,
+    });
+    res.json({ duplicate });
   }),
 );
 
@@ -497,6 +668,14 @@ customersRouter.post(
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
     });
     if (!customer) throw NotFound("Customer not found");
+    const duplicate = await findDuplicateContact({
+      orgId: user.orgId,
+      email: input.email,
+      phone: input.phone,
+    });
+    if (duplicate) {
+      throw new HttpError(409, "CONTACT_DUPLICATE", "Duplicate contact person");
+    }
     const created = await prisma.$transaction(async (tx) => {
       const firstName = clampText(input.firstName ?? "").trim();
       const lastName = clampText(input.lastName ?? "").trim();
@@ -521,6 +700,42 @@ customersRouter.post(
   }),
 );
 
+// Link one existing organization contact to another customer. The contact is
+// not copied, so its phone/email stay unique and edits remain consistent.
+customersRouter.post(
+  "/:id/contacts/:contactId/link",
+  requireRole("admin", "office"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const [customer, contact] = await Promise.all([
+      prisma.customer.findFirst({
+        where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
+      }),
+      prisma.contactPerson.findFirst({
+        where: {
+          id: req.params.contactId,
+          customer: { orgId: user.orgId, deletedAt: null },
+        },
+      }),
+    ]);
+    if (!customer) throw NotFound("Customer not found");
+    if (!contact) throw NotFound("Contact not found");
+    if (contact.customerId !== customer.id) {
+      await prisma.$transaction(async (tx) => {
+        await tx.contactPerson.update({
+          where: { id: contact.id },
+          data: { sharedCustomers: { connect: { id: customer.id } } },
+        });
+        await audit(tx, user, "contact.customer.link", "contactPerson", contact.id, {
+          customerId: customer.id,
+        });
+      });
+    }
+    const linked = await prisma.contactPerson.findUniqueOrThrow({ where: { id: contact.id } });
+    res.json(contactPersonDto(linked));
+  }),
+);
+
 customersRouter.patch(
   "/:id/contacts/:contactId",
   requireRole("admin", "office"),
@@ -528,9 +743,25 @@ customersRouter.patch(
     const user = req.user!;
     const input = contactPersonFieldsSchema.partial().parse(req.body);
     const existing = await prisma.contactPerson.findFirst({
-      where: { id: req.params.contactId, customerId: req.params.id },
+      where: {
+        id: req.params.contactId,
+        customer: { orgId: user.orgId, deletedAt: null },
+        OR: [
+          { customerId: req.params.id },
+          { sharedCustomers: { some: { id: req.params.id } } },
+        ],
+      },
     });
     if (!existing) throw NotFound("Contact not found");
+    const duplicate = await findDuplicateContact({
+      orgId: user.orgId,
+      email: input.email !== undefined ? input.email : existing.email,
+      phone: input.phone !== undefined ? input.phone : existing.phone,
+      excludeId: existing.id,
+    });
+    if (duplicate) {
+      throw new HttpError(409, "CONTACT_DUPLICATE", "Duplicate contact person");
+    }
     const updated = await prisma.$transaction(async (tx) => {
       const firstName =
         input.firstName !== undefined ? clampText(input.firstName).trim() : existing.firstName;
@@ -569,12 +800,66 @@ customersRouter.delete(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const existing = await prisma.contactPerson.findFirst({
-      where: { id: req.params.contactId, customerId: req.params.id },
+      where: {
+        id: req.params.contactId,
+        customer: { orgId: user.orgId },
+        OR: [
+          { customerId: req.params.id },
+          { sharedCustomers: { some: { id: req.params.id } } },
+        ],
+      },
+      include: { sharedCustomers: { select: { id: true } } },
     });
     if (!existing) throw NotFound("Contact not found");
     await prisma.$transaction(async (tx) => {
-      await tx.contactPerson.delete({ where: { id: existing.id } });
-      await audit(tx, user, "contact.delete", "contactPerson", existing.id);
+      const scopedLinks = await tx.contactPerson.findUniqueOrThrow({
+        where: { id: existing.id },
+        select: {
+          projects: {
+            where: { customerId: req.params.id },
+            select: { id: true },
+          },
+          workOrders: {
+            where: { project: { customerId: req.params.id } },
+            select: { id: true },
+          },
+        },
+      });
+      const scopedDisconnects = {
+        projects: { disconnect: scopedLinks.projects.map(({ id }) => ({ id })) },
+        workOrders: { disconnect: scopedLinks.workOrders.map(({ id }) => ({ id })) },
+      };
+      if (existing.customerId !== req.params.id) {
+        await tx.contactPerson.update({
+          where: { id: existing.id },
+          data: {
+            ...scopedDisconnects,
+            sharedCustomers: { disconnect: { id: req.params.id } },
+          },
+        });
+        await audit(tx, user, "contact.customer.unlink", "contactPerson", existing.id, {
+          customerId: req.params.id,
+        });
+      } else if (existing.sharedCustomers.length > 0) {
+        const [nextOwner, ...remaining] = existing.sharedCustomers;
+        await tx.contactPerson.update({
+          where: { id: existing.id },
+          data: {
+            ...scopedDisconnects,
+            customerId: nextOwner.id,
+            sharedCustomers: {
+              set: remaining.map(({ id }) => ({ id })),
+            },
+          },
+        });
+        await audit(tx, user, "contact.customer.unlink", "contactPerson", existing.id, {
+          customerId: req.params.id,
+          nextOwnerId: nextOwner.id,
+        });
+      } else {
+        await tx.contactPerson.delete({ where: { id: existing.id } });
+        await audit(tx, user, "contact.delete", "contactPerson", existing.id);
+      }
     });
     res.status(204).end();
   }),

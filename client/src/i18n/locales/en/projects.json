@@ -12,6 +12,16 @@
     "operations": "In progress",
     "closing": "Wrapping up"
   },
+  "lifecycleStatus": {
+    "new": "New",
+    "work_preparation": "Work preparation",
+    "scheduled": "Scheduled",
+    "in_progress": "In progress",
+    "ready_to_invoice": "Ready to invoice",
+    "invoiced": "Invoiced",
+    "completed": "Completed",
+    "history": "History"
+  },
   "table": {
     "number": "Project #",
     "name": "Name",

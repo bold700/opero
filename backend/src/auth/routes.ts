@@ -13,11 +13,12 @@ import {
   changePasswordSchema,
   requestEmailChangeSchema,
   confirmEmailChangeSchema,
+  switchUserRoleSchema,
 } from "@opero/shared";
 import { prisma } from "../db/client.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { audit } from "../lib/audit.js";
-import { BadRequest, NotActivated, Unauthorized } from "../lib/httpError.js";
+import { BadRequest, Forbidden, NotActivated, Unauthorized } from "../lib/httpError.js";
 import { authRateLimit } from "../lib/rateLimit.js";
 import { sendEmail } from "../lib/email.js";
 import { passwordResetEmail, verifyEmailChangeEmail } from "../lib/email-templates.js";
@@ -45,6 +46,8 @@ import {
   verifyTotp,
 } from "./totp.js";
 import { requireAuth } from "./middleware.js";
+import { assertTenantAccess } from "./tenant.js";
+import { tenantAppUrl } from "../lib/tenantDomains.js";
 
 export const authRouter = Router();
 
@@ -64,7 +67,10 @@ authRouter.post(
   authRateLimit,
   asyncHandler(async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { org: { select: { slug: true } } },
+    });
     // Generic failure — no user enumeration.
     if (!user) throw Unauthorized("Invalid credentials");
     // Checked BEFORE the password comparison, deliberately: an invited user's
@@ -85,6 +91,7 @@ authRouter.post(
     if (user.status === "disabled") {
       throw Unauthorized("Invalid credentials");
     }
+    assertTenantAccess(req.headers["x-opero-tenant"], user.org.slug);
     if (user.totpEnabled) {
       res.json({ mfaRequired: true, mfaToken: signMfaToken(user.id) });
       return;
@@ -106,13 +113,17 @@ authRouter.post(
     } catch {
       throw Unauthorized("Invalid or expired MFA token");
     }
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { org: { select: { slug: true } } },
+    });
     if (!user || !user.totpEnabled || !user.totpSecret) {
       throw Unauthorized("2FA not available for this account");
     }
     if (!verifyTotp(code, user.totpSecret)) {
       throw Unauthorized("Invalid 2FA code");
     }
+    assertTenantAccess(req.headers["x-opero-tenant"], user.org.slug);
     const tokens = await issueSession(user.id, user.role, user.orgId);
     res.json({ ...tokens, user: await toAuthUser(user) });
   }),
@@ -125,8 +136,12 @@ authRouter.post(
     const { refreshToken } = refreshSchema.parse(req.body);
     const consumed = await consumeRefreshToken(refreshToken);
     if (!consumed) throw Unauthorized("Invalid refresh token");
-    const user = await prisma.user.findUnique({ where: { id: consumed.userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: consumed.userId },
+      include: { org: { select: { slug: true } } },
+    });
     if (!user) throw Unauthorized("User no longer exists");
+    assertTenantAccess(req.headers["x-opero-tenant"], user.org.slug);
     const tokens = await issueSession(user.id, user.role, user.orgId);
     res.json(tokens);
   }),
@@ -151,6 +166,40 @@ authRouter.get(
     const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
     if (!user) throw Unauthorized();
     res.json({ user: await toAuthUser(user) });
+  }),
+);
+
+// --- PATCH /active-role ---------------------------------------------------
+// Switch between roles assigned to this account. The selected role is stored
+// as User.role, which is what all existing route guards and DTO filters read.
+// requireAuth reloads that value from the database on every request, so the
+// change applies server-side immediately as well as in the navigation.
+authRouter.patch(
+  "/active-role",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { role } = switchUserRoleSchema.parse(req.body);
+    const current = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!current) throw Unauthorized();
+    const assignedRoles = current.roles.length > 0 ? current.roles : [current.role];
+    if (!assignedRoles.includes(role)) {
+      throw Forbidden("Role is not assigned to this account");
+    }
+    if (current.customerId || current.role === "client") {
+      throw BadRequest("A customer account cannot switch staff roles");
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: current.id },
+        data: { role },
+      });
+      await audit(tx, req.user!, "user.role.switch", "user", current.id, {
+        from: current.role,
+        to: role,
+      });
+      return user;
+    });
+    res.json({ user: await toAuthUser(updated) });
   }),
 );
 
@@ -304,7 +353,10 @@ authRouter.post(
     // Already trimmed + lowercased by the schema (see `emailIdentity`).
     const email = newEmail;
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { org: { select: { slug: true } } },
+    });
     if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
       throw Unauthorized("Current password is incorrect");
     }
@@ -319,7 +371,13 @@ authRouter.post(
     });
     if (!taken) {
       const token = await issueEmailChange(userId, email);
-      await sendEmail(verifyEmailChangeEmail({ to: email, token }));
+      await sendEmail(
+        verifyEmailChangeEmail({
+          to: email,
+          token,
+          baseUrl: tenantAppUrl(user.org.slug),
+        }),
+      );
     }
     res.status(204).end();
   }),
@@ -372,12 +430,21 @@ authRouter.post(
   authRateLimit,
   asyncHandler(async (req, res) => {
     const { email } = forgotSchema.parse(req.body);
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { org: { select: { slug: true } } },
+    });
     if (user) {
       // Email a link to the reset page, not the raw token. The token expires in
       // 1 hour (see issuePasswordReset).
       const token = await issuePasswordReset(user.id);
-      await sendEmail(passwordResetEmail({ to: email, token }));
+      await sendEmail(
+        passwordResetEmail({
+          to: email,
+          token,
+          baseUrl: tenantAppUrl(user.org.slug),
+        }),
+      );
     }
     res.status(204).end();
   }),

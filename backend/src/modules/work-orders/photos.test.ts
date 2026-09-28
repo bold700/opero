@@ -110,6 +110,19 @@ describe("task photo upload", () => {
     // Key is org-scoped.
     expect(ref.key.startsWith(`${orgId}/`)).toBe(true);
 
+    // The web client runs on another origin, so local uploads must permit
+    // cross-origin thumbnails and the built-in fullscreen viewer. Helmet's
+    // global same-origin defaults used to leave a broken image while direct
+    // navigation to the URL still worked.
+    const preview = await request(app).get(new URL(ref.url).pathname);
+    expect(preview.status).toBe(200);
+    // The upload pipeline may normalize the source format (for example PNG to
+    // JPEG while downscaling); the served MIME type must still be an image.
+    expect(preview.headers["content-type"]).toMatch(/^image\//);
+    expect(preview.headers["cross-origin-resource-policy"]).toBe("cross-origin");
+    expect(preview.headers["x-frame-options"]).toBeUndefined();
+    expect(preview.headers["content-security-policy"]).toBeUndefined();
+
     const del = await request(app)
       .delete(`/api/work-orders/${workOrderId}/tasks/${taskId}/photos`)
       .set("authorization", `Bearer ${adminToken}`)

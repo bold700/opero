@@ -42,6 +42,7 @@ type UserRow = {
   email: string;
   name: string;
   role: string;
+  roles: string[];
   status: string;
   employeeId: string | null;
   customerId: string | null;
@@ -55,6 +56,7 @@ function userDto(u: UserRow) {
     email: u.email,
     name: u.name,
     role: u.role,
+    roles: u.roles.length > 0 ? u.roles : [u.role],
     status: u.status,
     employeeId: u.employeeId ?? undefined,
     customerId: u.customerId ?? undefined,
@@ -73,7 +75,8 @@ async function loadActionableUser(
 ) {
   const user = await prisma.user.findFirst({ where: { id, orgId: actor.orgId } });
   if (!user) throw NotFound("User not found");
-  if (!canActOnAccount(actor.role, user.role as UserRole)) {
+  const targetRoles = user.roles.length > 0 ? user.roles : [user.role];
+  if (targetRoles.some((role) => !canActOnAccount(actor.role, role as UserRole))) {
     throw Forbidden("You can't manage an account at or above your own level");
   }
   return user;
@@ -165,14 +168,15 @@ usersRouter.patch(
   "/:id",
   asyncHandler(async (req, res) => {
     const admin = req.user!;
-    const { role } = updateUserRoleSchema.parse(req.body);
+    const input = updateUserRoleSchema.parse(req.body);
+    const roles = [...new Set(input.roles ?? [input.role!])];
 
     // Both ends of the move are guarded: `loadActionableUser` refuses a target
     // at or above the actor's level, and `canGrantRole` refuses a destination
     // above it. Office may therefore promote a technician to office, but can
     // neither create nor reach an admin.
     const user = await loadActionableUser(admin, req.params.id);
-    if (!canGrantRole(admin.role as UserRole, role)) {
+    if (roles.some((role) => !canGrantRole(admin.role as UserRole, role))) {
       throw Forbidden("You can't grant a role above your own level");
     }
 
@@ -184,20 +188,29 @@ usersRouter.patch(
     // `client` is structural, not a level — it pairs with customerId. Moving a
     // customer login onto the staff ladder (or a staff login down to client)
     // would leave a User whose role contradicts the record it links to.
-    if (user.role === "client") {
+    if (user.role === "client" || user.customerId) {
       throw BadRequest("A customer login is always the client role");
     }
 
-    if (user.role === role) {
+    const currentRoles = user.roles.length > 0 ? user.roles : [user.role];
+    const unchanged =
+      currentRoles.length === roles.length &&
+      currentRoles.every((role) => roles.some((candidate) => candidate === role));
+    if (unchanged) {
       res.json(userDto(user));
       return;
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const u = await tx.user.update({ where: { id: user.id }, data: { role } });
+      const activeRole = roles.some((role) => role === user.role) ? user.role : roles[0];
+      const u = await tx.user.update({
+        where: { id: user.id },
+        data: { roles, role: activeRole },
+      });
       await audit(tx, admin, "user.role.change", "user", user.id, {
-        from: user.role,
-        to: role,
+        from: currentRoles,
+        to: roles,
+        activeRole,
       });
       return u;
     });

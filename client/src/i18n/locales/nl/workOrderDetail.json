@@ -1,7 +1,7 @@
 {
   "title": "Werkbon",
   "notFound": "Werkbon niet gevonden",
-  "notDispatched": "Deze werkbon is nog niet verzonden door kantoor.",
+  "notDispatched": "Deze werkbon is nog niet vrijgegeven aan de monteur. De monteur kan nog niets registreren.",
   "actionFailed": "Actie mislukt",
   "exportFailed": "Kon de PDF niet exporteren",
   "finishedToast": "Werkbon afgerond",
@@ -26,6 +26,9 @@
   "header": {
     "back": "terug",
     "info": "Gegevens",
+    "attachments": "Bijlagen",
+    "notes": "Notities",
+    "sections": "Werkbonacties",
     "signed": "Ondertekend",
     "signedBy": "door {{name}}",
     "finish": "Werkbon afronden",
@@ -34,12 +37,21 @@
     "reopenBody": "De ondertekening wordt verwijderd en de werkbon is weer te bewerken. Dit kan niet ongedaan worden gemaakt.",
     "exportPdf": "Exporteer PDF",
     "defaultTitle": "Werkbon {{n}}",
+    "notPlanned": "Niet ingepland",
     "export": "Exporteren",
     "exportMenuQuote": "Offerte (PDF)",
     "exportMenuWorkOrder": "Werkbon (PDF)",
     "delete": "Werkbon verwijderen",
     "deleteTitle": "Werkbon verwijderen",
-    "deleteBody": "Weet je zeker dat je \"{{name}}\" wilt verwijderen? Alle zones, regels, foto's en facturatie van deze werkbon gaan mee. Dit kan niet ongedaan worden gemaakt."
+    "deleteBody": "Weet je zeker dat je \"{{name}}\" wilt verwijderen? Alle zones, regels, foto's en facturatie van deze werkbon gaan mee. Dit kan niet ongedaan worden gemaakt.",
+    "approve": "Werkbon goedkeuren",
+    "approvedToast": "Werkbon goedgekeurd",
+    "prepareInvoice": "Factuur voorbereiden",
+    "invoicePreparedToast": "Werkbon klaar voor facturatie",
+    "sendInvoice": "Markeer als gefactureerd",
+    "invoiceSentToast": "Werkbon gemarkeerd als gefactureerd",
+    "markPaid": "Betaling verwerken",
+    "paidToast": "Werkbon afgerond"
   },
   "photos": {
     "title": "Foto's",
@@ -49,8 +61,8 @@
     "untitledZone": "Naamloze zone"
   },
   "prejob": {
-    "title": "Controle vooraf",
-    "description": "Vul deze checklist in en voeg minstens één foto toe voordat de monteur op pad gaat.",
+    "title": "Controle",
+    "description": "Rond deze controles af om de werkbon aan de monteur vrij te geven.",
     "items": {
       "address_confirmed": "Adres en toegang bevestigd",
       "materials_ready": "Benodigde materialen gereed",
@@ -62,18 +74,24 @@
     "addItem": "Toevoegen",
     "addItemPlaceholder": "Nieuw checklist-item…",
     "removeItem": "Verwijderen",
-    "dispatch": "Monteur op pad sturen",
-    "dispatched": "Verzonden",
-    "dispatchedToast": "Monteur op pad gestuurd",
-    "gateHint": "Vink de checklist af (en voeg een foto toe indien vereist) om te verzenden.",
+    "dispatch": "Werkbon vrijgeven",
+    "dispatched": "Vrijgegeven",
+    "dispatchedToast": "Werkbon vrijgegeven aan de monteur",
+    "gateHint": "Rond de controles af (en voeg een foto toe indien vereist) om de werkbon vrij te geven.",
     "addItemNew": "Nieuw checklist-item",
     "addItemTitle": "Checklist-item toevoegen",
     "addItemLabel": "Omschrijving",
-    "reorderAria": "Volgorde wijzigen"
+    "reorderAria": "Volgorde wijzigen",
+    "reminder": "Vorige werkdag {{time}} · melding"
   },
   "activity": {
     "title": "Activiteit",
     "empty": "Nog geen activiteit."
+  },
+  "notes": {
+    "title": "Notities",
+    "empty": "Nog geen notities.",
+    "placeholder": "Typ @ om iemand te noemen…"
   },
   "tasks": {
     "title": "Taken",
@@ -104,8 +122,12 @@
   },
   "attachments": {
     "title": "Bijlagen",
-    "empty": "Nog geen bijlagen.",
-    "add": "Bestand toevoegen"
+    "documents": "Documenten",
+    "empty": "Nog geen documenten.",
+    "add": "Bestand toevoegen",
+    "taskPhotos": "Taakfoto's",
+    "taskPhotosHint": "Deze foto's blijven gekoppeld aan hun taak. Toevoegen en verwijderen doe je bij de taak.",
+    "taskPhotosEmpty": "Nog geen foto's bij taken."
   },
   "extraWork": {
     "title": "Meerwerk",
@@ -228,7 +250,10 @@
     "customer": "Klant",
     "customerSwitchTitle": "Klant wijzigen",
     "customerSwitchBody": "Deze klus verhuist van {{from}} naar {{to}}. De werkbonnen, facturen en meerwerk-akkoorden gaan mee; de login van {{from}} ziet deze klus daarna niet meer.",
-    "customerContact": "Contactpersoon klant",
+    "workOrderContact": "Contactpersonen voor deze werkbon",
+    "workOrderContactPicker": "Gekoppelde contactpersonen",
+    "workOrderContactHint": "Voeg toe of verwijder voor alleen deze werkbon.",
+    "customerContact": "Overige contactpersonen klant",
     "noContactDetails": "Geen contactgegevens",
     "projectFiles": "Projectbestanden",
     "projectFilesEmpty": "Geen projectbestanden."
@@ -262,5 +287,10 @@
     "empty": "Nog geen pakbonnen.",
     "add": "Pakbon toevoegen",
     "received": "Ontvangen"
+  },
+  "phase": {
+    "preparation": "Voorbereiding",
+    "realization": "Realisatie",
+    "completion": "Afronding"
   }
 }

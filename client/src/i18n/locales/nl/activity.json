@@ -92,7 +92,7 @@
     "unapproved": "Goedkeuring ingetrokken: {{title}}",
     "signed": "{{title}} afgerond en ondertekend",
     "reopened": "{{title}} heropend",
-    "dispatched": "{{title}} op pad gestuurd"
+    "dispatched": "{{title}} vrijgegeven aan de monteur"
   },
   "commentPlaceholder": "Notitie toevoegen…",
   "commentSend": "Notitie plaatsen"

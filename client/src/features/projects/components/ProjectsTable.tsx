@@ -9,8 +9,7 @@ import { useTranslation } from "react-i18next";
 import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { ProjectSummary } from "../api";
-import { PROJECT_STATUS_TONES, euro } from "../constants";
-import { STATUS_TONES } from "../../../theme/tokens";
+import { PROJECT_LIFECYCLE_STATUS_TONES, euro } from "../constants";
 
 // The projects list: table on desktop, cards on mobile. A row opens the project
 // detail; edit/delete are admin row actions. `showPrices` false (field staff)
@@ -45,8 +44,10 @@ export function ProjectsTable({
 
   const statusCell = (p: ProjectSummary) => (
     <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-      <StatusBadge label={t(`projects.status.${p.status}`)} tone={PROJECT_STATUS_TONES[p.status]} />
-      {p.archived ? <StatusBadge label={t("projects.archived")} tone={STATUS_TONES.neutral} /> : null}
+      <StatusBadge
+        label={t(`projects.lifecycleStatus.${p.lifecycleStatus}`)}
+        tone={PROJECT_LIFECYCLE_STATUS_TONES[p.lifecycleStatus]}
+      />
     </Box>
   );
 

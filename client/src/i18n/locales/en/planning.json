@@ -14,6 +14,7 @@
     "day": "Day",
     "week": "Week",
     "month": "Month",
+    "agenda": "Agenda",
     "list": "List"
   },
   "schedule": {
@@ -26,6 +27,7 @@
     "endTime": "End time",
     "noTime": "No time",
     "pickStartFirst": "Pick a start time first",
+    "endAfterStart": "The end time must be after the start time",
     "dateInPast": "Date can't be in the past",
     "workOrder": "Work order",
     "away": "away",
@@ -42,5 +44,15 @@
     "removeError": "Remove failed"
   },
   "view": "View",
+  "period": "Period",
+  "display": "Display",
+  "timeline": {
+    "today": "Today",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "previousPeriod": "Previous period",
+    "nextPeriod": "Next period",
+    "addOnDate": "Add appointment on {{date}}"
+  },
   "spanDay": "Day {{day}} of {{total}}"
 }

@@ -21,6 +21,7 @@
   "table": {
     "name": "Name",
     "function": "Function",
+    "roles": "Roles",
     "workOrders": "Work orders",
     "status": "Status",
     "action": "Action",
@@ -52,6 +53,8 @@
       "resend": "Resend invitation",
       "needsEmail": "Add an email address first to invite this person.",
       "role": "Access level",
+      "roles": "Account roles",
+      "rolesHint": "Choose one or more roles. The employee can switch between them.",
       "email": "Email",
       "activatedAt": "Active since",
       "disable": "Disable",

@@ -4,7 +4,8 @@ import Divider from "@mui/material/Divider";
 import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import { KpiCard } from "./KpiCard";
-import { TONE, STATUS_LABEL_KEY, euro } from "../constants";
+import { WorkOrderLifecycleCard } from "./WorkOrderLifecycleCard";
+import { TONE, euro } from "../constants";
 import { FilterSelect } from "../../../components/FilterSelect";
 import type { AdminDashboard, SalesPeriod } from "../api";
 
@@ -39,22 +40,9 @@ export function AdminView({
       </Box>
 
       <Box sx={{ display: "flex", gap: 2.5, flexDirection: { xs: "column", lg: "row" }, alignItems: { xs: "stretch", lg: "flex-start" } }}>
-        {/* Pipeline by status */}
+        {/* Work orders grouped by their automatic lifecycle phase. */}
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2.5 }}>
-          <Card sx={{ p: 2.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-              {t("dashboard.admin.pipelineTitle")}
-            </Typography>
-            {(["sales", "operations", "closing"] as const).map((s, i, arr) => (
-              <Box key={s}>
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 1.5 }}>
-                  <Typography sx={{ fontWeight: 600 }}>{t(STATUS_LABEL_KEY[s])}</Typography>
-                  <Typography sx={{ fontWeight: 700 }}>{data.byStatus[s] ?? 0}</Typography>
-                </Box>
-                {i < arr.length - 1 ? <Divider /> : null}
-              </Box>
-            ))}
-          </Card>
+          <WorkOrderLifecycleCard counts={data.byWorkOrderStatus} />
 
           {/* Sales & usage — what was sold on werkbon lines, what it cost,
               what remains, and the metres actually laid. */}

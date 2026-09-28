@@ -4,6 +4,8 @@
   "empty": "Nog geen foto's",
   "addMultiple": "Foto's toevoegen",
   "limitHint": "JPG of PNG, max {{max}}",
+  "dropHint": "Sleep foto's hierheen of gebruik de knop · JPG of PNG, max {{max}}",
+  "dropNow": "Laat los om de foto's toe te voegen",
   "tooLarge": "{{name}} is te groot (max {{max}})",
   "uploadFailed": "{{name}} kon niet worden geüpload",
   "uploading": "Uploaden…"

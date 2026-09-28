@@ -21,6 +21,7 @@
   "table": {
     "name": "Naam",
     "function": "Functie",
+    "roles": "Rollen",
     "workOrders": "Werkbonnen",
     "status": "Status",
     "action": "Actie",
@@ -52,6 +53,8 @@
       "resend": "Uitnodiging opnieuw versturen",
       "needsEmail": "Voeg eerst een e-mailadres toe om deze persoon uit te nodigen.",
       "role": "Toegangsniveau",
+      "roles": "Accountrollen",
+      "rolesHint": "Kies één of meer rollen. De medewerker kan hier zelf tussen wisselen.",
       "email": "E-mail",
       "activatedAt": "Actief sinds",
       "disable": "Uitschakelen",

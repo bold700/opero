@@ -11,6 +11,7 @@ import AddPhotoAlternateOutlinedIcon from "@mui/icons-material/AddPhotoAlternate
 import { MAX_IMAGE_BYTES, formatMaxBytes } from "@opero/shared";
 import { RADIUS, HAIRLINE } from "../theme/tokens";
 import { downscaleImage, exceedsLimit } from "../lib/downscaleImage";
+import { useFileDrop } from "../lib/useFileDrop";
 import { Lightbox } from "./Lightbox";
 
 export type Photo = { key: string; url: string };
@@ -73,9 +74,7 @@ export function PhotoGrid({
 
   const pick = () => inputRef.current?.click();
 
-  const onFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = ""; // allow re-selecting the same file
+  const uploadFiles = async (files: File[]) => {
     if (!files.length || !onAdd) return;
 
     // One at a time: keeps the request small on mobile data and lets each tile
@@ -104,6 +103,17 @@ export function PhotoGrid({
     }
   };
 
+  const onFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-selecting the same file
+    void uploadFiles(files);
+  };
+
+  const { isDragging, dropProps } = useFileDrop({
+    disabled: !canEdit || !onAdd || disabled,
+    onFiles: uploadFiles,
+  });
+
   const THUMB = 96;
 
   const tileSx = {
@@ -117,55 +127,62 @@ export function PhotoGrid({
 
   return (
     <>
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
-        {photos.map((p) => (
-          <Box
-            key={p.key}
-            sx={{
-              position: "relative",
-              width: THUMB,
-              height: THUMB,
-              borderRadius: `${RADIUS.control}px`,
-              overflow: "hidden",
-              border: `1px solid ${HAIRLINE}`,
-              cursor: "pointer",
-              "&:hover .photo-del": { opacity: 1 },
-            }}
-            onClick={() => setZoom(p.url)}
-          >
+      <Box
+        {...dropProps}
+        sx={{
+          borderRadius: `${RADIUS.control}px`,
+          bgcolor: isDragging ? "action.hover" : "transparent",
+        }}
+      >
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+          {photos.map((p) => (
             <Box
-              component="img"
-              src={p.url}
-              alt=""
-              loading="lazy"
-              sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-            {canEdit && onRemove ? (
-              <IconButton
-                className="photo-del"
-                size="small"
-                aria-label={t("common.actions.delete")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(p.key);
-                }}
-                sx={{
-                  position: "absolute",
-                  top: 2,
-                  right: 2,
-                  opacity: 0,
-                  transition: "opacity .15s",
-                  bgcolor: "rgba(0,0,0,0.55)",
-                  color: "#fff",
-                  "&:hover": { bgcolor: "rgba(0,0,0,0.75)" },
-                  p: 0.25,
-                }}
-              >
-                <CloseIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            ) : null}
-          </Box>
-        ))}
+              key={p.key}
+              sx={{
+                position: "relative",
+                width: THUMB,
+                height: THUMB,
+                borderRadius: `${RADIUS.control}px`,
+                overflow: "hidden",
+                border: `1px solid ${HAIRLINE}`,
+                cursor: "pointer",
+                "&:hover .photo-del": { opacity: 1 },
+              }}
+              onClick={() => setZoom(p.url)}
+            >
+              <Box
+                component="img"
+                src={p.url}
+                alt=""
+                loading="lazy"
+                sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+              {canEdit && onRemove ? (
+                <IconButton
+                  className="photo-del"
+                  size="small"
+                  aria-label={t("common.actions.delete")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(p.key);
+                  }}
+                  sx={{
+                    position: "absolute",
+                    top: 2,
+                    right: 2,
+                    opacity: 0,
+                    transition: "opacity .15s",
+                    bgcolor: "rgba(0,0,0,0.55)",
+                    color: "#fff",
+                    "&:hover": { bgcolor: "rgba(0,0,0,0.75)" },
+                    p: 0.25,
+                  }}
+                >
+                  <CloseIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              ) : null}
+            </Box>
+          ))}
 
         {/* One placeholder per queued file: spinner while it uploads, an error
             tile (dismissable) if it failed. */}
@@ -253,7 +270,9 @@ export function PhotoGrid({
       {/* State the limit up front, so "too large" is never a surprise. */}
       {canEdit && onAdd ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-          {t("photos.limitHint", { max: maxLabel })}
+          {isDragging
+            ? t("photos.dropNow")
+            : t("photos.dropHint", { max: maxLabel })}
         </Typography>
       ) : null}
 
@@ -266,6 +285,7 @@ export function PhotoGrid({
         hidden
         onChange={onFiles}
       />
+      </Box>
 
       <Lightbox open={zoom !== null} src={zoom} onClose={() => setZoom(null)} />
     </>

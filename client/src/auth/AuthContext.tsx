@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import i18n from "../i18n";
 import type { AuthUser } from "../lib/api/auth";
-import { me as fetchMe, logout as apiLogout } from "../lib/api/auth";
+import { me as fetchMe, logout as apiLogout, switchActiveRole } from "../lib/api/auth";
+import type { UserRole } from "@opero/shared";
 import { getAccessToken } from "../lib/api/tokens";
 import { setOnAuthExpired } from "../lib/api/client";
 
@@ -22,6 +23,7 @@ type AuthContextValue = {
   loading: boolean;
   /** Set the current user after a successful login. */
   setUser: (user: CurrentUser) => void;
+  switchRole: (role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -57,6 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser: (u) => {
         setUserState(u);
         applyUserLanguage(u);
+      },
+      switchRole: async (role) => {
+        const updated = await switchActiveRole(role);
+        setUserState(updated);
+        applyUserLanguage(updated);
       },
       logout: async () => {
         await apiLogout();

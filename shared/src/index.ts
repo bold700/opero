@@ -17,6 +17,8 @@ export * from "./materials";
 export * from "./domain/stages";
 export * from "./domain/workflow";
 export * from "./domain/pricing";
+export * from "./domain/project-lifecycle";
+export * from "./domain/work-order-lifecycle";
 
 // Request/response zod schemas (auth + domain) — added incrementally.
 export * from "./schemas";

@@ -1,6 +1,7 @@
 import { api, type Page } from "../../lib/api/client";
 import type { ActivityEntry } from "../../components/ActivityPanel";
 import type { AttachmentItem } from "../../components/AttachmentsPanel";
+import type { ProjectLifecycleStatus } from "@opero/shared";
 
 // Projects — the grouping layer above werkbonnen. One project groups a
 // customer's werkbonnen (each werkbon is billed + scheduled on its own).
@@ -23,6 +24,7 @@ export type ProjectSummary = {
   customerName: string;
   city: string;
   status: ProjectStatus;
+  lifecycleStatus: ProjectLifecycleStatus;
   stage: ProjectStage;
   archived: boolean;
   urgency: ProjectUrgency;
@@ -66,6 +68,7 @@ export type ProjectDetail = {
   instructions?: string;
   description?: string;
   status: ProjectStatus;
+  lifecycleStatus: ProjectLifecycleStatus;
   stage: ProjectStage;
   archived: boolean;
   urgency: ProjectUrgency;
@@ -98,13 +101,16 @@ export type ProjectInput = {
 export function getProjectsPage(opts: {
   cursor?: string;
   search?: string;
-  status?: string;
+  lifecycleStatus?: string;
   archived?: ProjectVisibility;
 }): Promise<Page<ProjectSummary>> {
   return api.getPage<ProjectSummary>("/projects", {
     cursor: opts.cursor,
     search: opts.search,
-    params: { status: opts.status, archived: opts.archived },
+    params: {
+      lifecycleStatus: opts.lifecycleStatus,
+      archived: opts.archived,
+    },
   });
 }
 

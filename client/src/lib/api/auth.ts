@@ -23,6 +23,7 @@ export type AuthUser = {
   name: string;
   phone: string | null;
   role: UserRole;
+  roles: UserRole[];
   customerId: string | null;
   employeeId: string | null;
   totpEnabled: boolean;
@@ -117,6 +118,11 @@ export function confirmEmailChange(token: string): Promise<void> {
 // Who am I — used on app load to restore the session.
 export async function me(): Promise<AuthUser> {
   const res = await api.get<{ user: AuthUser }>("/auth/me");
+  return res.user;
+}
+
+export async function switchActiveRole(role: UserRole): Promise<AuthUser> {
+  const res = await api.patch<{ user: AuthUser }>("/auth/active-role", { role });
   return res.user;
 }
 

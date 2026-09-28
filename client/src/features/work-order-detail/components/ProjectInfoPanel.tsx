@@ -27,6 +27,7 @@ import type {
 } from "../api";
 import { isZoneComplete } from "./zoneStatus";
 import { CustomerContactBlock } from "./CustomerContactBlock";
+import { SelectedContactPersons } from "./SelectedContactPersons";
 import { AttachmentsPanel } from "../../../components/AttachmentsPanel";
 
 // A labelled block.
@@ -70,6 +71,7 @@ export function ProjectInfoPanel({
   onSetUrgency,
   onSetTitle,
   onSetDescription,
+  onSetContacts,
   bare = false,
 }: {
   project: Project;
@@ -97,6 +99,7 @@ export function ProjectInfoPanel({
    * valid — the printed werkbon then falls back to the project's description.
    */
   onSetDescription: (description: string) => void;
+  onSetContacts: (contactPersonIds: string[]) => void;
   /**
    * Drop the Card chrome and the heading — for when this is already inside a
    * container that supplies both (the mobile Projectinfo sheet). Otherwise the
@@ -124,6 +127,15 @@ export function ProjectInfoPanel({
   const doneCount = zones.filter(isZoneComplete).length;
   // Scheduling is per-WERKBON — dates come from the werkbon, not the project.
   const days = durationDays(workOrder.plannedDate, workOrder.plannedEndDate);
+  const hasOtherCustomerContacts = Boolean(
+    workOrder.customer &&
+      (workOrder.customer.contactName ||
+        workOrder.customer.phone ||
+        workOrder.customer.email ||
+        workOrder.customer.contactPersons.some(
+          (contact) => !workOrder.contactPersons.some((selected) => selected.id === contact.id),
+        )),
+  );
   // Moving the start past the current end would invert the slot (the backend
   // rejects that), so push the end along to start + 2h in the same patch —
   // the same suggestion the Planning dialog makes.
@@ -436,8 +448,40 @@ export function ProjectInfoPanel({
                 edited on the customer record). Separate from the site contact
                 above, which is per-project and may be someone else entirely. */}
             {workOrder.customer ? (
+              <Field label={t("workOrderDetail.info.workOrderContact")}>
+                <Autocomplete
+                  multiple
+                  disableCloseOnSelect
+                  size="small"
+                  options={workOrder.customer.contactPersons}
+                  value={workOrder.contactPersons}
+                  getOptionLabel={(contact) =>
+                    contact.name ||
+                    contact.phone ||
+                    contact.email ||
+                    t("customers.contacts.unnamed")
+                  }
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  onChange={(_event, contacts) =>
+                    onSetContacts(contacts.map(({ id }) => id))
+                  }
+                  disabled={busy}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t("workOrderDetail.info.workOrderContactPicker")}
+                      helperText={t("workOrderDetail.info.workOrderContactHint")}
+                    />
+                  )}
+                />
+              </Field>
+            ) : null}
+            {workOrder.customer && hasOtherCustomerContacts ? (
               <Field label={t("workOrderDetail.info.customerContact")}>
-                <CustomerContactBlock customer={workOrder.customer} />
+                <CustomerContactBlock
+                  customer={workOrder.customer}
+                  excludeIds={workOrder.contactPersons.map((contact) => contact.id)}
+                />
               </Field>
             ) : null}
 
@@ -546,9 +590,17 @@ export function ProjectInfoPanel({
             ) : null}
             {/* The CUSTOMER's contact people — who to call when the site
                 contact doesn't answer. Tappable tel:/mailto: links. */}
-            {workOrder.customer ? (
+            {workOrder.contactPersons.length > 0 ? (
+              <Field label={t("workOrderDetail.info.workOrderContact")}>
+                <SelectedContactPersons contacts={workOrder.contactPersons} />
+              </Field>
+            ) : null}
+            {workOrder.customer && hasOtherCustomerContacts ? (
               <Field label={t("workOrderDetail.info.customerContact")}>
-                <CustomerContactBlock customer={workOrder.customer} />
+                <CustomerContactBlock
+                  customer={workOrder.customer}
+                  excludeIds={workOrder.contactPersons.map((contact) => contact.id)}
+                />
               </Field>
             ) : null}
             {/* THIS visit's own description first — it's the specific one. */}

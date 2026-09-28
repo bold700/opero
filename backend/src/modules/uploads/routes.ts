@@ -43,6 +43,17 @@ uploadsRouter.get(
     };
     const contentType = CONTENT_TYPES[ext] ?? "image/jpeg";
 
+    // Helmet protects API/HTML responses with same-origin embedding headers.
+    // Uploaded assets are capability URLs and are intentionally rendered by the
+    // separately hosted client (localhost uses different ports too). Keeping
+    // Helmet's defaults here makes <img> thumbnails fail through CORP and blocks
+    // the PDF/image viewer through X-Frame-Options/CSP, even though navigating
+    // directly to the exact same URL works. Match presigned object-storage URLs:
+    // allow the bytes to be embedded while retaining nosniff and the exact MIME
+    // type below.
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.removeHeader("X-Frame-Options");
+    res.removeHeader("Content-Security-Policy");
     res.setHeader("Content-Type", contentType);
     // Private: these are per-tenant; don't let shared caches hold them.
     res.setHeader("Cache-Control", "private, max-age=300");

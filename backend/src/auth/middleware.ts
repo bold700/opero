@@ -4,6 +4,7 @@ import { prisma } from "../db/client.js";
 import { Forbidden, Unauthorized } from "../lib/httpError.js";
 import { verifyAccessToken } from "./tokens.js";
 import { toAuthUser } from "./service.js";
+import { assertTenantAccess } from "./tenant.js";
 
 // Parse the Bearer access token, load the user, attach req.user.
 export async function requireAuth(
@@ -23,7 +24,10 @@ export async function requireAuth(
     } catch {
       throw Unauthorized("Invalid or expired token");
     }
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: { org: { select: { slug: true } } },
+    });
     if (!user) throw Unauthorized("User no longer exists");
     // Access tokens are stateless JWTs (JWT_ACCESS_TTL, default 15m), so
     // revoking sessions is NOT enough to lock someone out — the token they
@@ -31,6 +35,7 @@ export async function requireAuth(
     // on every request so disabling (or a not-yet-activated invite) takes
     // effect immediately.
     if (user.status !== "active") throw Unauthorized("Account is not active");
+    assertTenantAccess(req.headers["x-opero-tenant"], user.org.slug);
     req.user = await toAuthUser(user);
     next();
   } catch (err) {

@@ -29,6 +29,39 @@ function prefsOf(raw: unknown): NotificationPrefs {
   return { ...DEFAULT_NOTIFICATION_PREFS, ...p };
 }
 
+function previousWorkday(day: string): string {
+  const date = new Date(`${day}T12:00:00Z`);
+  do {
+    date.setUTCDate(date.getUTCDate() - 1);
+  } while (date.getUTCDay() === 0 || date.getUTCDay() === 6);
+  return date.toISOString().slice(0, 10);
+}
+
+function amsterdamDateTime(day: string, time: string): Date {
+  const [year, month, date] = day.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const guess = Date.UTC(year, month - 1, date, hour, minute);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Amsterdam",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(guess));
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const localAtGuess = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+  );
+  return new Date(guess - (localAtGuess - guess));
+}
+
 // GET /notifications → { items, unreadCount, seenAt }
 notificationsRouter.get(
   "/",
@@ -191,6 +224,76 @@ notificationsRouter.get(
       }
     }
 
+    // --- Timed work-order controls ---------------------------------------
+    // A configured control becomes visible in the bell at its chosen time on
+    // the workday before the visit. It remains until somebody completes it.
+    if (
+      (user.role === "technician" || user.role === "foreman") &&
+      user.employeeId
+    ) {
+      const controls = await prisma.workOrderPrejobItem.findMany({
+        where: {
+          done: false,
+          reminderEnabled: true,
+          reminderTime: { not: null },
+          workOrder: {
+            is: {
+              AND: [
+                { signedAt: null },
+                { plannedDate: { not: null } },
+                { project: { is: { orgId: user.orgId, deletedAt: null, archived: false } } },
+                {
+                  OR: [
+                    assignedToEmployeeWhere(user.employeeId),
+                    { project: { is: { projectLeaderId: user.employeeId } } },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        orderBy: { workOrder: { plannedDate: "asc" } },
+        take: 100,
+        select: {
+          id: true,
+          label: true,
+          reminderTime: true,
+          workOrder: {
+            select: {
+              id: true,
+              title: true,
+              ordinal: true,
+              plannedDate: true,
+              project: { select: { projectNumber: true, customerName: true } },
+            },
+          },
+        },
+      });
+      const now = new Date();
+      for (const control of controls) {
+        const workOrder = control.workOrder;
+        if (!control.reminderTime || !workOrder.plannedDate) continue;
+        const reminderAt = amsterdamDateTime(
+          previousWorkday(workOrder.plannedDate),
+          control.reminderTime,
+        );
+        if (reminderAt > now) continue;
+        items.push({
+          id: `control:${control.id}`,
+          category: "controlReminder",
+          messageKey: "notifications.controlReminder",
+          params: {
+            control: control.label,
+            title: workOrder.title || `#${workOrder.ordinal + 1}`,
+            customer: workOrder.project.customerName,
+            time: control.reminderTime,
+          },
+          createdAt: reminderAt.toISOString(),
+          route: `/work-orders/${workOrder.id}`,
+        });
+      }
+    }
+
     // --- Progress logged by field staff (office) --------------------------
     // Derived from the activity feed: every progress log writes a
     // material.progressLogged activity row (work-orders routes).
@@ -283,6 +386,45 @@ notificationsRouter.get(
           });
         }
       }
+    }
+
+    // --- Direct @mentions in notes ---------------------------------------
+    // Mentions are stored on the comment activity row as stable user IDs.
+    // Query the JSON array directly so each recipient sees only notes that
+    // explicitly selected their account, even when names are duplicated.
+    const mentionedNotes = await prisma.projectActivity.findMany({
+      where: {
+        type: "comment",
+        params: { path: ["mentionUserIds"], array_contains: [user.id] },
+        project: { is: projectScopeWhere(user) },
+      },
+      orderBy: { createdAt: "desc" },
+      take: NOTIFICATIONS_LIMIT,
+      select: {
+        id: true,
+        body: true,
+        params: true,
+        createdAt: true,
+        projectId: true,
+        user: { select: { name: true } },
+      },
+    });
+    for (const note of mentionedNotes) {
+      const params = (note.params ?? {}) as Record<string, unknown>;
+      const workOrderId =
+        typeof params.workOrderId === "string" ? params.workOrderId : undefined;
+      const text = note.body?.trim() ?? "";
+      items.push({
+        id: `mention:${note.id}`,
+        category: "mention",
+        messageKey: "notifications.mentionedInNote",
+        params: {
+          author: note.user?.name ?? "—",
+          text: text.length > 90 ? `${text.slice(0, 87)}…` : text,
+        },
+        createdAt: note.createdAt.toISOString(),
+        route: workOrderId ? `/work-orders/${workOrderId}` : `/projects/${note.projectId}`,
+      });
     }
 
     // Most recent first, capped.

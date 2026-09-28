@@ -10,7 +10,12 @@ import type {
   ProjectAttachment,
   ProjectTask,
 } from "@prisma/client";
-import { canSeePrices, type UserRole } from "@opero/shared";
+import {
+  canSeePrices,
+  deriveProjectLifecycleStatus,
+  type ProjectLifecycleWorkOrder,
+  type UserRole,
+} from "@opero/shared";
 import { refsFrom } from "../../lib/photoUrls.js";
 import type { AuthUser } from "../../auth/types.js";
 import { visibleWorkOrdersWhere } from "../work-orders/visibility.js";
@@ -18,6 +23,25 @@ import { visibleWorkOrdersWhere } from "../work-orders/visibility.js";
 // A synchronous key→url lookup, prebuilt in the route wrapper (projectDtoFor)
 // so these nested mappers can stay sync while still emitting renderable urls.
 type UrlOf = (key: string | null | undefined) => string | undefined;
+
+// The minimal relation shape needed to derive the automatic project lifecycle.
+// Lists, details and dashboards reuse this exact select so the status cannot
+// differ between screens.
+export const projectLifecycleSelect = {
+  plannedDate: true,
+  signedAt: true,
+  listStatus: true,
+  assignees: { select: { id: true } },
+  invoice: { select: { status: true } },
+  tasks: {
+    select: {
+      done: true,
+      startedAt: true,
+      endedAt: true,
+      hours: true,
+    },
+  },
+} as const;
 
 // DTO mappers — never return raw rows with internal columns to clients.
 //
@@ -36,16 +60,13 @@ export type ProjectWithRelations = Project & {
   materialRequirements: MaterialRequirement[];
   tasks: ProjectTask[];
   installers: { id: string }[];
-  workOrders?: {
+  workOrders?: (ProjectLifecycleWorkOrder & {
     id: string;
     ordinal: number;
     title: string;
-    listStatus: string;
     urgency: string;
-    plannedDate: string | null;
     value: number;
-    signedAt: Date | null;
-  }[];
+  })[];
   activity?: (ProjectActivity & { user?: { name: string } | null })[];
   attachments?: ProjectAttachment[];
   contacts?: { id: string; name: string; email: string | null; phone: string | null; role: string | null }[];
@@ -153,7 +174,7 @@ export function activityDto(
 // its unfinished werkbonnen urgent → "urgent". Display/KPI convenience, not a
 // stored field. Blocked is a separate axis entirely (blocker/blockerKey).
 function rollupUrgency(
-  workOrders?: { urgency: string; signedAt: Date | null }[],
+  workOrders?: { urgency: string; signedAt: Date | string | null }[],
 ): "normal" | "urgent" {
   return (workOrders ?? []).some((w) => w.urgency === "urgent" && !w.signedAt)
     ? "urgent"
@@ -165,7 +186,10 @@ function rollupUrgency(
 export function projectSummaryDto(
   p: Project & {
     _count?: { workOrders: number };
-    workOrders?: { value: number; urgency: string; signedAt: Date | null }[];
+    workOrders?: (ProjectLifecycleWorkOrder & {
+      value: number;
+      urgency: string;
+    })[];
   },
   role: UserRole,
 ) {
@@ -185,6 +209,10 @@ export function projectSummaryDto(
     customerName: p.customerName,
     city: p.city,
     status: p.status,
+    lifecycleStatus: deriveProjectLifecycleStatus({
+      archived: p.archived,
+      workOrders: p.workOrders ?? [],
+    }),
     stage: p.stage,
     archived: p.archived,
     urgency: rollupUrgency(p.workOrders),
@@ -241,6 +269,10 @@ export function projectDto(
     archived: p.archived,
     stage: p.stage,
     status: p.status,
+    lifecycleStatus: deriveProjectLifecycleStatus({
+      archived: p.archived,
+      workOrders: p.workOrders ?? [],
+    }),
     urgency: rollupUrgency(p.workOrders),
     blocked: !!(p.blocker || p.blockerKey),
     blocker: p.blocker ?? undefined,
@@ -303,11 +335,9 @@ export const projectInclude = {
       id: true,
       ordinal: true,
       title: true,
-      listStatus: true,
       urgency: true,
-      plannedDate: true,
       value: true,
-      signedAt: true,
+      ...projectLifecycleSelect,
     },
   },
   activity: {

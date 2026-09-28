@@ -15,19 +15,21 @@ export function CustomersActions({
   onCreate,
   onImport,
   canCreate,
+  searchPlaceholder,
 }: {
   search: string;
   onSearch: (value: string) => void;
   onCreate: () => void;
   onImport: () => void;
   canCreate: boolean;
+  searchPlaceholder?: string;
 }) {
   const { t } = useTranslation();
   return (
     <>
       <TextField
         size="small"
-        placeholder={t("customers.actions.searchPlaceholder")}
+        placeholder={searchPlaceholder ?? t("customers.actions.searchPlaceholder")}
         value={search}
         onChange={(e) => onSearch(e.target.value)}
         sx={{ flex: { xs: 1, sm: "0 0 auto" }, width: { sm: 280 }, minWidth: 0 }}

@@ -1,16 +1,19 @@
 import { api, type Page } from "../../lib/api/client";
+import type { WorkOrderPhase, WorkOrderStatus } from "@opero/shared";
 
-export type WorkOrderStatus = "open" | "on_the_way" | "urgent" | "done";
+export type { WorkOrderPhase, WorkOrderStatus };
 
 // Mirrors the backend workOrderListDto (backend/src/modules/work-orders/dto.ts).
 export type WorkOrderRow = {
   id: string;
   number: string;
+  title: string;
   customerName: string;
   city: string;
   workType: string;
   technician: string;
   status: WorkOrderStatus;
+  phase: WorkOrderPhase;
   // Release state — undefined until the office dispatches. A separate axis
   // from `status`: progress and release are independent.
   dispatchedAt?: string;
@@ -20,13 +23,7 @@ export type WorkOrderRow = {
 
 // Per-status totals across the whole (scoped+searched) set — powers the count
 // pills. Always present even when a status filter is active.
-export type WorkOrderCounts = {
-  total: number;
-  open: number;
-  on_the_way: number;
-  urgent: number;
-  done: number;
-};
+export type WorkOrderCounts = Record<WorkOrderStatus, number> & { total: number };
 
 // One page of the work-orders list plus the counts.
 export type WorkOrderPage = Page<WorkOrderRow> & { counts: WorkOrderCounts };

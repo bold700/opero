@@ -13,12 +13,13 @@
   "admin": {
     "kpis": {
       "totalProjects": "Projecten totaal",
-      "plannedThisWeek": "Ingepland deze week",
-      "urgentBlocked": "Spoed / geblokkeerd",
+      "plannedThisWeek": "Projecten ingepland deze week",
+      "urgentBlocked": "Projecten met spoed / blokkade",
       "urgentBlockedSub": "{{urgent}} urgent · {{blocked}} geblokkeerd",
-      "readyToInvoice": "Klaar voor facturatie"
+      "readyToInvoice": "Projecten klaar voor facturatie"
     },
-    "pipelineTitle": "Projecten per status",
+    "workOrdersByPhase": "Werkbonnen per fase",
+    "viewWorkOrdersWithStatus": "Bekijk werkbonnen met status {{status}}",
     "financialTitle": "Financieel",
     "pipelineValue": "Pipeline waarde",
     "openInvoices": "Openstaande facturen",

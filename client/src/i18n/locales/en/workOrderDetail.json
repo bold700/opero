@@ -1,7 +1,7 @@
 {
   "title": "Work order",
   "notFound": "Work order not found",
-  "notDispatched": "This work order has not been dispatched by the office yet.",
+  "notDispatched": "This work order has not been released to the technician yet. The technician cannot register work yet.",
   "actionFailed": "Action failed",
   "exportFailed": "Could not export the PDF",
   "finishedToast": "Work order completed",
@@ -26,6 +26,9 @@
   "header": {
     "back": "back",
     "info": "Details",
+    "attachments": "Attachments",
+    "notes": "Notes",
+    "sections": "Work order actions",
     "signed": "Signed",
     "signedBy": "by {{name}}",
     "finish": "Complete work order",
@@ -34,12 +37,21 @@
     "reopenBody": "The signature will be removed and the work order becomes editable again. This cannot be undone.",
     "exportPdf": "Export PDF",
     "defaultTitle": "Work order {{n}}",
+    "notPlanned": "Not planned",
     "export": "Export",
     "exportMenuQuote": "Quote (PDF)",
     "exportMenuWorkOrder": "Work order (PDF)",
     "delete": "Delete work order",
     "deleteTitle": "Delete work order",
-    "deleteBody": "Are you sure you want to delete \"{{name}}\"? All zones, lines, photos and billing for this work order go with it. This cannot be undone."
+    "deleteBody": "Are you sure you want to delete \"{{name}}\"? All zones, lines, photos and billing for this work order go with it. This cannot be undone.",
+    "approve": "Approve work order",
+    "approvedToast": "Work order approved",
+    "prepareInvoice": "Prepare invoice",
+    "invoicePreparedToast": "Work order ready to invoice",
+    "sendInvoice": "Mark as invoiced",
+    "invoiceSentToast": "Work order marked as invoiced",
+    "markPaid": "Record payment",
+    "paidToast": "Work order completed"
   },
   "photos": {
     "title": "Photos",
@@ -49,8 +61,8 @@
     "untitledZone": "Untitled zone"
   },
   "prejob": {
-    "title": "Pre-job check",
-    "description": "Complete this checklist and add at least one photo before the technician is dispatched.",
+    "title": "Controls",
+    "description": "Complete these controls to release the work order to the technician.",
     "items": {
       "address_confirmed": "Address and access confirmed",
       "materials_ready": "Required materials ready",
@@ -62,18 +74,24 @@
     "addItem": "Add",
     "addItemPlaceholder": "New checklist item…",
     "removeItem": "Remove",
-    "dispatch": "Dispatch technician",
-    "dispatched": "Dispatched",
-    "dispatchedToast": "Technician dispatched",
-    "gateHint": "Tick the checklist (and add a photo if required) to dispatch.",
+    "dispatch": "Release work order",
+    "dispatched": "Released",
+    "dispatchedToast": "Work order released to the technician",
+    "gateHint": "Complete the controls (and add a photo if required) to release the work order.",
     "addItemNew": "New checklist item",
     "addItemTitle": "Add checklist item",
     "addItemLabel": "Description",
-    "reorderAria": "Reorder"
+    "reorderAria": "Reorder",
+    "reminder": "Previous workday {{time}} · notification"
   },
   "activity": {
     "title": "Activity",
     "empty": "No activity yet."
+  },
+  "notes": {
+    "title": "Notes",
+    "empty": "No notes yet.",
+    "placeholder": "Type @ to mention someone…"
   },
   "tasks": {
     "title": "Tasks",
@@ -104,8 +122,12 @@
   },
   "attachments": {
     "title": "Attachments",
-    "empty": "No attachments yet.",
-    "add": "Add file"
+    "documents": "Documents",
+    "empty": "No documents yet.",
+    "add": "Add file",
+    "taskPhotos": "Task photos",
+    "taskPhotosHint": "These photos remain linked to their task. Add or remove them from the task.",
+    "taskPhotosEmpty": "No task photos yet."
   },
   "extraWork": {
     "title": "Extra work",
@@ -228,7 +250,10 @@
     "customer": "Customer",
     "customerSwitchTitle": "Change customer",
     "customerSwitchBody": "This job moves from {{from}} to {{to}}. Its work orders, invoices and extra-work approvals go with it; the login of {{from}} will no longer see this job.",
-    "customerContact": "Customer contact",
+    "workOrderContact": "Contacts for this work order",
+    "workOrderContactPicker": "Linked contacts",
+    "workOrderContactHint": "Add or remove contacts for this work order only.",
+    "customerContact": "Other customer contacts",
     "noContactDetails": "No contact details",
     "projectFiles": "Project files",
     "projectFilesEmpty": "No project files."
@@ -262,5 +287,10 @@
     "empty": "No packing slips yet.",
     "add": "Add packing slip",
     "received": "Received"
+  },
+  "phase": {
+    "preparation": "Preparation",
+    "realization": "Realization",
+    "completion": "Completion"
   }
 }

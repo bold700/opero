@@ -11,7 +11,13 @@ import type { WorkOrderCustomer } from "../api";
 //
 // Read-only: the customer record is edited under /customers, not from a
 // werkbon.
-export function CustomerContactBlock({ customer }: { customer: WorkOrderCustomer }) {
+export function CustomerContactBlock({
+  customer,
+  excludeIds = [],
+}: {
+  customer: WorkOrderCustomer;
+  excludeIds?: string[];
+}) {
   const { t } = useTranslation();
 
   // The customer's own contact fields form an implicit "main contact" row, so
@@ -27,7 +33,10 @@ export function CustomerContactBlock({ customer }: { customer: WorkOrderCustomer
         }
       : null;
 
-  const people = [...(primary ? [primary] : []), ...customer.contactPersons];
+  const people = [
+    ...(primary ? [primary] : []),
+    ...customer.contactPersons.filter((person) => !excludeIds.includes(person.id)),
+  ];
   if (people.length === 0) return null;
 
   return (
@@ -35,7 +44,7 @@ export function CustomerContactBlock({ customer }: { customer: WorkOrderCustomer
       {people.map((p) => (
         <Box key={p.id} sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {p.name}
+            {p.name || t("customers.contacts.unnamed")}
             {p.role ? (
               <Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>
                 {` · ${p.role}`}

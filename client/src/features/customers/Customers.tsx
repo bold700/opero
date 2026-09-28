@@ -7,6 +7,7 @@ import Snackbar from "@mui/material/Snackbar";
 import { useTranslation } from "react-i18next";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { FilterSelect } from "../../components/FilterSelect";
 import { useAuth } from "../../auth/AuthContext";
 import { isOffice, canManageAccounts } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
@@ -27,6 +28,7 @@ import { CustomerFilterBar } from "./components/CustomerFilterBar";
 import { ImportDialog } from "./components/ImportDialog";
 import { CustomersTable } from "./components/CustomersTable";
 import { CustomerDialog } from "./components/CustomerDialog";
+import { ContactsOverview } from "./components/ContactsOverview";
 import { InviteDialog, type InviteFixedTarget } from "../users/components/InviteDialog";
 import {
   inviteUser,
@@ -47,6 +49,7 @@ export function Customers() {
   const canManageAccount = canManageAccounts(role);
 
   const [activeFilter, setActiveFilter] = useState<CustomerFilter>("all");
+  const [view, setView] = useState<"customers" | "contacts">("customers");
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -214,15 +217,34 @@ export function Customers() {
           onSearch={setSearch}
           onCreate={openCreate}
           onImport={() => setImportOpen(true)}
-          canCreate={canManage}
+          canCreate={canManage && view === "customers"}
+          searchPlaceholder={t(
+            view === "contacts"
+              ? "customers.actions.searchContactsPlaceholder"
+              : "customers.actions.searchPlaceholder",
+          )}
         />
       }
     >
-      {/* Filter chips, each with its count inline */}
-      <CustomerFilterBar active={activeFilter} counts={counts} onChange={setActiveFilter} />
+      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+        <FilterSelect
+          value={view}
+          onChange={(value) => setView(value as "customers" | "contacts")}
+          ariaLabel={t("customers.view.label")}
+          options={[
+            { value: "customers", label: t("customers.view.customers") },
+            { value: "contacts", label: t("customers.view.contacts") },
+          ]}
+        />
+        {view === "customers" ? (
+          <CustomerFilterBar active={activeFilter} counts={counts} onChange={setActiveFilter} />
+        ) : null}
+      </Box>
 
       {/* Table */}
-      {loading ? (
+      {view === "contacts" ? (
+        <ContactsOverview search={debouncedSearch} />
+      ) : loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>

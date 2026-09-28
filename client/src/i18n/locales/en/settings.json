@@ -15,8 +15,8 @@
       "subtitle": "Company details and billing"
     },
     "prejobChecklist": {
-      "title": "Pre-job check",
-      "subtitle": "Checklist items for work orders"
+      "title": "Controls",
+      "subtitle": "Control items, times and notifications"
     },
     "notifications": {
       "title": "Notifications",
@@ -32,16 +32,18 @@
     }
   },
   "prejobChecklist": {
-    "itemsLabel": "Checklist items",
-    "help": "This is the default list. New work orders start from it; each work order can then be adjusted on its own.",
-    "empty": "No items yet. With no items a work order cannot be dispatched.",
+    "itemsLabel": "Control items",
+    "help": "New work orders start with these controls. Enable a notification per item and choose its time on the workday before the planned visit.",
+    "empty": "No items yet. Without items a work order cannot be released.",
     "addPlaceholder": "New item…",
     "add": "Add",
     "remove": "Remove",
     "saved": "Saved",
     "saveError": "Could not save",
     "loadError": "Could not load",
-    "reorderAria": "Reorder"
+    "reorderAria": "Reorder",
+    "reminderTime": "Time",
+    "notification": "Notification"
   },
   "profile": {
     "photo": "Profile photo",
@@ -57,6 +59,9 @@
     "email": "Email address",
     "phone": "Phone number",
     "role": "Access level",
+    "activeRole": "Active role",
+    "roleSwitched": "Role and view updated",
+    "roleSwitchError": "Could not switch role",
     "roles": {
       "admin": "Admin",
       "office": "Office access",

@@ -11,6 +11,10 @@
     "confirm": "Confirm",
     "logout": "Log out"
   },
+  "upload": {
+    "dropHint": "Drop files here",
+    "dropNow": "Release to add the files"
+  },
   "states": {
     "loading": "Loading…",
     "error": "Something went wrong",

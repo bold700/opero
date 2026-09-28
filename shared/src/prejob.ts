@@ -11,7 +11,12 @@
 // keys as an argument — they can no longer close over a compile-time list.
 
 // A checklist item as the client/PDF needs it: stable key + display label.
-export type PrejobItem = { key: string; label: string };
+export type PrejobItem = {
+  key: string;
+  label: string;
+  reminderEnabled?: boolean;
+  reminderTime?: string | null;
+};
 
 // The stored shape: item key → done boolean. Missing = not done.
 export type PrejobCheck = Record<string, boolean>;

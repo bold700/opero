@@ -26,6 +26,33 @@ export type ProjectOption = {
   name?: string;
 };
 
+export type ContactPersonOption = {
+  id: string;
+  customerId: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  notes?: string;
+};
+
+export type ContactPersonInput = {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  notes?: string;
+};
+
+export type DuplicateContact = {
+  contact: ContactPersonOption;
+  customer: { id: string; name: string };
+  matchedFields: ("email" | "phone")[];
+};
+
 // Customer picker for the werkbon-create flow. The /customers endpoint is
 // cursor-paginated; drain all pages so the dropdown has the full in-scope set.
 export function getCustomers(): Promise<CustomerOption[]> {
@@ -47,6 +74,47 @@ export function createCustomerLocation(
   return api.post<LocationOption>(`/customers/${customerId}/locations`, input);
 }
 
+export function getCustomerContacts(customerId: string): Promise<ContactPersonOption[]> {
+  return api.get<ContactPersonOption[]>(`/customers/${customerId}/contacts`);
+}
+
+export function checkDuplicateContact(
+  customerId: string,
+  input: Pick<ContactPersonInput, "email" | "phone">,
+): Promise<DuplicateContact | null> {
+  return api
+    .post<{ duplicate: DuplicateContact | null }>(
+      `/customers/${customerId}/contacts/check-duplicate`,
+      input,
+    )
+    .then((result) => result.duplicate);
+}
+
+export function createCustomerContact(
+  customerId: string,
+  input: ContactPersonInput,
+): Promise<ContactPersonOption> {
+  return api.post<ContactPersonOption>(`/customers/${customerId}/contacts`, input);
+}
+
+export function linkCustomerContact(
+  customerId: string,
+  contactId: string,
+): Promise<ContactPersonOption> {
+  return api.post<ContactPersonOption>(
+    `/customers/${customerId}/contacts/${contactId}/link`,
+    {},
+  );
+}
+
+export function getProjectContacts(
+  projectId: string,
+): Promise<{ id: string }[]> {
+  return api
+    .get<{ contacts: { id: string }[] }>(`/projects/${projectId}`)
+    .then((project) => project.contacts);
+}
+
 // The projects endpoint is cursor-paginated; drain all pages (this is a picker
 // data source that needs the full in-scope set), then filter to the customer.
 export async function getProjectsForCustomer(
@@ -64,6 +132,7 @@ export function createProject(input: {
   /** The client's own order/PO number. Omitted when blank. */
   referenceNumber?: string;
   locationId?: string;
+  contactIds?: string[];
 }): Promise<{ id: string }> {
   return api.post<{ id: string }>("/projects", input);
 }
@@ -73,10 +142,11 @@ export function createProject(input: {
 // description on the printed sheet.
 export function createWorkOrder(
   projectId: string,
-  options: { title?: string; description?: string } = {},
+  options: { contactPersonIds: string[]; title?: string; description?: string },
 ): Promise<{ id: string }> {
   return api.post<{ id: string }>("/work-orders", {
     projectId,
+    contactPersonIds: options.contactPersonIds,
     ...(options.title ? { title: options.title } : {}),
     ...(options.description ? { description: options.description } : {}),
   });

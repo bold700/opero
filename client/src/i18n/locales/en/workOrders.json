@@ -3,17 +3,27 @@
   "counts": {
     "total": "Total",
     "open": "Open",
-    "onTheWay": "On the way",
-    "urgent": "Urgent",
-    "done": "Done"
+    "planned": "Planned",
+    "released": "Released",
+    "inProgress": "In progress",
+    "readyForReview": "Ready for review",
+    "approved": "Approved",
+    "readyToInvoice": "Ready to invoice",
+    "invoiced": "Invoiced",
+    "completed": "Completed"
   },
   "filters": {
     "label": "Filter",
     "all": "All",
     "open": "Open",
-    "onTheWay": "On the way",
-    "urgent": "Urgent",
-    "done": "Done"
+    "planned": "Planned",
+    "released": "Released",
+    "inProgress": "In progress",
+    "readyForReview": "Ready for review",
+    "approved": "Approved",
+    "readyToInvoice": "Ready to invoice",
+    "invoiced": "Invoiced",
+    "completed": "Completed"
   },
   "filterBar": {
     "toggle": "Filters",
@@ -27,10 +37,14 @@
   },
   "status": {
     "open": "Open",
-    "onTheWay": "On the way",
-    "urgent": "Urgent",
-    "done": "Done",
-    "notDispatched": "Not dispatched"
+    "planned": "Planned",
+    "released": "Released",
+    "inProgress": "In progress",
+    "readyForReview": "Ready for review",
+    "approved": "Approved",
+    "readyToInvoice": "Ready to invoice",
+    "invoiced": "Invoiced",
+    "completed": "Completed"
   },
   "actions": {
     "searchPlaceholder": "Search by number or customer...",
@@ -38,6 +52,7 @@
   },
   "table": {
     "number": "Work order #",
+    "name": "Work order name",
     "customer": "Customer",
     "location": "Location",
     "workType": "Work type",
@@ -59,6 +74,18 @@
     "projectHelperPickCustomer": "Choose a customer first",
     "projectHelper": "Choose a project or create a new one",
     "projectsLoadError": "Could not load projects",
+    "contactLabel": "Contacts for this work order",
+    "contactEmpty": "No contact persons yet. Create one directly below.",
+    "contactOptional": "Optional — you can select multiple contacts.",
+    "newContact": "+ New contact person",
+    "projectContact": "linked to project",
+    "contactCreateError": "Could not create the contact person",
+    "contactDuplicate": "This {{fields}} is already used by {{name}} at {{customer}}. Select that existing contact to prevent duplicates.",
+    "contactDuplicateAnd": "and",
+    "contactDuplicateField": {
+      "email": "email address",
+      "phone": "phone number"
+    },
     "newProject": "+ New project",
     "newProjectSection": "New project",
     "projectNameLabel": "Project name",

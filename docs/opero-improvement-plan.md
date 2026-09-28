@@ -3,6 +3,7 @@
 Status: local implementation in progress
 Owner: company-owned Opero repository
 Review model: Kevin reviews pull requests before production merge
+Delivery and billing record: [development worklog](./development-worklog.md)
 
 ## Progress snapshot â€” 25 September 2026
 

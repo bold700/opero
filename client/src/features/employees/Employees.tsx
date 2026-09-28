@@ -33,7 +33,7 @@ import {
   resendInvite,
   disableUser,
   enableUser,
-  updateUserRole,
+  updateUserRoles,
   type InviteInput,
   type StaffRole,
 } from "../users/api";
@@ -65,7 +65,11 @@ export function Employees() {
   // An employee with no login has nothing to outrank, so anyone managing
   // records may delete them.
   const canDelete = (e: EmployeeRow) =>
-    canManage && (!e.account || canActOnAccount(role, e.account.role));
+    canManage &&
+    (!e.account ||
+      (e.account.roles?.length ? e.account.roles : [e.account.role]).every((accountRole) =>
+        canActOnAccount(role, accountRole),
+      ));
 
   const [activeFilter, setActiveFilter] = useState<EmployeeFilter>("all");
   const [search, setSearch] = useState("");
@@ -126,7 +130,7 @@ export function Employees() {
   // the picker actually moved. The record and the login live behind different
   // endpoints, so this commits them in sequence: the employee first (it is what
   // the dialog is nominally about), then the level.
-  const handleSubmit = async (input: EmployeeInput, accessRole?: StaffRole) => {
+  const handleSubmit = async (input: EmployeeInput, accessRoles?: StaffRole[]) => {
     setBusy(true);
     setFormError(null);
     try {
@@ -138,9 +142,9 @@ export function Employees() {
       // The two writes can't be one transaction. If the level change fails, the
       // record edit still stands — so keep the dialog OPEN and report it there
       // rather than closing on a toast that would imply everything saved.
-      if (accessRole && editing?.account) {
+      if (accessRoles && editing?.account) {
         try {
-          await updateUserRole(editing.account.userId, accessRole);
+          await updateUserRoles(editing.account.userId, accessRoles);
         } catch (roleErr) {
           setFormError(
             roleErr instanceof Error ? roleErr.message : t("users.toast.actionError"),

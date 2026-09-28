@@ -4,6 +4,7 @@ import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, NotFound } from "../../lib/httpError.js";
 import { audit } from "../../lib/audit.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
+import { recomputeWorkOrderStatus } from "../work-orders/status.js";
 
 export const invoicesRouter = Router();
 
@@ -118,6 +119,7 @@ invoicesRouter.post(
         },
       });
       await audit(tx, user, "invoice.draft", "invoice", inv.id, totals);
+      await recomputeWorkOrderStatus(tx, workOrder.id);
       return inv;
     });
     res.json(invoiceDto(updated));
@@ -147,6 +149,7 @@ invoicesRouter.post(
         },
       });
       await audit(tx, user, "invoice.send", "invoice", inv.id);
+      await recomputeWorkOrderStatus(tx, workOrder.id);
       return inv;
     });
     res.json(invoiceDto(updated));
@@ -173,6 +176,7 @@ invoicesRouter.post(
         },
       });
       await audit(tx, user, "invoice.paid", "invoice", inv.id);
+      await recomputeWorkOrderStatus(tx, workOrder.id);
       return inv;
     });
     res.json(invoiceDto(updated));

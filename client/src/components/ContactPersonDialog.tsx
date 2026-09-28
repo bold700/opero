@@ -10,7 +10,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { ResponsiveDialog } from "./ResponsiveDialog";
 import { useForm } from "../lib/useForm";
-import { required, email, phone } from "../lib/validation";
+import { email, phone } from "../lib/validation";
 
 export type ContactPersonDraft = {
   firstName: string;
@@ -30,15 +30,11 @@ const EMPTY: ContactPersonDraft = {
   notes: "",
 };
 
-// Same validators as the customer dialog: required + email format, plus a
-// phone format. Phone is optional: an empty value passes, a non-empty value
-// must look like a phone number. Errors show per field once touched; Save
-// also surfaces them all (touchAll). The shared zod schema enforces the same
-// rules server-side.
+// Every field is optional because the office may initially know only a name,
+// phone number, or email address. Filled contact fields still need a valid
+// format. The shared zod schema enforces the same rules server-side.
 const RULES = {
-  firstName: [required],
-  lastName: [required],
-  email: [required, email],
+  email: [email],
   phone: [phone],
 };
 
@@ -50,6 +46,7 @@ export function ContactPersonDialog({
   initial,
   busy,
   error,
+  errorAction,
   onClose,
   onSave,
 }: {
@@ -57,6 +54,7 @@ export function ContactPersonDialog({
   initial?: ContactPersonDraft | null;
   busy: boolean;
   error?: string | null;
+  errorAction?: { label: string; onClick: () => void };
   onClose: () => void;
   onSave: (draft: ContactPersonDraft) => void;
 }) {
@@ -91,7 +89,20 @@ export function ContactPersonDialog({
       <DialogTitle sx={{ fontWeight: 700 }}>{title}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          {error ? <Alert severity="error">{error}</Alert> : null}
+          {error ? (
+            <Alert
+              severity="warning"
+              action={
+                errorAction ? (
+                  <Button color="inherit" size="small" onClick={errorAction.onClick} disabled={busy}>
+                    {errorAction.label}
+                  </Button>
+                ) : undefined
+              }
+            >
+              {error}
+            </Alert>
+          ) : null}
           <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
             <TextField
               label={t("customers.contacts.firstName")}
@@ -99,7 +110,6 @@ export function ContactPersonDialog({
               onChange={setField("firstName")}
               onBlur={onBlur("firstName")}
               disabled={busy}
-              required
               autoFocus
               size="small"
               fullWidth
@@ -111,7 +121,6 @@ export function ContactPersonDialog({
               onChange={setField("lastName")}
               onBlur={onBlur("lastName")}
               disabled={busy}
-              required
               size="small"
               fullWidth
               {...err("lastName")}
@@ -132,7 +141,6 @@ export function ContactPersonDialog({
             onChange={setField("email")}
             onBlur={onBlur("email")}
             disabled={busy}
-            required
             size="small"
             fullWidth
             {...err("email")}

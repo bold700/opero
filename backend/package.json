@@ -13,7 +13,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "org:set-slug": "tsx src/db/set-organization-slug.ts",
+    "storage:import": "tsx src/db/import-storage-directory.ts"
   },
   "prisma": {
     "seed": "tsx src/db/seed.ts"

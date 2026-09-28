@@ -1,5 +1,10 @@
 {
   "title": "Customers",
+  "view": {
+    "label": "View",
+    "customers": "Customers",
+    "contacts": "Contact persons"
+  },
   "filters": {
     "label": "Filter",
     "all": "All",
@@ -12,6 +17,7 @@
   },
   "actions": {
     "searchPlaceholder": "Search by name or city...",
+    "searchContactsPlaceholder": "Search contact or customer...",
     "newCustomer": "New customer",
     "import": "Import"
   },
@@ -58,6 +64,8 @@
       "resend": "Resend invitation",
       "needsEmail": "Add an email address first to invite this customer.",
       "role": "Access level",
+      "roles": "Account roles",
+      "rolesHint": "Choose one or more roles.",
       "email": "Email",
       "activatedAt": "Active since",
       "disable": "Disable",
@@ -84,15 +92,27 @@
     "add": "Add contact",
     "empty": "No contact persons yet.",
     "role": "Role",
+    "linkExisting": "Link contact",
+    "linked": "Existing contact linked to this customer",
     "email": "Email address",
     "phone": "Phone number",
-    "deleteTitle": "Delete contact person?",
-    "deleteBody": "Delete {{name}}? Projects that reference this contact keep their own copy.",
+    "deleteTitle": "Remove contact from this customer?",
+    "deleteBody": "{{name}} will be removed from this customer. Links with other customers remain.",
     "newTitle": "New contact",
     "editTitle": "Edit contact",
     "firstName": "First name",
     "lastName": "Last name",
-    "notes": "Notes"
+    "notes": "Notes",
+    "customer": "Customer",
+    "projects": "Projects",
+    "overviewEmpty": "No contact persons found.",
+    "unnamed": "Name not known yet",
+    "duplicate": "{{fields}} is already used by {{name}} at {{customer}}. Select that contact or change the details.",
+    "duplicateAnd": "and",
+    "duplicateField": {
+      "email": "This email address",
+      "phone": "This phone number"
+    }
   },
   "detail": {
     "infoTitle": "Customer details",

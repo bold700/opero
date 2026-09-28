@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -48,6 +48,36 @@ function activityText(t: TFunc, a: ActivityEntry): string {
   return t(`activity.${a.messageKey}`, params);
 }
 
+function commentContent(a: ActivityEntry): ReactNode {
+  const body = a.body ?? "";
+  const rawMentions = Array.isArray(a.params?.mentions) ? a.params.mentions : [];
+  const names = rawMentions
+    .map((mention) =>
+      typeof mention === "object" && mention !== null && "name" in mention
+        ? String(mention.name)
+        : "",
+    )
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  if (names.length === 0) return body;
+
+  const escaped = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const mentionPattern = new RegExp(`(@(?:${escaped.join("|")}))`, "g");
+  return body.split(mentionPattern).map((part, index) =>
+    part.startsWith("@") && names.includes(part.slice(1)) ? (
+      <Box
+        component="span"
+        key={`${part}-${index}`}
+        sx={{ color: "primary.main", fontWeight: 700 }}
+      >
+        {part}
+      </Box>
+    ) : (
+      part
+    ),
+  );
+}
+
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("nl-NL", {
     day: "numeric",
@@ -63,12 +93,15 @@ export function ActivityPanel({
   activity,
   bare = false,
   onAddComment,
+  emptyText,
 }: {
   activity: ActivityEntry[];
   /** Rendered inside the sheet, which already supplies the card and the title. */
   bare?: boolean;
   /** When set, a comment composer renders above the feed. */
   onAddComment?: (body: string) => Promise<void>;
+  /** Override for a context-specific empty state, such as the Notes sheet. */
+  emptyText?: string;
 }) {
   const { t } = useTranslation();
   const [comment, setComment] = useState("");
@@ -124,7 +157,7 @@ export function ActivityPanel({
   const body =
     rows.length === 0 ? (
       <Box sx={{ px, py: 4, color: "text.secondary" }}>
-        {t("activity.empty")}
+        {emptyText ?? t("activity.empty")}
       </Box>
     ) : (
       // On mobile the card GROWS and the page scrolls it (no scroll-within-scroll);
@@ -141,7 +174,9 @@ export function ActivityPanel({
             key={a.id}
             sx={{ px, py: 1.5, borderBottom: `1px solid ${HAIRLINE}`, "&:last-child": { borderBottom: 0 } }}
           >
-            <Typography variant="body2">{activityText(t, a)}</Typography>
+            <Typography variant="body2">
+              {a.type === "comment" ? commentContent(a) : activityText(t, a)}
+            </Typography>
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
               {a.userName ? `${a.userName} · ` : ""}
               {formatDateTime(a.createdAt)}

@@ -8,6 +8,8 @@ import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import {
@@ -25,6 +27,7 @@ import {
 } from "@dnd-kit/sortable";
 import { GroupLabel } from "./GroupLabel";
 import { SortableRow } from "../../../components/SortableRow";
+import { SPACING } from "../../../theme/tokens";
 import {
   getPrejobItems,
   createPrejobItem,
@@ -130,7 +133,8 @@ export function PrejobChecklistForm() {
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 1,
+                  gap: SPACING.itemGap,
+                  flexWrap: { xs: "wrap", md: "nowrap" },
                 }}
               >
                 <TextField
@@ -142,7 +146,44 @@ export function PrejobChecklistForm() {
                     const v = e.target.value.trim();
                     if (v && v !== item.label) void run(() => updatePrejobItem(item.id, { label: v }));
                   }}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: 1, minWidth: { xs: "100%", md: 240 } }}
+                />
+                <TextField
+                  type="time"
+                  size="small"
+                  label={t("settings.prejobChecklist.reminderTime")}
+                  defaultValue={item.reminderTime ?? "14:00"}
+                  key={`${item.id}-${item.reminderTime ?? "14:00"}`}
+                  disabled={busy || !item.reminderEnabled}
+                  onBlur={(e) => {
+                    if (e.target.value && e.target.value !== item.reminderTime) {
+                      void run(() =>
+                        updatePrejobItem(item.id, { reminderTime: e.target.value }),
+                      );
+                    }
+                  }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: { xs: 150, md: 135 } }}
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={item.reminderEnabled}
+                      disabled={busy}
+                      onChange={(e) =>
+                        void run(() =>
+                          updatePrejobItem(item.id, {
+                            reminderEnabled: e.target.checked,
+                            ...(e.target.checked && !item.reminderTime
+                              ? { reminderTime: "14:00" }
+                              : {}),
+                          }),
+                        )
+                      }
+                    />
+                  }
+                  label={t("settings.prejobChecklist.notification")}
+                  sx={{ mr: 0 }}
                 />
                 {dragHandle ?? null}
                 <IconButton size="small" color="error" disabled={busy} onClick={() => void run(() => deletePrejobItem(item.id))} aria-label={t("settings.prejobChecklist.remove")}>
@@ -154,7 +195,7 @@ export function PrejobChecklistForm() {
             return canDrag ? (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.itemGap }}>
                     {items.map((item) => (
                       <SortableRow key={item.id} id={item.id} ariaLabel={t("settings.prejobChecklist.reorderAria")}>
                         {(dragHandle) => renderItem(item, dragHandle)}
@@ -164,7 +205,7 @@ export function PrejobChecklistForm() {
                 </SortableContext>
               </DndContext>
             ) : (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.itemGap }}>
                 {items.map((item) => (
                   <Box key={item.id}>{renderItem(item)}</Box>
                 ))}

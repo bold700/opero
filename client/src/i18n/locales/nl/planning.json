@@ -14,6 +14,7 @@
     "day": "Dag",
     "week": "Week",
     "month": "Maand",
+    "agenda": "Agenda",
     "list": "Lijst"
   },
   "schedule": {
@@ -26,6 +27,7 @@
     "endTime": "Eindtijd",
     "noTime": "Geen tijd",
     "pickStartFirst": "Kies eerst een starttijd",
+    "endAfterStart": "De eindtijd moet na de starttijd liggen",
     "dateInPast": "Datum mag niet in het verleden liggen",
     "workOrder": "Werkbon",
     "away": "afwezig",
@@ -42,5 +44,15 @@
     "removeError": "Verwijderen mislukt"
   },
   "view": "Weergave",
+  "period": "Periode",
+  "display": "Weergave",
+  "timeline": {
+    "today": "Vandaag",
+    "previousWeek": "Vorige week",
+    "nextWeek": "Volgende week",
+    "previousPeriod": "Vorige periode",
+    "nextPeriod": "Volgende periode",
+    "addOnDate": "Afspraak toevoegen op {{date}}"
+  },
   "spanDay": "Dag {{day}} van {{total}}"
 }

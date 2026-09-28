@@ -6,7 +6,7 @@ import { accountDto, accountInclude } from "../users/dto.js";
 // The login account linked to this employee. Shared with the customers module
 // so both screens describe an account identically.
 export { accountDto };
-type LinkedUser = Pick<User, "id" | "email" | "role" | "status" | "activatedAt">;
+type LinkedUser = Pick<User, "id" | "email" | "role" | "roles" | "status" | "activatedAt">;
 
 export function employeeDto(e: Employee & { users?: LinkedUser[] }) {
   return {

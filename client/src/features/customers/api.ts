@@ -130,8 +130,39 @@ export type ContactPersonInput = {
   notes?: string;
 };
 
+export type ContactPersonOverview = ContactPerson & {
+  customer: { id: string; name: string };
+  customers: { id: string; name: string }[];
+  projects: { id: string; projectNumber: string; name?: string }[];
+};
+
+export type DuplicateContact = {
+  contact: ContactPerson;
+  customer: { id: string; name: string };
+  matchedFields: ("email" | "phone")[];
+};
+
+export function getContactPersonsPage(opts: {
+  cursor?: string;
+  search?: string;
+}): Promise<Page<ContactPersonOverview>> {
+  return api.getPage<ContactPersonOverview>("/customers/contacts", opts);
+}
+
 export function getContacts(customerId: string): Promise<ContactPerson[]> {
   return api.get<ContactPerson[]>(`/customers/${customerId}/contacts`);
+}
+
+export function checkDuplicateContact(
+  customerId: string,
+  input: Pick<ContactPersonInput, "email" | "phone"> & { excludeId?: string },
+): Promise<DuplicateContact | null> {
+  return api
+    .post<{ duplicate: DuplicateContact | null }>(
+      `/customers/${customerId}/contacts/check-duplicate`,
+      input,
+    )
+    .then((result) => result.duplicate);
 }
 
 export function createContact(
@@ -139,6 +170,10 @@ export function createContact(
   input: ContactPersonInput,
 ): Promise<ContactPerson> {
   return api.post<ContactPerson>(`/customers/${customerId}/contacts`, input);
+}
+
+export function linkContact(customerId: string, contactId: string): Promise<ContactPerson> {
+  return api.post<ContactPerson>(`/customers/${customerId}/contacts/${contactId}/link`, {});
 }
 
 export function updateContact(

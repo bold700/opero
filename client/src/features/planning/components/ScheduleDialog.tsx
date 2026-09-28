@@ -20,7 +20,7 @@ import type {
 import { getAssignableEmployees } from "../api";
 import { useIsMobile } from "../../../lib/useIsMobile";
 
-import { TIME_SLOTS, suggestEndTime } from "../../../lib/timeSlots";
+import { suggestEndTime } from "../../../lib/timeSlots";
 
 // Schedule a werkbon on the calendar (or reschedule an existing one). When
 // `lockedWorkOrder` is set we're editing that entry (werkbon not changeable);
@@ -110,11 +110,6 @@ export function ScheduleDialog({
     }
   };
 
-  // End-time choices: only slots strictly after the chosen start.
-  const endOptions = startTime
-    ? TIME_SLOTS.filter((s) => s > startTime)
-    : TIME_SLOTS;
-
   // Availability for the chosen day. Refetched when the date changes, because
   // "who is available" is a property of the DAY, not of the dialog opening —
   // the `employees` prop is the undated list.
@@ -153,6 +148,7 @@ export function ScheduleDialog({
   // Picking someone who is away is refused by the backend, so block it here
   // too rather than letting the office submit into a guaranteed error.
   const leaderAbsence = teamLeaderId ? unavailableById.get(teamLeaderId) : undefined;
+  const timeRangeInvalid = Boolean(startTime && endTime && endTime <= startTime);
 
   // Rescheduling needs an actual change; creating only needs the required
   // fields (there is nothing to diff a brand-new slot against).
@@ -164,6 +160,7 @@ export function ScheduleDialog({
     Boolean(workOrderId && date) &&
     !dateInPast &&
     !leaderAbsence &&
+    !timeRangeInvalid &&
     !busy &&
     (!lockedWorkOrder || dirty);
 
@@ -251,28 +248,33 @@ export function ScheduleDialog({
           />
 
           <Box sx={{ display: "flex", gap: 2 }}>
-            <SelectField
+            <TextField
+              type="time"
               label={t("planning.schedule.startTime")}
               value={startTime}
-              onChange={onStartChange}
+              onChange={(event) => onStartChange(event.target.value)}
               disabled={busy}
+              size="small"
               sx={{ flex: 1 }}
-              options={[
-                { value: "", label: t("planning.schedule.noTime") },
-                ...TIME_SLOTS.map((s) => ({ value: s, label: s })),
-              ]}
+              slotProps={{ inputLabel: { shrink: true } }}
             />
-            <SelectField
+            <TextField
+              type="time"
               label={t("planning.schedule.endTime")}
               value={endTime}
-              onChange={setEndTime}
+              onChange={(event) => setEndTime(event.target.value)}
               disabled={busy || !startTime}
+              size="small"
               sx={{ flex: 1 }}
-              helperText={!startTime ? t("planning.schedule.pickStartFirst") : undefined}
-              options={[
-                { value: "", label: t("planning.schedule.noTime") },
-                ...endOptions.map((s) => ({ value: s, label: s })),
-              ]}
+              error={timeRangeInvalid}
+              helperText={
+                !startTime
+                  ? t("planning.schedule.pickStartFirst")
+                  : timeRangeInvalid
+                    ? t("planning.schedule.endAfterStart")
+                    : undefined
+              }
+              slotProps={{ inputLabel: { shrink: true } }}
             />
           </Box>
         </Box>

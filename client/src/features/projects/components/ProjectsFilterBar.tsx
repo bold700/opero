@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { projectStatusIds } from "@opero/shared";
+import { projectLifecycleStatusIds } from "@opero/shared";
 import { FilterSelect } from "../../../components/FilterSelect";
 import Box from "@mui/material/Box";
 import { SPACING } from "../../../theme/tokens";
@@ -18,6 +18,9 @@ export function ProjectsFilterBar({
   onVisibilityChange: (value: ProjectVisibility) => void;
 }) {
   const { t } = useTranslation();
+  const statusOptions = projectLifecycleStatusIds.filter(
+    (statusId) => visibility === "all" || statusId !== "history",
+  );
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: SPACING.itemGap }}>
       <FilterSelect
@@ -30,15 +33,20 @@ export function ProjectsFilterBar({
           { value: "all", label: t("projects.filters.allProjects") },
         ]}
       />
-      <FilterSelect
-        value={status}
-        onChange={onStatusChange}
-        ariaLabel={t("projects.filters.statusLabel")}
-        options={[
-          { value: "", label: t("projects.filters.allStatuses") },
-          ...projectStatusIds.map((s) => ({ value: s, label: t(`projects.status.${s}`) })),
-        ]}
-      />
+      {visibility !== "archived" ? (
+        <FilterSelect
+          value={status}
+          onChange={onStatusChange}
+          ariaLabel={t("projects.filters.statusLabel")}
+          options={[
+            { value: "", label: t("projects.filters.allStatuses") },
+            ...statusOptions.map((s) => ({
+              value: s,
+              label: t(`projects.lifecycleStatus.${s}`),
+            })),
+          ]}
+        />
+      ) : null}
     </Box>
   );
 }

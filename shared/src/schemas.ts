@@ -163,10 +163,19 @@ export type InviteUserRequest = z.infer<typeof inviteUserSchema>;
 // `client` is deliberately absent. It isn't a level you move to or from — it
 // pairs structurally with `customerId`, and a client login carrying an
 // `employeeId` would break the one-record-per-login invariant.
+const staffUserRoleSchema = z.enum(["admin", "office", "foreman", "technician"]);
+
 export const updateUserRoleSchema = z.object({
-  role: z.enum(["admin", "office", "foreman", "technician"]),
+  roles: z.array(staffUserRoleSchema).min(1).optional(),
+  // Backward-compatible singular input for existing integrations.
+  role: staffUserRoleSchema.optional(),
+}).refine((value) => Boolean(value.roles?.length || value.role), {
+  message: "At least one role is required",
 });
 export type UpdateUserRoleRequest = z.infer<typeof updateUserRoleSchema>;
+
+export const switchUserRoleSchema = z.object({ role: staffUserRoleSchema });
+export type SwitchUserRoleRequest = z.infer<typeof switchUserRoleSchema>;
 
 export const enable2faSchema = z.object({ code: z.string().min(6).max(10) });
 export type Enable2faRequest = z.infer<typeof enable2faSchema>;
@@ -184,6 +193,7 @@ export const authUserSchema = z.object({
   email: z.string(),
   name: z.string(),
   role: userRoleSchema,
+  roles: z.array(userRoleSchema),
   customerId: z.string().nullable(),
   employeeId: z.string().nullable(),
   totpEnabled: z.boolean(),
@@ -227,11 +237,9 @@ export const contactPersonFieldsSchema = z.object({
   role: z.string().optional(),
   notes: z.string().optional(),
 });
-// Create requires some name; PATCH uses contactPersonFieldsSchema.partial().
-export const contactPersonSchema = contactPersonFieldsSchema.refine(
-  (v) => Boolean(v.firstName?.trim() || v.lastName?.trim() || v.name?.trim()),
-  { message: "A name is required" },
-);
+// All contact fields are optional. In practice the office often knows only a
+// phone number at first and can complete the record later.
+export const contactPersonSchema = contactPersonFieldsSchema;
 export type ContactPersonRequest = z.infer<typeof contactPersonSchema>;
 
 export const locationSchema = z.object({
@@ -252,6 +260,12 @@ export type CreatePrejobItemRequest = z.infer<typeof createPrejobItemSchema>;
 export const updatePrejobItemSchema = z.object({
   label: z.string().min(1).optional(),
   active: z.boolean().optional(),
+  reminderEnabled: z.boolean().optional(),
+  reminderTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM")
+    .nullable()
+    .optional(),
 });
 export type UpdatePrejobItemRequest = z.infer<typeof updatePrejobItemSchema>;
 

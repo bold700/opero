@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import listPlugin from "@fullcalendar/list";
 import interactionPlugin, {
   type DateClickArg,
 } from "@fullcalendar/interaction";
@@ -16,12 +15,16 @@ import type {
 import LinkIcon from "@mui/icons-material/Link";
 import { Card } from "../../../components/Card";
 import type { PlanningEntry } from "../api";
+import { TimelineView } from "./TimelineView";
 
-export type CalendarViewName =
-  | "dayGridMonth"
-  | "timeGridWeek"
-  | "timeGridDay"
-  | "listWeek";
+export type PlanningPeriod = "day" | "week" | "month";
+export type PlanningDisplay = "agenda" | "list";
+
+const AGENDA_VIEW_BY_PERIOD: Record<PlanningPeriod, string> = {
+  day: "timeGridDay",
+  week: "timeGridWeek",
+  month: "dayGridMonth",
+};
 
 // Default slot for a job scheduled on a date with no time yet — so it still
 // appears in the time grid (we don't use an all-day row).
@@ -60,6 +63,13 @@ function daysBetween(fromIso: string, toIso: string): number {
   const from = new Date(fy, fm - 1, fd).getTime();
   const to = new Date(ty, tm - 1, td).getTime();
   return Math.round((to - from) / 86_400_000);
+}
+
+function toLocalIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 // Backstop for a typo'd end date years out — don't render hundreds of chips.
@@ -116,30 +126,53 @@ function buildEvents(entries: PlanningEntry[]): EventInput[] {
 // The parent owns data (events) + reacts to the visible window via onDatesSet.
 export function CalendarView({
   events,
-  view,
+  period,
+  display,
+  anchorDate,
   locale,
   editable,
   onDatesSet,
+  onAnchorDateChange,
   onEventClick,
   onDateClick,
   onEventDrop,
 }: {
   events: PlanningEntry[];
-  view: CalendarViewName;
+  period: PlanningPeriod;
+  display: PlanningDisplay;
+  anchorDate: string;
   locale: string;
   editable: boolean;
   onDatesSet: (start: string, end: string) => void;
+  onAnchorDateChange: (dateIso: string) => void;
   onEventClick: (entry: PlanningEntry) => void;
   onDateClick: (dateIso: string) => void;
   onEventDrop: (entry: PlanningEntry, newDate: string, newStart?: string, newEnd?: string) => void;
 }) {
   const { t } = useTranslation();
   const ref = useRef<FullCalendar>(null);
+  const agendaView = AGENDA_VIEW_BY_PERIOD[period];
 
   // Toolbar toggle changes `view` → tell FullCalendar imperatively.
   useEffect(() => {
-    ref.current?.getApi().changeView(view);
-  }, [view]);
+    if (display !== "agenda") return;
+    ref.current?.getApi().changeView(agendaView, anchorDate);
+  }, [agendaView, anchorDate, display]);
+
+  if (display === "list") {
+    return (
+      <TimelineView
+        events={events}
+        period={period}
+        anchorDate={anchorDate}
+        locale={locale}
+        onDatesSet={onDatesSet}
+        onAnchorDateChange={onAnchorDateChange}
+        onEventClick={onEventClick}
+        onDateClick={onDateClick}
+      />
+    );
+  }
 
   return (
     <>
@@ -355,8 +388,9 @@ export function CalendarView({
     >
       <FullCalendar
         ref={ref}
-        plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-        initialView={view}
+        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        initialView={agendaView}
+        initialDate={anchorDate}
         // The page drives the view via the toolbar; hide FC's built-in switcher.
         headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
         locale={locale}
@@ -411,9 +445,10 @@ export function CalendarView({
           );
         }}
         events={buildEvents(events)}
-        datesSet={(arg: DatesSetArg) =>
-          onDatesSet(arg.startStr.slice(0, 10), arg.endStr.slice(0, 10))
-        }
+        datesSet={(arg: DatesSetArg) => {
+          onDatesSet(arg.startStr.slice(0, 10), arg.endStr.slice(0, 10));
+          onAnchorDateChange(toLocalIsoDate(arg.view.currentStart));
+        }}
         eventClick={(arg: EventClickArg) =>
           onEventClick(arg.event.extendedProps.entry as PlanningEntry)
         }

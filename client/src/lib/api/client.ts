@@ -1,4 +1,5 @@
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./tokens";
+import { tenantRequestHeaders } from "../tenant";
 
 // Base URL of the Express API. Override with VITE_API_URL in production.
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8787/api";
@@ -42,7 +43,7 @@ async function tryRefresh(): Promise<boolean> {
       try {
         const res = await fetch(`${API_URL}/auth/refresh`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...tenantRequestHeaders() },
           body: JSON.stringify({ refreshToken }),
         });
         if (!res.ok) return false;
@@ -60,7 +61,7 @@ async function tryRefresh(): Promise<boolean> {
 }
 
 async function doFetch(path: string, options: Options): Promise<Response> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = tenantRequestHeaders();
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (options.auth !== false) {
     const token = getAccessToken();
@@ -120,7 +121,7 @@ async function upload<T>(path: string, file: Blob, fields?: Record<string, strin
   };
 
   const send = () => {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = tenantRequestHeaders();
     const token = getAccessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return fetch(`${API_URL}${path}`, { method: "POST", headers, body: build() });
@@ -200,7 +201,7 @@ async function download(path: string): Promise<Blob> {
 
 async function downloadResponse(path: string): Promise<Response> {
   const send = () => {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = tenantRequestHeaders();
     const token = getAccessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return fetch(`${API_URL}${path}`, { headers });

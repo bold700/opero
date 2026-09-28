@@ -27,7 +27,11 @@ import {
 } from "./api";
 import { PlanningActions } from "./components/PlanningActions";
 import { DetailsPanel } from "./components/DetailsPanel";
-import { CalendarView, type CalendarViewName } from "./components/CalendarView";
+import {
+  CalendarView,
+  type PlanningDisplay,
+  type PlanningPeriod,
+} from "./components/CalendarView";
 import { ScheduleDialog } from "./components/ScheduleDialog";
 
 export function Planning() {
@@ -42,8 +46,10 @@ export function Planning() {
   // The view is user-selectable on EVERY screen size. On phones we default to the
   // day view (the most usable on a narrow screen) and offer the switcher as a
   // compact dropdown; desktop defaults to week with the full button toggle.
-  const [view, setView] = useState<CalendarViewName>(
-    isMobile ? "timeGridDay" : "timeGridWeek",
+  const [period, setPeriod] = useState<PlanningPeriod>(isMobile ? "day" : "week");
+  const [display, setDisplay] = useState<PlanningDisplay>("agenda");
+  const [anchorDate, setAnchorDate] = useState(
+    () => new Date().toLocaleDateString("en-CA"),
   );
   const [dateWindow, setDateWindow] = useState<{ from: string; to: string } | null>(null);
   const [entries, setEntries] = useState<PlanningEntry[]>([]);
@@ -91,6 +97,12 @@ export function Planning() {
   const refresh = () => {
     if (dateWindow) load(dateWindow.from, dateWindow.to);
   };
+
+  const handleDatesSet = useCallback((from: string, to: string) => {
+    setDateWindow((current) =>
+      current?.from === from && current.to === to ? current : { from, to },
+    );
+  }, []);
 
   const selected =
     entries.find((e) => `${e.workOrderId}-${e.date}` === selectedId) ?? null;
@@ -185,8 +197,10 @@ export function Planning() {
         title={t("planning.title")}
         actions={
           <PlanningActions
-            view={view}
-            onView={setView}
+            period={period}
+            display={display}
+            onPeriod={setPeriod}
+            onDisplay={setDisplay}
             onCreate={() => openCreate()}
             canCreate={canManage}
             compact={isMobile}
@@ -221,10 +235,13 @@ export function Planning() {
             ) : null}
             <CalendarView
               events={entries}
-              view={view}
+              period={period}
+              display={display}
+              anchorDate={anchorDate}
               locale={fcLocale}
               editable={canManage}
-              onDatesSet={(from, to) => setDateWindow({ from, to })}
+              onDatesSet={handleDatesSet}
+              onAnchorDateChange={setAnchorDate}
               onEventClick={(entry) => {
                 const id = `${entry.workOrderId}-${entry.date}`;
                 // Clicking the already-selected event deselects it.

@@ -83,3 +83,8 @@ S3-compatible object storage, and transactional email.
 
 The client reads `VITE_API_URL` to locate the API, defaulting to
 `http://localhost:8787/api` in development.
+
+Production ownership, customer subdomains, and the database/file handover are
+documented in [docs/production-hosting-and-migration.md](docs/production-hosting-and-migration.md).
+Use [docs/production-launch-checklist.md](docs/production-launch-checklist.md)
+for the account setup, migration, deployment, and acceptance run.

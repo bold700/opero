@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -7,7 +7,7 @@ import Alert from "@mui/material/Alert";
 import { PageLayout } from "../../components/PageLayout";
 import { FilterSelect } from "../../components/FilterSelect";
 import { useAuth } from "../../auth/AuthContext";
-import { isOffice, isStaff } from "@opero/shared";
+import { isOffice } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
 import { useDebounced } from "../../lib/useDebounced";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -30,20 +30,35 @@ import { CreateWorkOrderDialog } from "./components/CreateWorkOrderDialog";
 const EMPTY_COUNTS: WorkOrderCounts = {
   total: 0,
   open: 0,
-  on_the_way: 0,
-  urgent: 0,
-  done: 0,
+  planned: 0,
+  released: 0,
+  in_progress: 0,
+  ready_for_review: 0,
+  approved: 0,
+  ready_to_invoice: 0,
+  invoiced: 0,
+  completed: 0,
 };
 
 export function WorkOrders() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
   const { user } = useAuth();
   // Werkbon setup (customer + project) is an office task — admin only. Technicians
   // are assigned werkbons and fill them in on the detail screen; they don't create.
   const canCreate = isOffice(user?.role ?? "client");
 
-  const [activeFilter, setActiveFilter] = useState("all");
+  const statusFromUrl = searchParams.get("status");
+  const activeFilter =
+    FILTERS.find((filter) => filter.status === statusFromUrl)?.key ?? "all";
+  const setActiveFilter = (key: string) => {
+    const next = new URLSearchParams(searchParams);
+    const status = FILTERS.find((filter) => filter.key === key)?.status;
+    if (status) next.set("status", status);
+    else next.delete("status");
+    setSearchParams(next);
+  };
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -163,7 +178,6 @@ export function WorkOrders() {
         <WorkOrdersTable
           rows={items}
           onOpen={(id) => navigate(`/work-orders/${id}`)}
-          showDispatchState={isStaff(user?.role ?? "client")}
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}

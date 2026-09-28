@@ -23,10 +23,20 @@ function itemDto(i: {
   id: string;
   key: string;
   label: string;
+  reminderEnabled: boolean;
+  reminderTime: string | null;
   ordinal: number;
   active: boolean;
 }) {
-  return { id: i.id, key: i.key, label: i.label, ordinal: i.ordinal, active: i.active };
+  return {
+    id: i.id,
+    key: i.key,
+    label: i.label,
+    reminderEnabled: i.reminderEnabled,
+    reminderTime: i.reminderTime,
+    ordinal: i.ordinal,
+    active: i.active,
+  };
 }
 
 // Slugify a label into a stable key base: lowercase, ascii-ish, underscores.
@@ -103,16 +113,49 @@ prejobItemsRouter.patch(
     });
     if (!item) throw NotFound("Checklist item not found");
 
-    const data: { label?: string; active?: boolean } = {};
+    const data: {
+      label?: string;
+      active?: boolean;
+      reminderEnabled?: boolean;
+      reminderTime?: string | null;
+    } = {};
     if (input.label !== undefined) {
       const label = clampText(input.label).trim();
       if (!label) throw BadRequest("Label required");
       data.label = label;
     }
     if (input.active !== undefined) data.active = input.active;
+    if (input.reminderTime !== undefined) data.reminderTime = input.reminderTime;
+    if (input.reminderEnabled !== undefined) {
+      const effectiveTime = input.reminderTime ?? item.reminderTime;
+      if (input.reminderEnabled && !effectiveTime) {
+        throw BadRequest("Reminder time required when notifications are enabled");
+      }
+      data.reminderEnabled = input.reminderEnabled;
+    }
 
     const row = await prisma.$transaction(async (tx) => {
       const updated = await tx.prejobCheckItem.update({ where: { id: item.id }, data });
+      const reminderData = {
+        ...(input.reminderEnabled !== undefined
+          ? { reminderEnabled: input.reminderEnabled }
+          : {}),
+        ...(input.reminderTime !== undefined
+          ? { reminderTime: input.reminderTime }
+          : {}),
+      };
+      if (Object.keys(reminderData).length > 0) {
+        await tx.workOrderPrejobItem.updateMany({
+          where: {
+            key: item.key,
+            workOrder: {
+              signedAt: null,
+              project: { orgId: user.orgId, archived: false, deletedAt: null },
+            },
+          },
+          data: reminderData,
+        });
+      }
       await audit(tx, user, "prejobItem.update", "prejobCheckItem", item.id, data);
       return updated;
     });

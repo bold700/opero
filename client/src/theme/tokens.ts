@@ -38,6 +38,22 @@ export const PAGE_PADDING_RESPONSIVE = { xs: 2, md: SPACING.pagePadding } as con
 // icon buttons, and list items on small screens.
 export const TAP_TARGET = 44;
 
+// Small semantic marker used beside lifecycle phase labels.
+export const STATUS_DOT_SIZE = 10;
+
+export const PLANNING_TIMELINE = {
+  dayLabelWidth: 96,
+  minTrackWidth: 840,
+  eventHeight: 64,
+  eventMinWidth: 72,
+  eventGap: 4,
+  laneGap: 8,
+  rowPadding: 8,
+} as const;
+
+// Width of focused right-side detail panels on tablet and desktop.
+export const SIDE_SHEET_WIDTH = 560;
+
 // M3 lavender accents (selected/active states).
 export const LAVENDER = "#E8DEF8";
 export const LAVENDER_HOVER = "#E0D4F2";

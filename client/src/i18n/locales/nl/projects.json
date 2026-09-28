@@ -12,6 +12,16 @@
     "operations": "In uitvoering",
     "closing": "Afronding"
   },
+  "lifecycleStatus": {
+    "new": "Nieuw",
+    "work_preparation": "Werkvoorbereiding",
+    "scheduled": "Gepland",
+    "in_progress": "In uitvoering",
+    "ready_to_invoice": "Klaar voor facturatie",
+    "invoiced": "Gefactureerd",
+    "completed": "Afgerond",
+    "history": "Geschiedenis"
+  },
   "table": {
     "number": "Project #",
     "name": "Naam",

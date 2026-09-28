@@ -70,7 +70,9 @@ export function ProjectContactsSection({
       }
       options={contacts.map((c) => ({
         value: c.id,
-        label: c.role ? `${c.name} (${c.role})` : c.name,
+        label: c.role
+          ? `${c.name || t("customers.contacts.unnamed")} (${c.role})`
+          : c.name || t("customers.contacts.unnamed"),
       }))}
     />
   );

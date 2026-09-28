@@ -10,6 +10,10 @@ const envSchema = z.object({
   JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
   PORT: z.coerce.number().int().positive().default(8787),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  // Optional shared root for customer workspaces. With `example.com`, origins
+  // such as https://wdbisolatie.example.com are accepted and email links use
+  // the matching organization slug. Leave blank for a single-domain install.
+  TENANT_ROOT_DOMAIN: z.string().optional().default(""),
   // Public origin of the WEB app (the client). Every user-facing link we email
   // (invite, password reset, email verification) is built from this. The dev
   // default is only safe in dev — see the production refinement below, which

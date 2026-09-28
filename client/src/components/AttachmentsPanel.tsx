@@ -15,7 +15,8 @@ import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { Card } from "./Card";
 import { FileViewer } from "./FileViewer";
-import { HAIRLINE } from "../theme/tokens";
+import { HAIRLINE, RADIUS } from "../theme/tokens";
+import { useFileDrop } from "../lib/useFileDrop";
 
 // One attachment row as both the werkbon and the project DTO deliver it.
 export type AttachmentItem = {
@@ -53,7 +54,7 @@ export function AttachmentsPanel({
   title: string;
   emptyText: string;
   addLabel: string;
-  onUpload: (file: File) => void;
+  onUpload: (file: File) => void | Promise<unknown>;
   onDelete: (attachmentId: string) => void;
   /** When set (a pakbonnen list), every row gets a "received" checkbox. */
   receivedToggle?: {
@@ -72,11 +73,18 @@ export function AttachmentsPanel({
   const [viewing, setViewing] = useState<AttachmentItem | null>(null);
 
   const pick = () => inputRef.current?.click();
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) onUpload(file);
-    e.target.value = ""; // allow re-selecting the same file
+  const uploadFiles = async (files: File[]) => {
+    for (const file of files) await onUpload(file);
   };
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-selecting the same file
+    void uploadFiles(files);
+  };
+  const { isDragging, dropProps } = useFileDrop({
+    disabled: bare || !canWrite || busy,
+    onFiles: uploadFiles,
+  });
 
   const px = bare ? 0 : { xs: 2, md: 3 };
 
@@ -198,7 +206,15 @@ export function AttachmentsPanel({
     );
 
   return (
-    <Card noPadding>
+    <Card
+      noPadding
+      {...dropProps}
+      sx={{
+        outline: isDragging ? "2px dashed" : "none",
+        outlineColor: "primary.main",
+        borderRadius: `${RADIUS.card}px`,
+      }}
+    >
       <Box
         sx={{
           px: { xs: 2, md: 3 },
@@ -209,9 +225,16 @@ export function AttachmentsPanel({
           borderBottom: `1px solid ${HAIRLINE}`,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {title}
-        </Typography>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {title}
+          </Typography>
+          {canWrite ? (
+            <Typography variant="caption" color={isDragging ? "primary" : "text.secondary"}>
+              {isDragging ? t("common.upload.dropNow") : t("common.upload.dropHint")}
+            </Typography>
+          ) : null}
+        </Box>
         {canWrite ? (
           <>
             <Button

@@ -1,6 +1,14 @@
 import { Router } from "express";
 import type { Prisma } from "@prisma/client";
-import { statusForStage, canSeeAllProjects, projectStatusIds, type UserRole } from "@opero/shared";
+import {
+  statusForStage,
+  canSeeAllProjects,
+  deriveProjectLifecycleStatus,
+  projectLifecycleStatusIds,
+  type ProjectLifecycleStatus,
+  type ProjectLifecycleWorkOrder,
+  type UserRole,
+} from "@opero/shared";
 import { prisma } from "../../db/client.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { BadRequest, Forbidden, NotFound } from "../../lib/httpError.js";
@@ -18,6 +26,7 @@ import {
   activityDto,
   projectInclude,
   projectIncludeFor,
+  projectLifecycleSelect,
   type ProjectWithRelations,
 } from "./dto.js";
 
@@ -39,7 +48,10 @@ async function projectSummaryListFor(
   user: AuthUser,
   rows: (import("@prisma/client").Project & {
     _count?: { workOrders: number };
-    workOrders?: { value: number; urgency: string; signedAt: Date | null }[];
+    workOrders?: (ProjectLifecycleWorkOrder & {
+      value: number;
+      urgency: string;
+    })[];
   })[],
 ) {
   return rows.map((p) => projectSummaryDto(p, user.role as UserRole));
@@ -124,9 +136,16 @@ async function appendComment(
   user: AuthUser,
   projectId: string,
   text: string,
+  params?: Record<string, unknown>,
 ): Promise<void> {
   await tx.projectActivity.create({
-    data: { projectId, userId: user.id, type: "comment", body: text },
+    data: {
+      projectId,
+      userId: user.id,
+      type: "comment",
+      body: text,
+      params: (params ?? undefined) as Prisma.InputJsonValue | undefined,
+    },
   });
 }
 
@@ -135,7 +154,15 @@ async function appendComment(
 async function loadProjectForUser(user: AuthUser, id: string) {
   const project = await prisma.project.findFirst({
     where: projectScopeWhere(user, { id }),
-    include: { installers: { select: { id: true } } },
+    include: {
+      installers: { select: { id: true } },
+      workOrders: {
+        select: {
+          assignees: { select: { id: true } },
+          tasks: { select: { assigneeId: true } },
+        },
+      },
+    },
   });
   if (!project) throw NotFound("Project not found");
   return project;
@@ -181,21 +208,23 @@ projectsRouter.get(
         ],
       });
     }
-    // Optional list filters. Unknown values are ignored (not an error): a stale
-    // bookmark with an old status must not 500 the list.
-    const status = req.query.status;
-    if (
-      typeof status === "string" &&
-      (projectStatusIds as readonly string[]).includes(status)
-    ) {
-      filters.push({ status: status as (typeof projectStatusIds)[number] });
-    }
+    const lifecycleStatus =
+      typeof req.query.lifecycleStatus === "string" &&
+      (projectLifecycleStatusIds as readonly string[]).includes(
+        req.query.lifecycleStatus,
+      )
+        ? (req.query.lifecycleStatus as ProjectLifecycleStatus)
+        : undefined;
     const where =
       filters.length > 0
         ? projectScopeWhere(user, { AND: filters })
         : projectScopeWhere(user);
 
-    const page = await paginate(params, (args) =>
+    const queryPage = (args: {
+      take: number;
+      cursor?: { id: string };
+      skip?: number;
+    }) =>
       prisma.project.findMany({
         where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -204,11 +233,52 @@ projectsRouter.get(
           // Werkbon values → the project's value is their sum (per-werkbon billing).
           // value → the project's summed value; urgency+signedAt → the urgency
           // rollup (any unfinished urgent werkbon marks the project urgent).
-          workOrders: { select: { value: true, urgency: true, signedAt: true } },
+          workOrders: {
+            select: {
+              value: true,
+              urgency: true,
+              ...projectLifecycleSelect,
+            },
+          },
         },
         ...args,
-      }),
-    );
+      });
+
+    // A lifecycle filter cannot use the legacy stored Project.status. Scan in
+    // normal cursor order and keep derived matches until the response page is
+    // full. The cursor remains the last emitted row, so sparse matches do not
+    // get skipped between pages.
+    const page = lifecycleStatus
+      ? await (async () => {
+          const matches: Awaited<ReturnType<typeof queryPage>> = [];
+          let cursor = params.cursor;
+          let exhausted = false;
+          while (matches.length <= params.limit && !exhausted) {
+            const batch = await queryPage({
+              take: 100,
+              ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            });
+            exhausted = batch.length < 100;
+            if (batch.length === 0) break;
+            cursor = batch[batch.length - 1].id;
+            matches.push(
+              ...batch.filter(
+                (project) =>
+                  deriveProjectLifecycleStatus({
+                    archived: project.archived,
+                    workOrders: project.workOrders,
+                  }) === lifecycleStatus,
+              ),
+            );
+          }
+          const hasMore = matches.length > params.limit;
+          const items = hasMore ? matches.slice(0, params.limit) : matches;
+          return {
+            items,
+            nextCursor: hasMore ? items[items.length - 1].id : null,
+          };
+        })()
+      : await paginate(params, queryPage);
 
     const items = await projectSummaryListFor(user, page.items);
     res.json({ items, nextCursor: page.nextCursor });
@@ -306,7 +376,13 @@ projectsRouter.post(
     let contactIds: string[] = [];
     if (input.contactIds && input.contactIds.length > 0) {
       const found = await prisma.contactPerson.findMany({
-        where: { id: { in: input.contactIds }, customerId: customer.id },
+        where: {
+          id: { in: input.contactIds },
+          OR: [
+            { customerId: customer.id },
+            { sharedCustomers: { some: { id: customer.id } } },
+          ],
+        },
         select: { id: true },
       });
       if (found.length !== new Set(input.contactIds).size) {
@@ -431,7 +507,13 @@ projectsRouter.patch(
       // Contacts must belong to the project's (possibly newly set) customer.
       const customerId = input.customerId ?? existing.customerId;
       const found = await prisma.contactPerson.findMany({
-        where: { id: { in: input.contactIds }, customerId },
+        where: {
+          id: { in: input.contactIds },
+          OR: [
+            { customerId },
+            { sharedCustomers: { some: { id: customerId } } },
+          ],
+        },
         select: { id: true },
       });
       if (found.length !== new Set(input.contactIds).size) {
@@ -1017,6 +1099,49 @@ projectsRouter.post(
 // ACTIVITY + COMMENTS
 // =========================================================================
 
+// GET /:id/mentionable-users — active accounts that can currently open this
+// project. IDs are login-user IDs (not employee IDs), so a selected mention is
+// stable even when two employees share a first name.
+projectsRouter.get(
+  "/:id/mentionable-users",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const project = await loadProjectForUser(user, req.params.id);
+    const assignedEmployeeIds = new Set<string>([
+      ...project.installers.map((employee) => employee.id),
+      ...(project.teamLeaderId ? [project.teamLeaderId] : []),
+      ...(project.projectLeaderId ? [project.projectLeaderId] : []),
+      ...project.workOrders.flatMap((workOrder) => [
+        ...workOrder.assignees.map((employee) => employee.id),
+        ...workOrder.tasks.flatMap((task) => (task.assigneeId ? [task.assigneeId] : [])),
+      ]),
+    ]);
+
+    const accounts = await prisma.user.findMany({
+      where: { orgId: user.orgId, status: "active", id: { not: user.id } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        customerId: true,
+        employeeId: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    res.json(
+      accounts
+        .filter((account) => {
+          if (canSeeAllProjects(account.role)) return true;
+          if (account.role === "client") return account.customerId === project.customerId;
+          return Boolean(account.employeeId && assignedEmployeeIds.has(account.employeeId));
+        })
+        .map(({ id, name, email }) => ({ id, name, email })),
+    );
+  }),
+);
+
 // GET /:id/activity — visibility-checked, newest first.
 projectsRouter.get(
   "/:id/activity",
@@ -1038,7 +1163,7 @@ projectsRouter.post(
   "/:id/comments",
   asyncHandler(async (req, res) => {
     const user = req.user!;
-    const { body } = commentSchema.parse(req.body);
+    const { body, mentionUserIds = [], workOrderId } = commentSchema.parse(req.body);
     const existing = await loadProjectForUser(user, req.params.id);
     // loadProjectForUser already enforces visibility; canViewProject is the
     // same gate for clarity (admin: any, client: own, technician: assigned).
@@ -1048,9 +1173,43 @@ projectsRouter.post(
     const trimmed = clampText(body).trim();
     if (!trimmed) throw BadRequest("Empty comment");
 
+    if (workOrderId) {
+      const workOrder = await prisma.workOrder.findFirst({
+        where: { id: workOrderId, projectId: existing.id },
+        select: { id: true },
+      });
+      if (!workOrder) throw BadRequest("Work order does not belong to this project");
+    }
+
+    const distinctMentionIds = [...new Set(mentionUserIds)].filter((id) => id !== user.id);
+    const mentionedUsers =
+      distinctMentionIds.length === 0
+        ? []
+        : await prisma.user.findMany({
+            where: {
+              id: { in: distinctMentionIds },
+              orgId: user.orgId,
+              status: "active",
+            },
+            select: { id: true, name: true },
+          });
+    if (mentionedUsers.length !== distinctMentionIds.length) {
+      throw BadRequest("Unknown mention recipient");
+    }
+
     await prisma.$transaction(async (tx) => {
-      await appendComment(tx, user, existing.id, trimmed);
-      await audit(tx, user, "project.comment", "project", existing.id);
+      await appendComment(tx, user, existing.id, trimmed, {
+        ...(workOrderId ? { workOrderId } : {}),
+        mentionUserIds: mentionedUsers.map((mentioned) => mentioned.id),
+        mentions: mentionedUsers.map((mentioned) => ({
+          userId: mentioned.id,
+          name: mentioned.name,
+        })),
+      });
+      await audit(tx, user, "project.comment", "project", existing.id, {
+        workOrderId,
+        mentionUserIds: mentionedUsers.map((mentioned) => mentioned.id),
+      });
     });
 
     const rows = await prisma.projectActivity.findMany({

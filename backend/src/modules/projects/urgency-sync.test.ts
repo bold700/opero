@@ -96,10 +96,10 @@ describe("per-werkbon urgency", () => {
       .send({ urgency: "urgent" });
     expect(res.status).toBe(200);
     expect(res.body.urgency).toBe("urgent");
-    expect(res.body.status).toBe("urgent");
+    expect(res.body.status).toBe("open");
 
     const after = await statuses();
-    expect(after[woA]).toBe("urgent");
+    expect(after[woA]).toBe("open");
     expect(after[woB]).toBe("open"); // the whole point of the redesign
 
     // The project rolls up to urgent while an unfinished urgent visit exists.
@@ -126,7 +126,7 @@ describe("per-werkbon urgency", () => {
     expect(proj.body.urgency).toBe("normal");
   });
 
-  it("sign-off outranks urgency: a signed urgent visit reports done", async () => {
+  it("sign-off moves an urgent visit to ready for review", async () => {
     await request(app)
       .patch(`/api/work-orders/${woB}`)
       .set(auth(adminToken))
@@ -139,7 +139,7 @@ describe("per-werkbon urgency", () => {
       .patch(`/api/work-orders/${woB}`)
       .set(auth(adminToken))
       .send({ title: `${TAG} B renamed` }); // any PATCH recomputes on the way out
-    expect((await statuses())[woB]).toBe("done");
+    expect((await statuses())[woB]).toBe("ready_for_review");
 
     // A signed urgent visit no longer drives the project rollup either.
     const proj = await request(app)
@@ -151,6 +151,10 @@ describe("per-werkbon urgency", () => {
       where: { id: woB },
       data: { signedAt: null, signedByName: null },
     });
+    await request(app)
+      .patch(`/api/work-orders/${woB}`)
+      .set(auth(adminToken))
+      .send({ title: `${TAG} B` });
   });
 
   it("blocked is a separate axis: a blocker never makes visits urgent", async () => {

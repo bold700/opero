@@ -6,6 +6,7 @@ import {
   canSeeAllProjects,
   canEditQuoteScope,
   canApproveAsOffice,
+  isStaff,
   addWorkOrderPrejobItemSchema,
   updateWorkOrderPrejobItemSchema,
   reorderPrejobItemsSchema,
@@ -33,6 +34,7 @@ import {
   type WorkOrderWithRelations,
 } from "./dto.js";
 import { recomputeWorkOrderStatus } from "./status.js";
+import { workOrderStatusIds } from "@opero/shared";
 import {
   applyWorkOrderSchedule,
   clearWorkOrderSchedule,
@@ -299,7 +301,7 @@ function woLabel(wb: { title: string; ordinal: number }): string {
 // =========================================================================
 
 // The status buckets shown as filter chips + count pills on the list.
-const WORK_ORDER_STATUSES = ["open", "on_the_way", "urgent", "done"] as const;
+const WORK_ORDER_STATUSES = workOrderStatusIds;
 
 // GET /work-orders?projectId=&cursor=&limit=&search=&status= — cursor-paginated,
 // server-searched (number/customer/city) and server-filtered by the denormalized
@@ -637,13 +639,22 @@ workOrdersRouter.get(
       createdAt: wb.createdAt,
       customer: {
         name: wb.project.customerName,
-        // The PROJECT's site contact wins over the customer's default one: on
-        // site a technician needs whoever is actually there for THIS job, not
-        // head office. Falls back to the customer record when the project
-        // carries no contact of its own.
-        contactName: wb.project.contactName || wb.project.customer?.contactName || undefined,
-        contactPhone: wb.project.contactPhone || wb.project.customer?.phone || undefined,
-        contactEmail: wb.project.customer?.email || undefined,
+        // The contact selected for THIS visit wins. Older work orders without a
+        // selection retain the project/customer fallback.
+        contactName:
+          wb.contacts.map((contact) => contact.name).filter(Boolean).join(", ") ||
+          wb.project.contactName ||
+          wb.project.customer?.contactName ||
+          undefined,
+        contactPhone:
+          wb.contacts.map((contact) => contact.phone).filter(Boolean).join(", ") ||
+          wb.project.contactPhone ||
+          wb.project.customer?.phone ||
+          undefined,
+        contactEmail:
+          wb.contacts.map((contact) => contact.email).filter(Boolean).join(", ") ||
+          wb.project.customer?.email ||
+          undefined,
         address: wb.project.address || undefined,
         postalCode: wb.project.postalCode || undefined,
         city: wb.project.city || undefined,
@@ -788,7 +799,10 @@ workOrdersRouter.get(
       title: wb.title,
       customer: {
         name: wb.project.customerName,
-        contactName: wb.project.customer?.contactName || undefined,
+        contactName:
+          wb.contacts.map((contact) => contact.name).filter(Boolean).join(", ") ||
+          wb.project.customer?.contactName ||
+          undefined,
         address: wb.project.address || undefined,
         postalCode: wb.project.postalCode || undefined,
         city: wb.project.city || undefined,
@@ -855,6 +869,27 @@ workOrdersRouter.post(
       throw NotFound("Project not found");
     }
 
+    const requestedContactIds = [
+      ...(input.contactPersonIds ?? []),
+      ...(input.contactPersonId ? [input.contactPersonId] : []),
+    ];
+    const uniqueContactIds = [...new Set(requestedContactIds)];
+    const contactPersons = uniqueContactIds.length
+      ? await prisma.contactPerson.findMany({
+          where: {
+            id: { in: uniqueContactIds },
+            OR: [
+              { customerId: project.customerId },
+              { sharedCustomers: { some: { id: project.customerId } } },
+            ],
+          },
+          select: { id: true },
+        })
+      : [];
+    if (contactPersons.length !== uniqueContactIds.length) {
+      throw BadRequest("One or more contact persons do not belong to this project's customer");
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       const count = await tx.workOrder.count({
         where: { projectId: project.id },
@@ -862,6 +897,10 @@ workOrdersRouter.post(
       const wb = await tx.workOrder.create({
         data: {
           projectId: project.id,
+          contacts:
+            contactPersons.length > 0
+              ? { connect: contactPersons.map(({ id }) => ({ id })) }
+              : undefined,
           // Empty title → the client renders a translated fallback that includes
           // the 1-based index. No display prose stored in the DB.
           title: input.title?.trim() ?? "",
@@ -876,13 +915,30 @@ workOrdersRouter.post(
         },
         include: workOrderInclude,
       });
+      // Selecting a contact for a visit also makes that person available on the
+      // parent project. Prisma's connect is idempotent for the join table.
+      if (contactPersons.length > 0) {
+        await tx.project.update({
+          where: { id: project.id },
+          data: {
+            contacts: {
+              connect: contactPersons.map(({ id }) => ({ id })),
+            },
+          },
+        });
+      }
       // Snapshot the org's ACTIVE pre-job template into THIS werkbon's own item
       // rows. From here the werkbon owns its checklist — editing the template
       // later won't change it, and editing it won't touch the template.
       const template = await tx.prejobCheckItem.findMany({
         where: { orgId: project.orgId, active: true },
         orderBy: { ordinal: "asc" },
-        select: { key: true, label: true },
+        select: {
+          key: true,
+          label: true,
+          reminderEnabled: true,
+          reminderTime: true,
+        },
       });
       if (template.length > 0) {
         await tx.workOrderPrejobItem.createMany({
@@ -891,6 +947,8 @@ workOrdersRouter.post(
             key: it.key,
             label: it.label,
             done: false,
+            reminderEnabled: it.reminderEnabled,
+            reminderTime: it.reminderTime,
             ordinal: i,
           })),
         });
@@ -917,7 +975,7 @@ workOrdersRouter.patch(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateWorkOrderSchema.parse(req.body);
-    await loadProjectForWorkOrder(user, req.params.id); // visibility (404 if not)
+    const { project } = await loadProjectForWorkOrder(user, req.params.id); // visibility (404 if not)
     if (!canEditQuoteScope(user.role)) throw Forbidden("Office only");
     // Validate every assigned monteur belongs to the org (a full-crew replace).
     if (input.assigneeIds !== undefined && input.assigneeIds.length > 0) {
@@ -926,6 +984,21 @@ workOrdersRouter.patch(
       });
       if (found !== new Set(input.assigneeIds).size) {
         throw BadRequest("One or more assignees not found in organization");
+      }
+    }
+    if (input.contactPersonIds !== undefined && input.contactPersonIds.length > 0) {
+      const uniqueIds = [...new Set(input.contactPersonIds)];
+      const found = await prisma.contactPerson.count({
+        where: {
+          id: { in: uniqueIds },
+          OR: [
+            { customerId: project.customerId },
+            { sharedCustomers: { some: { id: project.customerId } } },
+          ],
+        },
+      });
+      if (found !== uniqueIds.length) {
+        throw BadRequest("One or more contacts do not belong to this customer");
       }
     }
     // The schedule fields are NOT written straight to the columns here: the
@@ -981,6 +1054,15 @@ workOrdersRouter.patch(
           ...(input.assigneeIds !== undefined
             ? { assignees: { set: input.assigneeIds.map((id) => ({ id })) } }
             : {}),
+          // Full replace of this visit's selected contacts; an empty array
+          // deliberately clears them without deleting the central contacts.
+          ...(input.contactPersonIds !== undefined
+            ? {
+                contacts: {
+                  set: [...new Set(input.contactPersonIds)].map((id) => ({ id })),
+                },
+              }
+            : {}),
           // THIS visit's priority. listStatus resyncs via reloadWorkOrder on
           // the way out — same row, same request, no cross-table sync needed.
           ...(input.urgency !== undefined ? { urgency: input.urgency } : {}),
@@ -990,6 +1072,17 @@ workOrdersRouter.patch(
             : {}),
         },
       });
+
+      if (input.contactPersonIds && input.contactPersonIds.length > 0) {
+        await tx.project.update({
+          where: { id: project.id },
+          data: {
+            contacts: {
+              connect: [...new Set(input.contactPersonIds)].map((id) => ({ id })),
+            },
+          },
+        });
+      }
 
       if (scheduleTarget) {
         const nextStart =
@@ -1068,9 +1161,21 @@ workOrdersRouter.post(
     if (!canEditQuoteScope(user.role)) throw Forbidden("Office only");
     const wb = await prisma.workOrder.findUniqueOrThrow({
       where: { id: req.params.id },
-      select: { approvedBySupervisor: true, title: true, ordinal: true },
+      select: {
+        approvedBySupervisor: true,
+        signedAt: true,
+        invoice: { select: { status: true } },
+        title: true,
+        ordinal: true,
+      },
     });
     const next = !wb.approvedBySupervisor;
+    if (next && !wb.signedAt) {
+      throw BadRequest("A work order must be signed before approval");
+    }
+    if (!next && wb.invoice && wb.invoice.status !== "not_started") {
+      throw BadRequest("A work order with an invoice in progress cannot be unapproved");
+    }
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
@@ -1260,10 +1365,14 @@ async function requireEditablePrejob(user: AuthUser, workOrderId: string) {
 // one item on this werkbon. admin only.
 workOrdersRouter.patch(
   "/:id/prejob-items/:itemId",
-  requireRole("admin", "office"),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = updateWorkOrderPrejobItemSchema.parse(req.body);
+    await loadProjectForWorkOrder(user, req.params.id);
+    if (!isStaff(user.role)) throw Forbidden("Staff only");
+    if (input.label !== undefined && !canEditQuoteScope(user.role)) {
+      throw Forbidden("Only the office can rename control items");
+    }
     await requireEditablePrejob(user, req.params.id);
     const item = await prisma.workOrderPrejobItem.findFirst({
       where: { id: req.params.itemId, workOrderId: req.params.id },

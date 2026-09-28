@@ -13,12 +13,13 @@
   "admin": {
     "kpis": {
       "totalProjects": "Total projects",
-      "plannedThisWeek": "Planned this week",
-      "urgentBlocked": "Urgent / blocked",
+      "plannedThisWeek": "Projects planned this week",
+      "urgentBlocked": "Projects urgent / blocked",
       "urgentBlockedSub": "{{urgent}} urgent · {{blocked}} blocked",
-      "readyToInvoice": "Ready to invoice"
+      "readyToInvoice": "Projects ready to invoice"
     },
-    "pipelineTitle": "Projects by status",
+    "workOrdersByPhase": "Work orders by phase",
+    "viewWorkOrdersWithStatus": "View work orders with status {{status}}",
     "financialTitle": "Financial",
     "pipelineValue": "Pipeline value",
     "openInvoices": "Open invoices",

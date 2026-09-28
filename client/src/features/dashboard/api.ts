@@ -1,3 +1,4 @@
+import type { ProjectLifecycleStatus, WorkOrderStatus } from "@opero/shared";
 import { api } from "../../lib/api/client";
 
 // Mirrors the backend's role-aware dashboard payload (see backend dashboard/dto.ts).
@@ -11,6 +12,8 @@ export type AdminDashboard = {
     recentActivity: number;
   };
   byStatus: Record<string, number>;
+  byLifecycleStatus: Record<ProjectLifecycleStatus, number>;
+  byWorkOrderStatus: Record<WorkOrderStatus, number>;
   byStage: Record<string, number>;
   pipelineValue: number;
   urgentCount: number;
@@ -59,6 +62,7 @@ export type ClientProjectRow = {
   id: string;
   projectNumber: string;
   status: string;
+  lifecycleStatus: ProjectLifecycleStatus;
   stage: string;
   plannedDate: string | null;
   nextStepKey: string;

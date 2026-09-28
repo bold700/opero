@@ -1,4 +1,5 @@
 import type { ProjectStatus, Stage } from "@prisma/client";
+import type { ProjectLifecycleStatus, WorkOrderStatus } from "@opero/shared";
 
 // DTO shapes for the role-aware dashboard payload. Kept here so routes.ts stays
 // focused on aggregation logic. Every shape is a plain serializable object —
@@ -16,6 +17,8 @@ export type AdminDashboard = {
     recentActivity: number;
   };
   byStatus: Record<ProjectStatus, number>;
+  byLifecycleStatus: Record<ProjectLifecycleStatus, number>;
+  byWorkOrderStatus: Record<WorkOrderStatus, number>;
   byStage: Record<Stage, number>;
   pipelineValue: number;
   urgentCount: number;
@@ -74,6 +77,7 @@ export type ClientProjectRow = {
   id: string;
   projectNumber: string;
   status: ProjectStatus;
+  lifecycleStatus: ProjectLifecycleStatus;
   stage: Stage;
   plannedDate: string | null;
   nextStepKey: string;
@@ -121,6 +125,7 @@ type ClientProjectSource = {
   id: string;
   projectNumber: string;
   status: ProjectStatus;
+  lifecycleStatus: ProjectLifecycleStatus;
   stage: Stage;
   plannedDate: string | null;
   nextStepKey: string;
@@ -131,6 +136,7 @@ export function clientProjectRow(p: ClientProjectSource): ClientProjectRow {
     id: p.id,
     projectNumber: p.projectNumber,
     status: p.status,
+    lifecycleStatus: p.lifecycleStatus,
     stage: p.stage,
     plannedDate: p.plannedDate ?? null,
     nextStepKey: p.nextStepKey,

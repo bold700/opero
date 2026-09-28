@@ -9,11 +9,16 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
-import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import Autocomplete from "@mui/material/Autocomplete";
 import { useAuth } from "../../../auth/AuthContext";
 import { isOffice } from "@opero/shared";
+import {
+  ContactPersonDialog,
+  type ContactPersonDraft,
+} from "../../../components/ContactPersonDialog";
+import { FormSectionLabel } from "./FormSectionLabel";
 import {
   getCustomers,
   getCustomerLocations,
@@ -21,30 +26,30 @@ import {
   getProjectsForCustomer,
   createProject,
   createWorkOrder,
+  getCustomerContacts,
+  getProjectContacts,
+  checkDuplicateContact,
+  createCustomerContact,
+  linkCustomerContact,
   type CustomerOption,
   type LocationOption,
   type ProjectOption,
+  type ContactPersonOption,
 } from "../create-api";
 
 const NEW_PROJECT = "__new__";
 const NEW_LOCATION = "__new_location__";
+const NEW_CONTACT = "__new_contact__";
 
-// A lightweight in-column section marker: a divider + a small uppercase label.
-// Groups the new-project fields visually WITHOUT a nested card, so the form stays
-// one flat column on mobile (no box-in-box, no resize jump).
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 0.5 }}>
-      <Typography
-        variant="caption"
-        sx={{ fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: 0.4, flexShrink: 0 }}
-      >
-        {children}
-      </Typography>
-      <Divider sx={{ flex: 1 }} />
-    </Box>
-  );
-}
+type ContactPickerOption = ContactPersonOption & { createNew?: boolean };
+const NEW_CONTACT_OPTION: ContactPickerOption = {
+  id: NEW_CONTACT,
+  customerId: "",
+  name: "",
+  firstName: "",
+  lastName: "",
+  createNew: true,
+};
 
 // "Nieuwe werkbon" flow: pick a customer → pick an existing project OR create a
 // new one (name + job-site location) → create the work order. Work type +
@@ -65,9 +70,12 @@ export function CreateWorkOrderDialog({
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [locations, setLocations] = useState<LocationOption[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [contacts, setContacts] = useState<ContactPersonOption[]>([]);
+  const [projectContactIds, setProjectContactIds] = useState<string[]>([]);
 
   const [customerId, setCustomerId] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [contactPersonIds, setContactPersonIds] = useState<string[]>([]);
   const [newProjectName, setNewProjectName] = useState("");
   // The CLIENT's own order/PO number for the new project — same field as the
   // full project form, so the inline shortcut doesn't create reference-less jobs.
@@ -84,6 +92,10 @@ export function CreateWorkOrderDialog({
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [duplicateContact, setDuplicateContact] = useState<ContactPersonOption | null>(null);
 
   // Load customers when the dialog opens; reset everything when it closes.
   useEffect(() => {
@@ -91,6 +103,9 @@ export function CreateWorkOrderDialog({
       setCustomerId("");
       setProjects([]);
       setProjectId("");
+      setContacts([]);
+      setProjectContactIds([]);
+      setContactPersonIds([]);
       setNewProjectName("");
       setNewProjectReference("");
       setLocationId("");
@@ -99,6 +114,9 @@ export function CreateWorkOrderDialog({
       setTitle("");
       setDescription("");
       setError(null);
+      setContactDialogOpen(false);
+      setContactError(null);
+      setDuplicateContact(null);
       return;
     }
     setLoadingCustomers(true);
@@ -116,6 +134,9 @@ export function CreateWorkOrderDialog({
       setProjectId("");
       setLocations([]);
       setLocationId("");
+      setContacts([]);
+      setProjectContactIds([]);
+      setContactPersonIds([]);
       return;
     }
     setLoadingProjects(true);
@@ -126,8 +147,46 @@ export function CreateWorkOrderDialog({
       .catch((e) => setError(e instanceof Error ? e.message : t("workOrders.create.projectsLoadError")))
       .finally(() => setLoadingProjects(false));
     getCustomerLocations(customerId).then(setLocations).catch(() => setLocations([]));
+    getCustomerContacts(customerId)
+      .then((rows) => {
+        setContacts(rows);
+        setContactPersonIds(rows.length === 1 ? [rows[0].id] : []);
+      })
+      .catch(() => setContacts([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
+
+  useEffect(() => {
+    if (!projectId || projectId === NEW_PROJECT) {
+      setProjectContactIds([]);
+      return;
+    }
+    let cancelled = false;
+    getProjectContacts(projectId)
+      .then((rows) => {
+        if (cancelled) return;
+        const ids = rows.map((row) => row.id);
+        setProjectContactIds(ids);
+        const available = contacts.filter((contact) => ids.includes(contact.id));
+        setContactPersonIds((current) => {
+          const validCurrent = current.filter((id) =>
+            contacts.some((contact) => contact.id === id),
+          );
+          if (validCurrent.length > 0) {
+            return validCurrent;
+          }
+          return available.length > 0
+            ? available.map((contact) => contact.id)
+            : contacts.length === 1
+              ? [contacts[0].id]
+              : [];
+        });
+      })
+      .catch(() => setProjectContactIds([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, contacts]);
 
   const creatingProject = projectId === NEW_PROJECT;
   const creatingLocation = locationId === NEW_LOCATION;
@@ -140,6 +199,75 @@ export function CreateWorkOrderDialog({
     }
     return true;
   }, [customerId, projectId, creatingProject, newProjectName, creatingLocation, newLocation.address]);
+
+  const saveNewContact = async (draft: ContactPersonDraft) => {
+    if (!customerId) return;
+    setContactBusy(true);
+    setContactError(null);
+    setDuplicateContact(null);
+    const input = {
+      firstName: draft.firstName.trim(),
+      lastName: draft.lastName.trim(),
+      role: draft.role.trim() || undefined,
+      email: draft.email.trim() || undefined,
+      phone: draft.phone.trim() || undefined,
+      notes: draft.notes.trim() || undefined,
+    };
+    try {
+      const duplicate = await checkDuplicateContact(customerId, input);
+      if (duplicate) {
+        setDuplicateContact(duplicate.contact);
+        setContactError(
+          t("workOrders.create.contactDuplicate", {
+            fields: duplicate.matchedFields
+              .map((field) =>
+                t(`workOrders.create.contactDuplicateField.${field}`),
+              )
+              .join(` ${t("workOrders.create.contactDuplicateAnd")} `),
+            name: duplicate.contact.name || t("customers.contacts.unnamed"),
+            customer: duplicate.customer.name,
+          }),
+        );
+        return;
+      }
+      const created = await createCustomerContact(customerId, input);
+      setContacts((current) =>
+        [...current, created].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setContactPersonIds((current) => [...new Set([...current, created.id])]);
+      setContactDialogOpen(false);
+    } catch (e) {
+      setContactError(
+        e instanceof Error
+          ? e.message
+          : t("workOrders.create.contactCreateError"),
+      );
+    } finally {
+      setContactBusy(false);
+    }
+  };
+
+  const linkDuplicateContact = async () => {
+    if (!customerId || !duplicateContact) return;
+    setContactBusy(true);
+    try {
+      const linked = await linkCustomerContact(customerId, duplicateContact.id);
+      setContacts((current) =>
+        current.some((contact) => contact.id === linked.id)
+          ? current
+          : [...current, linked].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setContactPersonIds((current) => [...new Set([...current, linked.id])]);
+      setDuplicateContact(null);
+      setContactDialogOpen(false);
+    } catch (e) {
+      setContactError(
+        e instanceof Error ? e.message : t("workOrders.create.contactCreateError"),
+      );
+    } finally {
+      setContactBusy(false);
+    }
+  };
 
   const submit = async () => {
     setSubmitting(true);
@@ -163,10 +291,12 @@ export function CreateWorkOrderDialog({
           name: newProjectName.trim(),
           referenceNumber: newProjectReference.trim() || undefined,
           locationId: resolvedLocationId || undefined,
+          contactIds: contactPersonIds,
         });
         targetProjectId = project.id;
       }
       const wo = await createWorkOrder(targetProjectId, {
+        contactPersonIds,
         title: title.trim() || undefined,
         description: description.trim() || undefined,
       });
@@ -178,7 +308,8 @@ export function CreateWorkOrderDialog({
   };
 
   return (
-    <ResponsiveDialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" title={t("workOrders.create.title")} stableHeight>
+    <>
+      <ResponsiveDialog open={open && !contactDialogOpen} onClose={submitting ? undefined : onClose} maxWidth="sm" title={t("workOrders.create.title")} stableHeight>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrders.create.title")}</DialogTitle>
       <DialogContent>
         {/* One flat column of fields. Progressive disclosure (new project → new
@@ -211,10 +342,45 @@ export function CreateWorkOrderDialog({
             ]}
           />
 
+          <Autocomplete<ContactPickerOption, true, false, false>
+            multiple
+            disableCloseOnSelect
+            size="small"
+            options={[...contacts, NEW_CONTACT_OPTION]}
+            value={contacts.filter((contact) => contactPersonIds.includes(contact.id))}
+            getOptionLabel={(contact) =>
+              contact.createNew
+                ? t("workOrders.create.newContact")
+                : `${contact.name || contact.phone || contact.email || t("customers.contacts.unnamed")}${contact.role ? ` (${contact.role})` : ""}${projectContactIds.includes(contact.id) ? ` · ${t("workOrders.create.projectContact")}` : ""}`
+            }
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            onChange={(_event, selected) => {
+              if (selected.some((contact) => contact.createNew)) {
+                setContactError(null);
+                setDuplicateContact(null);
+                setContactDialogOpen(true);
+                return;
+              }
+              setContactPersonIds(selected.map((contact) => contact.id));
+            }}
+            disabled={!customerId || !projectId || submitting}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t("workOrders.create.contactLabel")}
+                helperText={
+                  customerId && contacts.length === 0
+                    ? t("workOrders.create.contactEmpty")
+                    : t("workOrders.create.contactOptional")
+                }
+              />
+            )}
+          />
+
           {/* New-project fields — flat in the same column (no nested card) */}
           {creatingProject ? (
             <>
-              <SectionLabel>{t("workOrders.create.newProjectSection")}</SectionLabel>
+              <FormSectionLabel>{t("workOrders.create.newProjectSection")}</FormSectionLabel>
 
               <TextField
                 label={t("workOrders.create.projectNameLabel")}
@@ -331,6 +497,22 @@ export function CreateWorkOrderDialog({
           {t("workOrders.create.submit")}
         </Button>
       </DialogActions>
-    </ResponsiveDialog>
+      </ResponsiveDialog>
+      <ContactPersonDialog
+        open={contactDialogOpen}
+        busy={contactBusy}
+        error={contactError}
+        errorAction={
+          duplicateContact
+            ? {
+                label: t("customers.contacts.linkExisting"),
+                onClick: () => void linkDuplicateContact(),
+              }
+            : undefined
+        }
+        onClose={() => { setContactDialogOpen(false); setDuplicateContact(null); }}
+        onSave={(draft) => void saveNewContact(draft)}
+      />
+    </>
   );
 }

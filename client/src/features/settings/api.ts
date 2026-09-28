@@ -92,6 +92,8 @@ export type PrejobItem = {
   id: string;
   key: string;
   label: string;
+  reminderEnabled: boolean;
+  reminderTime: string | null;
   ordinal: number;
   active: boolean;
 };
@@ -106,7 +108,12 @@ export function createPrejobItem(label: string): Promise<PrejobItem> {
 
 export function updatePrejobItem(
   id: string,
-  input: { label?: string; active?: boolean },
+  input: {
+    label?: string;
+    active?: boolean;
+    reminderEnabled?: boolean;
+    reminderTime?: string | null;
+  },
 ): Promise<PrejobItem> {
   return api.patch<PrejobItem>(`/prejob-items/${id}`, input);
 }

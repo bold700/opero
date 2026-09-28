@@ -11,7 +11,9 @@ export type NotificationCategory =
   | "urgentOnSite"
   | "newWorkOrder"
   | "progressLogged"
-  | "progressReminder";
+  | "progressReminder"
+  | "controlReminder"
+  | "mention";
 
 export type NotificationItem = {
   // Stable-ish id, e.g. `extrawork:<id>` — used as the React key and to dedupe.
@@ -32,7 +34,7 @@ export type NotificationsResponse = {
 
 // A category is shown only if its matching preference toggle is on. weeklySummary
 // is an email-only digest, so it has no bell category.
-const CATEGORY_TO_PREF: Record<NotificationCategory, keyof NotificationPrefs> = {
+const CATEGORY_TO_PREF: Partial<Record<NotificationCategory, keyof NotificationPrefs>> = {
   extraWorkApproval: "extraWorkApproval",
   urgentOnSite: "urgentOnSite",
   newWorkOrder: "newWorkOrder",
@@ -44,7 +46,8 @@ export function categoryEnabled(
   category: NotificationCategory,
   prefs: NotificationPrefs,
 ): boolean {
-  return prefs[CATEGORY_TO_PREF[category]] === true;
+  const preference = CATEGORY_TO_PREF[category];
+  return preference ? prefs[preference] === true : true;
 }
 
 // Cap the feed so the dropdown stays short and the queries stay cheap.

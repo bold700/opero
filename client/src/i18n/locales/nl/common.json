@@ -11,6 +11,10 @@
     "confirm": "Bevestigen",
     "logout": "Uitloggen"
   },
+  "upload": {
+    "dropHint": "Sleep bestanden hierheen",
+    "dropNow": "Laat los om de bestanden toe te voegen"
+  },
   "states": {
     "loading": "Laden…",
     "error": "Er is iets misgegaan",

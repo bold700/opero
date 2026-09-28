@@ -75,7 +75,7 @@ export function EmployeeDialog({
    * Save. `accessRole` is the staged account level, present only when it was
    * actually changed — the caller then commits it alongside the record.
    */
-  onSubmit: (input: EmployeeInput, accessRole?: StaffRole) => void;
+  onSubmit: (input: EmployeeInput, accessRoles?: StaffRole[]) => void;
   onDelete: () => void;
   onInvite: () => void;
   onResend: () => void;
@@ -92,7 +92,7 @@ export function EmployeeDialog({
   // field committed on change and Annuleren could not undo it. It is not part
   // of `useForm` because it belongs to the linked login, not the employee
   // record, and is saved through a different endpoint.
-  const [accessRole, setAccessRole] = useState<StaffRole | null>(null);
+  const [accessRoles, setAccessRoles] = useState<StaffRole[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -110,15 +110,26 @@ export function EmployeeDialog({
     // Re-seeded whenever the account changes underneath us too (an invite or a
     // disable resolves while the dialog is open), so a stale staged level can
     // never be saved against a login that has moved on.
-    setAccessRole((employee?.account?.role as StaffRole | undefined) ?? null);
+    setAccessRoles(
+      (employee?.account?.roles?.length
+        ? employee.account.roles
+        : employee?.account
+          ? [employee.account.role]
+          : []) as StaffRole[],
+    );
   }, [open, employee, reset]);
 
   // The job title is a plain string field now, so useForm tracks its dirtiness
   // like every other field — no separate baseline needed. The staged access
   // level is tracked separately so it enables Opslaan on its own.
-  const accessRoleChanged =
-    !!employee?.account && !!accessRole && accessRole !== employee.account.role;
-  const hasChanges = dirty || accessRoleChanged;
+  const currentAccessRoles = employee?.account
+    ? (employee.account.roles?.length ? employee.account.roles : [employee.account.role])
+    : [];
+  const accessRolesChanged =
+    !!employee?.account &&
+    (accessRoles.length !== currentAccessRoles.length ||
+      accessRoles.some((role) => !currentAccessRoles.includes(role)));
+  const hasChanges = dirty || accessRolesChanged;
 
   const err = (key: keyof Form) => {
     const k = errorFor(key);
@@ -141,7 +152,7 @@ export function EmployeeDialog({
       },
       // Only when it actually moved: an unchanged level must not cost a PATCH
       // on someone the actor may not act on.
-      accessRoleChanged ? accessRole! : undefined,
+      accessRolesChanged ? accessRoles : undefined,
     );
   };
 
@@ -236,13 +247,13 @@ export function EmployeeDialog({
               busy={accountBusy}
               labelKeys="employees.dialog.account"
               isSelf={isSelf}
-              roleValue={accessRole ?? undefined}
+              rolesValue={accessRoles}
               onInvite={onInvite}
               onResend={onResend}
               onDisable={onDisable}
               onEnable={onEnable}
               // Stage only — committed by Opslaan below, with the record.
-              onChangeRole={setAccessRole}
+              onChangeRoles={setAccessRoles}
             />
           ) : null}
         </Box>

@@ -12,6 +12,7 @@ import Switch from "@mui/material/Switch";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
+import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 import {
   DndContext,
   PointerSensor,
@@ -41,6 +42,7 @@ import type { WorkOrder } from "../api";
 export function PreJobPanel({
   workOrder,
   isAdmin,
+  canComplete,
   busy,
   onToggleCheck,
   onRenameItem,
@@ -54,6 +56,7 @@ export function PreJobPanel({
 }: {
   workOrder: WorkOrder;
   isAdmin: boolean;
+  canComplete: boolean;
   busy: boolean;
   onToggleCheck: (itemId: string, done: boolean) => void;
   onRenameItem: (itemId: string, label: string) => void;
@@ -69,6 +72,7 @@ export function PreJobPanel({
   const [addOpen, setAddOpen] = useState(false);
   const dispatched = Boolean(workOrder.dispatchedAt);
   const editable = isAdmin && !dispatched;
+  const canTick = canComplete && !dispatched;
   const items = [...workOrder.prejobItems].sort((a, b) => a.ordinal - b.ordinal);
 
   // Drag-to-reorder — the same dnd-kit setup as the zones (TasksPanel): a
@@ -94,7 +98,7 @@ export function PreJobPanel({
   // someone else, which reads as broken. The one thing a non-office viewer can
   // genuinely use is the pre-job PHOTOS: show a minimal photos-only card when
   // any exist, and otherwise nothing at all.
-  if (!isAdmin) {
+  if (!isAdmin && !canComplete) {
     if (workOrder.prejobPhotos.length === 0) return null;
     return (
       <Card noPadding>
@@ -165,7 +169,7 @@ export function PreJobPanel({
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Checkbox
                   checked={item.done}
-                  disabled={!editable || busy}
+                  disabled={!canTick || busy}
                   onChange={(e) => onToggleCheck(item.id, e.target.checked)}
                   // Tight padding: the outlined field beside it needs the
                   // horizontal room on a phone. The row's own height still
@@ -187,15 +191,35 @@ export function PreJobPanel({
                       // the icon buttons off the right edge on a phone.
                       sx={{ flex: 1, minWidth: 0 }}
                     />
+                    {item.reminderEnabled && item.reminderTime ? (
+                      <Chip
+                        size="small"
+                        icon={<AccessTimeOutlinedIcon />}
+                        label={t("workOrderDetail.prejob.reminder", {
+                          time: item.reminderTime,
+                        })}
+                      />
+                    ) : null}
                     {dragHandle ?? null}
                     <IconButton size="small" color="error" disabled={busy} onClick={() => onRemoveItem(item.id)} aria-label={t("workOrderDetail.prejob.removeItem")}>
                       <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
                   </>
                 ) : (
-                  <Typography variant="body2" sx={{ flex: 1, py: 1 }}>
-                    {item.label}
-                  </Typography>
+                  <>
+                    <Typography variant="body2" sx={{ flex: 1, py: 1 }}>
+                      {item.label}
+                    </Typography>
+                    {item.reminderEnabled && item.reminderTime ? (
+                      <Chip
+                        size="small"
+                        icon={<AccessTimeOutlinedIcon />}
+                        label={t("workOrderDetail.prejob.reminder", {
+                          time: item.reminderTime,
+                        })}
+                      />
+                    ) : null}
+                  </>
                 )}
               </Box>
             );

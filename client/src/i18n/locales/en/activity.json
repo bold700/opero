@@ -92,7 +92,7 @@
     "unapproved": "Approval withdrawn: {{title}}",
     "signed": "{{title}} completed and signed",
     "reopened": "{{title}} reopened",
-    "dispatched": "{{title}} dispatched"
+    "dispatched": "{{title}} released to the technician"
   },
   "commentPlaceholder": "Add a note…",
   "commentSend": "Post note"

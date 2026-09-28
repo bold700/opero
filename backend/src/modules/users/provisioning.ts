@@ -8,6 +8,7 @@ import { inviteEmail } from "../../lib/email-templates.js";
 import { hashPassword } from "../../auth/service.js";
 import { issueInvite } from "../../auth/tokens.js";
 import type { AuthUser } from "../../auth/types.js";
+import { tenantAppUrl } from "../../lib/tenantDomains.js";
 
 // Login provisioning for the invite flow (POST /users/invite and its resend).
 //
@@ -34,7 +35,7 @@ export async function sendInviteEmail(
   const [org, invitedBy] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: context.orgId },
-      select: { name: true },
+      select: { name: true, slug: true },
     }),
     context.invitedById
       ? prisma.user.findUnique({
@@ -51,6 +52,7 @@ export async function sendInviteEmail(
       token,
       organizationName: org?.name ?? "Opero",
       invitedByName: invitedBy?.name ?? "Een beheerder",
+      baseUrl: tenantAppUrl(org?.slug),
     }),
   );
 }
@@ -85,6 +87,7 @@ export async function createInvitedUser(
       name: input.name,
       passwordHash: await unusablePassword(),
       role: input.role,
+      roles: [input.role],
       status: "invited",
       invitedById: admin.id,
       employeeId: input.link.kind === "employee" ? input.link.employeeId : null,

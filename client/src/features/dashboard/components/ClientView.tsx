@@ -3,7 +3,6 @@ import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
-import { STATUS_LABEL_KEY } from "../constants";
 import type { ClientDashboard } from "../api";
 
 export function ClientView({ data }: { data: ClientDashboard }) {
@@ -26,7 +25,7 @@ export function ClientView({ data }: { data: ClientDashboard }) {
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {STATUS_LABEL_KEY[p.status] ? t(STATUS_LABEL_KEY[p.status]) : p.status}
+                {t(`projects.lifecycleStatus.${p.lifecycleStatus}`)}
               </Typography>
             </Box>
             {i < arr.length - 1 ? <Divider /> : null}

@@ -37,6 +37,12 @@ yarn-error.log*
 # env files — ignore real secrets, but commit the .example templates
 .env*
 !.env.example
+!.env.production.example
+
+# production handover data - contains customer data and must never be committed
+opero-handover*/
+opero-handover*.zip
+*-database.sql
 
 # vercel
 .vercel

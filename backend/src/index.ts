@@ -31,13 +31,19 @@ import { notificationsRouter } from "./modules/notifications/routes.js";
 import { usersRouter } from "./modules/users/routes.js";
 import { uploadsRouter } from "./modules/uploads/routes.js";
 import { logStorageBackend } from "./lib/storage/index.js";
+import { isAllowedWebOrigin } from "./lib/tenantDomains.js";
 
 export const app = express();
 
 app.use(helmet());
 app.use(
   cors({
-    origin: corsOrigins,
+    origin(origin, callback) {
+      // Requests without an Origin header are server-to-server calls and health
+      // checks. Browser origins must match the explicit list or one configured
+      // customer subdomain.
+      callback(null, !origin || isAllowedWebOrigin(origin, corsOrigins));
+    },
     credentials: true,
     // The client and the API are separate origins in every environment, so the
     // browser hides all but a handful of "safelisted" response headers from JS

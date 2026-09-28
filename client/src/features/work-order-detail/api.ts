@@ -1,4 +1,5 @@
 import { api } from "../../lib/api/client";
+import type { WorkOrderPhase, WorkOrderStatus } from "@opero/shared";
 
 // A stored photo/drawing: portable `key` (for delete) + renderable `url`.
 export type PhotoRef = { key: string; url: string };
@@ -81,6 +82,7 @@ export type WorkOrderTask = {
 // Dropdown sources for per-task work type + assignee.
 export type WorkTypeOption = { id: string; name: string };
 export type AssigneeOption = { id: string; name: string };
+export type MentionCandidate = { id: string; name: string; email: string };
 
 export function getWorkTypes(): Promise<WorkTypeOption[]> {
   return api.get<WorkTypeOption[]>("/materials/work-types");
@@ -126,6 +128,7 @@ export type CustomerContactPerson = {
 // can reach someone without leaving the screen. Read-only — the customer record
 // is edited under /customers.
 export type WorkOrderCustomer = {
+  id: string;
   name: string;
   contactName?: string;
   email?: string;
@@ -138,9 +141,11 @@ export type WorkOrder = {
   projectId: string;
   title: string;
   // The werkbon's OWN derived status — same value and vocabulary as the list
-  // (open / on_the_way / urgent / done). The header badge reads this, not the
+  // The header badge reads this lifecycle status, not the parent project stage.
   // parent project's stage.
-  status: "open" | "on_the_way" | "urgent" | "done";
+  status: WorkOrderStatus;
+  phase: WorkOrderPhase;
+  invoiceStatus: "not_started" | "draft" | "sent" | "paid";
   // THIS visit's priority. Per-werkbon: flagging one visit never touches its
   // siblings. Feeds `status` above.
   urgency: "normal" | "urgent";
@@ -149,6 +154,8 @@ export type WorkOrder = {
   description?: string;
   // The customer's contact details (phone/email + contact people).
   customer?: WorkOrderCustomer;
+  // The contacts selected specifically for this visit.
+  contactPersons: CustomerContactPerson[];
   drawings: PhotoRef[];
   // Job-level uploaded documents (PDFs/images) — quotes, plans, permits.
   attachments: WorkOrderAttachment[];
@@ -158,7 +165,15 @@ export type WorkOrder = {
   ordinal: number;
   // Pre-job check + dispatch gate. `prejobItems` = THIS werkbon's own items
   // (snapshotted from the org template at creation, editable on the werkbon).
-  prejobItems: { id: string; key: string; label: string; done: boolean; ordinal: number }[];
+  prejobItems: {
+    id: string;
+    key: string;
+    label: string;
+    done: boolean;
+    reminderEnabled: boolean;
+    reminderTime?: string;
+    ordinal: number;
+  }[];
   prejobCheck: Record<string, boolean>;
   prejobPhotos: PhotoRef[];
   // Per-werkbon: does dispatch require a pre-job photo? (default false)
@@ -307,10 +322,18 @@ export function getProjectActivity(projectId: string): Promise<Activity[]> {
   return api.get<Activity[]>(`/projects/${projectId}/activity`);
 }
 
+export function getMentionCandidates(projectId: string): Promise<MentionCandidate[]> {
+  return api.get<MentionCandidate[]>(`/projects/${projectId}/mentionable-users`);
+}
+
 // Post a free-text note onto the project's timeline. Returns the refreshed
 // feed (newest first), same shape as getProjectActivity.
-export function addProjectComment(projectId: string, body: string): Promise<Activity[]> {
-  return api.post<Activity[]>(`/projects/${projectId}/comments`, { body });
+export function addProjectComment(
+  projectId: string,
+  body: string,
+  options?: { mentionUserIds?: string[]; workOrderId?: string },
+): Promise<Activity[]> {
+  return api.post<Activity[]>(`/projects/${projectId}/comments`, { body, ...options });
 }
 
 // --- Tasks (work-order mutations) -----------------------------------------
@@ -391,6 +414,13 @@ export function setWorkOrderAssignees(
   assigneeIds: string[],
 ): Promise<WorkOrder> {
   return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { assigneeIds });
+}
+
+export function setWorkOrderContacts(
+  workOrderId: string,
+  contactPersonIds: string[],
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}`, { contactPersonIds });
 }
 
 // Set the werkbon's schedule (the visit's date(s) and/or times). Scheduling is
@@ -656,6 +686,22 @@ export function finishWorkOrder(
 // werkbon for editing.
 export function reopenWorkOrder(workOrderId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/reopen`, {});
+}
+
+export function approveWorkOrder(workOrderId: string): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/approve`, {});
+}
+
+export function prepareWorkOrderInvoice(workOrderId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/invoice/draft`, {});
+}
+
+export function sendWorkOrderInvoice(workOrderId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/invoice/send`, {});
+}
+
+export function markWorkOrderInvoicePaid(workOrderId: string): Promise<unknown> {
+  return api.post(`/work-orders/${workOrderId}/invoice/paid`, {});
 }
 
 // --- Meerwerk (extra work) -------------------------------------------------

@@ -30,8 +30,8 @@ const COLORS = {
   primaryText: "#ffffff",
 };
 
-function appUrl(path: string): string {
-  return `${env.APP_URL.replace(/\/$/, "")}${path}`;
+function appUrl(path: string, baseUrl?: string): string {
+  return `${(baseUrl ?? env.APP_URL).replace(/\/$/, "")}${path}`;
 }
 
 // Escape anything interpolated into the HTML part. Names and email addresses
@@ -128,6 +128,7 @@ export function inviteEmail(params: {
   token: string;
   organizationName: string;
   invitedByName: string;
+  baseUrl?: string;
 }): Email {
   const layout: Layout = {
     heading: `Je bent uitgenodigd voor ${BRAND}`,
@@ -137,7 +138,7 @@ export function inviteEmail(params: {
       "Kies hieronder een wachtwoord om je account te activeren.",
     ],
     buttonLabel: "Account activeren",
-    url: appUrl(`/accept-invite?token=${params.token}`),
+    url: appUrl(`/accept-invite?token=${params.token}`, params.baseUrl),
     footnotes: [
       "Deze uitnodiging verloopt over 7 dagen.",
       "Verwacht je deze uitnodiging niet? Dan kun je deze e-mail negeren; zonder activatie gebeurt er niets.",
@@ -152,14 +153,18 @@ export function inviteEmail(params: {
 }
 
 // Reset: user-initiated, so it stays short and leads with the expiry.
-export function passwordResetEmail(params: { to: string; token: string }): Email {
+export function passwordResetEmail(params: {
+  to: string;
+  token: string;
+  baseUrl?: string;
+}): Email {
   const layout: Layout = {
     heading: "Wachtwoord opnieuw instellen",
     intro: [
       `Je hebt gevraagd om je ${BRAND}-wachtwoord opnieuw in te stellen. Kies hieronder een nieuw wachtwoord.`,
     ],
     buttonLabel: "Nieuw wachtwoord instellen",
-    url: appUrl(`/reset-password?token=${params.token}`),
+    url: appUrl(`/reset-password?token=${params.token}`, params.baseUrl),
     footnotes: [
       "Deze link verloopt over 1 uur en kan één keer worden gebruikt.",
       "Heb je dit niet aangevraagd? Negeer deze e-mail — je wachtwoord blijft ongewijzigd.",
@@ -174,7 +179,11 @@ export function passwordResetEmail(params: { to: string; token: string }): Email
 }
 
 // Email change confirmation, sent to the NEW address.
-export function verifyEmailChangeEmail(params: { to: string; token: string }): Email {
+export function verifyEmailChangeEmail(params: {
+  to: string;
+  token: string;
+  baseUrl?: string;
+}): Email {
   const layout: Layout = {
     heading: "Bevestig je nieuwe e-mailadres",
     intro: [
@@ -182,7 +191,7 @@ export function verifyEmailChangeEmail(params: { to: string; token: string }): E
       "Tot je bevestigt blijf je inloggen met je huidige adres.",
     ],
     buttonLabel: "E-mailadres bevestigen",
-    url: appUrl(`/verify-email?token=${params.token}`),
+    url: appUrl(`/verify-email?token=${params.token}`, params.baseUrl),
     footnotes: [
       "Deze link verloopt over 1 uur.",
       "Heb je dit niet aangevraagd? Negeer deze e-mail — er verandert dan niets aan je account.",

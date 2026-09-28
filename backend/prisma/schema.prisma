@@ -191,8 +191,12 @@ enum MaterialComponent {
 // ---------------------------------------------------------------------------
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
+  id         String   @id @default(uuid())
+  name       String
+  // Stable customer-facing workspace label. When a tenant root domain is
+  // configured, `wdbisolatie` resolves to wdbisolatie.example.com. Nullable so
+  // existing databases can be restored before a workspace name is assigned.
+  slug       String?  @unique
   // Company / billing details (admin-managed; shown on invoices later).
   email      String?
   address    String?
@@ -206,18 +210,18 @@ model Organization {
   bic        String?
   kvkNumber  String?
   website    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  users        User[]
-  customers    Customer[]
-  employees    Employee[]
-  materials    Material[]
-  projects     Project[]
-  articles     Article[]
-  workTypes    WorkType[]
-  materialOrders MaterialOrder[]
-  auditLogs    AuditLog[]
+  users            User[]
+  customers        Customer[]
+  employees        Employee[]
+  materials        Material[]
+  projects         Project[]
+  articles         Article[]
+  workTypes        WorkType[]
+  materialOrders   MaterialOrder[]
+  auditLogs        AuditLog[]
   prejobCheckItems PrejobCheckItem[]
   employeeAbsences EmployeeAbsence[]
 }
@@ -232,13 +236,15 @@ model Organization {
 // the item drops off new/open work orders and no longer counts toward
 // "complete", but historical booleans + PDFs are untouched.
 model PrejobCheckItem {
-  id        String   @id @default(uuid())
-  orgId     String
-  key       String // stable slug; keys WorkOrder.prejobCheck; never changes
-  label     String // display text (single label, shown as-is in every language)
-  ordinal   Int      @default(0)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  orgId           String
+  key             String // stable slug; keys WorkOrder.prejobCheck; never changes
+  label           String // display text (single label, shown as-is in every language)
+  reminderEnabled Boolean  @default(false)
+  reminderTime    String?
+  ordinal         Int      @default(0)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -247,53 +253,57 @@ model PrejobCheckItem {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  orgId        String
+  id                  String     @id @default(uuid())
+  orgId               String
   // The login identity. ALWAYS stored lowercased — the shared zod schemas fold
   // it on the way in, and migration 20260802100000_email_case_insensitive adds a
   // UNIQUE index on lower(email) that Prisma cannot express here. `@unique` is
   // kept because it is what types findUnique({ where: { email } }); the
   // functional index is the actual case-insensitivity guarantee. Never query
   // this column with un-normalized input.
-  email        String    @unique
-  passwordHash String
-  name         String
-  phone        String?
+  email               String     @unique
+  passwordHash        String
+  name                String
+  phone               String?
   // Profile photo — the object key of the uploaded avatar image (or null).
   // Resolved to a URL in the auth DTO via the storage layer.
-  avatar       String?
+  avatar              String?
   // Per-user preferences (language + notification toggles) as a small JSON blob.
   // Server-persisted so they follow the user across devices.
-  preferences  Json?
+  preferences         Json?
   // When the user last opened the notifications bell — anything newer counts as
   // "unread" for the badge. Null = never opened (everything counts as new).
   notificationsSeenAt DateTime?
-  role         UserRole
+  // Roles this account is allowed to activate. `role` below is the currently
+  // active role, kept separately so every existing permission check remains
+  // explicit and a role switch changes both the view and server-side access.
+  roles               UserRole[] @default([])
+  role                UserRole
   // Account lifecycle. `invited` users can't log in until they activate.
-  status       UserStatus @default(active)
-  invitedById  String?
-  activatedAt  DateTime?
-  totpSecret   String?
-  totpEnabled  Boolean   @default(false)
+  status              UserStatus @default(active)
+  invitedById         String?
+  activatedAt         DateTime?
+  totpSecret          String?
+  totpEnabled         Boolean    @default(false)
   // pending TOTP secret during enrollment (before confirmation)
-  pendingTotpSecret String?
+  pendingTotpSecret   String?
   // client users link to a customer; technician users link to an employee
-  customerId   String?
-  employeeId   String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  customerId          String?
+  employeeId          String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
-  org            Organization     @relation(fields: [orgId], references: [id])
-  customer       Customer?        @relation(fields: [customerId], references: [id])
-  employee       Employee?        @relation(fields: [employeeId], references: [id])
-  sessions          AuthSession[]
-  passwordResets    PasswordReset[]
-  emailChanges      EmailChange[]
-  activity          ProjectActivity[]
-  auditLogs         AuditLog[]
-  signedWorkOrders  WorkOrder[]      @relation("WorkOrderSignedBy")
-  uploadedAttachments WorkOrderAttachment[] @relation("WorkOrderAttachmentUploader")
-  uploadedProjectAttachments ProjectAttachment[] @relation("ProjectAttachmentUploader")
+  org                        Organization          @relation(fields: [orgId], references: [id])
+  customer                   Customer?             @relation(fields: [customerId], references: [id])
+  employee                   Employee?             @relation(fields: [employeeId], references: [id])
+  sessions                   AuthSession[]
+  passwordResets             PasswordReset[]
+  emailChanges               EmailChange[]
+  activity                   ProjectActivity[]
+  auditLogs                  AuditLog[]
+  signedWorkOrders           WorkOrder[]           @relation("WorkOrderSignedBy")
+  uploadedAttachments        WorkOrderAttachment[] @relation("WorkOrderAttachmentUploader")
+  uploadedProjectAttachments ProjectAttachment[]   @relation("ProjectAttachmentUploader")
 
   @@index([orgId])
   @@index([customerId])
@@ -375,7 +385,7 @@ model AuditLog {
 // ---------------------------------------------------------------------------
 
 model Customer {
-  id          String    @id @default(uuid())
+  id          String       @id @default(uuid())
   orgId       String
   name        String
   contactName String
@@ -396,14 +406,17 @@ model Customer {
   vatNumber   String?
   notes       String?
   deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  org            Organization    @relation(fields: [orgId], references: [id])
-  contactPersons ContactPerson[]
-  locations      Location[]
-  projects       Project[]
-  users          User[]
+  org                  Organization    @relation(fields: [orgId], references: [id])
+  contactPersons       ContactPerson[]
+  // Extra customer links let one real person work for several customers while
+  // retaining the original customer as the contact's owning record.
+  sharedContactPersons ContactPerson[] @relation("SharedCustomerContacts")
+  locations            Location[]
+  projects             Project[]
+  users                User[]
 
   @@index([orgId])
   // Dedupe target for re-import. Partial-unique isn't expressible here, so the
@@ -426,8 +439,10 @@ model ContactPerson {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  projects Project[] @relation("ProjectContacts")
+  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  sharedCustomers Customer[]  @relation("SharedCustomerContacts")
+  projects        Project[]   @relation("ProjectContacts")
+  workOrders      WorkOrder[] @relation("WorkOrderContacts")
 
   @@index([customerId])
 }
@@ -453,7 +468,7 @@ model Location {
 // ---------------------------------------------------------------------------
 
 model Employee {
-  id        String     @id @default(uuid())
+  id        String         @id @default(uuid())
   orgId     String
   name      String
   phone     String
@@ -465,8 +480,8 @@ model Employee {
   role      TeamRole?
   status    EmployeeStatus @default(active)
   deletedAt DateTime?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   org   Organization @relation(fields: [orgId], references: [id])
   users User[]
@@ -481,10 +496,10 @@ model Employee {
   planningAsInstaller  PlanningItem[] @relation("PlanningInstallers")
 
   // per-task assignments (work-order zones)
-  assignedTasks WorkOrderTask[] @relation("TaskAssignee")
-  loggedTaskHours WorkOrderTask[] @relation("TaskHoursEmployee")
-  progressEntries TaskProgressEntry[] @relation("ProgressLogger")
-  assignedWorkOrders WorkOrder[] @relation("WorkOrderAssignees")
+  assignedTasks      WorkOrderTask[]     @relation("TaskAssignee")
+  loggedTaskHours    WorkOrderTask[]     @relation("TaskHoursEmployee")
+  progressEntries    TaskProgressEntry[] @relation("ProgressLogger")
+  assignedWorkOrders WorkOrder[]         @relation("WorkOrderAssignees")
 
   absences EmployeeAbsence[]
 
@@ -506,16 +521,16 @@ model Employee {
 // comparing days as strings avoids a timezone class of bug entirely (an
 // absence is a human day off, not an instant).
 model EmployeeAbsence {
-  id         String        @id @default(uuid())
+  id         String      @id @default(uuid())
   orgId      String
   employeeId String
-  kind       AbsenceKind   @default(vacation)
+  kind       AbsenceKind @default(vacation)
   // Inclusive on BOTH ends: a single day off has startDate == endDate.
   startDate  String
   endDate    String
   note       String?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   org      Organization @relation(fields: [orgId], references: [id])
   employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -542,34 +557,34 @@ enum AbsenceKind {
 // ---------------------------------------------------------------------------
 
 model Material {
-  id           String        @id @default(uuid())
-  orgId        String
+  id             String                  @id @default(uuid())
+  orgId          String
   // Stable english identifier, e.g. "af_armaflex_af2_13".
-  key          String
+  key            String
   // Display/trade name (business data, typically the supplier's Dutch name).
-  name         String
-  class        MaterialClass
+  name           String
+  class          MaterialClass
   // Which installation system the material is for (GKW / CV / KW-WW-CIRC /
   // RIOOL-HWA) — the axis technicians search on. Nullable: not every material
   // belongs to exactly one system, and pre-existing rows are uncategorised.
-  category     MaterialSystemCategory?
-  supplier     String
+  category       MaterialSystemCategory?
+  supplier       String
   // Physical attributes (nullable — not every class has them).
-  thicknessMm  Int? // fixed product thickness; null when it varies per variant
-  pipeMaterial String? // "steel" | "copper" | "pvc"
-  finish       String? // "none" | "white_pvc" | "reinforced_alu_foil"
+  thicknessMm    Int? // fixed product thickness; null when it varies per variant
+  pipeMaterial   String? // "steel" | "copper" | "pvc"
+  finish         String? // "none" | "white_pvc" | "reinforced_alu_foil"
   // What a variant's `size` means: "pipe_od_mm" | "pipe_dia_mm" | "tank_liters" | "flat".
-  sizeUnit     String
-  note         String?
+  sizeUnit       String
+  note           String?
   // Price provenance — where the current prices came from and how long they hold.
   priceSource    String? // e.g. "Prijslijst Merwede 2026-2029"
   priceValidFrom DateTime?
   priceValidTo   DateTime?
   priceNote      String? // e.g. indexation clause
   // Document order for stable display.
-  ordinal      Int
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  ordinal        Int
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
 
   org      Organization      @relation(fields: [orgId], references: [id])
   variants MaterialVariant[]
@@ -611,12 +626,12 @@ model MaterialVariant {
 
 // Combines spec "Create Order" with the store PurchaseList.
 model MaterialOrder {
-  id         String              @id @default(uuid())
+  id         String    @id @default(uuid())
   orgId      String
   projectId  String?
-  createdAt  DateTime            @default(now())
+  createdAt  DateTime  @default(now())
   receivedAt DateTime?
-  updatedAt  DateTime            @updatedAt
+  updatedAt  DateTime  @updatedAt
 
   org     Organization        @relation(fields: [orgId], references: [id])
   project Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -627,7 +642,7 @@ model MaterialOrder {
 }
 
 model MaterialOrderItem {
-  id              String   @id @default(uuid())
+  id              String @id @default(uuid())
   orderId         String
   materialName    String
   quantityToOrder Int
@@ -665,7 +680,7 @@ model WorkType {
   name      String
   createdAt DateTime @default(now())
 
-  org      Organization @relation(fields: [orgId], references: [id])
+  org      Organization    @relation(fields: [orgId], references: [id])
   projects Project[]
   tasks    WorkOrderTask[]
 
@@ -678,52 +693,52 @@ model WorkType {
 // ---------------------------------------------------------------------------
 
 model Project {
-  id            String         @id @default(uuid())
-  orgId         String
-  projectNumber String
+  id              String        @id @default(uuid())
+  orgId           String
+  projectNumber   String
   // The CLIENT's own reference for this job (their order/PO/dossier number),
   // as supplied by them. Distinct from projectNumber, which is Opero's own
   // internal identity (OP-YYYY-NNN) and is never overwritten by this.
   referenceNumber String?
-  name          String?
-  customerId    String
-  customerName  String
-  locationId    String?
-  address       String
-  postalCode    String
-  city          String
-  contactName   String?
-  contactPhone  String?
-  instructions  String?
+  name            String?
+  customerId      String
+  customerName    String
+  locationId      String?
+  address         String
+  postalCode      String
+  city            String
+  contactName     String?
+  contactPhone    String?
+  instructions    String?
   // Work type is a managed reference (WorkType). workTypeId is the source of
   // truth; insulationType is a denormalized display mirror set from the chosen
   // WorkType.name so list/read paths stay simple and never hold free-text drift.
-  workTypeId    String?
-  insulationType String
-  squareMeters  Int            @default(0)
-  description   String?
-  workTypes     String[]
-  exclusions    String?
-  billingType   BillingType?
-  archived      Boolean        @default(false)
-  stage         Stage          @default(concept)
-  status        ProjectStatus  @default(sales)
+  workTypeId      String?
+  insulationType  String
+  squareMeters    Int           @default(0)
+  description     String?
+  workTypes       String[]
+  exclusions      String?
+  billingType     BillingType?
+  archived        Boolean       @default(false)
+  stage           Stage         @default(concept)
+  status          ProjectStatus @default(sales)
   // Free-text blocker (a user-entered reason). When the blocker is a system
   // default, blockerKey holds an i18n key instead (rendered client-side).
   // The project is BLOCKED when either is set — that derived flag is the only
   // blocked representation (urgency is per-werkbon and never "blocked").
-  blocker       String?
-  blockerKey    String?
+  blocker         String?
+  blockerKey      String?
   // The next action, stored as a language-neutral i18n key (e.g. "sendQuote").
   // The client renders it via t(`domain.nextStep.${nextStepKey}`).
-  nextStepKey   String
-  signature     String?
-  materialsReady Boolean       @default(false)
-  value         Int            @default(0)
+  nextStepKey     String
+  signature       String?
+  materialsReady  Boolean       @default(false)
+  value           Int           @default(0)
 
   // survey (types.ts Opname): photos + notes only
-  surveyPhotos  String[]
-  surveyNotes   String        @default("")
+  surveyPhotos String[]
+  surveyNotes  String   @default("")
 
   // team
   projectLeaderId String?
@@ -761,25 +776,25 @@ model Project {
 }
 
 model Intake {
-  id                 String       @id @default(uuid())
-  projectId          String       @unique
-  status             IntakeStatus @default(planned)
-  plannedDate        String?
-  contactName        String
-  contactEmail       String
-  contactPhone       String
-  address            String
-  insulationType     String
-  squareMeters       Int          @default(0)
-  cavityWidthMm      Int?
-  existingInsulation Boolean?
-  buildingType       String?
-  accessibility      String?
-  photos             String[]
-  notes              String       @default("")
-  risks              String       @default("")
-  estimatedMaterials String[]
-  estimatedLaborHours Int         @default(0)
+  id                  String       @id @default(uuid())
+  projectId           String       @unique
+  status              IntakeStatus @default(planned)
+  plannedDate         String?
+  contactName         String
+  contactEmail        String
+  contactPhone        String
+  address             String
+  insulationType      String
+  squareMeters        Int          @default(0)
+  cavityWidthMm       Int?
+  existingInsulation  Boolean?
+  buildingType        String?
+  accessibility       String?
+  photos              String[]
+  notes               String       @default("")
+  risks               String       @default("")
+  estimatedMaterials  String[]
+  estimatedLaborHours Int          @default(0)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
@@ -798,7 +813,7 @@ model Quote {
 }
 
 model QuoteLineItem {
-  id            String   @id @default(uuid())
+  id            String  @id @default(uuid())
   quoteId       String
   catalogItemId String?
   workType      String?
@@ -807,7 +822,7 @@ model QuoteLineItem {
   quantity      Float
   unit          String
   unitPrice     Float
-  ordinal       Int      @default(0)
+  ordinal       Int     @default(0)
 
   quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
@@ -819,17 +834,17 @@ model QuoteLineItem {
 // ---------------------------------------------------------------------------
 
 model WorkOrder {
-  id                 String        @id @default(uuid())
-  projectId          String
-  title              String
+  id                   String                @id @default(uuid())
+  projectId            String
+  title                String
   // What this VISIT is about, in the office's own words ("2nd floor, week 38").
   // Deliberately separate from Project.description: a project groups many
   // werkbonnen and each one can cover a different part of the job. Null falls
   // back to the project's description on the printed werkbon.
-  description        String?
-  drawings           String[]
-  approvedBySupervisor Boolean     @default(false)
-  ordinal            Int           @default(0)
+  description          String?
+  drawings             String[]
+  approvedBySupervisor Boolean               @default(false)
+  ordinal              Int                   @default(0)
   // Per-work-order sign-off. A project has many work orders, so completion is a
   // property of THE work order, not the project. signedAt set → this work order
   // is signed off and locked for editing; sibling work orders and the project's
@@ -837,10 +852,10 @@ model WorkOrder {
   // `signature` holds the object key of the drawn signature image. signedByName
   // is the name the signer typed at sign-off (often the customer's, distinct
   // from the logged-in user in signedById), printed on the work order record.
-  signature          String?
-  signedByName       String?
-  signedAt           DateTime?
-  signedById         String?
+  signature            String?
+  signedByName         String?
+  signedAt             DateTime?
+  signedById           String?
   // Pre-job check + dispatch gate. A monteur may not be dispatched until the
   // pre-job checklist is complete AND (if required for this werkbon) a pre-job
   // photo exists. The checklist ITEMS are per-werkbon (WorkOrderPrejobItem),
@@ -849,48 +864,52 @@ model WorkOrder {
   // now lives on the item rows. `prejobPhotos` holds object keys.
   // `prejobPhotoRequired`: null = not required (default); true = a photo gates
   // dispatch. dispatchedAt set → the job has been sent out.
-  prejobCheck        Json?
-  prejobPhotoRequired Boolean?
-  prejobPhotos       String[]      @default([])
-  prejobItems        WorkOrderPrejobItem[]
-  dispatchedAt       DateTime?
-  dispatchedById     String?
+  prejobCheck          Json?
+  prejobPhotoRequired  Boolean?
+  prejobPhotos         String[]              @default([])
+  prejobItems          WorkOrderPrejobItem[]
+  dispatchedAt         DateTime?
+  dispatchedById       String?
   // THIS visit's priority. Per-werkbon on purpose: floor 2's leak being urgent
-  // must not stamp floor 1's routine visit. Feeds listStatus below.
-  urgency            Urgency       @default(normal)
-  // Denormalized list status ("open" | "on_the_way" | "urgent" | "done"), derived
-  // from the werkbon's OWN urgency + sign-off + task completion. Kept in sync by
+  // must not stamp floor 1's routine visit. Priority never changes lifecycle.
+  urgency              Urgency               @default(normal)
+  // Denormalized lifecycle status (open → planned → released → in_progress →
+  // ready_for_review → approved → ready_to_invoice → invoiced → completed).
+  // Derived from planning, release, execution, approval and invoice records. Kept in sync by
   // recomputeWorkOrderStatus() so the list endpoint can filter/count/paginate on a
   // real indexed column instead of computing over the whole table in app code.
-  listStatus         String        @default("open")
+  listStatus           String                @default("open")
   // Customer-facing quote (offerte) document identity — assigned on the first
   // quote-PDF export and stable afterwards. Format YYYYNNNN (e.g. 20260063).
-  quoteNumber        String?
-  quoteDate          DateTime?
+  quoteNumber          String?
+  quoteDate            DateTime?
   // The werkbon is the scheduled VISIT — its own date(s), possibly multi-day.
   // Scheduling lives here, not on the project (a project has many werkbonnen).
-  plannedDate        String?
-  plannedEndDate     String?
+  plannedDate          String?
+  plannedEndDate       String?
   // Billing is per-werkbon: this werkbon's offertebedrag (sum of its line items).
-  value              Int           @default(0)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  value                Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
-  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  signedBy User?           @relation("WorkOrderSignedBy", fields: [signedById], references: [id], onDelete: SetNull)
+  project       Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // The people to contact for THIS visit. They remain owned by the project's
+  // customer and are also linked to the project when selected.
+  contacts      ContactPerson[]       @relation("WorkOrderContacts")
+  signedBy      User?                 @relation("WorkOrderSignedBy", fields: [signedById], references: [id], onDelete: SetNull)
   // The monteur(s) assigned to THIS werkbon. A job/visit can be split across a
   // crew, so assignment is many-to-many at the werkbon level (not per-zone).
-  assignees Employee[]     @relation("WorkOrderAssignees")
+  assignees     Employee[]            @relation("WorkOrderAssignees")
   planningItems PlanningItem[]
-  tasks    WorkOrderTask[]
+  tasks         WorkOrderTask[]
   // Billing lives on the werkbon. Extra work (meerwerk) is no longer a separate
   // entity — it's a TaskMaterial line with `isExtraWork` set, inside a zone.
-  quote     Quote?
-  invoice   Invoice?
+  quote         Quote?
+  invoice       Invoice?
   // Uploaded documents (PDFs/images) for the whole job — quotes, floor plans,
   // permits, supplier docs. Werkbon-level, not per-zone (see the attachments
   // panel). Distinct from `drawings` (a separate, older key[] field).
-  attachments WorkOrderAttachment[]
+  attachments   WorkOrderAttachment[]
 
   @@index([projectId])
   @@index([listStatus])
@@ -903,12 +922,14 @@ model WorkOrder {
 // `done` lives here (not a separate map), so it can't drift from the item set.
 // `key` is stable within the work order (keeps historical PDFs coherent).
 model WorkOrderPrejobItem {
-  id          String  @id @default(uuid())
-  workOrderId String
-  key         String
-  label       String
-  done        Boolean @default(false)
-  ordinal     Int     @default(0)
+  id              String  @id @default(uuid())
+  workOrderId     String
+  key             String
+  label           String
+  done            Boolean @default(false)
+  reminderEnabled Boolean @default(false)
+  reminderTime    String?
+  ordinal         Int     @default(0)
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
@@ -920,7 +941,7 @@ model WorkOrderPrejobItem {
 // key[]), this keeps the original filename + size + content type + uploader,
 // so the attachments list can show real file names and open them.
 model WorkOrderAttachment {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   workOrderId  String
   key          String // storage object key (orgId/scope/entityId/uuid.ext)
   filename     String // sanitized original name, for display
@@ -929,9 +950,9 @@ model WorkOrderAttachment {
   uploadedById String?
   // "document" (default) or "packing_slip" (pakbon). Packing slips get a
   // "received" confirmation; plain documents don't.
-  kind         String   @default("document")
+  kind         String    @default("document")
   receivedAt   DateTime? // packing slips only: when receipt was confirmed
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   workOrder  WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   uploadedBy User?     @relation("WorkOrderAttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
@@ -959,28 +980,28 @@ model ProjectAttachment {
 }
 
 model WorkOrderTask {
-  id           String   @id @default(uuid())
-  workOrderId  String
-  description  String   @default("")
-  done         Boolean  @default(false)
-  day          String?
+  id              String   @id @default(uuid())
+  workOrderId     String
+  description     String   @default("")
+  done            Boolean  @default(false)
+  day             String?
   // Each task (zone) carries its own work type + assigned technician — different
   // zones of one work order can be different work, done by different people.
-  workTypeId   String?
-  assigneeId   String?
-  beforePhotos String[]
-  resultPhotos String[]
-  startedAt    String?
-  endedAt      String?
-  hours        Float?
+  workTypeId      String?
+  assigneeId      String?
+  beforePhotos    String[]
+  resultPhotos    String[]
+  startedAt       String?
+  endedAt         String?
+  hours           Float?
   // Who last logged the hours (timer end or manual override) — the direct FK
   // the timesheet lacked; the office-only `day` field stays the planning date.
   hoursEmployeeId String?
-  note         String?
-  ordinal      Int      @default(0)
+  note            String?
+  ordinal         Int      @default(0)
 
-  workOrder WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  workType  WorkType?      @relation(fields: [workTypeId], references: [id], onDelete: SetNull)
+  workOrder     WorkOrder      @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workType      WorkType?      @relation(fields: [workTypeId], references: [id], onDelete: SetNull)
   assignee      Employee?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   hoursEmployee Employee?      @relation("TaskHoursEmployee", fields: [hoursEmployeeId], references: [id], onDelete: SetNull)
   materials     TaskMaterial[]
@@ -1008,34 +1029,34 @@ model TaskProgressEntry {
 // The shared line-item row: feeds quote (quantity×price), workOrder (onSite),
 // and invoice (usedQuantity×price).
 model TaskMaterial {
-  id           String  @id @default(uuid())
-  taskId       String
-  label        String?
-  name         String  @default("")
-  quantity     Float   @default(0)
-  usedQuantity Float?
+  id               String  @id @default(uuid())
+  taskId           String
+  label            String?
+  name             String  @default("")
+  quantity         Float   @default(0)
+  usedQuantity     Float?
   // Stock registration: handed out to the monteur / came back to the depot.
   // Unaccounted = issued − used − returned, derived at read time. All three
   // are independent — on-location deliveries have returns without an issue.
   issuedQuantity   Float?
   returnedQuantity Float?
-  unit         String  @default("")
-  diameter     Float?
+  unit             String  @default("")
+  diameter         Float?
   // Selling price snapshot (verkoopprijs) at the time the line was added.
-  unitPrice    Float?
+  unitPrice        Float?
   // Cost price snapshot (inkoopprijs) at the time the line was added from the
   // catalog. Snapshotting keeps historical margin stable if catalog cost later
   // changes. Null for free-text lines or lines added before cost was set.
   // Admin-only; stripped from every non-admin DTO.
-  costPrice    Float?
-  onSite       Boolean @default(false)
-  done         Boolean @default(false)
-  note         String?
-  ordinal      Int     @default(0)
+  costPrice        Float?
+  onSite           Boolean @default(false)
+  done             Boolean @default(false)
+  note             String?
+  ordinal          Int     @default(0)
   // Set when the line was picked from the materials catalog — traces the line
   // back to its variant. Null for free-text lines; kept (SetNull) if the
   // variant is ever removed.
-  variantId    String?
+  variantId        String?
 
   // --- Meerwerk (extra work) ------------------------------------------------
   // A line the customer did NOT originally buy. Same shape as any other line;
@@ -1084,12 +1105,12 @@ model Handover {
 }
 
 model HandoverItem {
-  id          String  @id @default(uuid())
-  handoverId  String
+  id         String  @id @default(uuid())
+  handoverId String
   // i18n key (rendered via t(`domain.checklist.${labelKey}`)).
-  labelKey    String
-  done        Boolean @default(false)
-  ordinal     Int     @default(0)
+  labelKey   String
+  done       Boolean @default(false)
+  ordinal    Int     @default(0)
 
   handover Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
 
@@ -1097,11 +1118,11 @@ model HandoverItem {
 }
 
 model DeliveryChecklist {
-  id        String                  @id @default(uuid())
-  projectId String                  @unique
+  id           String  @id @default(uuid())
+  projectId    String  @unique
   qualityNotes String?
 
-  project Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
   items   DeliveryChecklistItem[]
 }
 
@@ -1119,12 +1140,12 @@ model DeliveryChecklistItem {
 }
 
 model ProjectTask {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   projectId String
   label     String
-  done      Boolean  @default(false)
+  done      Boolean @default(false)
   source    String // "offerte" | "standaard"
-  ordinal   Int      @default(0)
+  ordinal   Int     @default(0)
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -1152,7 +1173,7 @@ model MaterialRequirement {
 }
 
 model PlanningItem {
-  id              String @id @default(uuid())
+  id              String  @id @default(uuid())
   // A planning slot belongs to a WERKBON (the scheduled visit), not the project.
   workOrderId     String
   date            String
@@ -1160,7 +1181,7 @@ model PlanningItem {
   endTime         String
   projectLeaderId String?
   teamLeaderId    String?
-  vehicle         String @default("")
+  vehicle         String  @default("")
 
   workOrder     WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   projectLeader Employee?  @relation("PlanningLeader", fields: [projectLeaderId], references: [id])

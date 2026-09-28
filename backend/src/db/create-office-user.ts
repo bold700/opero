@@ -92,7 +92,13 @@ async function main() {
       }
       const u = await tx.user.update({
         where: { id: existing.id },
-        data: { passwordHash, role: "office", status: "active", employeeId },
+        data: {
+          passwordHash,
+          role: "office",
+          roles: ["office"],
+          status: "active",
+          employeeId,
+        },
         select: { id: true, email: true, role: true, status: true },
       });
       return { ...u, created: false };
@@ -124,6 +130,7 @@ async function main() {
         passwordHash,
         name,
         role: "office",
+        roles: ["office"],
         status: "active",
         totpEnabled: false,
         employeeId: employee.id,

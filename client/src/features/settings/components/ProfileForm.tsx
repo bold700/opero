@@ -16,6 +16,8 @@ import { GroupLabel } from "./GroupLabel";
 import { fieldGrid } from "../constants";
 import { updateProfile, uploadAvatar, deleteAvatar } from "../api";
 import { EmailChangeDialog } from "./EmailChangeDialog";
+import { SelectField } from "../../../components/SelectField";
+import type { UserRole } from "@opero/shared";
 
 // Email is NOT edited here — it's the login identity and changes only via the
 // verified email-change flow (dialog → confirmation link). Name/phone save instantly.
@@ -30,11 +32,12 @@ function initials(name: string): string {
 // it persists via PATCH /auth/profile, refreshing the auth context.
 export function ProfileForm() {
   const { t } = useTranslation();
-  const { user, setUser } = useAuth();
+  const { user, setUser, switchRole } = useAuth();
   const { values, setField, onBlur, errorFor, isValid, dirty, reset, touchAll } =
     useForm<Form>({ name: "", phone: "" }, RULES);
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [roleBusy, setRoleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -99,6 +102,22 @@ export function ProfileForm() {
       setBusy(false);
     }
   };
+
+  const changeRole = async (role: string) => {
+    if (!user || role === user.role) return;
+    setRoleBusy(true);
+    setError(null);
+    try {
+      await switchRole(role as UserRole);
+      setToast(t("settings.profile.roleSwitched"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settings.profile.roleSwitchError"));
+    } finally {
+      setRoleBusy(false);
+    }
+  };
+
+  const assignedRoles = user?.roles?.length ? user.roles : user ? [user.role] : [];
 
   return (
     <Box>
@@ -179,12 +198,25 @@ export function ProfileForm() {
           onChange={setField("phone")}
           fullWidth
         />
-        <TextField
-          label={t("settings.profile.role")}
-          value={user?.role ? t(`settings.profile.roles.${user.role}`) : ""}
-          fullWidth
-          disabled
-        />
+        {assignedRoles.length > 1 ? (
+          <SelectField
+            label={t("settings.profile.activeRole")}
+            value={user?.role ?? ""}
+            onChange={(role) => void changeRole(role)}
+            disabled={roleBusy}
+            options={assignedRoles.map((role) => ({
+              value: role,
+              label: t(`settings.profile.roles.${role}`),
+            }))}
+          />
+        ) : (
+          <TextField
+            label={t("settings.profile.role")}
+            value={user?.role ? t(`settings.profile.roles.${user.role}`) : ""}
+            fullWidth
+            disabled
+          />
+        )}
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>

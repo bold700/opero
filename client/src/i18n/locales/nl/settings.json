@@ -15,8 +15,8 @@
       "subtitle": "Bedrijfsgegevens en facturatie"
     },
     "prejobChecklist": {
-      "title": "Controle vooraf",
-      "subtitle": "Checklist-items voor werkbonnen"
+      "title": "Controle",
+      "subtitle": "Controlepunten, tijden en meldingen"
     },
     "notifications": {
       "title": "Meldingen",
@@ -32,16 +32,18 @@
     }
   },
   "prejobChecklist": {
-    "itemsLabel": "Checklist-items",
-    "help": "Dit is de standaardlijst. Nieuwe werkbonnen beginnen hiermee; elke werkbon kan daarna apart worden aangepast.",
-    "empty": "Nog geen items. Zonder items kan een werkbon niet verzonden worden.",
+    "itemsLabel": "Controlepunten",
+    "help": "Nieuwe werkbonnen beginnen met deze controles. Zet per controle een melding aan en kies het tijdstip op de werkdag vóór het geplande bezoek.",
+    "empty": "Nog geen items. Zonder items kan een werkbon niet worden vrijgegeven.",
     "addPlaceholder": "Nieuw item…",
     "add": "Toevoegen",
     "remove": "Verwijderen",
     "saved": "Opgeslagen",
     "saveError": "Opslaan mislukt",
     "loadError": "Laden mislukt",
-    "reorderAria": "Volgorde wijzigen"
+    "reorderAria": "Volgorde wijzigen",
+    "reminderTime": "Tijd",
+    "notification": "Melding"
   },
   "profile": {
     "photo": "Profielfoto",
@@ -57,6 +59,9 @@
     "email": "E-mailadres",
     "phone": "Telefoonnummer",
     "role": "Toegangsniveau",
+    "activeRole": "Actieve rol",
+    "roleSwitched": "Rol en weergave aangepast",
+    "roleSwitchError": "Wisselen van rol is mislukt",
     "roles": {
       "admin": "Admin",
       "office": "Kantoortoegang",

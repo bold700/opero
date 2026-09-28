@@ -49,7 +49,7 @@ export function Projects() {
       getProjectsPage({
         cursor,
         search: debouncedSearch || undefined,
-        status: statusFilter || undefined,
+        lifecycleStatus: statusFilter || undefined,
         archived: visibility,
       }),
     [debouncedSearch, statusFilter, visibility, reloadKey],
@@ -144,7 +144,10 @@ export function Projects() {
         status={statusFilter}
         onStatusChange={setStatusFilter}
         visibility={visibility}
-        onVisibilityChange={setVisibility}
+        onVisibilityChange={(value) => {
+          setVisibility(value);
+          if (value === "archived") setStatusFilter("");
+        }}
       />
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

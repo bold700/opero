@@ -7,5 +7,7 @@
   "projectBlocked": "Blocked: {{number}} · {{customer}}",
   "newWorkOrderAssigned": "New work order assigned: {{title}} ({{customer}})",
   "progressLogged": "{{user}} logged progress on {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})",
-  "progressReminder": "No progress logged today on {{title}} ({{number}} · {{customer}})."
+  "progressReminder": "No progress logged today on {{title}} ({{number}} · {{customer}}).",
+  "controlReminder": "Control due at {{time}}: {{control}} for {{title}} ({{customer}}).",
+  "mentionedInNote": "{{author}} mentioned you in a note: {{text}}"
 }

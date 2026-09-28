@@ -29,6 +29,7 @@ const adminEmail = `${TAG}-admin@opero.test`;
 let adminToken: string;
 let orgId: string;
 let customerId: string;
+let employeeId: string;
 
 async function login(email: string): Promise<string> {
   const res = await request(app)
@@ -54,6 +55,16 @@ beforeAll(async () => {
     },
   });
   adminToken = await login(adminEmail);
+  const employee = await prisma.employee.create({
+    data: {
+      orgId,
+      name: `${TAG}-technician`,
+      phone: "",
+      role: "Technician",
+      status: "active",
+    },
+  });
+  employeeId = employee.id;
 });
 
 afterAll(async () => {
@@ -63,6 +74,7 @@ afterAll(async () => {
     await prisma.customer.deleteMany({ where: { id: customerId } });
   }
   await prisma.user.deleteMany({ where: { email: { startsWith: TAG } } });
+  await prisma.employee.deleteMany({ where: { id: employeeId } });
   await prisma.$disconnect();
 });
 
@@ -84,6 +96,7 @@ describe("full project lifecycle", () => {
     expect(proj.status).toBe(201);
     const pid = proj.body.id;
     expect(proj.body.projectNumber).toMatch(/^OP-\d{4}-\d{3}$/);
+    expect(proj.body.lifecycleStatus).toBe("new");
 
     // 3. complete intake
     const intake = await request(app)
@@ -101,6 +114,24 @@ describe("full project lifecycle", () => {
     expect(wb.status).toBe(201);
     const wbId = wb.body.id;
 
+    const preparation = await request(app)
+      .get(`/api/projects/${pid}`)
+      .set(auth(adminToken));
+    expect(preparation.body.lifecycleStatus).toBe("work_preparation");
+
+    const scheduled = await request(app)
+      .patch(`/api/work-orders/${wbId}`)
+      .set(auth(adminToken))
+      .send({
+        plannedDate: "2030-10-01",
+        assigneeIds: [employeeId],
+      });
+    expect(scheduled.status).toBe(200);
+    const scheduledProject = await request(app)
+      .get(`/api/projects/${pid}`)
+      .set(auth(adminToken));
+    expect(scheduledProject.body.lifecycleStatus).toBe("scheduled");
+
     // 5. add a task + a material line — this drives the werkbon's quote value.
     const task = await request(app)
       .post(`/api/work-orders/${wbId}/tasks`)
@@ -110,6 +141,16 @@ describe("full project lifecycle", () => {
     const taskId = task.body.tasks?.slice(-1)[0]?.id ?? task.body.id;
 
     if (taskId) {
+      const started = await request(app)
+        .post(`/api/work-orders/${wbId}/tasks/${taskId}/start`)
+        .set(auth(adminToken));
+      expect(started.status).toBe(200);
+
+      const activeProject = await request(app)
+        .get(`/api/projects/${pid}`)
+        .set(auth(adminToken));
+      expect(activeProject.body.lifecycleStatus).toBe("in_progress");
+
       const mat = await request(app)
         .post(`/api/work-orders/${wbId}/tasks/${taskId}/materials`)
         .set(auth(adminToken))
@@ -124,6 +165,16 @@ describe("full project lifecycle", () => {
       .attach("file", await signaturePng(), "signature.png");
     expect([200, 204]).toContain(finish.status);
 
+    const approve = await request(app)
+      .post(`/api/work-orders/${wbId}/approve`)
+      .set(auth(adminToken));
+    expect(approve.status).toBe(200);
+
+    const readyProject = await request(app)
+      .get(`/api/projects/${pid}`)
+      .set(auth(adminToken));
+    expect(readyProject.body.lifecycleStatus).toBe("ready_to_invoice");
+
     // 6. invoice draft → send → paid — all on the WERKBON now.
     const draft = await request(app)
       .post(`/api/work-orders/${wbId}/invoice/draft`)
@@ -137,11 +188,27 @@ describe("full project lifecycle", () => {
     expect(sendInv.status).toBe(200);
     expect(sendInv.body.status).toBe("sent");
 
+    const invoicedProject = await request(app)
+      .get(`/api/projects/${pid}`)
+      .set(auth(adminToken));
+    expect(invoicedProject.body.lifecycleStatus).toBe("invoiced");
+
     const paid = await request(app)
       .post(`/api/work-orders/${wbId}/invoice/paid`)
       .set(auth(adminToken));
     expect(paid.status).toBe(200);
     expect(paid.body.status).toBe("paid");
+
+    const completedProject = await request(app)
+      .get(`/api/projects/${pid}`)
+      .set(auth(adminToken));
+    expect(completedProject.body.lifecycleStatus).toBe("completed");
+
+    const archive = await request(app)
+      .post(`/api/projects/${pid}/archive`)
+      .set(auth(adminToken));
+    expect(archive.status).toBe(200);
+    expect(archive.body.lifecycleStatus).toBe("history");
 
     // 7. verify final DB state — quote/invoice live on the WERKBON.
     const dbWo = await prisma.workOrder.findUnique({

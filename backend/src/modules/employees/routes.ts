@@ -361,7 +361,7 @@ employeesRouter.delete(
     const user = req.user!;
     const existing = await prisma.employee.findFirst({
       where: { id: req.params.id, orgId: user.orgId, deletedAt: null },
-      include: { users: { select: { role: true } } },
+      include: { users: { select: { role: true, roles: true } } },
     });
     if (!existing) throw NotFound("Employee not found");
     // Deleting an employee revokes their login, so deleting your OWN record
@@ -376,7 +376,13 @@ employeesRouter.delete(
     // (An admin outranks everyone — the self-check above guarantees at least
     // one active admin survives.) Same predicate as the account guards in
     // users/routes.ts, since delete is the other way to revoke access.
-    if (existing.users.some((u) => !canActOnAccount(user.role as UserRole, u.role))) {
+    if (
+      existing.users.some((account) =>
+        (account.roles.length > 0 ? account.roles : [account.role]).some(
+          (role) => !canActOnAccount(user.role as UserRole, role),
+        ),
+      )
+    ) {
       throw Forbidden("You can't remove someone at or above your own level");
     }
     await prisma.$transaction(async (tx) => {

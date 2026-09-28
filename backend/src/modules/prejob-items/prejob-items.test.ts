@@ -14,6 +14,7 @@ const TAG = "prejob-items";
 let orgId: string;
 let adminToken: string;
 let techToken: string;
+let techEmployeeId: string;
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
@@ -32,6 +33,7 @@ beforeAll(async () => {
   const emp = await prisma.employee.create({
     data: { orgId, name: `${TAG}-tech`, phone: "0", role: "Technician", status: "active" },
   });
+  techEmployeeId = emp.id;
   const tech = await prisma.user.create({
     data: { orgId, email: `${TAG}-t@opero.test`, passwordHash: pw, name: "T", role: "technician", status: "active", employeeId: emp.id },
   });
@@ -92,6 +94,16 @@ describe("prejob-items CRUD", () => {
     expect((res.body as Item).key).toBe("steiger_gecontroleerd");
   });
 
+  it("stores a reminder time and notification switch", async () => {
+    const res = await request(app)
+      .patch(`/api/prejob-items/${createdId}`)
+      .set(auth(adminToken))
+      .send({ reminderEnabled: true, reminderTime: "00:00" });
+    expect(res.status).toBe(200);
+    expect(res.body.reminderEnabled).toBe(true);
+    expect(res.body.reminderTime).toBe("00:00");
+  });
+
   it("reorder persists ordinals", async () => {
     const res = await request(app)
       .post("/api/prejob-items/reorder")
@@ -121,7 +133,14 @@ describe("prejob-items CRUD", () => {
   });
 });
 
-type WoItem = { id: string; key: string; label: string; done: boolean };
+type WoItem = {
+  id: string;
+  key: string;
+  label: string;
+  done: boolean;
+  reminderEnabled: boolean;
+  reminderTime?: string;
+};
 type WoBody = { id: string; prejobItems: WoItem[]; canDispatch: boolean };
 
 describe("werkbon snapshots the template + per-werkbon gate", () => {
@@ -140,12 +159,53 @@ describe("werkbon snapshots the template + per-werkbon gate", () => {
     // Snapshot: one item, not done, not dispatchable yet.
     expect(wo.prejobItems.length).toBe(1);
     expect(wo.prejobItems[0].done).toBe(false);
+    expect(wo.prejobItems[0].reminderEnabled).toBe(true);
+    expect(wo.prejobItems[0].reminderTime).toBe("00:00");
     expect(wo.canDispatch).toBe(false);
 
     // Editing the TEMPLATE now must NOT change this werkbon's item.
     await request(app).post("/api/prejob-items").set(auth(adminToken)).send({ label: "Later added" }).expect(201);
     const stillOne = (await request(app).get(`/api/work-orders/${woId}`).set(auth(adminToken))).body as WoBody;
     expect(stillOne.prejobItems.length).toBe(1);
+
+    // The assigned technician receives the timed control in the bell on the
+    // previous workday and may complete it before office dispatch.
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    await prisma.workOrder.update({
+      where: { id: woId },
+      data: {
+        plannedDate: tomorrow,
+        assignees: { connect: { id: techEmployeeId } },
+      },
+    });
+    const notifications = await request(app)
+      .get("/api/notifications")
+      .set(auth(techToken));
+    expect(
+      notifications.body.items.some(
+        (item: { category: string; route: string }) =>
+          item.category === "controlReminder" && item.route === `/work-orders/${woId}`,
+      ),
+    ).toBe(true);
+
+    const technicianTick = await request(app)
+      .patch(`/api/work-orders/${woId}/prejob-items/${wo.prejobItems[0].id}`)
+      .set(auth(techToken))
+      .send({ done: true });
+    expect(technicianTick.status).toBe(200);
+    expect(technicianTick.body.prejobItems[0].done).toBe(true);
+
+    const clearedNotifications = await request(app)
+      .get("/api/notifications")
+      .set(auth(techToken));
+    expect(
+      clearedNotifications.body.items.some(
+        (item: { category: string; route: string }) =>
+          item.category === "controlReminder" && item.route === `/work-orders/${woId}`,
+      ),
+    ).toBe(false);
 
     // Tick the werkbon's own item via the per-werkbon route → complete → since
     // no photo is required by default, dispatch is allowed.

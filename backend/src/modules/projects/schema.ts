@@ -85,7 +85,11 @@ export const teamSchema = z.object({
   installerIds: z.array(z.string()).optional(),
 });
 
-export const commentSchema = z.object({ body: z.string().min(1) });
+export const commentSchema = z.object({
+  body: z.string().min(1),
+  mentionUserIds: z.array(z.string().uuid()).max(25).optional(),
+  workOrderId: z.string().uuid().optional(),
+});
 
 // Intake update (PATCH /:id/intake) — partial intake fields.
 export const updateIntakeSchema = z.object({

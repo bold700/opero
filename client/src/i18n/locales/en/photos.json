@@ -4,6 +4,8 @@
   "empty": "No photos yet",
   "addMultiple": "Add photos",
   "limitHint": "JPG or PNG, max {{max}}",
+  "dropHint": "Drop photos here or use the button · JPG or PNG, max {{max}}",
+  "dropNow": "Release to add the photos",
   "tooLarge": "{{name}} is too large (max {{max}})",
   "uploadFailed": "{{name}} could not be uploaded",
   "uploading": "Uploading…"

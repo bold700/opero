@@ -40,7 +40,7 @@ import {
   type ProjectDetail as ProjectDetailType,
   type ProjectWorkOrder,
 } from "./api";
-import { PROJECT_STATUS_TONES, euro } from "./constants";
+import { PROJECT_LIFECYCLE_STATUS_TONES, euro } from "./constants";
 import { ProjectFormDialog } from "./components/ProjectFormDialog";
 import { ProjectInfoField } from "./components/ProjectInfoField";
 
@@ -198,7 +198,10 @@ export function ProjectDetail() {
                   {t("projects.detail.referenceShort", { number: project.referenceNumber })}
                 </Typography>
               ) : null}
-              <StatusBadge label={t(`projects.status.${project.status}`)} tone={PROJECT_STATUS_TONES[project.status]} />
+              <StatusBadge
+                label={t(`projects.lifecycleStatus.${project.lifecycleStatus}`)}
+                tone={PROJECT_LIFECYCLE_STATUS_TONES[project.lifecycleStatus]}
+              />
             </Box>
             <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
               {project.customerName} · {project.address}, {project.city}
