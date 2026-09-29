@@ -7,6 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "pnpm --filter @opero/backend exec prisma migrate deploy && pnpm --filter @opero/backend start",
     "dev:client": "pnpm --filter @opero/client dev",
     "dev:backend": "pnpm --filter @opero/backend dev",
     "predev": "bash scripts/dev-db.sh",
