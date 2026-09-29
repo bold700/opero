@@ -29,6 +29,8 @@
     "city": "City",
     "workOrders": "Work orders",
     "status": "Status",
+    "createdAt": "Created on",
+    "plannedDate": "Scheduled for",
     "value": "Value",
     "action": "Action",
     "empty": "No projects found."

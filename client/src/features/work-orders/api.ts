@@ -14,6 +14,7 @@ export type WorkOrderRow = {
   technician: string;
   status: WorkOrderStatus;
   phase: WorkOrderPhase;
+  createdAt: string;
   // Release state — undefined until the office dispatches. A separate axis
   // from `status`: progress and release are independent.
   dispatchedAt?: string;

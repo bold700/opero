@@ -480,6 +480,7 @@ export function workOrderListDto(wb: WorkOrderListSource) {
     // Read the denormalized column (kept in sync by recomputeWorkOrderStatus).
     status: wb.listStatus as WorkOrderListStatus,
     phase: workOrderPhaseForStatus(wb.listStatus as WorkOrderStatus),
+    createdAt: wb.createdAt.toISOString(),
     // Release state — the office's "which scheduled jobs haven't we sent out
     // yet" scan, and the reason a technician's row may be read-only. A separate
     // axis from `status` on purpose: progress and release are independent.

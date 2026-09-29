@@ -36,9 +36,3 @@ export const FILTERS = [
   { key: "invoiced", status: "invoiced" as WorkOrderStatus | null },
   { key: "completed", status: "completed" as WorkOrderStatus | null },
 ] as const;
-
-// "2025-06-18T..." → "18 jun"; falls back to "—".
-export function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
-}

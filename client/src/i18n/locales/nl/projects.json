@@ -29,6 +29,8 @@
     "city": "Plaats",
     "workOrders": "Werkbonnen",
     "status": "Status",
+    "createdAt": "Aangemaakt op",
+    "plannedDate": "Ingepland voor",
     "value": "Waarde",
     "action": "Actie",
     "empty": "Geen projecten gevonden."

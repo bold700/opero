@@ -5,8 +5,9 @@ import IconButton from "@mui/material/IconButton";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
+import { formatShortDate } from "../../../lib/date";
 import type { WorkOrderRow } from "../api";
-import { STATUS, formatDate } from "../constants";
+import { STATUS } from "../constants";
 
 // The work orders list: a dense table on desktop, a stack of cards on mobile
 // (via ResponsiveList). Row / card tap opens the work-order detail.
@@ -56,7 +57,8 @@ export function WorkOrdersTable({
         { header: t("workOrders.table.workType"), sortValue: (r) => r.workType, cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workType}</Box> },
         { header: t("workOrders.table.technician"), sortValue: (r) => r.technician, cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.technician}</Box> },
         { header: t("workOrders.table.status"), sortValue: (r) => r.status, cell: statusCell },
-        { header: t("workOrders.table.date"), sortValue: (r) => r.date, cell: (r) => <Box sx={{ color: "text.secondary" }}>{formatDate(r.date)}</Box> },
+        { header: t("workOrders.table.createdAt"), sortValue: (r) => r.createdAt, cell: (r) => <Box sx={{ color: "text.secondary" }}>{formatShortDate(r.createdAt)}</Box> },
+        { header: t("workOrders.table.date"), sortValue: (r) => r.date, cell: (r) => <Box sx={{ color: "text.secondary" }}>{formatShortDate(r.date)}</Box> },
         {
           header: t("workOrders.table.action"),
           align: "right",
@@ -95,7 +97,7 @@ export function WorkOrdersTable({
               <Typography sx={{ color: "text.secondary", fontSize: 13 }}>· {r.city}</Typography>
             ) : null}
           </Box>
-          {/* Meta line: work type · technician · date */}
+          {/* Meta line: work type · technician */}
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, color: "text.secondary", fontSize: 13 }}>
             {r.workType ? <span>{r.workType}</span> : null}
             {r.technician ? (
@@ -104,8 +106,15 @@ export function WorkOrdersTable({
                 <span>{r.technician}</span>
               </>
             ) : null}
-            <span>·</span>
-            <span>{formatDate(r.date)}</span>
+          </Box>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, color: "text.secondary" }}>
+            <Typography variant="caption">
+              {t("workOrders.table.createdAt")}: {formatShortDate(r.createdAt)}
+            </Typography>
+            <Typography variant="caption">·</Typography>
+            <Typography variant="caption">
+              {t("workOrders.table.date")}: {formatShortDate(r.date)}
+            </Typography>
           </Box>
         </Box>
       )}

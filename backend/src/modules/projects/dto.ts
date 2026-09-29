@@ -194,6 +194,10 @@ export function projectSummaryDto(
   role: UserRole,
 ) {
   const showPrices = canSeePrices(role);
+  const plannedDate = (p.workOrders ?? [])
+    .map((workOrder) => workOrder.plannedDate)
+    .filter((date): date is string => date !== null)
+    .sort((a, b) => a.localeCompare(b))[0];
   // Billing is per-werkbon: a project's value is the SUM of its werkbonnen's
   // values, derived on read (no stale denormalized column).
   const value = (p.workOrders ?? []).reduce((sum, w) => sum + w.value, 0);
@@ -208,6 +212,8 @@ export function projectSummaryDto(
     customerId: p.customerId,
     customerName: p.customerName,
     city: p.city,
+    createdAt: p.createdAt.toISOString(),
+    plannedDate,
     status: p.status,
     lifecycleStatus: deriveProjectLifecycleStatus({
       archived: p.archived,

@@ -10,6 +10,7 @@ import { ResponsiveList } from "../../../components/ResponsiveList";
 import { StatusBadge } from "../../../components/StatusBadge";
 import type { ProjectSummary } from "../api";
 import { PROJECT_LIFECYCLE_STATUS_TONES, euro } from "../constants";
+import { formatShortDate } from "../../../lib/date";
 
 // The projects list: table on desktop, cards on mobile. A row opens the project
 // detail; edit/delete are admin row actions. `showPrices` false (field staff)
@@ -116,6 +117,8 @@ export function ProjectsTable({
         { header: t("projects.table.city"), sortValue: (p) => p.city, cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.city}</Box> },
         { header: t("projects.table.workOrders"), sortValue: (p) => p.workOrderCount, cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.workOrderCount}</Box> },
         { header: t("projects.table.status"), sortValue: (p) => p.lifecycleStatus, cell: statusCell },
+        { header: t("projects.table.createdAt"), sortValue: (p) => p.createdAt, cell: (p) => <Box sx={{ color: "text.secondary" }}>{formatShortDate(p.createdAt)}</Box> },
+        { header: t("projects.table.plannedDate"), sortValue: (p) => p.plannedDate, cell: (p) => <Box sx={{ color: "text.secondary" }}>{formatShortDate(p.plannedDate)}</Box> },
         ...(showPrices
           ? [{
               header: t("projects.table.value"),
@@ -138,6 +141,15 @@ export function ProjectsTable({
             {p.city ? <><span>·</span><span>{p.city}</span></> : null}
             <span>·</span>
             <span>{t("projects.table.workOrders")}: {p.workOrderCount}</span>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, color: "text.secondary" }}>
+            <Typography variant="caption">
+              {t("projects.table.createdAt")}: {formatShortDate(p.createdAt)}
+            </Typography>
+            <Typography variant="caption">·</Typography>
+            <Typography variant="caption">
+              {t("projects.table.plannedDate")}: {formatShortDate(p.plannedDate)}
+            </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
             {statusCell(p)}

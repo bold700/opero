@@ -23,6 +23,8 @@ export type ProjectSummary = {
   customerId: string;
   customerName: string;
   city: string;
+  createdAt: string;
+  plannedDate?: string;
   status: ProjectStatus;
   lifecycleStatus: ProjectLifecycleStatus;
   stage: ProjectStage;
