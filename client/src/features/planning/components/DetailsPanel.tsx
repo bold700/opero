@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
@@ -14,7 +15,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { BottomSheet } from "../../../components/BottomSheet";
 import { StatusBadge } from "../../../components/StatusBadge";
-import { STATUS_TONES, SPACING, TAP_TARGET } from "../../../theme/tokens";
+import { FILTER_SHEET_WIDTH, STATUS_TONES, SPACING, TAP_TARGET } from "../../../theme/tokens";
 import { humanize } from "../../../lib/labels";
 import type { PlanningEntry } from "../api";
 
@@ -123,10 +124,8 @@ function DetailsBody({
   );
 }
 
-// Details for the selected calendar entry, with admin actions (open work order,
-// reschedule, remove). On md+ it's a fixed-width side panel next to the
-// calendar; on xs/sm — where there's no room beside the calendar — it opens as a
-// full-width bottom drawer instead.
+// Details for the selected calendar entry, with admin actions. Desktop uses the
+// same right-side sheet pattern as filters; phones use a bottom sheet.
 export function DetailsPanel(props: {
   entry: PlanningEntry;
   canManage: boolean;
@@ -167,8 +166,21 @@ export function DetailsPanel(props: {
   }
 
   return (
-    <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider" }}>
+    <Drawer
+      anchor="right"
+      open
+      onClose={props.onClose}
+      slotProps={{
+        paper: {
+          sx: {
+            width: FILTER_SHEET_WIDTH,
+            maxWidth: "100vw",
+            p: SPACING.pagePadding,
+          },
+        },
+      }}
+    >
       <DetailsBody {...props} />
-    </Box>
+    </Drawer>
   );
 }

@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
-import Typography from "@mui/material/Typography";
 import Snackbar from "@mui/material/Snackbar";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
@@ -15,7 +14,7 @@ import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { useAuth } from "../../auth/AuthContext";
 import { isOffice } from "@opero/shared";
 import { useCreateParam } from "../../lib/useCreateParam";
-import { SURFACE, SPACING, PAGE_PADDING_RESPONSIVE } from "../../theme/tokens";
+import { SURFACE, PAGE_PADDING_RESPONSIVE } from "../../theme/tokens";
 import {
   getPlanning,
   scheduleWorkOrder,
@@ -335,9 +334,8 @@ export function Planning() {
             />
           </Box>
 
-          {/* On md+ the details live in a fixed side panel (or an empty-state
-              placeholder); on xs/sm DetailsPanel renders itself as a bottom
-              drawer, so we only mount the placeholder column on desktop. */}
+          {/* Details only mount after selecting an appointment. The component
+              presents a side sheet on desktop and a bottom sheet on mobile. */}
           {selected ? (
             <DetailsPanel
               entry={selected}
@@ -348,11 +346,7 @@ export function Planning() {
               onEdit={() => openEdit(selected)}
               onRemove={() => setRemoving(selected)}
             />
-          ) : (
-            <Box sx={{ width: 320, flexShrink: 0, p: SPACING.pagePadding, bgcolor: "background.paper", borderLeft: "1px solid", borderColor: "divider", display: { xs: "none", md: "block" } }}>
-              <Typography color="text.secondary">{t("planning.emptyWeek")}</Typography>
-            </Box>
-          )}
+          ) : null}
         </Box>
       )}
 
