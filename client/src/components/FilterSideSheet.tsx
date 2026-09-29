@@ -37,7 +37,7 @@ export function FilterSideSheet({
             aria-label={t("common.filters.open")}
             onClick={onOpen}
             color="primary"
-            sx={{ border: "1px solid", borderColor: "primary.main", bgcolor: "background.paper" }}
+            sx={{ border: "1px solid", borderColor: "primary.main" }}
           >
             <FilterListIcon />
           </IconButton>
