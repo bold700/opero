@@ -16,10 +16,8 @@ export function KpiCard({
   return (
     <Card
       sx={{
-        // 2-up on phones (min ~140px so two fit within page padding), even
-        // sizing from lg up. minWidth stays small so cards never overflow xs.
-        flex: { xs: "1 1 calc(50% - 10px)", lg: "1 1 0" },
-        minWidth: { xs: 140, lg: 180 },
+        width: "100%",
+        height: "100%",
         p: 2.5,
         display: "flex",
         flexDirection: "column",

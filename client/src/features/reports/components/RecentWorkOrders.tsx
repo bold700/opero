@@ -22,7 +22,7 @@ export function RecentWorkOrders({
   const navigate = useNavigate();
 
   return (
-    <Card sx={{ width: { xs: "100%", lg: 360 }, flexShrink: 0 }}>
+    <Card sx={{ width: "100%" }}>
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
         {t("reports.recentWorkOrders.title")}
       </Typography>

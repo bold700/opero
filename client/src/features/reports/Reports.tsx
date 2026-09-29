@@ -4,6 +4,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import { PageLayout } from "../../components/PageLayout";
+import { OverviewGrid } from "../../components/OverviewGrid";
 import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { useApi } from "../../lib/api/useApi";
 import { getReports, type ReportsData, type ReportFilter } from "./api";
@@ -15,6 +16,7 @@ import { TopEmployees } from "./components/TopEmployees";
 import { RecentWorkOrders } from "./components/RecentWorkOrders";
 import { PeriodPicker } from "./components/PeriodPicker";
 import { FilterChips } from "./components/FilterChips";
+import { SPACING } from "../../theme/tokens";
 
 // Reports — company analytics for the office (admin). A period + focus filter
 // drive live KPIs, a work-orders chart, top technicians, and recent work orders.
@@ -66,13 +68,15 @@ export function Reports() {
 
           {/* Left column: chart + top technicians stacked. Right column: recent
               work orders alongside both — so nothing spans full width. */}
-          <Box sx={{ display: "flex", gap: 2.5, flexDirection: { xs: "column", lg: "row" }, alignItems: "flex-start" }}>
-            <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2.5 }}>
+          <OverviewGrid>
+            <Box sx={{ gridColumn: { xs: "1 / -1", lg: "span 3" }, minWidth: 0, display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
               <WeeklyChart chart={data.chart} />
               <TopEmployees employees={data.topEmployees} />
             </Box>
-            <RecentWorkOrders workOrders={data.recentWorkOrders} />
-          </Box>
+            <Box sx={{ gridColumn: { xs: "1 / -1", lg: "span 1" }, minWidth: 0 }}>
+              <RecentWorkOrders workOrders={data.recentWorkOrders} />
+            </Box>
+          </OverviewGrid>
         </>
       )}
     </PageLayout>

@@ -2,6 +2,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
+import { OverviewGrid } from "../../../components/OverviewGrid";
 import { LAVENDER, RADIUS } from "../../../theme/tokens";
 import type { ReportsData, ReportFilter } from "../api";
 import { KPI_META, euro, formatHours } from "../constants";
@@ -26,7 +27,7 @@ export function ReportsKpis({ kpis, filter = "all" }: { kpis: ReportsData["kpis"
     materialCosts: euro(kpis.materialCosts),
   };
   return (
-    <Box sx={{ display: "flex", gap: 2.5, flexWrap: { xs: "wrap", lg: "nowrap" } }}>
+    <OverviewGrid>
       {KPI_META.map((k) => {
         const active = highlighted === k.key;
         const Icon = k.icon;
@@ -34,8 +35,8 @@ export function ReportsKpis({ kpis, filter = "all" }: { kpis: ReportsData["kpis"
           <Card
             key={k.key}
             sx={{
-              flex: { xs: "1 1 45%", lg: "1 1 0" },
-              minWidth: { xs: 0, lg: 180 },
+              width: "100%",
+              height: "100%",
               p: 2.5,
               display: "flex",
               gap: 2,
@@ -59,6 +60,6 @@ export function ReportsKpis({ kpis, filter = "all" }: { kpis: ReportsData["kpis"
           </Card>
         );
       })}
-    </Box>
+    </OverviewGrid>
   );
 }
