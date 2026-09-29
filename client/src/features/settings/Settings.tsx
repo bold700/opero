@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useAuth } from "../../auth/AuthContext";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { TopBar } from "../../components/PageLayout";
 import { PAGE_BG, SECTIONS, type SectionId } from "./constants";
 import { PAGE_PADDING_RESPONSIVE } from "../../theme/tokens";
 import { SectionList } from "./components/SectionList";
@@ -48,21 +48,7 @@ export function Settings() {
       }}
     >
       {/* Page header — static, never scrolls (matches PageLayout). */}
-      <Box
-        sx={{
-          flexShrink: 0,
-          px: PAGE_PADDING_RESPONSIVE,
-          py: 3,
-          bgcolor: PAGE_BG,
-        }}
-      >
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          {t("settings.title")}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t("settings.subtitle")}
-        </Typography>
-      </Box>
+      <TopBar title={t("settings.title")} />
 
       <Box
         sx={{
