@@ -38,7 +38,7 @@ export function TopBar({
         alignItems: { xs: "stretch", sm: "center" },
         justifyContent: "space-between",
         gap: { xs: 1.5, sm: 2 },
-        bgcolor: "background.paper",
+        bgcolor: SURFACE,
         borderBottom: "1px solid",
         borderColor: "divider",
         zIndex: 10,

@@ -53,7 +53,7 @@ export function Settings() {
           flexShrink: 0,
           px: PAGE_PADDING_RESPONSIVE,
           py: 3,
-          bgcolor: "background.paper",
+          bgcolor: PAGE_BG,
           borderBottom: "1px solid",
           borderColor: "divider",
         }}
