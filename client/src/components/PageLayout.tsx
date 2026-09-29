@@ -94,6 +94,8 @@ export function PageLayout({
           minHeight: 0,
           overflowY: "auto",
           overflowX: "hidden",
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
           overscrollBehavior: "contain",
           p: PAGE_PADDING_RESPONSIVE,
           // Clear the mobile bottom nav + iOS home indicator so the last row
