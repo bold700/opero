@@ -135,6 +135,7 @@ export function CompanyForm() {
         />
         <TextField
           label={t("settings.company.phone")}
+          type="tel"
           value={values.phone}
           onChange={setField("phone")}
           fullWidth

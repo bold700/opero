@@ -180,6 +180,7 @@ export function CustomerDialog({
             />
             <TextField
               label={t("customers.dialog.phone")}
+              type="tel"
               value={values.phone}
               onChange={setField("phone")}
               disabled={busy}

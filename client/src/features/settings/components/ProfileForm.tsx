@@ -194,6 +194,7 @@ export function ProfileForm() {
         />
         <TextField
           label={t("settings.profile.phone")}
+          type="tel"
           value={values.phone}
           onChange={setField("phone")}
           fullWidth

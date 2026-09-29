@@ -184,6 +184,7 @@ export function EmployeeDialog({
           <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
             <TextField
               label={t("employees.dialog.phone")}
+              type="tel"
               value={values.phone}
               onChange={setField("phone")}
               disabled={busy}

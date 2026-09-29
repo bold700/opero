@@ -434,6 +434,7 @@ export function ProjectInfoPanel({
               <TextField
                 size="small"
                 placeholder={t("workOrderDetail.info.contactPhone")}
+                type="tel"
                 defaultValue={project.contactPhone ?? ""}
                 key={`cp-${project.contactPhone ?? ""}`}
                 onBlur={(e) => {
