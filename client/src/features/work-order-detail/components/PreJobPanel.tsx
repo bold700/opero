@@ -26,7 +26,6 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import { Card } from "../../../components/Card";
 import { PhotoGrid } from "../../../components/PhotoGrid";
 import { AddChecklistItemDialog } from "./AddChecklistItemDialog";
@@ -52,7 +51,6 @@ export function PreJobPanel({
   onSetPhotoRequired,
   onUploadPhoto,
   onDeletePhoto,
-  onDispatch,
 }: {
   workOrder: WorkOrder;
   isAdmin: boolean;
@@ -66,7 +64,6 @@ export function PreJobPanel({
   onSetPhotoRequired: (required: boolean) => void;
   onUploadPhoto: (file: File) => void;
   onDeletePhoto: (key: string) => void;
-  onDispatch: () => void;
 }) {
   const { t } = useTranslation();
   const [addOpen, setAddOpen] = useState(false);
@@ -291,20 +288,6 @@ export function PreJobPanel({
           </Box>
         ) : null}
 
-        {/* Dispatch action (admin) */}
-        {isAdmin && !dispatched ? (
-          <Box sx={{ display: "flex", justifyContent: { xs: "stretch", sm: "flex-end" } }}>
-            <Button
-              variant="contained"
-              startIcon={<LocalShippingOutlinedIcon />}
-              disabled={busy || !workOrder.canDispatch}
-              onClick={onDispatch}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
-            >
-              {t("workOrderDetail.prejob.dispatch")}
-            </Button>
-          </Box>
-        ) : null}
         {isAdmin && !dispatched && !workOrder.canDispatch ? (
           <Typography variant="caption" color="text.secondary" sx={{ textAlign: "right" }}>
             {t("workOrderDetail.prejob.gateHint")}

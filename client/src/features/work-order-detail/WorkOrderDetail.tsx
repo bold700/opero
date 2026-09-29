@@ -11,6 +11,7 @@ import {
   canEditQuoteScope,
   isStaff,
   type UserRole,
+  type WorkOrderStatus,
 } from "@opero/shared";
 import { PageLayout } from "../../components/PageLayout";
 import { useAuth } from "../../auth/AuthContext";
@@ -53,8 +54,8 @@ import {
   uploadTaskPhoto,
   deleteTaskPhoto,
   finishWorkOrder,
-  reopenWorkOrder,
   approveWorkOrder,
+  setWorkOrderStatus,
   prepareWorkOrderInvoice,
   sendWorkOrderInvoice,
   markWorkOrderInvoicePaid,
@@ -87,6 +88,7 @@ import { ActivitySheet } from "./components/ActivitySheet";
 import { NotesSheet } from "./components/NotesSheet";
 import { AttachmentsSheet } from "./components/AttachmentsSheet";
 import { SignOffDialog } from "./components/SignOffDialog";
+import { STATUS } from "../work-orders/constants";
 
 // Work-order detail: header + tasks + meerwerk (extra-work approval) + activity.
 // The core product flow. `busy` serializes mutations; each one refetches the
@@ -235,57 +237,90 @@ export function WorkOrderDetail() {
   // Finished/locked is a property of THIS work order (signedAt), not the
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
-  const canFinish =
+  const nextStatusByStatus: Partial<Record<WorkOrderStatus, WorkOrderStatus>> = {
+    open: "planned",
+    planned: "released",
+    released: "ready_for_review",
+    in_progress: "ready_for_review",
+    ready_for_review: "approved",
+    approved: "ready_to_invoice",
+    ready_to_invoice: "invoiced",
+    invoiced: "completed",
+  };
+  const nextStatus = wo.status === "ready_for_review" && !finished
+    ? "ready_for_review"
+    : nextStatusByStatus[wo.status];
+  const fieldWorkerCanAdvance =
     isStaff(role) &&
     !dispatchBlocked &&
-    ["released", "in_progress", "ready_for_review"].includes(wo.status);
+    (["released", "in_progress"].includes(wo.status) ||
+      (wo.status === "ready_for_review" && !finished));
+  const canAdvance = canEditScope || fieldWorkerCanAdvance;
 
-  const workflowAction = canEditScope
-    ? wo.status === "ready_for_review" && finished
-      ? {
-          label: t("workOrderDetail.header.approve"),
-          onClick: () =>
-            run(async () => {
-              setWo(await approveWorkOrder(wo.id));
-              await refreshProject();
-              setToast(t("workOrderDetail.header.approvedToast"));
-            }),
-        }
-      : wo.status === "approved"
-        ? {
-            label: t("workOrderDetail.header.prepareInvoice"),
-            onClick: () =>
-              run(async () => {
-                await prepareWorkOrderInvoice(wo.id);
-                await refreshWorkOrder();
-                await refreshProject();
-                setToast(t("workOrderDetail.header.invoicePreparedToast"));
-              }),
+  const workflowAction = nextStatus && canAdvance
+    ? {
+        label: t("workOrderDetail.header.toStatus", {
+          status: t(STATUS[nextStatus].labelKey),
+        }),
+        disabled: wo.status === "planned" && !wo.canDispatch,
+        onClick: () => {
+          if (["released", "in_progress"].includes(wo.status) ||
+              (wo.status === "ready_for_review" && !finished)) {
+            setSignOpen(true);
+            return;
           }
-        : wo.status === "ready_to_invoice"
-          ? {
-              label: t("workOrderDetail.header.sendInvoice"),
-              onClick: () =>
-                run(async () => {
-                  await sendWorkOrderInvoice(wo.id);
-                  await refreshWorkOrder();
-                  await refreshProject();
-                  setToast(t("workOrderDetail.header.invoiceSentToast"));
-                }),
+          run(async () => {
+            if (wo.status === "open") {
+              setWo(await setWorkOrderStatus(wo.id, "planned"));
+            } else if (wo.status === "planned") {
+              setWo(await dispatchWorkOrder(wo.id));
+            } else if (wo.status === "ready_for_review") {
+              setWo(await approveWorkOrder(wo.id));
+            } else if (wo.status === "approved") {
+              await prepareWorkOrderInvoice(wo.id);
+              await refreshWorkOrder();
+            } else if (wo.status === "ready_to_invoice") {
+              await sendWorkOrderInvoice(wo.id);
+              await refreshWorkOrder();
+            } else if (wo.status === "invoiced") {
+              await markWorkOrderInvoicePaid(wo.id);
+              await refreshWorkOrder();
             }
-          : wo.status === "invoiced"
-            ? {
-                label: t("workOrderDetail.header.markPaid"),
-                onClick: () =>
-                  run(async () => {
-                    await markWorkOrderInvoicePaid(wo.id);
-                    await refreshWorkOrder();
-                    await refreshProject();
-                    setToast(t("workOrderDetail.header.paidToast"));
-                  }),
-              }
-            : undefined
+            await refreshProject();
+            setToast(t("workOrderDetail.header.advancedToast", {
+              status: t(STATUS[nextStatus].labelKey),
+            }));
+          });
+        },
+      }
     : undefined;
+
+  const changeStatus = (status: WorkOrderStatus) =>
+    run(async () => {
+      if (status === "ready_to_invoice") {
+        await prepareWorkOrderInvoice(wo.id);
+      } else if (status === "invoiced") {
+        if (wo.invoiceStatus === "not_started" || wo.invoiceStatus === "paid") {
+          await prepareWorkOrderInvoice(wo.id);
+        }
+        await sendWorkOrderInvoice(wo.id);
+      } else if (status === "completed") {
+        if (wo.invoiceStatus === "not_started") {
+          await prepareWorkOrderInvoice(wo.id);
+          await sendWorkOrderInvoice(wo.id);
+        } else if (wo.invoiceStatus === "draft") {
+          await sendWorkOrderInvoice(wo.id);
+        }
+        await markWorkOrderInvoicePaid(wo.id);
+      } else {
+        setWo(await setWorkOrderStatus(wo.id, status));
+      }
+      await refreshWorkOrder();
+      await refreshProject();
+      setToast(t("workOrderDetail.info.statusChangedToast", {
+        status: t(STATUS[status].labelKey),
+      }));
+    });
 
   // One definition, two possible homes — the sidebar or the sheet — so the two
   // can't drift. Rendered in exactly ONE of them: the panel has uncontrolled
@@ -319,6 +354,7 @@ export function WorkOrderDetail() {
       run(async () => { setWo(await setWorkOrderDescription(wo.id, description)); }),
     onSetContacts: (contactPersonIds: string[]) =>
       run(async () => { setWo(await setWorkOrderContacts(wo.id, contactPersonIds)); }),
+    onSetStatus: changeStatus,
   };
 
   // Delete the whole werkbon, then leave — the page we're on no longer exists.
@@ -379,8 +415,6 @@ export function WorkOrderDetail() {
           workOrder={wo}
           project={project}
           canDelete={canEditQuoteScope(role)}
-          canFinish={canFinish}
-          canReopen={canEditQuoteScope(role) && wo.status === "ready_for_review"}
           canExportQuote={canEditQuoteScope(role)}
           canExportInvoice={canEditQuoteScope(role) && wo.invoiceStatus !== "not_started"}
           finished={finished}
@@ -406,14 +440,6 @@ export function WorkOrderDetail() {
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
           onExportInvoicePdf={handleExportInvoicePdf}
-          onFinish={() => setSignOpen(true)}
-          onReopen={() =>
-            run(async () => {
-              setWo(await reopenWorkOrder(wo.id));
-              await refreshProject();
-              setToast(t("workOrderDetail.reopenedToast"));
-            })
-          }
         />
 
         {/* Tasks and controls stay on the page. Reference information opens in
@@ -500,12 +526,6 @@ export function WorkOrderDetail() {
               onSetPhotoRequired={(required) => run(async () => { setWo(await setPrejobPhotoRequired(wo.id, required)); })}
               onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
               onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
-              onDispatch={() =>
-                run(async () => {
-                  setWo(await dispatchWorkOrder(wo.id));
-                  setToast(t("workOrderDetail.prejob.dispatchedToast"));
-                })
-              }
             />
           </Box>
         </Box>

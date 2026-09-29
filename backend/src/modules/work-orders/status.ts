@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import {
-  deriveWorkOrderStatus,
+  resolveWorkOrderStatus,
   type WorkOrderStatus,
 } from "@opero/shared";
 import { prisma } from "../../db/client.js";
@@ -28,6 +28,7 @@ export async function recomputeWorkOrderStatus(
     where: { id: workOrderId },
     select: {
       id: true,
+      statusOverride: true,
       plannedDate: true,
       dispatchedAt: true,
       signedAt: true,
@@ -38,7 +39,7 @@ export async function recomputeWorkOrderStatus(
     },
   });
   if (!wb) return null;
-  const status = deriveWorkOrderStatus({
+  const status = resolveWorkOrderStatus({
     plannedDate: wb.plannedDate,
     assigneeCount: wb.assignees.length,
     dispatchedAt: wb.dispatchedAt,
@@ -46,7 +47,7 @@ export async function recomputeWorkOrderStatus(
     approvedBySupervisor: wb.approvedBySupervisor,
     invoiceStatus: wb.invoice?.status ?? null,
     tasks: wb.tasks,
-  });
+  }, wb.statusOverride);
   await db.workOrder.update({
     where: { id: workOrderId },
     data: { listStatus: status },
@@ -64,6 +65,7 @@ export async function recomputeWorkOrdersForProject(
     where: { projectId },
     select: {
       id: true,
+      statusOverride: true,
       plannedDate: true,
       dispatchedAt: true,
       signedAt: true,
@@ -74,7 +76,7 @@ export async function recomputeWorkOrdersForProject(
     },
   });
   for (const wb of workOrders) {
-    const status = deriveWorkOrderStatus({
+    const status = resolveWorkOrderStatus({
       plannedDate: wb.plannedDate,
       assigneeCount: wb.assignees.length,
       dispatchedAt: wb.dispatchedAt,
@@ -82,7 +84,7 @@ export async function recomputeWorkOrdersForProject(
       approvedBySupervisor: wb.approvedBySupervisor,
       invoiceStatus: wb.invoice?.status ?? null,
       tasks: wb.tasks,
-    });
+    }, wb.statusOverride);
     await db.workOrder.update({ where: { id: wb.id }, data: { listStatus: status } });
   }
 }

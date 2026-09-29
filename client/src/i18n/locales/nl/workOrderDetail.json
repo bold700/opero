@@ -52,7 +52,9 @@
     "sendInvoice": "Markeer als gefactureerd",
     "invoiceSentToast": "Werkbon gemarkeerd als gefactureerd",
     "markPaid": "Betaling verwerken",
-    "paidToast": "Werkbon afgerond"
+    "paidToast": "Werkbon afgerond",
+    "toStatus": "Naar {{status}}",
+    "advancedToast": "Werkbon staat nu op {{status}}"
   },
   "photos": {
     "title": "Foto's",
@@ -226,6 +228,10 @@
     "title": "Gegevens",
     "progress": "Voortgang",
     "progressValue": "{{done}} van {{total}} zones afgerond",
+    "status": "Status",
+    "statusChangeTitle": "Status wijzigen",
+    "statusChangeBody": "De status gaat van {{from}} naar {{to}}. Hiermee overschrijf je de normale volgorde.",
+    "statusChangedToast": "Status gewijzigd naar {{status}}",
     "urgency": "Urgentie",
     "startDate": "Startdatum",
     "date": "Datum",

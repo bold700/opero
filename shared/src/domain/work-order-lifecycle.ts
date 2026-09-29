@@ -74,6 +74,17 @@ export function deriveWorkOrderStatus(
   return "open";
 }
 
+// An office override is authoritative until the next normal lifecycle action.
+// Unknown persisted values safely fall back to the derived state.
+export function resolveWorkOrderStatus(
+  input: WorkOrderLifecycleInput,
+  override?: string | null,
+): WorkOrderStatus {
+  return override && (workOrderStatusIds as readonly string[]).includes(override)
+    ? (override as WorkOrderStatus)
+    : deriveWorkOrderStatus(input);
+}
+
 export const terminalWorkOrderStatusIds: readonly WorkOrderStatus[] = [
   "ready_for_review",
   "approved",

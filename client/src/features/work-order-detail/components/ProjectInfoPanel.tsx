@@ -13,6 +13,8 @@ import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { AutosaveDateField } from "../../../components/AutosaveDateField";
 import { SelectField } from "../../../components/SelectField";
 import { useSheetMenuProps } from "../../../components/ResponsiveDialog";
+import { workOrderStatusIds, type WorkOrderStatus } from "@opero/shared";
+import { STATUS } from "../../work-orders/constants";
 
 // Must match `sheetBelow` on the Projectinfo sheet (ProjectInfoSheet.tsx).
 // Anywhere the sheet renders, its `overflow: hidden` would clip an MUI menu —
@@ -72,6 +74,7 @@ export function ProjectInfoPanel({
   onSetTitle,
   onSetDescription,
   onSetContacts,
+  onSetStatus,
   bare = false,
 }: {
   project: Project;
@@ -100,6 +103,7 @@ export function ProjectInfoPanel({
    */
   onSetDescription: (description: string) => void;
   onSetContacts: (contactPersonIds: string[]) => void;
+  onSetStatus: (status: WorkOrderStatus) => void;
   /**
    * Drop the Card chrome and the heading — for when this is already inside a
    * container that supplies both (the mobile Projectinfo sheet). Otherwise the
@@ -118,6 +122,7 @@ export function ProjectInfoPanel({
   // confirm is accepted — the select never applies straight away.
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [pendingCustomer, setPendingCustomer] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<WorkOrderStatus | null>(null);
   useEffect(() => {
     if (!canEdit) return;
     getCustomers().then(setCustomers).catch(() => setCustomers([]));
@@ -181,6 +186,23 @@ export function ProjectInfoPanel({
 
         {canEdit ? (
           <>
+            <Field label={t("workOrderDetail.info.status")}>
+              <SelectField
+                label=""
+                value={workOrder.status}
+                onChange={(value) => {
+                  const status = value as WorkOrderStatus;
+                  if (status !== workOrder.status) setPendingStatus(status);
+                }}
+                disabled={busy}
+                nativeBelow={SHEET_BREAKPOINT}
+                options={workOrderStatusIds.map((status) => ({
+                  value: status,
+                  label: t(STATUS[status].labelKey),
+                }))}
+              />
+            </Field>
+
             {/* The werkbon's own name. Werkbon-level (not project) — it names
                 THIS visit. Left empty the header falls back to "Werkbon N", so
                 clearing it is a valid choice, not a broken state. */}
@@ -661,6 +683,21 @@ export function ProjectInfoPanel({
         onConfirm={() => {
           if (pendingCustomer) onPatch({ customerId: pendingCustomer });
           setPendingCustomer(null);
+        }}
+      />
+      <ConfirmDialog
+        open={pendingStatus !== null}
+        title={t("workOrderDetail.info.statusChangeTitle")}
+        body={t("workOrderDetail.info.statusChangeBody", {
+          from: t(STATUS[workOrder.status].labelKey),
+          to: pendingStatus ? t(STATUS[pendingStatus].labelKey) : "",
+        })}
+        confirmLabel={t("common.actions.save")}
+        busy={busy}
+        onClose={() => setPendingStatus(null)}
+        onConfirm={() => {
+          if (pendingStatus) onSetStatus(pendingStatus);
+          setPendingStatus(null);
         }}
       />
     </Shell>

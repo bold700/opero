@@ -34,8 +34,6 @@ export function DetailHeader({
   workOrder,
   project,
   canDelete,
-  canFinish,
-  canReopen,
   canExportQuote,
   canExportInvoice,
   finished,
@@ -45,8 +43,6 @@ export function DetailHeader({
   exportingInvoice,
   onBack,
   onDelete,
-  onFinish,
-  onReopen,
   onExportPdf,
   onExportQuotePdf,
   onExportInvoicePdf,
@@ -63,9 +59,6 @@ export function DetailHeader({
   /** Staff viewing an undispatched werkbon — shows the "Niet verzonden" chip.
    *  Computed by the page (role + dispatch state); clients never get it. */
   canDelete: boolean;
-  canFinish: boolean;
-  /** Admin-only: undoes a sign-off (clears the customer signature). */
-  canReopen: boolean;
   /** Admin-only: the quote (offerte) PDF is a commercial document with prices. */
   canExportQuote: boolean;
   canExportInvoice: boolean;
@@ -76,8 +69,6 @@ export function DetailHeader({
   exportingInvoice: boolean;
   onBack: () => void;
   onDelete: () => void;
-  onFinish: () => void;
-  onReopen: () => void;
   onExportPdf: () => void;
   onExportQuotePdf: () => void;
   onExportInvoicePdf: () => void;
@@ -87,14 +78,13 @@ export function DetailHeader({
   onOpenActivity: () => void;
   attachmentCount: number;
   noteCount: number;
-  workflowAction?: { label: string; onClick: () => void };
+  workflowAction?: { label: string; onClick: () => void; disabled?: boolean };
 }) {
   const { t } = useTranslation();
   // THIS visit's priority (per-werkbon). Blocked is the project's separate
   // workflow axis — shown as its own chip, never as an urgency.
   // Admin export menu (offerte / werkbon in one button).
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
-  const [confirmReopen, setConfirmReopen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const anyExporting = exporting || exportingQuote || exportingInvoice;
 
@@ -288,37 +278,17 @@ export function DetailHeader({
 
           </Box>
 
-          {canFinish && !finished ? (
-            <Button variant="contained" onClick={onFinish} disabled={busy}>
-              {t("workOrderDetail.header.finish")}
-            </Button>
-          ) : null}
-          {canReopen && finished ? (
-            <Button variant="outlined" onClick={() => setConfirmReopen(true)} disabled={busy}>
-              {t("workOrderDetail.header.reopen")}
-            </Button>
-          ) : null}
           {workflowAction ? (
-            <Button variant="contained" onClick={workflowAction.onClick} disabled={busy}>
+            <Button
+              variant="contained"
+              onClick={workflowAction.onClick}
+              disabled={busy || workflowAction.disabled}
+            >
               {workflowAction.label}
             </Button>
           ) : null}
         </Box>
       </Box>
-
-      <ConfirmDialog
-        open={confirmReopen}
-        title={t("workOrderDetail.header.reopenTitle")}
-        body={t("workOrderDetail.header.reopenBody")}
-        confirmLabel={t("workOrderDetail.header.reopen")}
-        busy={busy}
-        destructive
-        onClose={() => setConfirmReopen(false)}
-        onConfirm={() => {
-          onReopen();
-          setConfirmReopen(false);
-        }}
-      />
 
       {/* Deleting a werkbon takes its zones, lines, photos and billing with it,
           so the body names the werkbon and spells out what goes. */}

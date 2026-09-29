@@ -882,6 +882,8 @@ model WorkOrder {
   // recomputeWorkOrderStatus() so the list endpoint can filter/count/paginate on a
   // real indexed column instead of computing over the whole table in app code.
   listStatus           String                @default("open")
+  // Explicit office choice. Normal next-step actions clear this override.
+  statusOverride       String?
   // Customer-facing quote (offerte) document identity — assigned on the first
   // quote-PDF export and stable afterwards. Format YYYYNNNN (e.g. 20260063).
   quoteNumber          String?

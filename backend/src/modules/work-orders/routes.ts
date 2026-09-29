@@ -58,6 +58,7 @@ import {
   rejectMeerwerkSchema,
   removePhotoSchema,
   reorderTasksSchema,
+  setWorkOrderStatusSchema,
   taskHoursSchema,
   updateMaterialSchema,
   updateTaskSchema,
@@ -1158,6 +1159,75 @@ workOrdersRouter.delete(
   }),
 );
 
+// A deliberate office override for moving backwards or jumping to another
+// operational state. Billing states use the invoice routes so their amounts and
+// dates stay correct.
+workOrdersRouter.patch(
+  "/:id/status",
+  requireRole("admin", "office"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = setWorkOrderStatusSchema.parse(req.body);
+    const targetIndex = workOrderStatusIds.indexOf(input.status);
+    if (targetIndex >= workOrderStatusIds.indexOf("ready_to_invoice")) {
+      throw BadRequest("Financial statuses must use the invoice workflow");
+    }
+
+    const { project } = await loadProjectForWorkOrder(user, req.params.id);
+    const wb = await prisma.workOrder.findUniqueOrThrow({
+      where: { id: req.params.id },
+      select: {
+        title: true,
+        ordinal: true,
+        listStatus: true,
+        signature: true,
+        dispatchedAt: true,
+        invoice: { select: { id: true } },
+      },
+    });
+    const clearsSignature = targetIndex < workOrderStatusIds.indexOf("ready_for_review");
+    const isDispatched = targetIndex >= workOrderStatusIds.indexOf("released");
+    const isApproved = targetIndex >= workOrderStatusIds.indexOf("approved");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrder.update({
+        where: { id: req.params.id },
+        data: {
+          statusOverride: input.status,
+          listStatus: input.status,
+          approvedBySupervisor: isApproved,
+          ...(isDispatched
+            ? {
+                dispatchedAt: wb.dispatchedAt ?? new Date(),
+                dispatchedById: wb.dispatchedAt ? undefined : user.id,
+              }
+            : { dispatchedAt: null, dispatchedById: null }),
+          ...(clearsSignature
+            ? { signature: null, signedByName: null, signedAt: null, signedById: null }
+            : {}),
+        },
+      });
+      if (wb.invoice) {
+        await tx.invoice.update({
+          where: { id: wb.invoice.id },
+          data: { status: "not_started", sentDate: null, paidDate: null },
+        });
+      }
+      await appendActivity(tx, user, project.id, "workOrder.statusOverridden", {
+        title: woLabel(wb),
+        from: wb.listStatus,
+        to: input.status,
+      });
+      await audit(tx, user, "workOrder.status.override", "workOrder", req.params.id, {
+        from: wb.listStatus,
+        to: input.status,
+      });
+    });
+    if (clearsSignature && wb.signature) await deleteStored(wb.signature);
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
 // POST /work-orders/:id/approve — toggle approvedBySupervisor. admin only.
 workOrdersRouter.post(
   "/:id/approve",
@@ -1185,7 +1255,7 @@ workOrdersRouter.post(
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
-        data: { approvedBySupervisor: next },
+        data: { approvedBySupervisor: next, statusOverride: null },
       });
       await appendActivity(
         tx,
@@ -1545,6 +1615,7 @@ workOrdersRouter.post(
         prejobPhotos: true,
         prejobPhotoRequired: true,
         dispatchedAt: true,
+        statusOverride: true,
         title: true,
         ordinal: true,
         prejobItems: { select: { key: true, done: true } },
@@ -1560,7 +1631,13 @@ workOrdersRouter.post(
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: req.params.id },
-        data: { dispatchedAt: new Date(), dispatchedById: user.id },
+        data: {
+          dispatchedAt: new Date(),
+          dispatchedById: user.id,
+          // A manually selected preparation state keeps moving explicitly.
+          // Fresh work orders continue to use automatic derivation.
+          statusOverride: wb.statusOverride ? "released" : null,
+        },
       });
       await appendActivity(tx, user, project.id, "workOrder.dispatched", {
         title: wb.title || `#${wb.ordinal + 1}`,
@@ -2570,6 +2647,7 @@ workOrdersRouter.post(
           signedByName,
           signedAt: new Date(),
           signedById: user.id,
+          statusOverride: null,
         },
       });
       await appendActivity(tx, user, project.id, "workOrder.signed", {
@@ -2606,7 +2684,13 @@ workOrdersRouter.post(
     await prisma.$transaction(async (tx) => {
       await tx.workOrder.update({
         where: { id: workOrder.id },
-        data: { signature: null, signedByName: null, signedAt: null, signedById: null },
+        data: {
+          signature: null,
+          signedByName: null,
+          signedAt: null,
+          signedById: null,
+          statusOverride: null,
+        },
       });
       await appendActivity(tx, user, project.id, "workOrder.reopened", {
         title: wb.title || `#${wb.ordinal + 1}`,

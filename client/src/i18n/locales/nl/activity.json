@@ -17,6 +17,17 @@
     "urgent": "Urgent",
     "blocked": "Geblokkeerd"
   },
+  "workOrderStatus": {
+    "open": "Open",
+    "planned": "Gepland",
+    "released": "Vrijgegeven",
+    "in_progress": "In uitvoering",
+    "ready_for_review": "Klaar voor controle",
+    "approved": "Goedgekeurd",
+    "ready_to_invoice": "Klaar voor facturatie",
+    "invoiced": "Gefactureerd",
+    "completed": "Afgerond"
+  },
   "project": {
     "created": "Project aangemaakt",
     "deleted": "Project verwijderd",
@@ -92,7 +103,8 @@
     "unapproved": "Goedkeuring ingetrokken: {{title}}",
     "signed": "{{title}} afgerond en ondertekend",
     "reopened": "{{title}} heropend",
-    "dispatched": "{{title}} vrijgegeven aan de monteur"
+    "dispatched": "{{title}} vrijgegeven aan de monteur",
+    "statusOverridden": "{{title}}: status van $t(activity.workOrderStatus.{{from}}) naar $t(activity.workOrderStatus.{{to}})"
   },
   "commentPlaceholder": "Notitie toevoegen…",
   "commentSend": "Notitie plaatsen"

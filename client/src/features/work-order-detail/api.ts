@@ -696,6 +696,13 @@ export function approveWorkOrder(workOrderId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/approve`, {});
 }
 
+export function setWorkOrderStatus(
+  workOrderId: string,
+  status: WorkOrderStatus,
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}/status`, { status });
+}
+
 export function prepareWorkOrderInvoice(workOrderId: string): Promise<unknown> {
   return api.post(`/work-orders/${workOrderId}/invoice/draft`, {});
 }

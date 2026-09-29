@@ -52,7 +52,9 @@
     "sendInvoice": "Mark as invoiced",
     "invoiceSentToast": "Work order marked as invoiced",
     "markPaid": "Record payment",
-    "paidToast": "Work order completed"
+    "paidToast": "Work order completed",
+    "toStatus": "To {{status}}",
+    "advancedToast": "Work order is now {{status}}"
   },
   "photos": {
     "title": "Photos",
@@ -226,6 +228,10 @@
     "title": "Details",
     "progress": "Progress",
     "progressValue": "{{done}} of {{total}} zones done",
+    "status": "Status",
+    "statusChangeTitle": "Change status",
+    "statusChangeBody": "The status changes from {{from}} to {{to}}. This overrides the normal sequence.",
+    "statusChangedToast": "Status changed to {{status}}",
     "urgency": "Urgency",
     "startDate": "Start date",
     "date": "Date",

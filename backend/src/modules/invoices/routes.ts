@@ -218,7 +218,13 @@ invoicesRouter.post(
           invoiceNumber: identity.invoiceNumber,
           invoiceDate: identity.invoiceDate,
           dueDate: identity.dueDate,
+          sentDate: null,
+          paidDate: null,
         },
+      });
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { statusOverride: null },
       });
       await tx.projectActivity.create({
         data: {
@@ -255,7 +261,12 @@ invoicesRouter.post(
           invoiceNumber: identity.invoiceNumber,
           invoiceDate: identity.invoiceDate,
           dueDate: identity.dueDate,
+          paidDate: null,
         },
+      });
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { statusOverride: null },
       });
       await tx.projectActivity.create({
         data: {
@@ -283,6 +294,10 @@ invoicesRouter.post(
       const inv = await tx.invoice.update({
         where: { id: workOrder.invoice!.id },
         data: { status: "paid", paidDate: todayIso() },
+      });
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: { statusOverride: null },
       });
       await tx.projectActivity.create({
         data: {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { workOrderStatusIds } from "@opero/shared";
 
 // Local zod schemas for the work-orders module — not shared.
 // Mirror the Zustand store's workOrder actions. Text is clamped in the handlers
@@ -51,6 +52,10 @@ export const updateWorkOrderSchema = z
     message: "endTime must be after startTime",
     path: ["endTime"],
   });
+
+export const setWorkOrderStatusSchema = z.object({
+  status: z.enum(workOrderStatusIds),
+});
 
 // PATCH /work-orders/:id/tasks/:taskId — task fields incl. per-zone work type +
 // assignee (nullable: pass null to clear, omit to leave unchanged).

@@ -17,6 +17,17 @@
     "urgent": "Urgent",
     "blocked": "Blocked"
   },
+  "workOrderStatus": {
+    "open": "Open",
+    "planned": "Planned",
+    "released": "Released",
+    "in_progress": "In progress",
+    "ready_for_review": "Ready for review",
+    "approved": "Approved",
+    "ready_to_invoice": "Ready to invoice",
+    "invoiced": "Invoiced",
+    "completed": "Completed"
+  },
   "project": {
     "created": "Project created",
     "deleted": "Project deleted",
@@ -92,7 +103,8 @@
     "unapproved": "Approval withdrawn: {{title}}",
     "signed": "{{title}} completed and signed",
     "reopened": "{{title}} reopened",
-    "dispatched": "{{title}} released to the technician"
+    "dispatched": "{{title}} released to the technician",
+    "statusOverridden": "{{title}}: status from $t(activity.workOrderStatus.{{from}}) to $t(activity.workOrderStatus.{{to}})"
   },
   "commentPlaceholder": "Add a note…",
   "commentSend": "Post note"

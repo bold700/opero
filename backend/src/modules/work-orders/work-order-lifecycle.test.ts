@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { deriveWorkOrderStatus, workOrderPhaseForStatus } from "@opero/shared";
+import {
+  deriveWorkOrderStatus,
+  resolveWorkOrderStatus,
+  workOrderPhaseForStatus,
+} from "@opero/shared";
 
 const base = () => ({
   plannedDate: null,
@@ -69,5 +73,11 @@ describe("work-order lifecycle", () => {
     expect(workOrderPhaseForStatus("approved")).toBe("realization");
     expect(workOrderPhaseForStatus("ready_to_invoice")).toBe("completion");
     expect(workOrderPhaseForStatus("completed")).toBe("completion");
+  });
+
+  it("keeps an explicit office status until the override is cleared", () => {
+    expect(resolveWorkOrderStatus(base(), "approved")).toBe("approved");
+    expect(resolveWorkOrderStatus(base(), null)).toBe("open");
+    expect(resolveWorkOrderStatus(base(), "unknown")).toBe("open");
   });
 });
