@@ -254,6 +254,7 @@ export function MaterialDetail() {
           columns={[
             {
               header: t(SIZE_UNIT_LABEL_KEYS[material.sizeUnit]),
+              sortValue: (v) => v.size,
               cell: (v) => (
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {v.size}
@@ -262,6 +263,7 @@ export function MaterialDetail() {
             },
             {
               header: t("materials.columns.component"),
+              sortValue: (v) => componentLabel(v),
               cell: (v) => <Typography variant="body2">{componentLabel(v)}</Typography>,
             },
             // Price column is dropped entirely for field staff — not blanked.
@@ -272,6 +274,7 @@ export function MaterialDetail() {
                   {
                     header: t("materials.columns.price"),
                     align: "right" as const,
+                    sortValue: (v: MaterialVariant) => v.unitPrice,
                     cell: (v: MaterialVariant) => (
                       <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
                         {priceLabel(v)}
@@ -286,6 +289,7 @@ export function MaterialDetail() {
                   {
                     header: t("materials.columns.cost"),
                     align: "right" as const,
+                    sortValue: (v: MaterialVariant) => v.costPrice,
                     cell: (v: MaterialVariant) => (
                       <Typography variant="body2" sx={{ whiteSpace: "nowrap", color: "text.secondary" }}>
                         {marginLabel(v)}

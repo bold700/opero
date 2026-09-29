@@ -46,6 +46,12 @@
   "view": "Weergave",
   "period": "Periode",
   "display": "Weergave",
+  "filters": {
+    "employee": "Monteur",
+    "allEmployees": "Alle monteurs",
+    "status": "Status",
+    "allStatuses": "Alle statussen"
+  },
   "timeline": {
     "today": "Vandaag",
     "previousWeek": "Vorige week",

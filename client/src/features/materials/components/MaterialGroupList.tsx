@@ -41,6 +41,7 @@ export function MaterialGroupList({
         columns={[
           {
             header: t("materials.columns.name"),
+            sortValue: (m) => m.name,
             cell: (m) => (
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {m.name}
@@ -49,6 +50,7 @@ export function MaterialGroupList({
           },
           {
             header: t("materials.columns.supplier"),
+            sortValue: (m) => m.supplier,
             cell: (m) => (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 {m.supplier}
@@ -57,6 +59,7 @@ export function MaterialGroupList({
           },
           {
             header: t("materials.columns.system"),
+            sortValue: (m) => m.category ?? "",
             cell: (m) => (
               <Typography variant="body2" sx={{ color: "text.secondary", whiteSpace: "nowrap" }}>
                 {m.category ? t(CATEGORY_LABEL_KEYS[m.category]) : "—"}
@@ -65,6 +68,7 @@ export function MaterialGroupList({
           },
           {
             header: t("materials.columns.sizeRange"),
+            sortValue: (m) => formatSizeRange(m.sizeUnit, m.sizeRange),
             cell: (m) => (
               <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
                 {formatSizeRange(m.sizeUnit, m.sizeRange)}
@@ -78,6 +82,7 @@ export function MaterialGroupList({
                 : "materials.columns.variantCountNeutral",
             ),
             align: "right",
+            sortValue: (m) => m.variantCount,
             cell: (m) => (
               <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
                 <Typography variant="body2">{m.variantCount}</Typography>

@@ -20,12 +20,14 @@ export function FilterSelect({
   onChange,
   ariaLabel,
   minWidth = 160,
+  fullWidth = false,
 }: {
   value: string;
   options: FilterSelectOption[];
   onChange: (value: string) => void;
   ariaLabel: string;
   minWidth?: number;
+  fullWidth?: boolean;
 }) {
   return (
     <Select
@@ -50,7 +52,7 @@ export function FilterSelect({
         // it leaves the parent's own alignItems intact, which matters where this
         // sits in a ROW next to another control (work orders: the Filters
         // toggle, alignItems "center") and alignSelf would top-align it.
-        width: "fit-content",
+        width: fullWidth ? "100%" : "fit-content",
         maxWidth: "100%",
       }}
     >

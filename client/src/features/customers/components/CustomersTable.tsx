@@ -66,12 +66,12 @@ export function CustomersTable({
       onLoadMore={onLoadMore}
       onRowClick={onOpen}
       columns={[
-        { header: t("customers.table.name"), cell: nameCell },
-        { header: t("customers.table.city"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.city}</Box> },
-        { header: t("customers.table.type"), cell: (c) => <TypeBadge type={c.type} /> },
-        { header: t("customers.table.workOrders"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.workOrderCount}</Box> },
-        { header: t("customers.table.lastContact"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</Box> },
-        { header: t("customers.table.account"), cell: accountCell },
+        { header: t("customers.table.name"), sortValue: (c) => c.name, cell: nameCell },
+        { header: t("customers.table.city"), sortValue: (c) => c.city, cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.city}</Box> },
+        { header: t("customers.table.type"), sortValue: (c) => c.type, cell: (c) => <TypeBadge type={c.type} /> },
+        { header: t("customers.table.workOrders"), sortValue: (c) => c.workOrderCount, cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.workOrderCount}</Box> },
+        { header: t("customers.table.lastContact"), sortValue: (c) => c.lastContact, cell: (c) => <Box sx={{ color: "text.secondary" }}>{formatDate(c.lastContact)}</Box> },
+        { header: t("customers.table.account"), sortValue: (c) => c.account?.status ?? "none", cell: accountCell },
         { header: t("customers.table.action"), align: "right", cell: actionsCell },
       ]}
       renderCard={(c) => (

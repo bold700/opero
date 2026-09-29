@@ -53,6 +53,7 @@ export const PLANNING_TIMELINE = {
 
 // Width of focused right-side detail panels on tablet and desktop.
 export const SIDE_SHEET_WIDTH = 560;
+export const FILTER_SHEET_WIDTH = 420;
 
 // M3 lavender accents (selected/active states).
 export const LAVENDER = "#E8DEF8";

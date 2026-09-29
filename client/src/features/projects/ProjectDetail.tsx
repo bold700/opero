@@ -246,13 +246,14 @@ export function ProjectDetail() {
             empty={t("projects.detail.noWorkOrders")}
             onRowClick={(w) => navigate(`/work-orders/${w.id}`)}
             columns={[
-              { header: t("projects.detail.woTitle"), cell: (w) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography> },
-              { header: t("projects.detail.woStatus"), cell: (w) => woBadge(w) },
-              { header: t("projects.detail.woDate"), cell: (w) => <Box sx={{ color: "text.secondary" }}>{w.plannedDate ?? "—"}</Box> },
+              { header: t("projects.detail.woTitle"), sortValue: (w) => woLabel(w), cell: (w) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography> },
+              { header: t("projects.detail.woStatus"), sortValue: (w) => w.status, cell: (w) => woBadge(w) },
+              { header: t("projects.detail.woDate"), sortValue: (w) => w.plannedDate, cell: (w) => <Box sx={{ color: "text.secondary" }}>{w.plannedDate ?? "—"}</Box> },
               ...(showPrices
                 ? [{
                     header: t("projects.table.value"),
                     align: "right" as const,
+                    sortValue: (w: ProjectWorkOrder) => w.value,
                     cell: (w: ProjectWorkOrder) => (w.value != null ? <Box sx={{ fontWeight: 600 }}>{euro(w.value)}</Box> : null),
                   }]
                 : []),

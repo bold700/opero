@@ -41,17 +41,20 @@ export function TimesheetTable({
         columns={[
           {
             header: t("timesheet.table.day"),
+            sortValue: (e) => e.day,
             cell: (e) => (
               <Box sx={{ color: "text.secondary" }}>{e.day ? formatDate(e.day) : "—"}</Box>
             ),
           },
           {
             header: t("timesheet.table.project"),
+            sortValue: (e) => e.projectNumber,
             cell: (e) => <Box sx={{ fontWeight: 600 }}>{e.projectNumber}</Box>,
           },
           {
             header: t("timesheet.table.hours"),
             align: "right",
+            sortValue: (e) => e.hours,
             cell: (e) => (
               <Box sx={{ fontVariantNumeric: "tabular-nums" }}>{formatHours(e.hours, lang)}</Box>
             ),

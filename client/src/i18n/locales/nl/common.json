@@ -29,6 +29,12 @@
   "misc": {
     "all": "Alle"
   },
+  "filters": {
+    "title": "Filters",
+    "open": "Filters",
+    "clear": "Alles wissen",
+    "done": "Gereed"
+  },
   "account": {
     "none": "Nee",
     "invited": "Uitgenodigd",

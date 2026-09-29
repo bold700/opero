@@ -44,6 +44,7 @@ export function VariantSearchTable({
       columns={[
         {
           header: t("materials.columns.name"),
+          sortValue: (r) => r.name,
           cell: (r) => (
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {r.name}
@@ -52,6 +53,7 @@ export function VariantSearchTable({
         },
         {
           header: t("materials.columns.supplier"),
+          sortValue: (r) => r.supplier,
           cell: (r) => (
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {r.supplier}
@@ -63,6 +65,7 @@ export function VariantSearchTable({
               {
                 header: t("materials.columns.price"),
                 align: "right" as const,
+                sortValue: (r: MaterialVariantRow) => r.unitPrice,
                 cell: (r: MaterialVariantRow) => (
                   <Typography variant="body2" sx={{ whiteSpace: "nowrap" }}>
                     {price(r)}

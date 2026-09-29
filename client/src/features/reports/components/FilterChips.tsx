@@ -18,6 +18,7 @@ export function FilterChips({
       value={value}
       onChange={(v) => onChange(v as ReportFilter)}
       ariaLabel={t("reports.filters.label")}
+      fullWidth
       options={FILTER_CHIPS.map((f) => ({ value: f, label: t(`reports.filters.${f}`) }))}
     />
   );

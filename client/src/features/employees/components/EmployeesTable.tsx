@@ -70,6 +70,16 @@ export function EmployeesTable({
     );
   };
 
+  const roleLabels = (r: EmployeeRow) =>
+    (r.account?.roles?.length
+      ? r.account.roles
+      : r.account
+        ? [r.account.role]
+        : []
+    )
+      .map((role) => t(`users.roles.${role}`))
+      .join(", ");
+
   const actionsCell = (r: EmployeeRow) =>
     canManage ? (
       <Box sx={{ display: "inline-flex", gap: 0.5 }}>
@@ -101,12 +111,12 @@ export function EmployeesTable({
       loadingMore={loadingMore}
       onLoadMore={onLoadMore}
       columns={[
-        { header: t("employees.table.name"), cell: nameCell },
-        { header: t("employees.table.function"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{fn(r)}</Box> },
-        { header: t("employees.table.roles"), cell: rolesCell },
-        { header: t("employees.table.workOrders"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workOrderCount}</Box> },
-        { header: t("employees.table.status"), cell: (r) => <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} /> },
-        { header: t("employees.table.account"), cell: accountCell },
+        { header: t("employees.table.name"), sortValue: (r) => r.name, cell: nameCell },
+        { header: t("employees.table.function"), sortValue: (r) => fn(r), cell: (r) => <Box sx={{ color: "text.secondary" }}>{fn(r)}</Box> },
+        { header: t("employees.table.roles"), sortValue: roleLabels, cell: rolesCell },
+        { header: t("employees.table.workOrders"), sortValue: (r) => r.workOrderCount, cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workOrderCount}</Box> },
+        { header: t("employees.table.status"), sortValue: (r) => r.status, cell: (r) => <StatusBadge label={t(STATUS[r.status].labelKey)} tone={STATUS[r.status].tone} /> },
+        { header: t("employees.table.account"), sortValue: (r) => r.account?.status ?? "none", cell: accountCell },
         { header: t("employees.table.action"), align: "right", cell: actionsCell },
       ]}
       renderCard={(r) => (

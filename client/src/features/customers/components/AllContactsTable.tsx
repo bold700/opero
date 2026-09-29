@@ -59,33 +59,38 @@ export function AllContactsTable({
       onLoadMore={onLoadMore}
       onRowClick={(contact) => onOpenCustomer(contact.customer.id)}
       columns={[
-        { header: t("customers.detail.colName"), cell: nameCell },
+        { header: t("customers.detail.colName"), sortValue: (contact) => contact.name, cell: nameCell },
         {
           header: t("customers.contacts.customer"),
+          sortValue: customerNames,
           cell: (contact) => (
             <Box sx={{ fontWeight: 600 }}>{customerNames(contact)}</Box>
           ),
         },
         {
           header: t("customers.detail.colRole"),
+          sortValue: (contact) => contact.role,
           cell: (contact) => (
             <Box sx={{ color: "text.secondary" }}>{contact.role ?? ""}</Box>
           ),
         },
         {
           header: t("customers.detail.colEmail"),
+          sortValue: (contact) => contact.email,
           cell: (contact) => (
             <Box sx={{ color: "text.secondary" }}>{contact.email ?? ""}</Box>
           ),
         },
         {
           header: t("customers.detail.colPhone"),
+          sortValue: (contact) => contact.phone,
           cell: (contact) => (
             <Box sx={{ color: "text.secondary" }}>{contact.phone ?? ""}</Box>
           ),
         },
         {
           header: t("customers.contacts.projects"),
+          sortValue: projectNames,
           cell: (contact) => (
             <Box sx={{ color: "text.secondary" }}>{projectNames(contact)}</Box>
           ),

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -9,6 +9,7 @@ import TableBody from "@mui/material/TableBody";
 import TableFooter from "@mui/material/TableFooter";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import { Card } from "./Card";
 
 // A list that renders as a DENSE TABLE on desktop (md+) and a STACK OF CARDS on
@@ -40,7 +41,17 @@ export type ResponsiveColumn<T> = {
   header: ReactNode;
   cell: (item: T) => ReactNode;
   align?: "left" | "right" | "center";
+  sortValue?: (item: T) => string | number | null | undefined;
 };
+
+type SortState = { index: number; direction: "asc" | "desc" } | null;
+
+function compareValues(left: string | number | null | undefined, right: string | number | null | undefined) {
+  if (left == null || left === "") return right == null || right === "" ? 0 : 1;
+  if (right == null || right === "") return -1;
+  if (typeof left === "number" && typeof right === "number") return left - right;
+  return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" });
+}
 
 export function ResponsiveList<T>({
   items,
@@ -71,6 +82,17 @@ export function ResponsiveList<T>({
   /** Fetch the next page. Required for the load-more footer to appear. */
   onLoadMore?: () => void;
 }) {
+  const [sort, setSort] = useState<SortState>(null);
+  const sortedItems = useMemo(() => {
+    if (!sort) return items;
+    const value = columns[sort.index]?.sortValue;
+    if (!value) return items;
+    return [...items].sort((a, b) => {
+      const result = compareValues(value(a), value(b));
+      return sort.direction === "asc" ? result : -result;
+    });
+  }, [columns, items, sort]);
+
   // --- Empty state (shared) ---
   if (items.length === 0) {
     return (
@@ -103,13 +125,27 @@ export function ResponsiveList<T>({
               <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
                 {columns.map((c, i) => (
                   <TableCell key={i} align={c.align ?? "left"}>
-                    {c.header}
+                    {c.sortValue ? (
+                      <TableSortLabel
+                        active={sort?.index === i}
+                        direction={sort?.index === i ? sort.direction : "asc"}
+                        onClick={() =>
+                          setSort((current) => ({
+                            index: i,
+                            direction:
+                              current?.index === i && current.direction === "asc" ? "desc" : "asc",
+                          }))
+                        }
+                      >
+                        {c.header}
+                      </TableSortLabel>
+                    ) : c.header}
                   </TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {items.map((item) => (
+              {sortedItems.map((item) => (
                 <TableRow
                   key={keyOf(item)}
                   hover
@@ -158,7 +194,7 @@ export function ResponsiveList<T>({
 
       {/* Mobile: card stack (hidden on md+) */}
       <Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 1.5 }}>
-        {items.map((item) => (
+        {sortedItems.map((item) => (
           <Card
             key={keyOf(item)}
             onClick={onRowClick ? () => onRowClick(item) : undefined}

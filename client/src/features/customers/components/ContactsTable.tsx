@@ -55,10 +55,10 @@ export function ContactsTable({
       keyOf={(c) => c.id}
       empty={t("customers.contacts.empty")}
       columns={[
-        { header: t("customers.detail.colName"), cell: nameCell },
-        { header: t("customers.detail.colRole"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.role ?? ""}</Box> },
-        { header: t("customers.detail.colEmail"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.email ?? ""}</Box> },
-        { header: t("customers.detail.colPhone"), cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.phone ?? ""}</Box> },
+        { header: t("customers.detail.colName"), sortValue: (c) => c.name, cell: nameCell },
+        { header: t("customers.detail.colRole"), sortValue: (c) => c.role, cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.role ?? ""}</Box> },
+        { header: t("customers.detail.colEmail"), sortValue: (c) => c.email, cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.email ?? ""}</Box> },
+        { header: t("customers.detail.colPhone"), sortValue: (c) => c.phone, cell: (c) => <Box sx={{ color: "text.secondary" }}>{c.phone ?? ""}</Box> },
         { header: t("customers.detail.colAction"), align: "right", cell: actionsCell },
       ]}
       renderCard={(c) => (

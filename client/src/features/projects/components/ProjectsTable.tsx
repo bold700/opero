@@ -110,16 +110,17 @@ export function ProjectsTable({
       onLoadMore={onLoadMore}
       onRowClick={onOpen}
       columns={[
-        { header: t("projects.table.number"), cell: numberCell },
-        { header: t("projects.table.name"), cell: (p) => (p.name ? <Box>{p.name}</Box> : null) },
-        { header: t("projects.table.customer"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.customerName}</Box> },
-        { header: t("projects.table.city"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.city}</Box> },
-        { header: t("projects.table.workOrders"), cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.workOrderCount}</Box> },
-        { header: t("projects.table.status"), cell: statusCell },
+        { header: t("projects.table.number"), sortValue: (p) => p.projectNumber, cell: numberCell },
+        { header: t("projects.table.name"), sortValue: (p) => p.name, cell: (p) => (p.name ? <Box>{p.name}</Box> : null) },
+        { header: t("projects.table.customer"), sortValue: (p) => p.customerName, cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.customerName}</Box> },
+        { header: t("projects.table.city"), sortValue: (p) => p.city, cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.city}</Box> },
+        { header: t("projects.table.workOrders"), sortValue: (p) => p.workOrderCount, cell: (p) => <Box sx={{ color: "text.secondary" }}>{p.workOrderCount}</Box> },
+        { header: t("projects.table.status"), sortValue: (p) => p.lifecycleStatus, cell: statusCell },
         ...(showPrices
           ? [{
               header: t("projects.table.value"),
               align: "right" as const,
+              sortValue: (p: ProjectSummary) => p.value,
               cell: (p: ProjectSummary) => (p.value != null ? <Box sx={{ fontWeight: 600 }}>{euro(p.value)}</Box> : null),
             }]
           : []),

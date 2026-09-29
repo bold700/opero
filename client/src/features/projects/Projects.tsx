@@ -7,6 +7,7 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { useAuth } from "../../auth/AuthContext";
 import { isOffice, canSeePrices } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
@@ -41,6 +42,7 @@ export function Projects() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [visibility, setVisibility] = useState<ProjectVisibility>("active");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const debouncedSearch = useDebounced(search, 300);
 
@@ -140,15 +142,28 @@ export function Projects() {
         />
       }
     >
-      <ProjectsFilterBar
-        status={statusFilter}
-        onStatusChange={setStatusFilter}
-        visibility={visibility}
-        onVisibilityChange={(value) => {
-          setVisibility(value);
-          if (value === "archived") setStatusFilter("");
-        }}
-      />
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <FilterSideSheet
+          open={filtersOpen}
+          onOpen={() => setFiltersOpen(true)}
+          onClose={() => setFiltersOpen(false)}
+          activeCount={(statusFilter ? 1 : 0) + (visibility === "active" ? 0 : 1)}
+          onClear={() => {
+            setStatusFilter("");
+            setVisibility("active");
+          }}
+        >
+          <ProjectsFilterBar
+            status={statusFilter}
+            onStatusChange={setStatusFilter}
+            visibility={visibility}
+            onVisibilityChange={(value) => {
+              setVisibility(value);
+              if (value === "archived") setStatusFilter("");
+            }}
+          />
+        </FilterSideSheet>
+      </Box>
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />

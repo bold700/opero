@@ -6,6 +6,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { PageLayout } from "../../components/PageLayout";
 import { FilterSelect } from "../../components/FilterSelect";
+import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { SPACING } from "../../theme/tokens";
 import { useApi } from "../../lib/api/useApi";
 import { usePagedApi } from "../../lib/api/usePagedApi";
@@ -50,6 +51,7 @@ export function Materials() {
   // Which catalog: the material catalog, or the article list (products &
   // services). One page, two views — same FilterSelect the list pages use.
   const [view, setView] = useState<"materials" | "articles">("materials");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const reloadKey = 0;
   const debouncedSearch = useDebounced(search, 300);
@@ -109,41 +111,55 @@ export function Materials() {
         ) : undefined
       }
     >
-      {/* View + system + supplier filters (supplier only when there's more than one). */}
-      <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-        <FilterSelect
-          value={view}
-          onChange={(v) => setView(v as "materials" | "articles")}
-          ariaLabel={t("materials.view.label")}
-          options={[
-            { value: "materials", label: t("materials.view.materials") },
-            { value: "articles", label: t("materials.view.articles") },
-          ]}
-        />
-        {view === "materials" ? (
-          <>
-        <FilterSelect
-          value={category}
-          onChange={(v) => setCategory(v as MaterialSystemCategory | "")}
-          ariaLabel={t("materials.filters.label")}
-          options={[
-            { value: "", label: t("materials.filters.allCategories") },
-            ...CATEGORY_ORDER.map((c) => ({ value: c, label: t(CATEGORY_LABEL_KEYS[c]) })),
-          ]}
-        />
-        {suppliers && suppliers.length > 1 ? (
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <FilterSideSheet
+          open={filtersOpen}
+          onOpen={() => setFiltersOpen(true)}
+          onClose={() => setFiltersOpen(false)}
+          activeCount={(view === "articles" ? 1 : 0) + (category ? 1 : 0) + (supplier ? 1 : 0)}
+          onClear={() => {
+            setView("materials");
+            setCategory("");
+            setSupplier("");
+          }}
+        >
           <FilterSelect
-            value={supplier}
-            onChange={setSupplier}
-            ariaLabel={t("materials.filters.label")}
+            value={view}
+            onChange={(v) => setView(v as "materials" | "articles")}
+            ariaLabel={t("materials.view.label")}
+            fullWidth
             options={[
-              { value: "", label: t("materials.filters.allSuppliers") },
-              ...suppliers.map((s) => ({ value: s, label: s })),
+              { value: "materials", label: t("materials.view.materials") },
+              { value: "articles", label: t("materials.view.articles") },
             ]}
           />
-        ) : null}
-          </>
-        ) : null}
+          {view === "materials" ? (
+            <>
+              <FilterSelect
+                value={category}
+                onChange={(v) => setCategory(v as MaterialSystemCategory | "")}
+                ariaLabel={t("materials.filters.label")}
+                fullWidth
+                options={[
+                  { value: "", label: t("materials.filters.allCategories") },
+                  ...CATEGORY_ORDER.map((c) => ({ value: c, label: t(CATEGORY_LABEL_KEYS[c]) })),
+                ]}
+              />
+              {suppliers && suppliers.length > 1 ? (
+                <FilterSelect
+                  value={supplier}
+                  onChange={setSupplier}
+                  ariaLabel={t("materials.filters.label")}
+                  fullWidth
+                  options={[
+                    { value: "", label: t("materials.filters.allSuppliers") },
+                    ...suppliers.map((s) => ({ value: s, label: s })),
+                  ]}
+                />
+              ) : null}
+            </>
+          ) : null}
+        </FilterSideSheet>
       </Box>
 
       {view === "articles" ? (

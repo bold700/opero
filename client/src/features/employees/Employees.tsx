@@ -6,6 +6,7 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import { PageLayout } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { useAuth } from "../../auth/AuthContext";
 import { isOffice, canManageAccounts, canActOnAccount } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
@@ -72,6 +73,7 @@ export function Employees() {
       ));
 
   const [activeFilter, setActiveFilter] = useState<EmployeeFilter>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -273,7 +275,17 @@ export function Employees() {
     >
       <EmployeesKpis counts={counts} />
 
-      <EmployeesFilterChips value={activeFilter} counts={counts} onChange={setActiveFilter} />
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <FilterSideSheet
+          open={filtersOpen}
+          onOpen={() => setFiltersOpen(true)}
+          onClose={() => setFiltersOpen(false)}
+          activeCount={activeFilter === "all" ? 0 : 1}
+          onClear={() => setActiveFilter("all")}
+        >
+          <EmployeesFilterChips value={activeFilter} counts={counts} onChange={setActiveFilter} />
+        </FilterSideSheet>
+      </Box>
 
       {/* Table */}
       {loading ? (

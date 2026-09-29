@@ -24,6 +24,7 @@ export function EmployeesFilterChips({
       value={value}
       onChange={(v) => onChange(v as EmployeeFilter)}
       ariaLabel={t("employees.filters.label")}
+      fullWidth
       options={FILTERS.map((f) => ({
         value: f,
         label: t(FILTER_LABEL_KEY[f]),

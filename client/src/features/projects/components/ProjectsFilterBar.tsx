@@ -22,11 +22,12 @@ export function ProjectsFilterBar({
     (statusId) => visibility === "all" || statusId !== "history",
   );
   return (
-    <Box sx={{ display: "flex", flexWrap: "wrap", gap: SPACING.itemGap }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.itemGap }}>
       <FilterSelect
         value={visibility}
         onChange={(value) => onVisibilityChange(value as ProjectVisibility)}
         ariaLabel={t("projects.filters.visibilityLabel")}
+        fullWidth
         options={[
           { value: "active", label: t("projects.filters.active") },
           { value: "archived", label: t("projects.filters.history") },
@@ -38,6 +39,7 @@ export function ProjectsFilterBar({
           value={status}
           onChange={onStatusChange}
           ariaLabel={t("projects.filters.statusLabel")}
+          fullWidth
           options={[
             { value: "", label: t("projects.filters.allStatuses") },
             ...statusOptions.map((s) => ({

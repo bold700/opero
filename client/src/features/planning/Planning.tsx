@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -10,6 +10,8 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { TopBar } from "../../components/PageLayout";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { FilterSelect } from "../../components/FilterSelect";
+import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { useAuth } from "../../auth/AuthContext";
 import { isOffice } from "@opero/shared";
 import { useCreateParam } from "../../lib/useCreateParam";
@@ -33,6 +35,8 @@ import {
   type PlanningPeriod,
 } from "./components/CalendarView";
 import { ScheduleDialog } from "./components/ScheduleDialog";
+import { STATUS } from "../work-orders/constants";
+import type { WorkOrderStatus } from "../work-orders/api";
 
 export function Planning() {
   const { t, i18n } = useTranslation();
@@ -56,6 +60,9 @@ export function Planning() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [employeeFilter, setEmployeeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   // Dropdown sources for the schedule dialog.
   const [workOrders, setWorkOrders] = useState<SchedulableWorkOrder[]>([]);
@@ -104,8 +111,44 @@ export function Planning() {
     );
   }, []);
 
+  const employeeOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const entry of entries) {
+      if (entry.teamLeaderId && entry.teamLeaderName) {
+        names.set(entry.teamLeaderId, entry.teamLeaderName);
+      }
+      entry.installerIds.forEach((id, index) => {
+        const name = entry.installerNames[index];
+        if (name) names.set(id, name);
+      });
+    }
+    return [...names].map(([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: "base" }),
+    );
+  }, [entries]);
+
+  const statusOptions = useMemo(
+    () =>
+      (Object.keys(STATUS) as WorkOrderStatus[])
+        .filter((status) => entries.some((entry) => entry.status === status))
+        .map((status) => ({ value: status, label: t(STATUS[status].labelKey) })),
+    [entries, t],
+  );
+
+  const filteredEntries = useMemo(
+    () =>
+      entries.filter(
+        (entry) =>
+          (!employeeFilter ||
+            entry.teamLeaderId === employeeFilter ||
+            entry.installerIds.includes(employeeFilter)) &&
+          (!statusFilter || entry.status === statusFilter),
+      ),
+    [employeeFilter, entries, statusFilter],
+  );
+
   const selected =
-    entries.find((e) => `${e.workOrderId}-${e.date}` === selectedId) ?? null;
+    filteredEntries.find((e) => `${e.workOrderId}-${e.date}` === selectedId) ?? null;
 
   const fcLocale = i18n.language.startsWith("nl") ? "nl" : "en";
 
@@ -196,15 +239,48 @@ export function Planning() {
       <TopBar
         title={t("planning.title")}
         actions={
-          <PlanningActions
-            period={period}
-            display={display}
-            onPeriod={setPeriod}
-            onDisplay={setDisplay}
-            onCreate={() => openCreate()}
-            canCreate={canManage}
-            compact={isMobile}
-          />
+          <>
+            <PlanningActions
+              period={period}
+              display={display}
+              onPeriod={setPeriod}
+              onDisplay={setDisplay}
+              onCreate={() => openCreate()}
+              canCreate={canManage}
+              compact={isMobile}
+            />
+            <FilterSideSheet
+              open={filtersOpen}
+              onOpen={() => setFiltersOpen(true)}
+              onClose={() => setFiltersOpen(false)}
+              activeCount={(employeeFilter ? 1 : 0) + (statusFilter ? 1 : 0)}
+              onClear={() => {
+                setEmployeeFilter("");
+                setStatusFilter("");
+              }}
+            >
+              <FilterSelect
+                value={employeeFilter}
+                onChange={setEmployeeFilter}
+                ariaLabel={t("planning.filters.employee")}
+                fullWidth
+                options={[
+                  { value: "", label: t("planning.filters.allEmployees") },
+                  ...employeeOptions,
+                ]}
+              />
+              <FilterSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                ariaLabel={t("planning.filters.status")}
+                fullWidth
+                options={[
+                  { value: "", label: t("planning.filters.allStatuses") },
+                  ...statusOptions,
+                ]}
+              />
+            </FilterSideSheet>
+          </>
         }
       />
 
@@ -234,7 +310,7 @@ export function Planning() {
               </Box>
             ) : null}
             <CalendarView
-              events={entries}
+              events={filteredEntries}
               period={period}
               display={display}
               anchorDate={anchorDate}

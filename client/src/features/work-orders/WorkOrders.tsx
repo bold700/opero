@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -6,6 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import { PageLayout } from "../../components/PageLayout";
 import { FilterSelect } from "../../components/FilterSelect";
+import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { useAuth } from "../../auth/AuthContext";
 import { isOffice } from "@opero/shared";
 import { usePagedApi } from "../../lib/api/usePagedApi";
@@ -24,7 +25,6 @@ import { useApi } from "../../lib/api/useApi";
 import { WorkOrdersActions } from "./components/WorkOrdersActions";
 import { WorkOrdersTable } from "./components/WorkOrdersTable";
 import { WorkOrderFilterBar } from "./components/WorkOrderFilterBar";
-import { WorkOrderFilterToggle } from "./components/WorkOrderFilterToggle";
 import { CreateWorkOrderDialog } from "./components/CreateWorkOrderDialog";
 
 const EMPTY_COUNTS: WorkOrderCounts = {
@@ -45,7 +45,7 @@ export function WorkOrders() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
   const { user } = useAuth();
-  // Werkbon setup (customer + project) is an office task — admin only. Technicians
+  // Werkbon setup (customer + project) is an office task â€” admin only. Technicians
   // are assigned werkbons and fill them in on the detail screen; they don't create.
   const canCreate = isOffice(user?.role ?? "client");
 
@@ -66,7 +66,7 @@ export function WorkOrders() {
 
   // How many narrowing filters are set. Badged on the toggle so an active
   // filter is never invisible while the panel is collapsed.
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount = Object.values(filters).filter(Boolean).length + (activeFilter === "all" ? 0 : 1);
 
   // Server-side search (debounced) + server-side status filter. Both reset the
   // paged list to page 1 (they're in the deps below).
@@ -127,46 +127,37 @@ export function WorkOrders() {
         />
       }
     >
-      {/* Status filter (left) + the Filters toggle (far right) share ONE row,
-          so the collapsed filter UI costs no vertical space of its own. */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 1,
-          flexWrap: "wrap",
-        }}
-      >
-        <FilterSelect
-          value={activeFilter}
-          onChange={setActiveFilter}
-          ariaLabel={t("workOrders.filters.label")}
-          // `key` is camelCase for the i18n lookup, `status` is the snake_case
-          // value that doubles as the WorkOrderCounts key ("all" → total).
-          options={FILTERS.map((f) => ({
-            value: f.key,
-            label: t(`workOrders.filters.${f.key}`),
-            count: f.status === null ? counts.total : counts[f.status],
-          }))}
-        />
-
-        <WorkOrderFilterToggle
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <FilterSideSheet
           open={filtersOpen}
-          onToggle={() => setFiltersOpen((v) => !v)}
+          onOpen={() => setFiltersOpen(true)}
+          onClose={() => setFiltersOpen(false)}
           activeCount={activeFilterCount}
-          onClear={() => setFilters({})}
-        />
+          onClear={() => {
+            setActiveFilter("all");
+            setFilters({});
+          }}
+        >
+          <FilterSelect
+            value={activeFilter}
+            onChange={setActiveFilter}
+            ariaLabel={t("workOrders.filters.label")}
+            fullWidth
+            options={FILTERS.map((f) => ({
+              value: f.key,
+              label: t(`workOrders.filters.${f.key}`),
+              count: f.status === null ? counts.total : counts[f.status],
+            }))}
+          />
+          <WorkOrderFilterBar
+            open
+            filters={filters}
+            onChange={setFilters}
+            options={filterOptions}
+            loading={optionsLoading}
+          />
+        </FilterSideSheet>
       </Box>
-
-      <WorkOrderFilterBar
-        open={filtersOpen}
-        filters={filters}
-        onChange={setFilters}
-        options={filterOptions}
-        loading={optionsLoading}
-      />
-
       {/* Table */}
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

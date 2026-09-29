@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
@@ -6,6 +7,7 @@ import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import { useTranslation } from "react-i18next";
 import { Card } from "../../../components/Card";
 import { HAIRLINE, LAVENDER } from "../../../theme/tokens";
@@ -13,6 +15,7 @@ import type { ReportsData } from "../api";
 import { initials, formatHours } from "../constants";
 
 type TopEmployee = ReportsData["topEmployees"][number];
+type SortKey = "name" | "workOrders" | "hours";
 
 // Top technicians ranking: a table on desktop (md+), a stack of rows on mobile
 // (xs–sm). Both live inside this section card, so we render the two variants
@@ -20,6 +23,46 @@ type TopEmployee = ReportsData["topEmployees"][number];
 // desktop table flat and unchanged.
 export function TopEmployees({ employees }: { employees: ReportsData["topEmployees"] }) {
   const { t, i18n } = useTranslation();
+  const [sortKey, setSortKey] = useState<SortKey>("workOrders");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const sortedEmployees = useMemo(() => {
+    const value = (employee: TopEmployee) => {
+      if (sortKey === "name") return employee.name;
+      return sortKey === "hours" ? employee.hours : employee.workOrderCount;
+    };
+    return [...employees].sort((left, right) => {
+      const leftValue = value(left);
+      const rightValue = value(right);
+      const result =
+        typeof leftValue === "number" && typeof rightValue === "number"
+          ? leftValue - rightValue
+          : String(leftValue).localeCompare(String(rightValue), undefined, {
+              numeric: true,
+              sensitivity: "base",
+            });
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [employees, sortDirection, sortKey]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection(key === "name" ? "asc" : "desc");
+  };
+
+  const sortLabel = (key: SortKey, label: string) => (
+    <TableSortLabel
+      active={sortKey === key}
+      direction={sortKey === key ? sortDirection : "asc"}
+      onClick={() => toggleSort(key)}
+    >
+      {label}
+    </TableSortLabel>
+  );
 
   const identity = (emp: TopEmployee) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
@@ -46,13 +89,13 @@ export function TopEmployees({ employees }: { employees: ReportsData["topEmploye
           <Table sx={{ display: { xs: "none", md: "table" }, "& th, & td": { borderColor: HAIRLINE } }}>
             <TableHead>
               <TableRow sx={{ "& th": { color: "text.secondary", fontWeight: 600, fontSize: 13 } }}>
-                <TableCell>{t("reports.topTechnicians.name")}</TableCell>
-                <TableCell align="right">{t("reports.topTechnicians.workOrders")}</TableCell>
-                <TableCell align="right">{t("reports.topTechnicians.hours")}</TableCell>
+                <TableCell>{sortLabel("name", t("reports.topTechnicians.name"))}</TableCell>
+                <TableCell align="right">{sortLabel("workOrders", t("reports.topTechnicians.workOrders"))}</TableCell>
+                <TableCell align="right">{sortLabel("hours", t("reports.topTechnicians.hours"))}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {employees.map((emp) => (
+              {sortedEmployees.map((emp) => (
                 <TableRow key={emp.id} sx={{ "&:last-child td": { border: 0 } }}>
                   <TableCell>{identity(emp)}</TableCell>
                   <TableCell align="right" sx={{ color: "text.secondary" }}>{emp.workOrderCount}</TableCell>
@@ -64,7 +107,7 @@ export function TopEmployees({ employees }: { employees: ReportsData["topEmploye
 
           {/* Mobile: stacked rows */}
           <Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column" }}>
-            {employees.map((emp, i) => (
+            {sortedEmployees.map((emp, i) => (
               <Box
                 key={emp.id}
                 sx={{

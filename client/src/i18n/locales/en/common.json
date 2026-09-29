@@ -29,6 +29,12 @@
   "misc": {
     "all": "All"
   },
+  "filters": {
+    "title": "Filters",
+    "open": "Filters",
+    "clear": "Clear all",
+    "done": "Done"
+  },
   "account": {
     "none": "No",
     "invited": "Invited",

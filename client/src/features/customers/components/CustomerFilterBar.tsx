@@ -22,6 +22,7 @@ export function CustomerFilterBar({ active, counts, onChange }: Props) {
       value={active}
       onChange={(v) => onChange(v as CustomerFilter)}
       ariaLabel={t("customers.filters.label")}
+      fullWidth
       options={FILTERS.map((f) => ({
         value: f,
         label: t(`customers.filters.${f}`),

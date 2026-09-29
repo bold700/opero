@@ -45,17 +45,18 @@ export function WorkOrdersTable({
       loadingMore={loadingMore}
       onLoadMore={onLoadMore}
       columns={[
-        { header: t("workOrders.table.number"), cell: (r) => <Box sx={{ fontWeight: 700 }}>{r.number}</Box> },
+        { header: t("workOrders.table.number"), sortValue: (r) => r.number, cell: (r) => <Box sx={{ fontWeight: 700 }}>{r.number}</Box> },
         {
           header: t("workOrders.table.name"),
+          sortValue: (r) => r.title,
           cell: (r) => r.title || <Box sx={{ color: "text.disabled" }}>—</Box>,
         },
-        { header: t("workOrders.table.customer"), cell: (r) => r.customerName },
-        { header: t("workOrders.table.location"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.city}</Box> },
-        { header: t("workOrders.table.workType"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workType}</Box> },
-        { header: t("workOrders.table.technician"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.technician}</Box> },
-        { header: t("workOrders.table.status"), cell: statusCell },
-        { header: t("workOrders.table.date"), cell: (r) => <Box sx={{ color: "text.secondary" }}>{formatDate(r.date)}</Box> },
+        { header: t("workOrders.table.customer"), sortValue: (r) => r.customerName, cell: (r) => r.customerName },
+        { header: t("workOrders.table.location"), sortValue: (r) => r.city, cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.city}</Box> },
+        { header: t("workOrders.table.workType"), sortValue: (r) => r.workType, cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.workType}</Box> },
+        { header: t("workOrders.table.technician"), sortValue: (r) => r.technician, cell: (r) => <Box sx={{ color: "text.secondary" }}>{r.technician}</Box> },
+        { header: t("workOrders.table.status"), sortValue: (r) => r.status, cell: statusCell },
+        { header: t("workOrders.table.date"), sortValue: (r) => r.date, cell: (r) => <Box sx={{ color: "text.secondary" }}>{formatDate(r.date)}</Box> },
         {
           header: t("workOrders.table.action"),
           align: "right",

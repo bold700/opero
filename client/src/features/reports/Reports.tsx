@@ -4,6 +4,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import { PageLayout } from "../../components/PageLayout";
+import { FilterSideSheet } from "../../components/FilterSideSheet";
 import { useApi } from "../../lib/api/useApi";
 import { getReports, type ReportsData, type ReportFilter } from "./api";
 import { monthPeriod, type Period } from "./constants";
@@ -22,28 +23,35 @@ export function Reports() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<Period>(() => monthPeriod());
   const [filter, setFilter] = useState<ReportFilter>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const fetcher = useCallback(() => getReports(period.from, period.to), [period]);
   const { data, loading, error } = useApi<ReportsData>(fetcher, [period.from, period.to]);
-
-  const controls = (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        flexWrap: "wrap",
-        width: { xs: "100%", md: "auto" },
-      }}
-    >
-      <PeriodPicker period={period} onChange={setPeriod} />
-      <ReportsActions data={data} period={period} />
-    </Box>
-  );
+  const currentMonth = monthPeriod();
+  const activeFilterCount =
+    (filter === "all" ? 0 : 1) +
+    (period.from === currentMonth.from && period.to === currentMonth.to ? 0 : 1);
 
   return (
-    <PageLayout title={t("reports.title")} actions={controls}>
-      <FilterChips value={filter} onChange={setFilter} />
+    <PageLayout
+      title={t("reports.title")}
+      actions={<ReportsActions data={data} period={period} />}
+    >
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <FilterSideSheet
+          open={filtersOpen}
+          onOpen={() => setFiltersOpen(true)}
+          onClose={() => setFiltersOpen(false)}
+          activeCount={activeFilterCount}
+          onClear={() => {
+            setPeriod(monthPeriod());
+            setFilter("all");
+          }}
+        >
+          <PeriodPicker period={period} onChange={setPeriod} />
+          <FilterChips value={filter} onChange={setFilter} />
+        </FilterSideSheet>
+      </Box>
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

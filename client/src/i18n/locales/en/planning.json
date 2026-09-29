@@ -46,6 +46,12 @@
   "view": "View",
   "period": "Period",
   "display": "Display",
+  "filters": {
+    "employee": "Technician",
+    "allEmployees": "All technicians",
+    "status": "Status",
+    "allStatuses": "All statuses"
+  },
   "timeline": {
     "today": "Today",
     "previousWeek": "Previous week",
