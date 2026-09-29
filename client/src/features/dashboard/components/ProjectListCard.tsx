@@ -64,7 +64,9 @@ export function ProjectListCard({
             <Box key={p.id}>
               {p.workOrderId ? (
                 <ButtonBase
-                  onClick={() => navigate(`/work-orders/${p.workOrderId}`)}
+                  onClick={() =>
+                    navigate(`/work-orders/${p.workOrderId}`, { state: { projectId: p.id } })
+                  }
                   sx={{ width: "100%", display: "block", borderRadius: 1 }}
                 >
                   {content}

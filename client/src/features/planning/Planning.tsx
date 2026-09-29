@@ -348,7 +348,11 @@ export function Planning() {
               canManage={canManage}
               busy={busy}
               onClose={() => setSelectedId(null)}
-              onOpenWorkOrder={() => navigate(`/work-orders/${detailsEntry.workOrderId}`)}
+              onOpenWorkOrder={() =>
+                navigate(`/work-orders/${detailsEntry.workOrderId}`, {
+                  state: { projectId: detailsEntry.projectId },
+                })
+              }
               onEdit={() => openEdit(detailsEntry)}
               onRemove={() => setRemoving(detailsEntry)}
             />

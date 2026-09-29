@@ -234,19 +234,26 @@ async function requireQuoteScopeEditor(user: AuthUser, workOrderId: string) {
   return loaded;
 }
 
-// Reload + serialize a workOrder (role-aware DTO with price-stripping).
-async function reloadWorkOrder(user: AuthUser, workOrderId: string) {
-  // Every mutating work-order route funnels through here on its way to the
-  // response, so recomputing the denormalized listStatus here keeps it in sync
-  // after ANY change (task toggle/start/end, completion, material edits) without
-  // dotting the call across ~10 transaction sites. Runs post-commit on `prisma`.
-  await recomputeWorkOrderStatus(prisma, workOrderId);
+// Load + serialize a workOrder (role-aware DTO with price-stripping).
+async function readWorkOrder(user: AuthUser, workOrderId: string) {
   const wb = await prisma.workOrder.findUnique({
     where: { id: workOrderId },
     include: workOrderInclude,
   });
   if (!wb) throw NotFound("Work order not found");
   return await workOrderDto(wb as WorkOrderWithRelations, user.role as UserRole);
+}
+
+// Reload after a mutation. Recompute the denormalized list status only on the
+// write path; doing this on every detail read added an unnecessary database
+// read/update before the page could render.
+async function reloadWorkOrder(user: AuthUser, workOrderId: string) {
+  // Every mutating work-order route funnels through here on its way to the
+  // response, so recomputing the denormalized listStatus here keeps it in sync
+  // after ANY change (task toggle/start/end, completion, material edits) without
+  // dotting the call across ~10 transaction sites. Runs post-commit on `prisma`.
+  await recomputeWorkOrderStatus(prisma, workOrderId);
+  return readWorkOrder(user, workOrderId);
 }
 
 // Load a task belonging to a workOrder, or 404.
@@ -834,7 +841,7 @@ workOrdersRouter.get(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     await loadProjectForWorkOrder(user, req.params.id); // visibility (404 if not)
-    res.json(await reloadWorkOrder(user, req.params.id));
+    res.json(await readWorkOrder(user, req.params.id));
   }),
 );
 

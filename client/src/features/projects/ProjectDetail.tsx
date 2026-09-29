@@ -114,7 +114,7 @@ export function ProjectDetail() {
     setActionError(null);
     try {
       const wo = await createWorkOrderForProject(project.id);
-      navigate(`/work-orders/${wo.id}`);
+      navigate(`/work-orders/${wo.id}`, { state: { projectId: project.id } });
     } catch (e) {
       setActionError(e instanceof Error ? e.message : t("projects.toast.saveError"));
       setBusy(false);
@@ -244,7 +244,9 @@ export function ProjectDetail() {
             items={project.workOrders}
             keyOf={(w) => w.id}
             empty={t("projects.detail.noWorkOrders")}
-            onRowClick={(w) => navigate(`/work-orders/${w.id}`)}
+            onRowClick={(w) =>
+              navigate(`/work-orders/${w.id}`, { state: { projectId: project.id } })
+            }
             columns={[
               { header: t("projects.detail.woTitle"), sortValue: (w) => woLabel(w), cell: (w) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography> },
               { header: t("projects.detail.woStatus"), sortValue: (w) => w.status, cell: (w) => woBadge(w) },

@@ -6,6 +6,7 @@ export type { WorkOrderPhase, WorkOrderStatus };
 // Mirrors the backend workOrderListDto (backend/src/modules/work-orders/dto.ts).
 export type WorkOrderRow = {
   id: string;
+  projectId: string;
   number: string;
   title: string;
   customerName: string;

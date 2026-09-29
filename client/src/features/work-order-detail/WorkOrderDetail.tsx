@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
@@ -95,6 +95,8 @@ export function WorkOrderDetail() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const hintedProjectId = (location.state as { projectId?: string } | null)?.projectId;
   const { user } = useAuth();
   // Do NOT re-narrow this to a literal union: a cast would silently swallow any
   // role not listed and drop it into the least-privileged branch below.
@@ -132,8 +134,14 @@ export function WorkOrderDetail() {
   // We keep them in local state so mutations refresh just what changed.
   const { loading, error } = useApi(
     useCallback(async () => {
-      const w = await getWorkOrder(id);
-      const p = await getProject(w.projectId);
+      // Internal links already know the parent project. Fetch both aggregates
+      // together instead of waiting for the werkbon before starting the project
+      // request. Direct/bookmarked URLs retain the safe sequential fallback.
+      const [w, hintedProject] = hintedProjectId
+        ? await Promise.all([getWorkOrder(id), getProject(hintedProjectId)])
+        : [await getWorkOrder(id), null];
+      const p =
+        hintedProject?.id === w.projectId ? hintedProject : await getProject(w.projectId);
       setWo(w);
       setProject(p);
       getMentionCandidates(p.id).then(setMentionCandidates).catch(() => setMentionCandidates([]));
@@ -142,8 +150,8 @@ export function WorkOrderDetail() {
         .then(setProjectLeaders)
         .catch(() => setProjectLeaders([]));
       return w;
-    }, [id]),
-    [id],
+    }, [hintedProjectId, id]),
+    [hintedProjectId, id],
   );
 
   // Nearly every mutation writes a ProjectActivity row (see appendActivity

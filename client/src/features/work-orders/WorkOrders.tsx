@@ -168,7 +168,10 @@ export function WorkOrders() {
       ) : (
         <WorkOrdersTable
           rows={items}
-          onOpen={(id) => navigate(`/work-orders/${id}`)}
+          onOpen={(id) => {
+            const projectId = items.find((item) => item.id === id)?.projectId;
+            navigate(`/work-orders/${id}`, { state: { projectId } });
+          }}
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}

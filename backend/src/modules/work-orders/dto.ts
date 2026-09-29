@@ -460,6 +460,7 @@ export const workOrderListInclude = {
 export function workOrderListDto(wb: WorkOrderListSource) {
   return {
     id: wb.id,
+    projectId: wb.projectId,
     number: wb.project.projectNumber,
     title: wb.title,
     customerName: wb.project.customerName,
