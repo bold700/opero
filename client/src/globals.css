@@ -144,9 +144,6 @@ body {
 
 html {
   height: 100%;
-  /* Reserve the scrollbar gutter only where there IS a persistent scrollbar
-     (desktop). On touch it just adds phantom width → horizontal overflow. */
-  scrollbar-gutter: auto;
   /* Stop mobile browsers from auto-inflating text. Android Chrome/WebView has an
      independent "text autosizing" heuristic that scales fonts up on pages it
      deems non-optimized — this looks like a random zoom on Android specifically.
@@ -154,11 +151,6 @@ html {
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
   text-size-adjust: 100%;
-}
-@media (min-width: 900px) {
-  html {
-    scrollbar-gutter: stable;
-  }
 }
 
 body {
