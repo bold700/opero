@@ -19,6 +19,7 @@ let adminToken: string;
 let techToken: string;
 let outsiderToken: string;
 let workOrderId: string;
+let taskId: string;
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
@@ -85,11 +86,16 @@ beforeAll(async () => {
     .post(`/api/work-orders/${workOrderId}/tasks`)
     .set(auth(adminToken))
     .send({});
-  const taskId = taskRes.body.tasks[0].id as string;
+  taskId = taskRes.body.tasks[0].id as string;
   await request(app)
     .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials`)
     .set(auth(adminToken))
     .send({ name: `${TAG} Steenwol`, quantity: 3, unit: "m2", unitPrice: 38 });
+  await request(app)
+    .post(`/api/work-orders/${workOrderId}/tasks/${taskId}/materials`)
+    .set(auth(adminToken))
+    .send({ name: `${TAG} extra afdichting`, quantity: 2, unit: "meter", unitPrice: 12, isExtraWork: true });
+  await prisma.workOrderTask.update({ where: { id: taskId }, data: { hours: 7.5 } });
 });
 
 afterAll(async () => {
@@ -187,6 +193,38 @@ describe("work-order PDF export", () => {
     // Belt and braces: no euro sign anywhere in the admin's copy. This is the
     // assertion that actually fails if prices ever leak back onto the werkbon.
     expect(adminPdf.toString("latin1")).not.toContain("€");
+  });
+
+  it("separates materials from extra work and never prints registered hours", async () => {
+    const res = await request(app)
+      .get(`/api/work-orders/${workOrderId}/pdf`)
+      .set(auth(adminToken))
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+    const { inflateSync } = await import("node:zlib");
+    let raw = "";
+    for (const match of (res.body as Buffer)
+      .toString("latin1")
+      .matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+      try {
+        raw += inflateSync(Buffer.from(match[1], "latin1")).toString("latin1");
+      } catch {
+        // Images/fonts are not deflate text streams.
+      }
+    }
+    const text = [...raw.matchAll(/<([0-9a-fA-F]+)>/g)]
+      .map((match) => Buffer.from(match[1], "hex").toString("latin1"))
+      .join("");
+    expect(text).toContain("Materialen");
+    expect(text).toContain("Extra werkzaamheden");
+    expect(text).toContain(`${TAG} Steenwol`);
+    expect(text).toContain(`${TAG} extra afdichting`);
+    expect(text).not.toContain("7.5 u");
+    expect(text).toContain("AFRONDING EN ONDERTEKENING");
   });
 });
 

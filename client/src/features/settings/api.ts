@@ -62,6 +62,7 @@ export type Organization = {
   bic: string;
   kvkNumber: string;
   website: string;
+  logoUrl?: string;
 };
 
 export type OrganizationInput = {
@@ -84,6 +85,14 @@ export function getOrganization(): Promise<Organization> {
 
 export function updateOrganization(input: OrganizationInput): Promise<Organization> {
   return api.patch<Organization>("/organization", input);
+}
+
+export function uploadOrganizationLogo(file: Blob): Promise<Organization> {
+  return api.upload<Organization>("/organization/logo", file);
+}
+
+export function deleteOrganizationLogo(): Promise<Organization> {
+  return api.delete<Organization>("/organization/logo");
 }
 
 // --- Pre-job checklist items (admin-configurable) -------------------------

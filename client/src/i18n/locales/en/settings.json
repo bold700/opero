@@ -88,7 +88,16 @@
     "iban": "IBAN",
     "bic": "BIC",
     "kvkNumber": "Chamber of Commerce no.",
-    "website": "Website"
+    "website": "Website",
+    "logo": "Company logo",
+    "logoAlt": "Company logo",
+    "logoHint": "Automatically used on work orders, quotes and invoices. JPG, PNG or WebP.",
+    "noLogo": "No logo yet",
+    "uploadLogo": "Upload logo",
+    "changeLogo": "Change logo",
+    "logoSaved": "Company logo saved",
+    "logoRemoved": "Company logo removed",
+    "logoError": "Could not save logo"
   },
   "notifications": {
     "preferences": "Notification preferences",

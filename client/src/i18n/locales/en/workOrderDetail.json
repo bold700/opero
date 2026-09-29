@@ -41,6 +41,7 @@
     "export": "Export",
     "exportMenuQuote": "Quote (PDF)",
     "exportMenuWorkOrder": "Work order (PDF)",
+    "exportMenuInvoice": "Invoice (PDF)",
     "delete": "Delete work order",
     "deleteTitle": "Delete work order",
     "deleteBody": "Are you sure you want to delete \"{{name}}\"? All zones, lines, photos and billing for this work order go with it. This cannot be undone.",
@@ -143,7 +144,7 @@
   },
   "signOff": {
     "title": "Complete work order",
-    "description": "All tasks will be completed and this work order is locked. Enter the signer's name and sign below to confirm.",
+    "description": "The signer confirms that the listed work and materials have been completed and recorded. The work order is then locked and sent to the office for review.",
     "signerLabel": "Signer's name",
     "drawLabel": "Signature",
     "clear": "Clear",

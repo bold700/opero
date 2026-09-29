@@ -88,7 +88,16 @@
     "iban": "IBAN",
     "bic": "BIC",
     "kvkNumber": "KVK-nummer",
-    "website": "Website"
+    "website": "Website",
+    "logo": "Bedrijfslogo",
+    "logoAlt": "Bedrijfslogo",
+    "logoHint": "Komt automatisch op werkbonnen, offertes en facturen. JPG, PNG of WebP.",
+    "noLogo": "Nog geen logo",
+    "uploadLogo": "Logo uploaden",
+    "changeLogo": "Logo wijzigen",
+    "logoSaved": "Bedrijfslogo opgeslagen",
+    "logoRemoved": "Bedrijfslogo verwijderd",
+    "logoError": "Logo opslaan mislukt"
   },
   "notifications": {
     "preferences": "Meldingsvoorkeuren",

@@ -52,7 +52,6 @@ export type WorkOrderPdfData = {
     workTypeName?: string;
     assigneeName?: string;
     done: boolean;
-    hours?: number | null;
     materials: {
       name: string;
       quantity: number;
@@ -179,6 +178,7 @@ export async function buildWorkOrderPdf(
     a.contentType.startsWith("image/"),
   );
   const keysToLoad = [
+    ...(org.logo ? [org.logo] : []),
     ...(data.signature ? [data.signature] : []),
     ...data.prejobPhotos,
     ...data.tasks.flatMap((t) => [...t.beforePhotos, ...t.resultPhotos]),
@@ -192,7 +192,18 @@ export async function buildWorkOrderPdf(
   // --- Letterhead: sender (org) top-left; document meta top-right ---------
   const headTop = doc.y;
   // Sender block (left).
-  doc.fillColor(INK).fontSize(16).font("Helvetica-Bold").text(org.name || "Werkbon", LEFT, headTop, { width: CONTENT_W * 0.6 });
+  const logo = org.logo ? img(org.logo) : null;
+  if (logo) {
+    try {
+      doc.image(logo, LEFT, headTop, { fit: [150, 54], valign: "center" });
+      doc.y = headTop + 60;
+      doc.fillColor(INK).fontSize(10).font("Helvetica-Bold").text(org.name, LEFT, doc.y, { width: CONTENT_W * 0.5 });
+    } catch {
+      doc.fillColor(INK).fontSize(16).font("Helvetica-Bold").text(org.name || "Werkbon", LEFT, headTop, { width: CONTENT_W * 0.5 });
+    }
+  } else {
+    doc.fillColor(INK).fontSize(16).font("Helvetica-Bold").text(org.name || "Werkbon", LEFT, headTop, { width: CONTENT_W * 0.5 });
+  }
   doc.fillColor(MUTED).fontSize(9).font("Helvetica");
   const senderLines: string[] = [
     org.address,
@@ -281,11 +292,15 @@ export async function buildWorkOrderPdf(
     // so a werkbon without it is missing the instruction it exists to carry.
     const workDescription = task.note?.trim();
     if (workDescription) line(workDescription, { color: BODY });
-    const meta = [task.workTypeName, task.assigneeName, task.hours != null ? `${task.hours} u` : null]
-      .filter(Boolean).join(" · ");
+    const meta = [task.workTypeName, task.assigneeName].filter(Boolean).join(" · ");
     if (meta) line(meta, { color: MUTED });
 
-    if (task.materials.length > 0) {
+    const renderMaterialTable = (
+      heading: string,
+      materials: typeof task.materials,
+      extraWork: boolean,
+    ) => {
+      if (materials.length === 0) return;
       doc.moveDown(0.35);
       // Column x positions (absolute) for this task's material table.
       const cName = LEFT + 14;
@@ -293,32 +308,46 @@ export async function buildWorkOrderPdf(
       const wQty = CONTENT_W * 0.28;
 
       // Column header row (Dutch).
-      ensureSpace(doc, 16);
+      ensureSpace(doc, 30);
+      doc.fillColor(INK).fontSize(8).font("Helvetica-Bold").text(heading, cName, doc.y, {
+        width: CONTENT_W - 14,
+      });
+      doc.moveDown(0.2);
       const hy = doc.y;
       doc.fillColor(MUTED).fontSize(8).font("Helvetica-Bold");
-      doc.text("Materiaal", cName, hy, { width: (cQty - cName) - 6 });
+      doc.text(extraWork ? "Omschrijving" : "Materiaal", cName, hy, { width: (cQty - cName) - 6 });
       doc.text("Aantal", cQty, hy, { width: wQty, align: "right" });
       doc.y = hy + 13;
       doc.strokeColor("#E5E7EB").lineWidth(0.5).moveTo(cName, doc.y).lineTo(LEFT + CONTENT_W, doc.y).stroke();
       doc.y += 4;
 
-      task.materials.forEach((m) => {
+      materials.forEach((m) => {
         ensureSpace(doc, 16);
         const qty = `${m.quantity} ${m.unit}`.trim();
-        // Meerwerk is marked, with whether it's been agreed by BOTH sides —
-        // useful on site even though no amount is printed.
         const agreed =
           m.approvedByOffice === true && m.approvedByClient === true && m.rejected !== true;
-        const label = m.isExtraWork
-          ? `${m.name}  (meerwerk${agreed ? "" : " — nog niet akkoord"})`
+        const rowLabel = extraWork
+          ? `${m.name}  (${agreed ? "akkoord" : "wacht op akkoord"})`
           : m.name;
         const y = doc.y;
         doc.fillColor(BODY).fontSize(9).font("Helvetica");
-        doc.text(label, cName, y, { width: (cQty - cName) - 6, lineBreak: false, ellipsis: true });
+        doc.text(rowLabel, cName, y, { width: (cQty - cName) - 6, lineBreak: false, ellipsis: true });
         doc.text(qty, cQty, y, { width: wQty, align: "right" });
         doc.y = y + 14; // advance one row; restores the single-column cursor
       });
-    }
+    };
+
+    const visibleMaterials = task.materials.filter((material) => material.rejected !== true);
+    renderMaterialTable(
+      "Materialen",
+      visibleMaterials.filter((material) => !material.isExtraWork),
+      false,
+    );
+    renderMaterialTable(
+      "Extra werkzaamheden",
+      visibleMaterials.filter((material) => material.isExtraWork),
+      true,
+    );
 
     const photos = [...task.beforePhotos, ...task.resultPhotos].map(img).filter((b): b is Buffer => b != null);
     if (photos.length > 0) imageRow(doc, photos, LEFT, CONTENT_W);
@@ -372,7 +401,12 @@ export async function buildWorkOrderPdf(
   ensureSpace(doc, 130);
   hr(doc, LEFT, CONTENT_W);
   doc.moveDown(0.6);
-  sectionTitle(doc, "Ondertekening", LEFT, CONTENT_W);
+  sectionTitle(doc, "Afronding en ondertekening", LEFT, CONTENT_W);
+  line(
+    "De ondertekenaar bevestigt dat de hierboven vermelde werkzaamheden en materialen zijn uitgevoerd en geregistreerd.",
+    { color: BODY },
+  );
+  doc.moveDown(0.35);
   if (data.signedByName || data.signature) {
     if (data.signedByName) line(`Naam: ${data.signedByName}`, { color: BODY });
     if (data.signedAt) line(`Datum: ${DATE(data.signedAt)}`, { color: BODY });

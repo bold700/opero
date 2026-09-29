@@ -22,7 +22,8 @@ export type StorageScope =
   | "survey"
   | "extra-work"
   | "handover"
-  | "user-avatar";
+  | "user-avatar"
+  | "organization-logo";
 
 // Only allow a small, safe set of extensions through into keys.
 const SAFE_EXT = new Set(["jpg", "jpeg", "png", "webp", "pdf", "doc", "docx", "xls", "xlsx"]);

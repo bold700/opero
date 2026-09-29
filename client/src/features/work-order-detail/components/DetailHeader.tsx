@@ -10,6 +10,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import HistoryIcon from "@mui/icons-material/History";
@@ -36,16 +37,19 @@ export function DetailHeader({
   canFinish,
   canReopen,
   canExportQuote,
+  canExportInvoice,
   finished,
   busy,
   exporting,
   exportingQuote,
+  exportingInvoice,
   onBack,
   onDelete,
   onFinish,
   onReopen,
   onExportPdf,
   onExportQuotePdf,
+  onExportInvoicePdf,
   onOpenInfo,
   onOpenAttachments,
   onOpenNotes,
@@ -64,16 +68,19 @@ export function DetailHeader({
   canReopen: boolean;
   /** Admin-only: the quote (offerte) PDF is a commercial document with prices. */
   canExportQuote: boolean;
+  canExportInvoice: boolean;
   finished: boolean;
   busy: boolean;
   exporting: boolean;
   exportingQuote: boolean;
+  exportingInvoice: boolean;
   onBack: () => void;
   onDelete: () => void;
   onFinish: () => void;
   onReopen: () => void;
   onExportPdf: () => void;
   onExportQuotePdf: () => void;
+  onExportInvoicePdf: () => void;
   onOpenInfo: () => void;
   onOpenAttachments: () => void;
   onOpenNotes: () => void;
@@ -89,7 +96,7 @@ export function DetailHeader({
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null);
   const [confirmReopen, setConfirmReopen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const anyExporting = exporting || exportingQuote;
+  const anyExporting = exporting || exportingQuote || exportingInvoice;
 
   return (
     <>
@@ -227,6 +234,19 @@ export function DetailHeader({
                   </ListItemIcon>
                   {t("workOrderDetail.header.exportMenuWorkOrder")}
                 </MenuItem>
+                {canExportInvoice ? (
+                  <MenuItem
+                    onClick={() => {
+                      setExportAnchor(null);
+                      onExportInvoicePdf();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <ReceiptLongOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    {t("workOrderDetail.header.exportMenuInvoice")}
+                  </MenuItem>
+                ) : null}
               </Menu>
             </>
           ) : (

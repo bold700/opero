@@ -678,7 +678,6 @@ workOrdersRouter.get(
         workTypeName: t.workType?.name ?? undefined,
         assigneeName: t.assignee?.name ?? undefined,
         done: t.done,
-        hours: t.hours,
         materials: [...t.materials]
           .sort((a, b) => a.ordinal - b.ordinal)
           .map((m) => ({

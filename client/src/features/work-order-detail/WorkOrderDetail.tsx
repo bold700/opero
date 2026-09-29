@@ -21,6 +21,7 @@ import {
   deleteWorkOrder,
   exportWorkOrderPdf,
   exportWorkOrderQuotePdf,
+  exportWorkOrderInvoicePdf,
   getProject,
   getProjectActivity,
   getMentionCandidates,
@@ -123,6 +124,7 @@ export function WorkOrderDetail() {
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingQuote, setExportingQuote] = useState(false);
+  const [exportingInvoice, setExportingInvoice] = useState(false);
   const [signOpen, setSignOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -345,6 +347,17 @@ export function WorkOrderDetail() {
     }
   };
 
+  const handleExportInvoicePdf = async () => {
+    setExportingInvoice(true);
+    try {
+      await exportWorkOrderInvoicePdf(wo.id, `factuur-${project.projectNumber}-${wo.ordinal + 1}.pdf`);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : t("workOrderDetail.exportFailed"));
+    } finally {
+      setExportingInvoice(false);
+    }
+  };
+
   return (
     <PageLayout title={t("workOrderDetail.title")}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
@@ -361,10 +374,12 @@ export function WorkOrderDetail() {
           canFinish={canFinish}
           canReopen={canEditQuoteScope(role) && wo.status === "ready_for_review"}
           canExportQuote={canEditQuoteScope(role)}
+          canExportInvoice={canEditQuoteScope(role) && wo.invoiceStatus !== "not_started"}
           finished={finished}
           busy={busy}
           exporting={exporting}
           exportingQuote={exportingQuote}
+          exportingInvoice={exportingInvoice}
           onBack={() => navigate("/work-orders")}
           onOpenInfo={() => setInfoOpen(true)}
           onOpenAttachments={() => setAttachmentsOpen(true)}
@@ -382,6 +397,7 @@ export function WorkOrderDetail() {
           onDelete={handleDelete}
           onExportPdf={handleExportPdf}
           onExportQuotePdf={handleExportQuotePdf}
+          onExportInvoicePdf={handleExportInvoicePdf}
           onFinish={() => setSignOpen(true)}
           onReopen={() =>
             run(async () => {

@@ -210,6 +210,9 @@ model Organization {
   bic        String?
   kvkNumber  String?
   website    String?
+  // Object-storage key for the organization's document logo. The same logo
+  // is used on customer-facing work orders, quotes and invoices.
+  logo       String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1200,6 +1203,10 @@ model Invoice {
   extraWorkAmount     Int           @default(0)
   materialsAmount     Int           @default(0)
   laborAmount         Int           @default(0)
+  // Stable customer-facing identity assigned when the invoice is prepared.
+  invoiceNumber       String?
+  invoiceDate         String?
+  dueDate             String?
   sentDate            String?
   paidDate            String?
 

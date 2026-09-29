@@ -41,6 +41,7 @@
     "export": "Exporteren",
     "exportMenuQuote": "Offerte (PDF)",
     "exportMenuWorkOrder": "Werkbon (PDF)",
+    "exportMenuInvoice": "Factuur (PDF)",
     "delete": "Werkbon verwijderen",
     "deleteTitle": "Werkbon verwijderen",
     "deleteBody": "Weet je zeker dat je \"{{name}}\" wilt verwijderen? Alle zones, regels, foto's en facturatie van deze werkbon gaan mee. Dit kan niet ongedaan worden gemaakt.",
@@ -143,7 +144,7 @@
   },
   "signOff": {
     "title": "Werkbon afronden",
-    "description": "Alle taken worden afgerond en deze werkbon wordt vergrendeld. Vul de naam van de ondertekenaar in en onderteken hieronder ter bevestiging.",
+    "description": "Met de handtekening bevestigt de ondertekenaar dat de vermelde werkzaamheden en materialen zijn uitgevoerd en geregistreerd. De werkbon wordt daarna vergrendeld en gaat naar kantoor voor controle.",
     "signerLabel": "Naam ondertekenaar",
     "drawLabel": "Handtekening",
     "clear": "Wissen",

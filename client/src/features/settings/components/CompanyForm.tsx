@@ -13,6 +13,7 @@ import { GroupLabel } from "./GroupLabel";
 import { fieldGrid } from "../constants";
 import { useApi } from "../../../lib/api/useApi";
 import { getOrganization, updateOrganization, type Organization } from "../api";
+import { OrganizationLogo } from "./OrganizationLogo";
 
 type Form = {
   name: string;
@@ -105,6 +106,14 @@ export function CompanyForm() {
   return (
     <Box>
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
+      <OrganizationLogo
+        initialUrl={org?.logoUrl}
+        onError={setError}
+        onSaved={setToast}
+      />
+
+      <Divider sx={{ my: 4 }} />
 
       <GroupLabel>{t("settings.company.companyData")}</GroupLabel>
       <Box sx={fieldGrid}>

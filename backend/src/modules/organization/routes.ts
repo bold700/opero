@@ -6,6 +6,9 @@ import { NotFound } from "../../lib/httpError.js";
 import { clampText } from "../../lib/clamp.js";
 import { audit } from "../../lib/audit.js";
 import { requireAuth, requireRole } from "../../auth/middleware.js";
+import { uploadSingle } from "../../lib/upload.js";
+import { deleteStored, storeUpload } from "../../lib/attachUpload.js";
+import { storage } from "../../lib/storage/index.js";
 
 export const organizationRouter = Router();
 
@@ -24,9 +27,10 @@ type Org = {
   bic: string | null;
   kvkNumber: string | null;
   website: string | null;
+  logo: string | null;
 };
 
-function orgDto(o: Org) {
+async function orgDto(o: Org) {
   return {
     id: o.id,
     name: o.name,
@@ -40,6 +44,7 @@ function orgDto(o: Org) {
     bic: o.bic ?? "",
     kvkNumber: o.kvkNumber ?? "",
     website: o.website ?? "",
+    logoUrl: o.logo ? await storage.url(o.logo) : undefined,
   };
 }
 
@@ -51,7 +56,7 @@ organizationRouter.get(
       where: { id: req.user!.orgId },
     });
     if (!org) throw NotFound("Organization not found");
-    res.json(orgDto(org));
+    res.json(await orgDto(org));
   }),
 );
 
@@ -87,6 +92,53 @@ organizationRouter.patch(
       await audit(tx, user, "organization.update", "organization", o.id, input);
       return o;
     });
-    res.json(orgDto(updated));
+    res.json(await orgDto(updated));
+  }),
+);
+
+// POST /organization/logo — one reusable company logo for all documents.
+organizationRouter.post(
+  "/logo",
+  requireRole("admin"),
+  uploadSingle,
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const key = await storeUpload(user, req.file, "organization-logo", user.orgId);
+    const previous = await prisma.organization.findUnique({
+      where: { id: user.orgId },
+      select: { logo: true },
+    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const org = await tx.organization.update({
+        where: { id: user.orgId },
+        data: { logo: key },
+      });
+      await audit(tx, user, "organization.logo.update", "organization", org.id);
+      return org;
+    });
+    if (previous?.logo && previous.logo !== key) await deleteStored(previous.logo);
+    res.json(await orgDto(updated));
+  }),
+);
+
+organizationRouter.delete(
+  "/logo",
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const previous = await prisma.organization.findUnique({
+      where: { id: user.orgId },
+      select: { logo: true },
+    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const org = await tx.organization.update({
+        where: { id: user.orgId },
+        data: { logo: null },
+      });
+      await audit(tx, user, "organization.logo.remove", "organization", org.id);
+      return org;
+    });
+    if (previous?.logo) await deleteStored(previous.logo);
+    res.json(await orgDto(updated));
   }),
 );

@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import type { Organization } from "@prisma/client";
+import { storage } from "../../lib/storage/index.js";
 
 // Customer-facing quote (offerte) PDF for a work order — mirrors the org's
 // existing paper offerte: letterhead with company/bank details, quote
@@ -90,9 +91,28 @@ export async function buildQuotePdf(
     if (o?.gap) doc.moveDown(o.gap);
   };
 
+  let logo: Buffer | null = null;
+  if (org.logo) {
+    try {
+      logo = await storage.read(org.logo);
+    } catch {
+      logo = null;
+    }
+  }
+
   // --- Letterhead: org name left, contact/bank details right ---------------
   const headTop = doc.y;
-  doc.fillColor(INK).fontSize(18).font("Helvetica-Bold").text(org.name, LEFT, headTop, { width: CONTENT_W * 0.5 });
+  if (logo) {
+    try {
+      doc.image(logo, LEFT, headTop, { fit: [150, 54], valign: "center" });
+      doc.y = headTop + 60;
+      doc.fillColor(INK).fontSize(10).font("Helvetica-Bold").text(org.name, LEFT, doc.y, { width: CONTENT_W * 0.5 });
+    } catch {
+      doc.fillColor(INK).fontSize(18).font("Helvetica-Bold").text(org.name, LEFT, headTop, { width: CONTENT_W * 0.5 });
+    }
+  } else {
+    doc.fillColor(INK).fontSize(18).font("Helvetica-Bold").text(org.name, LEFT, headTop, { width: CONTENT_W * 0.5 });
+  }
   const leftBottom = doc.y;
 
   const metaX = LEFT + CONTENT_W * 0.5;

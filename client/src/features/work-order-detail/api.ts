@@ -311,6 +311,10 @@ export function exportWorkOrderQuotePdf(id: string, filename: string): Promise<v
   return downloadDocument(`/work-orders/${id}/quote-pdf`, filename);
 }
 
+export function exportWorkOrderInvoicePdf(id: string, filename: string): Promise<void> {
+  return downloadDocument(`/work-orders/${id}/invoice/pdf`, filename);
+}
+
 export function getProject(id: string): Promise<Project> {
   return api.get<Project>(`/projects/${id}`);
 }
