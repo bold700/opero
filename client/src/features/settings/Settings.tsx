@@ -54,8 +54,6 @@ export function Settings() {
           px: PAGE_PADDING_RESPONSIVE,
           py: 3,
           bgcolor: PAGE_BG,
-          borderBottom: "1px solid",
-          borderColor: "divider",
         }}
       >
         <Typography variant="h5" sx={{ fontWeight: 700 }}>

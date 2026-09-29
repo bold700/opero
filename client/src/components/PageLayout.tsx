@@ -39,8 +39,6 @@ export function TopBar({
         justifyContent: "space-between",
         gap: { xs: 1.5, sm: 2 },
         bgcolor: SURFACE,
-        borderBottom: "1px solid",
-        borderColor: "divider",
         zIndex: 10,
       }}
     >
