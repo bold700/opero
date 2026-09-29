@@ -238,7 +238,7 @@ export function WorkOrderDetail() {
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
   const nextStatusByStatus: Partial<Record<WorkOrderStatus, WorkOrderStatus>> = {
-    open: "planned",
+    open: "released",
     planned: "released",
     released: "ready_for_review",
     in_progress: "ready_for_review",
@@ -262,7 +262,7 @@ export function WorkOrderDetail() {
         label: t("workOrderDetail.header.toStatus", {
           status: t(STATUS[nextStatus].labelKey),
         }),
-        disabled: wo.status === "planned" && !wo.canDispatch,
+        disabled: ["open", "planned"].includes(wo.status) && !wo.canDispatch,
         onClick: () => {
           if (["released", "in_progress"].includes(wo.status) ||
               (wo.status === "ready_for_review" && !finished)) {
@@ -270,9 +270,7 @@ export function WorkOrderDetail() {
             return;
           }
           run(async () => {
-            if (wo.status === "open") {
-              setWo(await setWorkOrderStatus(wo.id, "planned"));
-            } else if (wo.status === "planned") {
+            if (["open", "planned"].includes(wo.status)) {
               setWo(await dispatchWorkOrder(wo.id));
             } else if (wo.status === "ready_for_review") {
               setWo(await approveWorkOrder(wo.id));
