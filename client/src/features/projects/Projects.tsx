@@ -139,31 +139,31 @@ export function Projects() {
           onSearch={setSearch}
           onCreate={openCreate}
           canCreate={canManage}
+          filterAction={
+            <FilterSideSheet
+              open={filtersOpen}
+              onOpen={() => setFiltersOpen(true)}
+              onClose={() => setFiltersOpen(false)}
+              activeCount={(statusFilter ? 1 : 0) + (visibility === "active" ? 0 : 1)}
+              onClear={() => {
+                setStatusFilter("");
+                setVisibility("active");
+              }}
+            >
+              <ProjectsFilterBar
+                status={statusFilter}
+                onStatusChange={setStatusFilter}
+                visibility={visibility}
+                onVisibilityChange={(value) => {
+                  setVisibility(value);
+                  if (value === "archived") setStatusFilter("");
+                }}
+              />
+            </FilterSideSheet>
+          }
         />
       }
     >
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <FilterSideSheet
-          open={filtersOpen}
-          onOpen={() => setFiltersOpen(true)}
-          onClose={() => setFiltersOpen(false)}
-          activeCount={(statusFilter ? 1 : 0) + (visibility === "active" ? 0 : 1)}
-          onClear={() => {
-            setStatusFilter("");
-            setVisibility("active");
-          }}
-        >
-          <ProjectsFilterBar
-            status={statusFilter}
-            onStatusChange={setStatusFilter}
-            visibility={visibility}
-            onVisibilityChange={(value) => {
-              setVisibility(value);
-              if (value === "archived") setStatusFilter("");
-            }}
-          />
-        </FilterSideSheet>
-      </Box>
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />

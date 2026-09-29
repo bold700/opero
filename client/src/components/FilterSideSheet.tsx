@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Badge from "@mui/material/Badge";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import { FILTER_SHEET_WIDTH, RADIUS, SPACING } from "../theme/tokens";
+import { FILTER_SHEET_WIDTH, SPACING } from "../theme/tokens";
 
 export function FilterSideSheet({
   open,
@@ -30,15 +31,18 @@ export function FilterSideSheet({
 
   return (
     <>
-      <Button
-        variant="outlined"
-        startIcon={<FilterListIcon />}
-        endIcon={activeCount > 0 ? <Chip size="small" label={activeCount} /> : undefined}
-        onClick={onOpen}
-        sx={{ borderRadius: RADIUS.pill, bgcolor: "background.paper" }}
-      >
-        {t("common.filters.open")}
-      </Button>
+      <Tooltip title={t("common.filters.open")}>
+        <Badge badgeContent={activeCount} color="primary" invisible={activeCount === 0}>
+          <IconButton
+            aria-label={t("common.filters.open")}
+            onClick={onOpen}
+            color="primary"
+            sx={{ border: "1px solid", borderColor: "primary.main", bgcolor: "background.paper" }}
+          >
+            <FilterListIcon />
+          </IconButton>
+        </Badge>
+      </Tooltip>
       <Drawer
         anchor="right"
         open={open}

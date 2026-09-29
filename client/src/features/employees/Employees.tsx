@@ -270,22 +270,21 @@ export function Employees() {
           onSearch={setSearch}
           onCreate={openCreate}
           canCreate={canManage}
+          filterAction={
+            <FilterSideSheet
+              open={filtersOpen}
+              onOpen={() => setFiltersOpen(true)}
+              onClose={() => setFiltersOpen(false)}
+              activeCount={activeFilter === "all" ? 0 : 1}
+              onClear={() => setActiveFilter("all")}
+            >
+              <EmployeesFilterChips value={activeFilter} counts={counts} onChange={setActiveFilter} />
+            </FilterSideSheet>
+          }
         />
       }
     >
       <EmployeesKpis counts={counts} />
-
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <FilterSideSheet
-          open={filtersOpen}
-          onOpen={() => setFiltersOpen(true)}
-          onClose={() => setFiltersOpen(false)}
-          activeCount={activeFilter === "all" ? 0 : 1}
-          onClear={() => setActiveFilter("all")}
-        >
-          <EmployeesFilterChips value={activeFilter} counts={counts} onChange={setActiveFilter} />
-        </FilterSideSheet>
-      </Box>
 
       {/* Table */}
       {loading ? (

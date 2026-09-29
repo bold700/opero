@@ -35,24 +35,25 @@ export function Reports() {
   return (
     <PageLayout
       title={t("reports.title")}
-      actions={<ReportsActions data={data} period={period} />}
+      actions={
+        <>
+          <FilterSideSheet
+            open={filtersOpen}
+            onOpen={() => setFiltersOpen(true)}
+            onClose={() => setFiltersOpen(false)}
+            activeCount={activeFilterCount}
+            onClear={() => {
+              setPeriod(monthPeriod());
+              setFilter("all");
+            }}
+          >
+            <PeriodPicker period={period} onChange={setPeriod} />
+            <FilterChips value={filter} onChange={setFilter} />
+          </FilterSideSheet>
+          <ReportsActions data={data} period={period} />
+        </>
+      }
     >
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <FilterSideSheet
-          open={filtersOpen}
-          onOpen={() => setFiltersOpen(true)}
-          onClose={() => setFiltersOpen(false)}
-          activeCount={activeFilterCount}
-          onClear={() => {
-            setPeriod(monthPeriod());
-            setFilter("all");
-          }}
-        >
-          <PeriodPicker period={period} onChange={setPeriod} />
-          <FilterChips value={filter} onChange={setFilter} />
-        </FilterSideSheet>
-      </Box>
-
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />

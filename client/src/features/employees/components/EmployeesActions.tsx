@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -11,11 +12,13 @@ export function EmployeesActions({
   onSearch,
   onCreate,
   canCreate,
+  filterAction,
 }: {
   search: string;
   onSearch: (value: string) => void;
   onCreate: () => void;
   canCreate: boolean;
+  filterAction?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -36,6 +39,7 @@ export function EmployeesActions({
           },
         }}
       />
+      {filterAction}
       {canCreate ? (
         <NewButton label={t("employees.newEmployee")} onClick={onCreate} />
       ) : null}

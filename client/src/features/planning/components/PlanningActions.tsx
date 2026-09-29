@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import MenuItem from "@mui/material/MenuItem";
@@ -43,6 +44,7 @@ export function PlanningActions({
   onCreate,
   canCreate,
   compact = false,
+  filterAction,
 }: {
   period: PlanningPeriod;
   display: PlanningDisplay;
@@ -51,6 +53,7 @@ export function PlanningActions({
   onCreate: () => void;
   canCreate: boolean;
   compact?: boolean;
+  filterAction?: ReactNode;
 }) {
   const { t } = useTranslation();
 
@@ -126,6 +129,7 @@ export function PlanningActions({
           </>
         )}
       </Box>
+      {filterAction}
       {canCreate ? (
         <NewButton label={t("planning.newAppointment")} onClick={onCreate} />
       ) : null}

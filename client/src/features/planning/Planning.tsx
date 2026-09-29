@@ -248,38 +248,40 @@ export function Planning() {
               onCreate={() => openCreate()}
               canCreate={canManage}
               compact={isMobile}
+              filterAction={
+                <FilterSideSheet
+                  open={filtersOpen}
+                  onOpen={() => setFiltersOpen(true)}
+                  onClose={() => setFiltersOpen(false)}
+                  activeCount={(employeeFilter ? 1 : 0) + (statusFilter ? 1 : 0)}
+                  onClear={() => {
+                    setEmployeeFilter("");
+                    setStatusFilter("");
+                  }}
+                >
+                  <FilterSelect
+                    value={employeeFilter}
+                    onChange={setEmployeeFilter}
+                    ariaLabel={t("planning.filters.employee")}
+                    fullWidth
+                    options={[
+                      { value: "", label: t("planning.filters.allEmployees") },
+                      ...employeeOptions,
+                    ]}
+                  />
+                  <FilterSelect
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    ariaLabel={t("planning.filters.status")}
+                    fullWidth
+                    options={[
+                      { value: "", label: t("planning.filters.allStatuses") },
+                      ...statusOptions,
+                    ]}
+                  />
+                </FilterSideSheet>
+              }
             />
-            <FilterSideSheet
-              open={filtersOpen}
-              onOpen={() => setFiltersOpen(true)}
-              onClose={() => setFiltersOpen(false)}
-              activeCount={(employeeFilter ? 1 : 0) + (statusFilter ? 1 : 0)}
-              onClear={() => {
-                setEmployeeFilter("");
-                setStatusFilter("");
-              }}
-            >
-              <FilterSelect
-                value={employeeFilter}
-                onChange={setEmployeeFilter}
-                ariaLabel={t("planning.filters.employee")}
-                fullWidth
-                options={[
-                  { value: "", label: t("planning.filters.allEmployees") },
-                  ...employeeOptions,
-                ]}
-              />
-              <FilterSelect
-                value={statusFilter}
-                onChange={setStatusFilter}
-                ariaLabel={t("planning.filters.status")}
-                fullWidth
-                options={[
-                  { value: "", label: t("planning.filters.allStatuses") },
-                  ...statusOptions,
-                ]}
-              />
-            </FilterSideSheet>
           </>
         }
       />

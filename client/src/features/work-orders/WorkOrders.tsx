@@ -124,40 +124,40 @@ export function WorkOrders() {
           onSearch={setSearch}
           onCreate={() => setCreateOpen(true)}
           canCreate={canCreate}
+          filterAction={
+            <FilterSideSheet
+              open={filtersOpen}
+              onOpen={() => setFiltersOpen(true)}
+              onClose={() => setFiltersOpen(false)}
+              activeCount={activeFilterCount}
+              onClear={() => {
+                setActiveFilter("all");
+                setFilters({});
+              }}
+            >
+              <FilterSelect
+                value={activeFilter}
+                onChange={setActiveFilter}
+                ariaLabel={t("workOrders.filters.label")}
+                fullWidth
+                options={FILTERS.map((f) => ({
+                  value: f.key,
+                  label: t(`workOrders.filters.${f.key}`),
+                  count: f.status === null ? counts.total : counts[f.status],
+                }))}
+              />
+              <WorkOrderFilterBar
+                open
+                filters={filters}
+                onChange={setFilters}
+                options={filterOptions}
+                loading={optionsLoading}
+              />
+            </FilterSideSheet>
+          }
         />
       }
     >
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <FilterSideSheet
-          open={filtersOpen}
-          onOpen={() => setFiltersOpen(true)}
-          onClose={() => setFiltersOpen(false)}
-          activeCount={activeFilterCount}
-          onClear={() => {
-            setActiveFilter("all");
-            setFilters({});
-          }}
-        >
-          <FilterSelect
-            value={activeFilter}
-            onChange={setActiveFilter}
-            ariaLabel={t("workOrders.filters.label")}
-            fullWidth
-            options={FILTERS.map((f) => ({
-              value: f.key,
-              label: t(`workOrders.filters.${f.key}`),
-              count: f.status === null ? counts.total : counts[f.status],
-            }))}
-          />
-          <WorkOrderFilterBar
-            open
-            filters={filters}
-            onChange={setFilters}
-            options={filterOptions}
-            loading={optionsLoading}
-          />
-        </FilterSideSheet>
-      </Box>
       {/* Table */}
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

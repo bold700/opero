@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import SearchIcon from "@mui/icons-material/Search";
@@ -10,11 +11,13 @@ export function ProjectsActions({
   onSearch,
   onCreate,
   canCreate,
+  filterAction,
 }: {
   search: string;
   onSearch: (value: string) => void;
   onCreate: () => void;
   canCreate: boolean;
+  filterAction?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -35,6 +38,7 @@ export function ProjectsActions({
           },
         }}
       />
+      {filterAction}
       {canCreate ? (
         <NewButton label={t("projects.actions.newProject")} onClick={onCreate} />
       ) : null}

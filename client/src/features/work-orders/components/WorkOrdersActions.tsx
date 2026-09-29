@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -12,11 +13,13 @@ export function WorkOrdersActions({
   onSearch,
   onCreate,
   canCreate,
+  filterAction,
 }: {
   search: string;
   onSearch: (value: string) => void;
   onCreate: () => void;
   canCreate: boolean;
+  filterAction?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -37,6 +40,7 @@ export function WorkOrdersActions({
           },
         }}
       />
+      {filterAction}
       {canCreate ? (
         <NewButton label={t("workOrders.actions.newWorkOrder")} onClick={onCreate} />
       ) : null}

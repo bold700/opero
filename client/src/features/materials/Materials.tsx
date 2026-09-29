@@ -96,6 +96,56 @@ export function Materials() {
 
   const loading = searching ? searchLoading : groupsLoading;
   const error = searching ? searchError : groupsError;
+  const filterAction = (
+    <FilterSideSheet
+      open={filtersOpen}
+      onOpen={() => setFiltersOpen(true)}
+      onClose={() => setFiltersOpen(false)}
+      activeCount={(view === "articles" ? 1 : 0) + (category ? 1 : 0) + (supplier ? 1 : 0)}
+      onClear={() => {
+        setView("materials");
+        setCategory("");
+        setSupplier("");
+      }}
+    >
+      <FilterSelect
+        value={view}
+        onChange={(v) => setView(v as "materials" | "articles")}
+        ariaLabel={t("materials.view.label")}
+        fullWidth
+        options={[
+          { value: "materials", label: t("materials.view.materials") },
+          { value: "articles", label: t("materials.view.articles") },
+        ]}
+      />
+      {view === "materials" ? (
+        <>
+          <FilterSelect
+            value={category}
+            onChange={(v) => setCategory(v as MaterialSystemCategory | "")}
+            ariaLabel={t("materials.filters.label")}
+            fullWidth
+            options={[
+              { value: "", label: t("materials.filters.allCategories") },
+              ...CATEGORY_ORDER.map((c) => ({ value: c, label: t(CATEGORY_LABEL_KEYS[c]) })),
+            ]}
+          />
+          {suppliers && suppliers.length > 1 ? (
+            <FilterSelect
+              value={supplier}
+              onChange={setSupplier}
+              ariaLabel={t("materials.filters.label")}
+              fullWidth
+              options={[
+                { value: "", label: t("materials.filters.allSuppliers") },
+                ...suppliers.map((s) => ({ value: s, label: s })),
+              ]}
+            />
+          ) : null}
+        </>
+      ) : null}
+    </FilterSideSheet>
+  );
 
   return (
     <PageLayout
@@ -107,61 +157,11 @@ export function Materials() {
             onSearch={setSearch}
             canCreate={isAdmin}
             onCreate={() => setCreateOpen(true)}
+            filterAction={filterAction}
           />
-        ) : undefined
+        ) : filterAction
       }
     >
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <FilterSideSheet
-          open={filtersOpen}
-          onOpen={() => setFiltersOpen(true)}
-          onClose={() => setFiltersOpen(false)}
-          activeCount={(view === "articles" ? 1 : 0) + (category ? 1 : 0) + (supplier ? 1 : 0)}
-          onClear={() => {
-            setView("materials");
-            setCategory("");
-            setSupplier("");
-          }}
-        >
-          <FilterSelect
-            value={view}
-            onChange={(v) => setView(v as "materials" | "articles")}
-            ariaLabel={t("materials.view.label")}
-            fullWidth
-            options={[
-              { value: "materials", label: t("materials.view.materials") },
-              { value: "articles", label: t("materials.view.articles") },
-            ]}
-          />
-          {view === "materials" ? (
-            <>
-              <FilterSelect
-                value={category}
-                onChange={(v) => setCategory(v as MaterialSystemCategory | "")}
-                ariaLabel={t("materials.filters.label")}
-                fullWidth
-                options={[
-                  { value: "", label: t("materials.filters.allCategories") },
-                  ...CATEGORY_ORDER.map((c) => ({ value: c, label: t(CATEGORY_LABEL_KEYS[c]) })),
-                ]}
-              />
-              {suppliers && suppliers.length > 1 ? (
-                <FilterSelect
-                  value={supplier}
-                  onChange={setSupplier}
-                  ariaLabel={t("materials.filters.label")}
-                  fullWidth
-                  options={[
-                    { value: "", label: t("materials.filters.allSuppliers") },
-                    ...suppliers.map((s) => ({ value: s, label: s })),
-                  ]}
-                />
-              ) : null}
-            </>
-          ) : null}
-        </FilterSideSheet>
-      </Box>
-
       {view === "articles" ? (
         <ArticlesSection canManage={isAdmin} showPrices={showPrices} />
       ) : loading ? (

@@ -225,36 +225,35 @@ export function Customers() {
               ? "customers.actions.searchContactsPlaceholder"
               : "customers.actions.searchPlaceholder",
           )}
+          filterAction={
+            <FilterSideSheet
+              open={filtersOpen}
+              onOpen={() => setFiltersOpen(true)}
+              onClose={() => setFiltersOpen(false)}
+              activeCount={(view === "contacts" ? 1 : 0) + (activeFilter === "all" ? 0 : 1)}
+              onClear={() => {
+                setView("customers");
+                setActiveFilter("all");
+              }}
+            >
+              <FilterSelect
+                value={view}
+                onChange={(value) => setView(value as "customers" | "contacts")}
+                ariaLabel={t("customers.view.label")}
+                fullWidth
+                options={[
+                  { value: "customers", label: t("customers.view.customers") },
+                  { value: "contacts", label: t("customers.view.contacts") },
+                ]}
+              />
+              {view === "customers" ? (
+                <CustomerFilterBar active={activeFilter} counts={counts} onChange={setActiveFilter} />
+              ) : null}
+            </FilterSideSheet>
+          }
         />
       }
     >
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <FilterSideSheet
-          open={filtersOpen}
-          onOpen={() => setFiltersOpen(true)}
-          onClose={() => setFiltersOpen(false)}
-          activeCount={(view === "contacts" ? 1 : 0) + (activeFilter === "all" ? 0 : 1)}
-          onClear={() => {
-            setView("customers");
-            setActiveFilter("all");
-          }}
-        >
-          <FilterSelect
-            value={view}
-            onChange={(value) => setView(value as "customers" | "contacts")}
-            ariaLabel={t("customers.view.label")}
-            fullWidth
-            options={[
-              { value: "customers", label: t("customers.view.customers") },
-              { value: "contacts", label: t("customers.view.contacts") },
-            ]}
-          />
-          {view === "customers" ? (
-            <CustomerFilterBar active={activeFilter} counts={counts} onChange={setActiveFilter} />
-          ) : null}
-        </FilterSideSheet>
-      </Box>
-
       {/* Table */}
       {view === "contacts" ? (
         <ContactsOverview search={debouncedSearch} />

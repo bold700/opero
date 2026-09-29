@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import Button from "@mui/material/Button";
@@ -16,6 +17,7 @@ export function CustomersActions({
   onImport,
   canCreate,
   searchPlaceholder,
+  filterAction,
 }: {
   search: string;
   onSearch: (value: string) => void;
@@ -23,6 +25,7 @@ export function CustomersActions({
   onImport: () => void;
   canCreate: boolean;
   searchPlaceholder?: string;
+  filterAction?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -53,6 +56,7 @@ export function CustomersActions({
           {t("customers.actions.import")}
         </Button>
       ) : null}
+      {filterAction}
       {canCreate ? (
         <NewButton label={t("customers.actions.newCustomer")} onClick={onCreate} />
       ) : null}
