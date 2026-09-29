@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
@@ -14,6 +13,7 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import { BottomSheet } from "../../../components/BottomSheet";
+import { AnimatedSideSheet } from "../../../components/AnimatedSideSheet";
 import { StatusBadge } from "../../../components/StatusBadge";
 import { FILTER_SHEET_WIDTH, STATUS_TONES, SPACING, TAP_TARGET } from "../../../theme/tokens";
 import { humanize } from "../../../lib/labels";
@@ -127,6 +127,7 @@ function DetailsBody({
 // Details for the selected calendar entry, with admin actions. Desktop uses the
 // same right-side sheet pattern as filters; phones use a bottom sheet.
 export function DetailsPanel(props: {
+  open: boolean;
   entry: PlanningEntry;
   canManage: boolean;
   busy: boolean;
@@ -142,7 +143,7 @@ export function DetailsPanel(props: {
   if (isMobile) {
     return (
       <BottomSheet
-        open
+        open={props.open}
         onClose={props.onClose}
         title={t("planning.details")}
         scrollableContent
@@ -166,9 +167,8 @@ export function DetailsPanel(props: {
   }
 
   return (
-    <Drawer
-      anchor="right"
-      open
+    <AnimatedSideSheet
+      open={props.open}
       onClose={props.onClose}
       slotProps={{
         paper: {
@@ -181,6 +181,6 @@ export function DetailsPanel(props: {
       }}
     >
       <DetailsBody {...props} />
-    </Drawer>
+    </AnimatedSideSheet>
   );
 }

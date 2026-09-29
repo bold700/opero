@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
-import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
+import { AnimatedSideSheet } from "../../../components/AnimatedSideSheet";
 import {
   HAIRLINE,
   PAGE_PADDING_RESPONSIVE,
@@ -25,8 +25,7 @@ export function WorkOrderSideSheet({
   children: ReactNode;
 }) {
   return (
-    <Drawer
-      anchor="right"
+    <AnimatedSideSheet
       open={open}
       onClose={onClose}
       ModalProps={{ keepMounted: true }}
@@ -59,6 +58,6 @@ export function WorkOrderSideSheet({
         </IconButton>
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</Box>
-    </Drawer>
+    </AnimatedSideSheet>
   );
 }

@@ -4,13 +4,13 @@ import Box from "@mui/material/Box";
 import Badge from "@mui/material/Badge";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
-import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import { FILTER_SHEET_WIDTH, SPACING } from "../theme/tokens";
+import { AnimatedSideSheet } from "./AnimatedSideSheet";
 
 export function FilterSideSheet({
   open,
@@ -43,8 +43,7 @@ export function FilterSideSheet({
           </IconButton>
         </Badge>
       </Tooltip>
-      <Drawer
-        anchor="right"
+      <AnimatedSideSheet
         open={open}
         onClose={onClose}
         slotProps={{ paper: { sx: { width: { xs: "100%", sm: FILTER_SHEET_WIDTH }, maxWidth: "100%" } } }}
@@ -89,7 +88,7 @@ export function FilterSideSheet({
             </Button>
           </Box>
         </Box>
-      </Drawer>
+      </AnimatedSideSheet>
     </>
   );
 }

@@ -59,6 +59,7 @@ export function Planning() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailsEntry, setDetailsEntry] = useState<PlanningEntry | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [employeeFilter, setEmployeeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -148,6 +149,10 @@ export function Planning() {
 
   const selected =
     filteredEntries.find((e) => `${e.workOrderId}-${e.date}` === selectedId) ?? null;
+
+  useEffect(() => {
+    if (selected) setDetailsEntry(selected);
+  }, [selected]);
 
   const fcLocale = i18n.language.startsWith("nl") ? "nl" : "en";
 
@@ -334,17 +339,18 @@ export function Planning() {
             />
           </Box>
 
-          {/* Details only mount after selecting an appointment. The component
-              presents a side sheet on desktop and a bottom sheet on mobile. */}
-          {selected ? (
+          {/* Retain the last selected appointment while the sheet closes so its
+              slide-out and fade-out transition can finish before it unmounts. */}
+          {detailsEntry ? (
             <DetailsPanel
-              entry={selected}
+              open={selected !== null}
+              entry={detailsEntry}
               canManage={canManage}
               busy={busy}
               onClose={() => setSelectedId(null)}
-              onOpenWorkOrder={() => navigate(`/work-orders/${selected.workOrderId}`)}
-              onEdit={() => openEdit(selected)}
-              onRemove={() => setRemoving(selected)}
+              onOpenWorkOrder={() => navigate(`/work-orders/${detailsEntry.workOrderId}`)}
+              onEdit={() => openEdit(detailsEntry)}
+              onRemove={() => setRemoving(detailsEntry)}
             />
           ) : null}
         </Box>
