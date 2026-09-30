@@ -172,13 +172,13 @@ export function RequirementsContent({
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
           {t("workOrderDetail.requirements.manual")}
         </Typography>
-        {workOrder.requirements.length === 0 ? (
+        {(workOrder.requirements ?? []).length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ mt: SPACING.itemGap }}>
             {t("workOrderDetail.requirements.noManual")}
           </Typography>
         ) : (
           <List disablePadding sx={{ mt: SPACING.itemGap }}>
-            {workOrder.requirements.map(manualItem)}
+            {(workOrder.requirements ?? []).map(manualItem)}
           </List>
         )}
       </Box>

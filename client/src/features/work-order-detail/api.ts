@@ -209,7 +209,7 @@ export type WorkOrder = {
   tasks: WorkOrderTask[];
   // Manual operational items. Task-derived materials remain in `tasks` and
   // are combined with these rows by the requirements sheet.
-  requirements: WorkOrderRequirement[];
+  requirements?: WorkOrderRequirement[];
 };
 
 // --- Project context (GET /projects/:id) ----------------------------------

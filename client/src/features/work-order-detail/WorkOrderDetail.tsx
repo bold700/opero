@@ -255,7 +255,7 @@ export function WorkOrderDetail() {
             !material.requirementDone,
         ).length,
       0,
-    ) + wo.requirements.filter((item) => !item.done).length;
+    ) + (wo.requirements ?? []).filter((item) => !item.done).length;
   const nextStatusByStatus: Partial<Record<WorkOrderStatus, WorkOrderStatus>> = {
     open: "released",
     planned: "released",
