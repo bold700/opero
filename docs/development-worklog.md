@@ -36,26 +36,26 @@ files that changed.
 | OPR-2026-015 | Restore task-photo thumbnails and inline previews | Local | Ready for review | To reconcile |
 | OPR-2026-016 | Add drag-and-drop uploads | Local | Ready for review | To reconcile |
 | OPR-2026-017 | Clarify work-order release state | Local | Ready for review | To reconcile |
-| OPR-2026-018 | Automatic work-order lifecycle | Staging | Ready for review | To reconcile |
-| OPR-2026-019 | Show the work-order name in the overview | Staging | Ready for review | To reconcile |
-| OPR-2026-020 | Align the dashboard with work-order phases | Staging | Ready for review | To reconcile |
-| OPR-2026-021 | Clarify the work-order detail header | Staging | Ready for review | To reconcile |
-| OPR-2026-022 | Drill down from dashboard lifecycle counts | Staging | Ready for review | To reconcile |
-| OPR-2026-023 | Simplify work-order header labels | Staging | Ready for review | To reconcile |
-| OPR-2026-024 | Align work-order and project detail headers | Staging | Ready for review | To reconcile |
-| OPR-2026-025 | Match project and work-order header styling | Staging | Ready for review | To reconcile |
-| OPR-2026-026 | Add consistent lifecycle phase colours | Staging | Ready for review | To reconcile |
-| OPR-2026-027 | Replace planning time lists with direct input | Staging | Ready for review | To reconcile |
-| OPR-2026-028 | Add horizontal weekly planning timeline | Staging | Ready for review | To reconcile |
-| OPR-2026-029 | Separate planning period from display mode | Staging | Ready for review | To reconcile |
+| OPR-2026-018 | Automatic work-order lifecycle | Staging and production | Delivered | To reconcile |
+| OPR-2026-019 | Show the work-order name in the overview | Staging and production | Delivered | To reconcile |
+| OPR-2026-020 | Align the dashboard with work-order phases | Staging and production | Delivered | To reconcile |
+| OPR-2026-021 | Clarify the work-order detail header | Staging and production | Delivered | To reconcile |
+| OPR-2026-022 | Drill down from dashboard lifecycle counts | Staging and production | Delivered | To reconcile |
+| OPR-2026-023 | Simplify work-order header labels | Staging and production | Delivered | To reconcile |
+| OPR-2026-024 | Align work-order and project detail headers | Staging and production | Delivered | To reconcile |
+| OPR-2026-025 | Match project and work-order header styling | Staging and production | Delivered | To reconcile |
+| OPR-2026-026 | Add consistent lifecycle phase colours | Staging and production | Delivered | To reconcile |
+| OPR-2026-027 | Replace planning time lists with direct input | Staging and production | Delivered | To reconcile |
+| OPR-2026-028 | Add horizontal weekly planning timeline | Staging and production | Delivered | To reconcile |
+| OPR-2026-029 | Separate planning period from display mode | Staging and production | Delivered | To reconcile |
 | OPR-2026-030 | Prepare company-owned hosting, handover import, and customer subdomains | Local | Ready for review | To reconcile |
-| OPR-2026-031 | Apply the customer feedback interface polish | Staging | Delivered | To reconcile |
+| OPR-2026-031 | Apply the customer feedback interface polish | Staging and production | Delivered | To reconcile |
 | OPR-2026-032 | Add branded work-order and invoice PDFs | Staging and production | Delivered | To reconcile |
 | OPR-2026-033 | Stabilize SPA routing and API performance | Staging and production | Delivered | To reconcile |
-| OPR-2026-034 | Visualize the work-order lifecycle | Staging | Delivered | To reconcile |
-| OPR-2026-035 | Add work-order requirements packing list | Staging | Delivered | To reconcile |
-| OPR-2026-036 | Add the CV insulation catalog | Staging | Delivered | To reconcile |
-| OPR-2026-037 | Improve mobile checklist reminder layout | Production | Delivered | To reconcile |
+| OPR-2026-034 | Visualize the work-order lifecycle | Staging and production | Delivered | To reconcile |
+| OPR-2026-035 | Add work-order requirements packing list | Staging and production | Delivered | To reconcile |
+| OPR-2026-036 | Add the CV insulation catalog | Staging and production | Delivered | To reconcile |
+| OPR-2026-037 | Improve mobile checklist reminder layout | Staging and production | Delivered | To reconcile |
 
 ## Work items
 
@@ -376,8 +376,8 @@ files that changed.
 - **Verification:** Shared, backend, and client type checks pass; the client
   production build passes; lint has no errors; database migration applied
   locally; the full backend suite passes with 48 files and 380 tests.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-019 — Show the work-order name in the overview
@@ -389,8 +389,8 @@ files that changed.
   and customer on desktop. On smaller screens the name appears directly below
   the number. An empty name is shown as an em dash.
 - **Verification:** Backend type check and client production build pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-020 — Align the dashboard with work-order phases
@@ -404,8 +404,8 @@ files that changed.
   still count projects now say so explicitly.
 - **Verification:** Backend and client type checks, the client production build,
   and focused dashboard and lifecycle tests pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-021 — Clarify the work-order detail header
@@ -419,8 +419,8 @@ files that changed.
   visible when applicable. Single-day jobs show the same start and end date.
 - **Verification:** Client type check, focused lint, translation parsing, and
   the production build pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-022 — Drill down from dashboard lifecycle counts
@@ -434,8 +434,8 @@ files that changed.
   refresh, back, and forward navigation preserve the selected status.
 - **Verification:** Client type check, focused lint, translation parsing, and
   the production build pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-023 — Simplify work-order header labels
@@ -448,8 +448,8 @@ files that changed.
   are separated by vertical dividers without repeated labels.
 - **Verification:** Client type check, focused lint, translation parsing, and
   the production build pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-024 — Align work-order and project detail headers
@@ -463,8 +463,8 @@ files that changed.
   existing two-line work-order summary and all actions remain available.
 - **Verification:** Client type check, focused lint, and the production build
   pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-025 — Match project and work-order header styling
@@ -479,8 +479,8 @@ files that changed.
   detail page.
 - **Verification:** Client type check, focused lint, and the production build
   pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-026 — Add consistent lifecycle phase colours
@@ -494,8 +494,8 @@ files that changed.
   and the work-order detail phase badge uses the same mapping.
 - **Verification:** Client type check, focused lint, and the production build
   pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-027 — Replace planning time lists with direct input
@@ -509,8 +509,8 @@ files that changed.
   form blocks an end time that is not after the start time.
 - **Verification:** Client type check, focused lint, translation parsing, and
   the production build pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-028 — Add horizontal weekly planning timeline
@@ -526,8 +526,8 @@ files that changed.
   detail panel remain connected.
 - **Verification:** Client type check, focused lint, translation parsing, and
   the production build pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-029 — Separate planning period from display mode
@@ -542,8 +542,8 @@ files that changed.
   view.
 - **Verification:** Client type check, focused lint, translation parsing, and
   the production build pass locally.
-- **Status:** Ready for review; uncommitted local work.
-- **Review:** Kevin review required before merge or production deployment.
+- **Status:** Delivered to staging and production.
+- **Review:** Accepted on staging and released to production on 30 September 2026.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-030 — Prepare owned hosting, handover import, and tenant domains
@@ -597,7 +597,7 @@ files that changed.
   details in the side sheet.
 - **Verification:** Each change passed the client type check and production build
   before being added to the staging branch.
-- **Status:** Delivered to staging.
+- **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-032 — Add branded work-order and invoice PDFs
@@ -649,7 +649,7 @@ files that changed.
   line. The timeline uses the same shared lifecycle values as the header and
   workflow action.
 - **Verification:** Client type check and production build passed.
-- **Status:** Delivered to staging.
+- **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-035 — Add work-order requirements packing list
@@ -669,7 +669,7 @@ files that changed.
   state for task materials.
 - **Verification:** Client and backend type checks and production builds passed;
   all 389 backend tests across 52 files passed.
-- **Status:** Delivered to staging.
+- **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-036 — Add the CV insulation catalog
@@ -688,7 +688,7 @@ files that changed.
 - **Verification:** The migration applied successfully to the local database.
   Both material groups contained the expected 104 and 50 variants, and prices
   at the first and last rows matched the supplied price sheet.
-- **Status:** Delivered to staging.
+- **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-037 — Improve mobile checklist reminder layout
@@ -700,8 +700,9 @@ files that changed.
   text. A configured reminder appears on its own line below the task, while the
   reorder and delete actions remain grouped on the right.
 - **Verification:** Client type check, production build, and focused lint check
-  passed.
-- **Status:** Delivered to production.
+  passed. The production frontend deployment reached `READY`; the production API
+  returned 200 with a healthy database connection.
+- **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation
