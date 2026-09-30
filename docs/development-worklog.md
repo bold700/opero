@@ -53,6 +53,8 @@ files that changed.
 | OPR-2026-032 | Add branded work-order and invoice PDFs | Staging and production | Delivered | To reconcile |
 | OPR-2026-033 | Stabilize SPA routing and API performance | Staging and production | Delivered | To reconcile |
 | OPR-2026-034 | Visualize the work-order lifecycle | Staging | Delivered | To reconcile |
+| OPR-2026-035 | Add work-order requirements packing list | Staging | Delivered | To reconcile |
+| OPR-2026-036 | Add the CV insulation catalog | Staging | Ready for deployment | To reconcile |
 
 ## Work items
 
@@ -666,6 +668,24 @@ files that changed.
   state for task materials.
 - **Verification:** Client and backend type checks and production builds passed;
   all 389 backend tests across 52 files passed.
+- **Status:** Delivered to staging.
+- **Billable time:** To reconcile.
+
+### OPR-2026-036 — Add the CV insulation catalog
+
+- **Date:** 30 September 2026
+- **Request:** Add the CV materials and net prices from the supplied Ezron
+  price sheet to the task material picker.
+- **Delivered:** Added the white Isogenepak product group with straight pipe
+  shells and elbows, plus the reinforced aluminium foil pipe-shell group. The
+  catalog covers pipe sizes 17 through 219 mm and the available insulation
+  thicknesses from 25 through 50 mm. Existing catalog rows and manually
+  adjusted prices are preserved when missing data is added.
+- **Migration:** Adds two CV materials and 154 size, component, and thickness
+  price combinations to every existing organization.
+- **Verification:** The migration applied successfully to the local database.
+  Both material groups contained the expected 104 and 50 variants, and prices
+  at the first and last rows matched the supplied price sheet.
 - **Status:** Ready for staging deployment.
 - **Billable time:** To reconcile.
 
@@ -708,3 +728,4 @@ files that changed.
 | OPR-2026-033 |  |  |  |  |
 | OPR-2026-034 |  |  |  |  |
 | OPR-2026-035 |  |  |  |  |
+| OPR-2026-036 |  |  |  |  |
