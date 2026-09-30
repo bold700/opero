@@ -507,29 +507,35 @@ export function WorkOrderDetail() {
           <Box
             sx={{
               flex: { xs: "0 0 auto", lg: 2 },
-              order: { xs: 0, lg: 1 },
+              order: { lg: 1 },
               width: "100%",
               minWidth: 0,
-              display: "flex",
+              display: { xs: "contents", lg: "flex" },
               flexDirection: "column",
               gap: SPACING.sectionGap,
             }}
           >
-            <PreJobPanel
-              workOrder={wo}
-              isAdmin={canEditQuoteScope(role)}
-              canComplete={isStaff(role)}
-              busy={busy}
-              onToggleCheck={(itemId, done) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { done })); })}
-              onRenameItem={(itemId, label) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { label })); })}
-              onAddItem={(label) => run(async () => { setWo(await addPrejobItem(wo.id, label)); })}
-              onRemoveItem={(itemId) => run(async () => { setWo(await deletePrejobItem(wo.id, itemId)); })}
-              onMoveItem={(orderedIds) => run(async () => { setWo(await reorderPrejobItems(wo.id, orderedIds)); })}
-              onSetPhotoRequired={(required) => run(async () => { setWo(await setPrejobPhotoRequired(wo.id, required)); })}
-              onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
-              onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
-            />
-            <WorkOrderLifecycleTimeline phase={wo.phase} status={wo.status} />
+            {canEditQuoteScope(role) || isStaff(role) || wo.prejobPhotos.length > 0 ? (
+              <Box sx={{ order: { xs: 0, lg: 0 } }}>
+                <PreJobPanel
+                  workOrder={wo}
+                  isAdmin={canEditQuoteScope(role)}
+                  canComplete={isStaff(role)}
+                  busy={busy}
+                  onToggleCheck={(itemId, done) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { done })); })}
+                  onRenameItem={(itemId, label) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { label })); })}
+                  onAddItem={(label) => run(async () => { setWo(await addPrejobItem(wo.id, label)); })}
+                  onRemoveItem={(itemId) => run(async () => { setWo(await deletePrejobItem(wo.id, itemId)); })}
+                  onMoveItem={(orderedIds) => run(async () => { setWo(await reorderPrejobItems(wo.id, orderedIds)); })}
+                  onSetPhotoRequired={(required) => run(async () => { setWo(await setPrejobPhotoRequired(wo.id, required)); })}
+                  onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
+                  onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
+                />
+              </Box>
+            ) : null}
+            <Box sx={{ order: { xs: 2, lg: 1 } }}>
+              <WorkOrderLifecycleTimeline phase={wo.phase} status={wo.status} />
+            </Box>
           </Box>
         </Box>
       </Box>

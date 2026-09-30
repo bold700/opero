@@ -302,7 +302,6 @@
   },
   "lifecycle": {
     "title": "Progress",
-    "completed": "Completed",
-    "upcoming": "Coming next"
+    "current": "Now"
   }
 }

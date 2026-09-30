@@ -637,11 +637,12 @@ files that changed.
 - **Date:** 30 September 2026
 - **Request:** Show the current work-order phase visually beneath the control
   panel.
-- **Delivered:** Added a vertical three-phase timeline for Preparation,
-  Realization, and Completion. Completed phases show a checkmark, the current
-  phase is highlighted with its exact work-order status, and upcoming phases are
-  shown in a neutral state. The timeline uses the same shared lifecycle status
-  and phase values as the header and workflow action.
+- **Delivered:** Added a vertical timeline for Preparation, Realization, and
+  Completion, including all nine underlying statuses. Completed statuses show a
+  checkmark, the current status is highlighted, and upcoming statuses remain
+  neutral. On mobile the control panel comes first, followed by the work-order
+  tasks and then the timeline. The timeline uses the same shared lifecycle
+  values as the header and workflow action.
 - **Verification:** Client type check and production build passed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.

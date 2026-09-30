@@ -4,17 +4,23 @@ import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import {
   workOrderPhaseIds,
+  workOrderStatusIds,
   type WorkOrderPhase,
   type WorkOrderStatus,
 } from "@opero/shared";
 import { Card } from "../../../components/Card";
-import { StatusBadge } from "../../../components/StatusBadge";
 import {
   RADIUS,
   SPACING,
   WORK_ORDER_TIMELINE,
 } from "../../../theme/tokens";
 import { STATUS, WORK_ORDER_PHASE_TONES } from "../../work-orders/constants";
+
+const PHASE_STATUSES: Record<WorkOrderPhase, readonly WorkOrderStatus[]> = {
+  preparation: ["open", "planned", "released"],
+  realization: ["in_progress", "ready_for_review", "approved"],
+  completion: ["ready_to_invoice", "invoiced", "completed"],
+};
 
 export function WorkOrderLifecycleTimeline({
   phase,
@@ -24,7 +30,8 @@ export function WorkOrderLifecycleTimeline({
   status: WorkOrderStatus;
 }) {
   const { t } = useTranslation();
-  const activeIndex = workOrderPhaseIds.indexOf(phase);
+  const activePhaseIndex = workOrderPhaseIds.indexOf(phase);
+  const activeStatusIndex = workOrderStatusIds.indexOf(status);
 
   return (
     <Card>
@@ -34,7 +41,7 @@ export function WorkOrderLifecycleTimeline({
 
       <Box sx={{ mt: SPACING.itemGap }}>
         {workOrderPhaseIds.map((phaseId, index) => {
-          const isComplete = index < activeIndex;
+          const isComplete = index < activePhaseIndex;
           const isCurrent = phaseId === phase;
           const tone = WORK_ORDER_PHASE_TONES[phaseId];
           const markerColor = isComplete || isCurrent ? tone.fg : "text.disabled";
@@ -89,7 +96,7 @@ export function WorkOrderLifecycleTimeline({
                     sx={{
                       flex: 1,
                       width: WORK_ORDER_TIMELINE.connectorWidth,
-                      bgcolor: index < activeIndex ? tone.fg : "divider",
+                      bgcolor: index < activePhaseIndex ? tone.fg : "divider",
                     }}
                   />
                 ) : null}
@@ -115,22 +122,87 @@ export function WorkOrderLifecycleTimeline({
                   {t(`workOrderDetail.phase.${phaseId}`)}
                 </Typography>
 
-                {isCurrent ? (
-                  <Box sx={{ mt: SPACING.fieldLabelGap }}>
-                    <StatusBadge
-                      label={t(STATUS[status].labelKey)}
-                      tone={STATUS[status].tone}
-                    />
-                  </Box>
-                ) : (
-                  <Typography variant="caption" color="text.secondary">
-                    {t(
-                      isComplete
-                        ? "workOrderDetail.lifecycle.completed"
-                        : "workOrderDetail.lifecycle.upcoming",
-                    )}
-                  </Typography>
-                )}
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: SPACING.fieldLabelGap,
+                    mt: SPACING.fieldLabelGap,
+                  }}
+                >
+                  {PHASE_STATUSES[phaseId].map((statusId) => {
+                    const statusIndex = workOrderStatusIds.indexOf(statusId);
+                    const statusComplete = statusIndex < activeStatusIndex;
+                    const statusCurrent = statusId === status;
+
+                    return (
+                      <Box
+                        key={statusId}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: SPACING.itemGap,
+                          minWidth: 0,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: WORK_ORDER_TIMELINE.statusMarkerSize,
+                            height: WORK_ORDER_TIMELINE.statusMarkerSize,
+                            flexShrink: 0,
+                            borderRadius: `${RADIUS.pill}px`,
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: WORK_ORDER_TIMELINE.statusIconSize,
+                            color: statusComplete ? "common.white" : tone.fg,
+                            bgcolor: statusComplete ? tone.fg : "transparent",
+                            border: "1px solid",
+                            borderColor:
+                              statusComplete || statusCurrent ? tone.fg : "divider",
+                          }}
+                        >
+                          {statusComplete ? (
+                            <CheckRoundedIcon fontSize="inherit" />
+                          ) : statusCurrent ? (
+                            <Box
+                              sx={{
+                                width: WORK_ORDER_TIMELINE.markerDotSize,
+                                height: WORK_ORDER_TIMELINE.markerDotSize,
+                                borderRadius: `${RADIUS.pill}px`,
+                                bgcolor: tone.fg,
+                              }}
+                            />
+                          ) : null}
+                        </Box>
+
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            fontWeight: statusCurrent ? 700 : 400,
+                            color: statusCurrent
+                              ? tone.fg
+                              : statusComplete
+                                ? "text.primary"
+                                : "text.secondary",
+                          }}
+                        >
+                          {t(STATUS[statusId].labelKey)}
+                        </Typography>
+
+                        {statusCurrent ? (
+                          <Typography
+                            variant="caption"
+                            sx={{ color: tone.fg, fontWeight: 700 }}
+                          >
+                            {t("workOrderDetail.lifecycle.current")}
+                          </Typography>
+                        ) : null}
+                      </Box>
+                    );
+                  })}
+                </Box>
               </Box>
             </Box>
           );

@@ -46,6 +46,8 @@ export const WORK_ORDER_TIMELINE = {
   markerSize: 32,
   markerDotSize: 12,
   connectorWidth: 2,
+  statusMarkerSize: 20,
+  statusIconSize: 14,
 } as const;
 
 export const PLANNING_TIMELINE = {
