@@ -681,8 +681,9 @@ files that changed.
   catalog covers pipe sizes 17 through 219 mm and the available insulation
   thicknesses from 25 through 50 mm. Existing catalog rows and manually
   adjusted prices are preserved when missing data is added.
-- **Migration:** Adds two CV materials and 154 size, component, and thickness
-  price combinations to every existing organization.
+- **Migration:** Ensures every organization has the two CV materials and all
+  154 size, component, and thickness price combinations, and assigns the CV
+  system label to older uncategorized catalog records.
 - **Verification:** The migration applied successfully to the local database.
   Both material groups contained the expected 104 and 50 variants, and prices
   at the first and last rows matched the supplied price sheet.
