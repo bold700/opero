@@ -84,7 +84,6 @@
     "dispatch": "Release work order",
     "dispatched": "Released",
     "dispatchedToast": "Work order released to the technician",
-    "gateHint": "Complete the controls (and add a photo if required) to release the work order.",
     "addItemNew": "New checklist item",
     "addItemTitle": "Add checklist item",
     "addItemLabel": "Description",

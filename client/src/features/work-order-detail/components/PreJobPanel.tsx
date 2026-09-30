@@ -318,11 +318,6 @@ export function PreJobPanel({
           </Box>
         ) : null}
 
-        {isAdmin && !dispatched && !workOrder.canDispatch ? (
-          <Typography variant="caption" color="text.secondary" sx={{ textAlign: "right" }}>
-            {t("workOrderDetail.prejob.gateHint")}
-          </Typography>
-        ) : null}
       </Box>
 
       <AddChecklistItemDialog
