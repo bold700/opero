@@ -506,6 +506,18 @@ export function WorkOrderDetail() {
             alignItems: { xs: "stretch", lg: "flex-start" },
           }}
         >
+          <Box sx={{ display: { xs: "block", lg: "none" }, order: -1 }}>
+            <DailyMaterialsPanel
+              workOrder={wo}
+              canWrite={canWrite && !finished}
+              canCorrect={canEditScope && !finished}
+              busy={busy}
+              onStart={() => setWorkDaySheet({ open: true, mode: "start" })}
+              onComplete={() => setWorkDaySheet({ open: true, mode: "complete" })}
+              onCorrect={() => setWorkDaySheet({ open: true, mode: "correct" })}
+            />
+          </Box>
+
           <Box
             sx={{
               flex: { xs: "0 0 auto", lg: 3 },
@@ -517,6 +529,18 @@ export function WorkOrderDetail() {
               gap: SPACING.sectionGap,
             }}
           >
+            <Box sx={{ display: { xs: "none", lg: "block" } }}>
+              <DailyMaterialsPanel
+                workOrder={wo}
+                canWrite={canWrite && !finished}
+                canCorrect={canEditScope && !finished}
+                busy={busy}
+                onStart={() => setWorkDaySheet({ open: true, mode: "start" })}
+                onComplete={() => setWorkDaySheet({ open: true, mode: "complete" })}
+                onCorrect={() => setWorkDaySheet({ open: true, mode: "correct" })}
+              />
+            </Box>
+
             <TasksPanel
               workOrder={wo}
               canWrite={canWrite && !finished}
@@ -546,16 +570,6 @@ export function WorkOrderDetail() {
               onStartTimer={(taskId) => run(async () => { setWo(await startTask(wo.id, taskId)); })}
               onEndTimer={(taskId) => run(async () => { await endTask(wo.id, taskId); await refreshWorkOrder(); })}
               onSetHours={(taskId, hours) => run(async () => { await setTaskHours(wo.id, taskId, hours); await refreshWorkOrder(); })}
-            />
-
-            <DailyMaterialsPanel
-              workOrder={wo}
-              canWrite={canWrite && !finished}
-              canCorrect={canEditScope && !finished}
-              busy={busy}
-              onStart={() => setWorkDaySheet({ open: true, mode: "start" })}
-              onComplete={() => setWorkDaySheet({ open: true, mode: "complete" })}
-              onCorrect={() => setWorkDaySheet({ open: true, mode: "correct" })}
             />
 
             <MeerwerkApprovalPanel

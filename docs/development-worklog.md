@@ -167,7 +167,8 @@ files that changed.
     Completing the existing packing-list checkbox marks the replenishment ready
     and removes that notification; a newly calculated shortage reopens it.
   - The flow uses a mobile bottom sheet and desktop side sheet and follows the
-    existing Controls → Tasks → Progress layout on mobile.
+    work order layout. The daily-material card is the first block on mobile,
+    before Controls and Tasks, because starting the work day is the first action.
 - **Verification:** The database migration applies locally; backend and client
   type checks and production builds pass; backend and client lint have no new
   errors; the full backend suite passes with 53 files and 395 tests, including six
