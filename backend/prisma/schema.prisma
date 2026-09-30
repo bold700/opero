@@ -307,6 +307,8 @@ model User {
   signedWorkOrders           WorkOrder[]           @relation("WorkOrderSignedBy")
   uploadedAttachments        WorkOrderAttachment[] @relation("WorkOrderAttachmentUploader")
   uploadedProjectAttachments ProjectAttachment[]   @relation("ProjectAttachmentUploader")
+  startedWorkDays            WorkDay[]              @relation("WorkDayStartedBy")
+  completedWorkDays          WorkDay[]              @relation("WorkDayCompletedBy")
 
   @@index([orgId])
   @@index([customerId])
@@ -919,6 +921,7 @@ model WorkOrder {
   // permits, supplier docs. Werkbon-level, not per-zone (see the attachments
   // panel). Distinct from `drawings` (a separate, older key[] field).
   attachments   WorkOrderAttachment[]
+  workDays      WorkDay[]
 
   @@index([projectId])
   @@index([listStatus])
@@ -938,7 +941,8 @@ model WorkOrderRequirement {
   ordinal     Int      @default(0)
   createdAt   DateTime @default(now())
 
-  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrder      WorkOrder               @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workDayEntries WorkDayMaterialEntry[]
 
   @@index([workOrderId])
 }
@@ -1050,6 +1054,7 @@ model TaskProgressEntry {
 
   material TaskMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
   employee Employee?    @relation("ProgressLogger", fields: [employeeId], references: [id], onDelete: SetNull)
+  workDayEntry WorkDayMaterialEntry? @relation("WorkDayEntryProgress")
 
   @@index([materialId])
 }
@@ -1108,10 +1113,66 @@ model TaskMaterial {
   task            WorkOrderTask       @relation(fields: [taskId], references: [id], onDelete: Cascade)
   variant         MaterialVariant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
   progressEntries TaskProgressEntry[]
+  workDayEntries  WorkDayMaterialEntry[]
 
   @@index([taskId])
   @@index([variantId])
   @@index([taskId, isExtraWork])
+}
+
+// One shared material reconciliation for one work order on one calendar day.
+// Entry labels and units are snapshots so historical reports remain readable
+// when the quoted task or an extra packing-list item changes later.
+model WorkDay {
+  id            String    @id @default(uuid())
+  workOrderId   String
+  day           String
+  status        String    @default("started")
+  startedById   String?
+  completedById String?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  startedBy   User?     @relation("WorkDayStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  completedBy User?     @relation("WorkDayCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  entries     WorkDayMaterialEntry[]
+
+  @@unique([workOrderId, day])
+  @@index([workOrderId, status])
+}
+
+model WorkDayMaterialEntry {
+  id              String   @id @default(uuid())
+  workDayId       String
+  taskMaterialId  String?
+  requirementId   String?
+  progressEntryId String?  @unique
+  kind            String   @default("production")
+  name            String
+  unit            String   @default("")
+  plannedQuantity Float?
+  openingOnSite   Float    @default(0)
+  brought         Float    @default(0)
+  delivered       Float    @default(0)
+  installed       Float    @default(0)
+  waste           Float    @default(0)
+  leftOnSite      Float    @default(0)
+  returned        Float    @default(0)
+  ordinal         Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workDay       WorkDay               @relation(fields: [workDayId], references: [id], onDelete: Cascade)
+  taskMaterial  TaskMaterial?         @relation(fields: [taskMaterialId], references: [id], onDelete: SetNull)
+  requirement   WorkOrderRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  progressEntry TaskProgressEntry?    @relation("WorkDayEntryProgress", fields: [progressEntryId], references: [id], onDelete: SetNull)
+
+  @@index([workDayId])
+  @@index([taskMaterialId])
+  @@index([requirementId])
 }
 
 // ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ export type NotificationCategory =
   | "progressLogged"
   | "progressReminder"
   | "controlReminder"
+  | "materialShortage"
   | "mention";
 
 export type NotificationItem = {

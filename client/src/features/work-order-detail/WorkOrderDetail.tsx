@@ -50,6 +50,8 @@ import {
   addWorkOrderRequirement,
   setWorkOrderRequirementDone,
   deleteWorkOrderRequirement,
+  startWorkDay,
+  completeWorkDay,
   logMaterialProgress,
   deleteMaterialProgress,
   updateMaterial,
@@ -94,6 +96,8 @@ import { AttachmentsSheet } from "./components/AttachmentsSheet";
 import { SignOffDialog } from "./components/SignOffDialog";
 import { WorkOrderLifecycleTimeline } from "./components/WorkOrderLifecycleTimeline";
 import { WorkOrderRequirementsSheet } from "./components/WorkOrderRequirementsSheet";
+import { DailyMaterialsPanel } from "./components/DailyMaterialsPanel";
+import { WorkDayMaterialSheet } from "./components/WorkDayMaterialSheet";
 import { STATUS } from "../work-orders/constants";
 
 // Work-order detail: header + tasks + meerwerk (extra-work approval) + activity.
@@ -124,6 +128,10 @@ export function WorkOrderDetail() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [requirementsOpen, setRequirementsOpen] = useState(false);
+  const [workDaySheet, setWorkDaySheet] = useState<{
+    open: boolean;
+    mode: "start" | "complete" | "correct";
+  }>({ open: false, mode: "start" });
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -540,6 +548,16 @@ export function WorkOrderDetail() {
               onSetHours={(taskId, hours) => run(async () => { await setTaskHours(wo.id, taskId, hours); await refreshWorkOrder(); })}
             />
 
+            <DailyMaterialsPanel
+              workOrder={wo}
+              canWrite={canWrite && !finished}
+              canCorrect={canEditScope && !finished}
+              busy={busy}
+              onStart={() => setWorkDaySheet({ open: true, mode: "start" })}
+              onComplete={() => setWorkDaySheet({ open: true, mode: "complete" })}
+              onCorrect={() => setWorkDaySheet({ open: true, mode: "correct" })}
+            />
+
             <MeerwerkApprovalPanel
               workOrder={wo}
               role={role}
@@ -644,6 +662,31 @@ export function WorkOrderDetail() {
               setWo(await deleteWorkOrderRequirement(wo.id, requirementId));
             })
           }
+        />
+      ) : null}
+      {isStaff(role) ? (
+        <WorkDayMaterialSheet
+          open={workDaySheet.open}
+          mode={workDaySheet.mode}
+          workOrder={wo}
+          workDay={
+            workDaySheet.mode === "complete"
+              ? wo.workDays.find((day) => day.status === "started")
+              : workDaySheet.mode === "correct"
+                ? [...wo.workDays]
+                    .filter((day) => day.status === "completed")
+                    .sort((left, right) => right.day.localeCompare(left.day))[0]
+                : undefined
+          }
+          busy={busy}
+          onClose={() => setWorkDaySheet((state) => ({ ...state, open: false }))}
+          onStart={(day, entries) => run(async () => {
+            setWo(await startWorkDay(wo.id, day, entries));
+          })}
+          onComplete={(day, entries) => run(async () => {
+            setWo(await completeWorkDay(wo.id, day, entries));
+            await refreshProject();
+          })}
         />
       ) : null}
       <SignOffDialog

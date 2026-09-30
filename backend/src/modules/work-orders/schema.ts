@@ -168,6 +168,42 @@ export const progressSchema = z.object({
     .optional(),
 });
 
+const workDayEntryKindSchema = z.enum(["production", "consumable", "tool", "other"]);
+
+const workDayStartEntrySchema = z
+  .object({
+    taskMaterialId: z.string().min(1).optional(),
+    requirementId: z.string().min(1).optional(),
+    name: z.string().trim().min(1).max(200),
+    unit: z.string().trim().max(40).optional(),
+    kind: workDayEntryKindSchema,
+    plannedQuantity: z.number().min(0).optional(),
+    openingOnSite: z.number().min(0).default(0),
+    brought: z.number().min(0).default(0),
+  })
+  .refine((value) => !(value.taskMaterialId && value.requirementId), {
+    message: "An entry cannot reference both a task material and a requirement",
+  });
+
+export const startWorkDaySchema = z.object({
+  entries: z.array(workDayStartEntrySchema).min(1),
+});
+
+export const completeWorkDaySchema = z.object({
+  entries: z.array(
+    z.object({
+      id: z.string().min(1),
+      openingOnSite: z.number().min(0),
+      brought: z.number().min(0),
+      delivered: z.number().min(0),
+      installed: z.number().min(0),
+      waste: z.number().min(0),
+      leftOnSite: z.number().min(0),
+      returned: z.number().min(0),
+    }),
+  ).min(1),
+});
+
 // Manual operational packing-list item. It is intentionally separate from a
 // billable TaskMaterial line: adding a drill must never affect the quote.
 export const addWorkOrderRequirementSchema = z.object({

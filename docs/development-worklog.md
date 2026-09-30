@@ -24,7 +24,7 @@ files that changed.
 | OPR-2026-003 | Configurable work-order controls and in-app reminders | Local | Ready for review | To reconcile |
 | OPR-2026-004 | Remove rejected standard-task implementation | Local | Complete | Review classification |
 | OPR-2026-005 | Improve control settings field spacing | Local | Ready for review | To reconcile |
-| OPR-2026-006 | Work-order material request workflow | Local | Planned | Not started |
+| OPR-2026-006 | Daily materials, progress, and replenishment workflow | Local | Ready for review | To reconcile |
 | OPR-2026-007 | Contact person selection during work-order creation | Local | Ready for review | To reconcile |
 | OPR-2026-008 | Shared customer contacts and work-order contact management | Local | Ready for review | To reconcile |
 | OPR-2026-009 | Multiple account roles with active role switching | Local | Ready for review | To reconcile |
@@ -136,24 +136,44 @@ files that changed.
 - **Status:** Ready for review; included with OPR-2026-003.
 - **Billable time:** To reconcile, normally grouped with OPR-2026-003.
 
-### OPR-2026-006 — Work-order material request workflow
+### OPR-2026-006 — Daily materials, progress, and replenishment workflow
 
 - **Date proposed:** 26 September 2026
-- **Request:** Let a technician actually submit tomorrow's required materials from
-  the control instead of only ticking a checkbox.
-- **Planned result:**
-  - `Submit materials` action on the correct work order.
-  - Catalog selection with variant, quantity, unit, note, and required date.
-  - Explicit `No materials needed` option.
-  - Automatic completion of the related control after submission.
-  - Notification and central queue for the project leader and office/planning.
-  - Request lifecycle: Draft, Submitted, Processing, Ordered or Prepared, Ready.
-  - Technician can see the current processing status.
-- **Architecture decision:** Store a material request separately from a purchase
-  order because requested items can also be fulfilled from stock.
-- **Status:** Planned; no implementation started.
-- **Acceptance and verification:** To define before implementation.
-- **Billable time:** Not started.
+- **Date implemented:** 30 September 2026
+- **Request:** Prefill the materials for every work day from the work-order tasks,
+  record what was brought and already on site, reconcile what was installed,
+  lost, left on site, or returned, and tell the office what is needed next.
+- **Delivered:**
+  - A work-day material ledger keeps a separate, auditable record per work order
+    and calendar day instead of overwriting cumulative quantities.
+  - `Start work day` is prefilled from task materials, additional requirements,
+    and the material left on location after the previous completed day.
+  - Technicians can add loose consumables, tools, or other items without changing
+    the quoted work or invoice scope.
+  - `Complete work day` requires every available quantity to be assigned to
+    installed, waste/damaged, left on site, or returned. An unbalanced day is
+    rejected by both the interface and API.
+  - Installed production material creates the existing daily task-progress entry;
+    the same quantity is never entered twice. Waste affects material consumption
+    but does not increase work progress.
+  - Existing stock totals remain compatible: issued, used, returned, and on-site
+    values are updated from the daily ledger. Office corrections apply only the
+    difference and technicians cannot rewrite a completed day.
+  - Work-order progress normalizes each production line before averaging, so
+    metres, pieces, and square metres are not incorrectly added together.
+  - Opero calculates the unfinished quantity per task line, subtracts what remains
+    on site, and shows the resulting replenishment advice on the work order.
+  - The office receives an in-app shortage notification with concrete quantities.
+    Completing the existing packing-list checkbox marks the replenishment ready
+    and removes that notification; a newly calculated shortage reopens it.
+  - The flow uses a mobile bottom sheet and desktop side sheet and follows the
+    existing Controls → Tasks → Progress layout on mobile.
+- **Verification:** The database migration applies locally; backend and client
+  type checks and production builds pass; backend and client lint have no new
+  errors; the full backend suite passes with 53 files and 395 tests, including six
+  new end-to-end material-ledger tests.
+- **Status:** Ready for review and staging deployment.
+- **Billable time:** To reconcile.
 
 ### OPR-2026-007 — Contact person selection during work-order creation
 

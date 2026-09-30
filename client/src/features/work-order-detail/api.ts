@@ -90,6 +90,49 @@ export type WorkOrderRequirement = {
   ordinal: number;
 };
 
+export type WorkDayMaterialEntry = {
+  id: string;
+  taskMaterialId?: string;
+  requirementId?: string;
+  kind: "production" | "consumable" | "tool" | "other";
+  name: string;
+  unit: string;
+  plannedQuantity?: number;
+  openingOnSite: number;
+  brought: number;
+  delivered: number;
+  installed: number;
+  waste: number;
+  leftOnSite: number;
+  returned: number;
+};
+
+export type WorkDay = {
+  id: string;
+  day: string;
+  status: "started" | "completed";
+  startedAt: string;
+  completedAt?: string;
+  startedByName?: string;
+  completedByName?: string;
+  entries: WorkDayMaterialEntry[];
+};
+
+export type MaterialPlanItem = {
+  taskMaterialId?: string;
+  requirementId?: string;
+  kind: "production" | "consumable" | "tool" | "other";
+  name: string;
+  unit: string;
+  taskName?: string;
+  plannedQuantity: number;
+  progressTotal: number;
+  remainingQuantity: number;
+  openingOnSite: number;
+  suggestedBrought: number;
+  ready: boolean;
+};
+
 // Dropdown sources for per-task work type + assignee.
 export type WorkTypeOption = { id: string; name: string };
 export type AssigneeOption = { id: string; name: string };
@@ -210,6 +253,8 @@ export type WorkOrder = {
   // Manual operational items. Task-derived materials remain in `tasks` and
   // are combined with these rows by the requirements sheet.
   requirements?: WorkOrderRequirement[];
+  workDays: WorkDay[];
+  materialPlan: MaterialPlanItem[];
 };
 
 // --- Project context (GET /projects/:id) ----------------------------------
@@ -759,6 +804,48 @@ export function deleteWorkOrderRequirement(
   return api.delete<WorkOrder>(
     `/work-orders/${workOrderId}/requirements/${requirementId}`,
   );
+}
+
+export type StartWorkDayEntry = {
+  taskMaterialId?: string;
+  requirementId?: string;
+  name: string;
+  unit?: string;
+  kind: "production" | "consumable" | "tool" | "other";
+  plannedQuantity?: number;
+  openingOnSite: number;
+  brought: number;
+};
+
+export function startWorkDay(
+  workOrderId: string,
+  day: string,
+  entries: StartWorkDayEntry[],
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/work-days/${day}/start`, {
+    entries,
+  });
+}
+
+export type CompleteWorkDayEntry = {
+  id: string;
+  openingOnSite: number;
+  brought: number;
+  delivered: number;
+  installed: number;
+  waste: number;
+  leftOnSite: number;
+  returned: number;
+};
+
+export function completeWorkDay(
+  workOrderId: string,
+  day: string,
+  entries: CompleteWorkDayEntry[],
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/work-days/${day}/complete`, {
+    entries,
+  });
 }
 
 export function approveWorkOrder(workOrderId: string): Promise<WorkOrder> {

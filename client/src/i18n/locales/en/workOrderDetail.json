@@ -330,5 +330,58 @@
   "lifecycle": {
     "title": "Progress",
     "current": "Now"
+  },
+  "workDay": {
+    "title": "Materials & progress",
+    "subtitle": "Record what is available, used and returned.",
+    "status": {
+      "started": "Work day active",
+      "completed": "Work day completed"
+    },
+    "workProgress": "Progress from tasks",
+    "progressPercent": "{{value}}% completed",
+    "adviceTitle": "Recommended to bring",
+    "ready": "Ready",
+    "quantity": "{{quantity}} {{unit}}",
+    "noShortage": "No replenishment is needed for the current tasks.",
+    "start": "Start work day",
+    "complete": "Complete work day",
+    "correct": "Correct day registration",
+    "lastCompleted": "Last day completed on {{day}} by {{name}}",
+    "planned": "{{quantity}} {{unit}} planned",
+    "openingOnSite": "Already on site",
+    "brought": "Brought along",
+    "delivered": "Delivered later",
+    "installed": "Installed",
+    "waste": "Waste / damaged",
+    "leftOnSite": "Left on site",
+    "returned": "Returned",
+    "available": "{{quantity}} {{unit}} available at the start and during the day",
+    "balanceClosed": "Everything is accounted for.",
+    "balanceDifference": "{{quantity}} {{unit}} still needs to be assigned.",
+    "balanceHint": "Assign every quantity to installed, waste, on site or returned.",
+    "addOther": "Anything else brought along?",
+    "name": "Material or tool",
+    "type": "Type",
+    "unit": "Unit",
+    "add": "Add to this work day",
+    "removeExtra": "Remove extra item",
+    "confirmStart": "Start work day",
+    "confirmComplete": "Complete work day",
+    "saveCorrection": "Save correction",
+    "kind": {
+      "production": "Production material",
+      "consumable": "Consumable",
+      "tool": "Tool",
+      "other": "Other"
+    },
+    "sheet": {
+      "startTitle": "Start work day",
+      "startHint": "Check what is already on site and what you are bringing today.",
+      "completeTitle": "Complete work day",
+      "completeHint": "Record what was installed and where the remaining material went.",
+      "correctTitle": "Correct day registration",
+      "correctHint": "Adjust the amounts. Stock and progress are corrected automatically."
+    }
   }
 }

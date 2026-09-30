@@ -335,6 +335,88 @@ notificationsRouter.get(
       }
     }
 
+    // --- Material shortages after a completed work day (office) ----------
+    // The latest closed day per work order is compared with the unfinished
+    // task quantities. Material left on site is deducted, producing a concrete
+    // packing suggestion for the next visit without a scheduled background job.
+    if (canApproveAsOffice(user.role)) {
+      const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      const closedDays = await prisma.workDay.findMany({
+        where: {
+          status: "completed",
+          completedAt: { gte: since },
+          workOrder: {
+            is: {
+              signedAt: null,
+              project: { is: projectScopeWhere(user) },
+            },
+          },
+        },
+        orderBy: { completedAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          completedAt: true,
+          workOrder: {
+            select: {
+              id: true,
+              title: true,
+              ordinal: true,
+              project: { select: { projectNumber: true, customerName: true } },
+            },
+          },
+          entries: {
+            where: { taskMaterialId: { not: null } },
+            select: {
+              leftOnSite: true,
+              taskMaterial: {
+                select: {
+                  id: true,
+                  label: true,
+                  name: true,
+                  unit: true,
+                  quantity: true,
+                  done: true,
+                  requirementDone: true,
+                  progressEntries: { select: { amount: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+      const handledWorkOrders = new Set<string>();
+      for (const day of closedDays) {
+        const workOrder = day.workOrder;
+        if (handledWorkOrders.has(workOrder.id)) continue;
+        handledWorkOrders.add(workOrder.id);
+        const shortages = day.entries.flatMap((entry) => {
+          const material = entry.taskMaterial;
+          if (!material || material.done || material.requirementDone) return [];
+          const installed = material.progressEntries.reduce((sum, item) => sum + item.amount, 0);
+          const shortage = Math.max(0, material.quantity - installed - entry.leftOnSite);
+          return shortage > 0.01
+            ? [`${shortage} ${material.unit} ${material.label?.trim() || material.name}`]
+            : [];
+        });
+        if (shortages.length === 0) continue;
+        items.push({
+          id: `material-shortage:${day.id}`,
+          category: "materialShortage",
+          messageKey: "notifications.materialShortage",
+          params: {
+            title: workOrder.title || `#${workOrder.ordinal + 1}`,
+            number: workOrder.project.projectNumber,
+            customer: workOrder.project.customerName,
+            items: shortages.slice(0, 3).join(", "),
+            extra: Math.max(0, shortages.length - 3),
+          },
+          createdAt: (day.completedAt ?? new Date()).toISOString(),
+          route: `/work-orders/${workOrder.id}`,
+        });
+      }
+    }
+
     // --- "Don't forget to log" reminder (field staff) ---------------------
     // A dispatched, unsigned werkbon assigned to me whose planned window
     // includes (or has passed) today, where I logged NOTHING today. Derived at

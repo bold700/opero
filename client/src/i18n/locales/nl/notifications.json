@@ -9,5 +9,6 @@
   "progressLogged": "{{user}} heeft voortgang gelogd op {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})",
   "progressReminder": "Vandaag nog geen voortgang gelogd op {{title}} ({{number}} · {{customer}}).",
   "controlReminder": "Controle om {{time}}: {{control}} voor {{title}} ({{customer}}).",
+  "materialShortage": "Voor {{title}} ({{number}}) is aanvulling nodig: {{items}}.",
   "mentionedInNote": "{{author}} noemde jou in een notitie: {{text}}"
 }

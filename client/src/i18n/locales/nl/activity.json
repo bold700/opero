@@ -100,6 +100,11 @@
     "added": "Benodigd item toegevoegd: {{name}}",
     "removed": "Benodigd item verwijderd: {{name}}"
   },
+  "workDay": {
+    "started": "Werkdag gestart voor {{day}}",
+    "completed": "Materiaalregistratie afgerond voor {{day}}",
+    "corrected": "Materiaalregistratie gecorrigeerd voor {{day}}"
+  },
   "workOrder": {
     "created": "Werkbon aangemaakt: {{title}}",
     "deleted": "Werkbon verwijderd: {{title}}",

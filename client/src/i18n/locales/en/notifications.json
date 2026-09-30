@@ -9,5 +9,6 @@
   "progressLogged": "{{user}} logged progress on {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})",
   "progressReminder": "No progress logged today on {{title}} ({{number}} · {{customer}}).",
   "controlReminder": "Control due at {{time}}: {{control}} for {{title}} ({{customer}}).",
+  "materialShortage": "Replenishment is needed for {{title}} ({{number}}): {{items}}.",
   "mentionedInNote": "{{author}} mentioned you in a note: {{text}}"
 }

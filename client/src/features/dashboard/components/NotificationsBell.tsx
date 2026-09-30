@@ -17,6 +17,7 @@ import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import AlarmOutlinedIcon from "@mui/icons-material/AlarmOutlined";
 import ChecklistRtlOutlinedIcon from "@mui/icons-material/ChecklistRtlOutlined";
 import AlternateEmailOutlinedIcon from "@mui/icons-material/AlternateEmailOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import type { NotificationCategory } from "@opero/shared";
 import {
   getNotifications,
@@ -37,6 +38,7 @@ const CATEGORY_ICON: Record<NotificationCategory, typeof AssignmentOutlinedIcon>
   progressLogged: TimelineOutlinedIcon,
   progressReminder: AlarmOutlinedIcon,
   controlReminder: ChecklistRtlOutlinedIcon,
+  materialShortage: Inventory2OutlinedIcon,
   mention: AlternateEmailOutlinedIcon,
 };
 

@@ -1,4 +1,4 @@
-import type { ProjectAttachment, TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem, WorkOrderRequirement } from "@prisma/client";
+import type { ProjectAttachment, TaskMaterial, WorkDay, WorkDayMaterialEntry, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem, WorkOrderRequirement } from "@prisma/client";
 import {
   canSeePrices,
   canSeeMargin,
@@ -69,12 +69,19 @@ type CustomerContactSource = {
   }[];
 };
 
+type WorkDayWithRelations = WorkDay & {
+  entries: WorkDayMaterialEntry[];
+  startedBy?: { name: string } | null;
+  completedBy?: { name: string } | null;
+};
+
 // Shape of a workOrder loaded with its nested tasks → materials, plus the
 // signer (for the sign-off display).
 export type WorkOrderWithRelations = WorkOrder & {
   tasks: TaskWithRelations[];
   attachments?: WorkOrderAttachment[];
   requirements?: WorkOrderRequirement[];
+  workDays?: WorkDayWithRelations[];
   prejobItems?: WorkOrderPrejobItem[];
   signedBy?: { name: string } | null;
   assignees?: { id: string; name: string }[];
@@ -96,6 +103,36 @@ export type WorkOrderWithRelations = WorkOrder & {
     attachments?: ProjectAttachment[];
   } | null;
 };
+
+function workDayDto(day: WorkDayWithRelations) {
+  return {
+    id: day.id,
+    day: day.day,
+    status: day.status,
+    startedAt: day.startedAt.toISOString(),
+    completedAt: day.completedAt?.toISOString(),
+    startedByName: day.startedBy?.name,
+    completedByName: day.completedBy?.name,
+    entries: [...day.entries]
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map((entry) => ({
+        id: entry.id,
+        taskMaterialId: entry.taskMaterialId ?? undefined,
+        requirementId: entry.requirementId ?? undefined,
+        kind: entry.kind,
+        name: entry.name,
+        unit: entry.unit,
+        plannedQuantity: entry.plannedQuantity ?? undefined,
+        openingOnSite: entry.openingOnSite,
+        brought: entry.brought,
+        delivered: entry.delivered,
+        installed: entry.installed,
+        waste: entry.waste,
+        leftOnSite: entry.leftOnSite,
+        returned: entry.returned,
+      })),
+  };
+}
 
 // Map the parent project's customer onto the werkbon payload. Contact data
 // only — no financial or administrative customer fields.
@@ -269,6 +306,89 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
   const prejobCheck: Record<string, boolean> = {};
   for (const it of items) if (it.done) prejobCheck[it.key] = true;
   const requirePhoto = wb.prejobPhotoRequired === true;
+  const workDays = [...(wb.workDays ?? [])].sort((a, b) => a.day.localeCompare(b.day));
+  const latestLeftByMaterial = new Map<string, number>();
+  const latestLeftByRequirement = new Map<string, number>();
+  const carriedLooseItems = new Map<string, WorkDayMaterialEntry>();
+  for (const workDay of workDays) {
+    if (workDay.status !== "completed") continue;
+    for (const entry of workDay.entries) {
+      if (entry.taskMaterialId) latestLeftByMaterial.set(entry.taskMaterialId, entry.leftOnSite);
+      else if (entry.requirementId) latestLeftByRequirement.set(entry.requirementId, entry.leftOnSite);
+      else {
+        const key = `${entry.kind}:${entry.name.toLowerCase()}:${entry.unit.toLowerCase()}`;
+        if (entry.leftOnSite > 0) carriedLooseItems.set(key, entry);
+        else carriedLooseItems.delete(key);
+      }
+    }
+  }
+  const materialPlan: {
+    taskMaterialId?: string;
+    requirementId?: string;
+    kind: string;
+    name: string;
+    unit: string;
+    taskName?: string;
+    plannedQuantity: number;
+    progressTotal: number;
+    remainingQuantity: number;
+    openingOnSite: number;
+    suggestedBrought: number;
+    ready: boolean;
+  }[] = tasks.flatMap((task) =>
+    task.materials
+      .filter((material) => !material.rejected && Boolean((material.label || material.name).trim()))
+      .map((material) => {
+        const openingOnSite = latestLeftByMaterial.get(material.id) ?? 0;
+        const remainingQuantity = material.done
+          ? 0
+          : Math.max(0, material.quantity - material.progressTotal);
+        return {
+          taskMaterialId: material.id,
+          kind: "production",
+          name: material.label || material.name,
+          unit: material.unit,
+          taskName: task.description || undefined,
+          plannedQuantity: material.quantity,
+          progressTotal: material.progressTotal,
+          remainingQuantity,
+          openingOnSite,
+          suggestedBrought: Math.max(0, remainingQuantity - openingOnSite),
+          ready: material.requirementDone,
+        };
+      }),
+  );
+  for (const requirement of wb.requirements ?? []) {
+    const openingOnSite = latestLeftByRequirement.get(requirement.id) ?? 0;
+    const target = requirement.quantity ?? 0;
+    materialPlan.push({
+      requirementId: requirement.id,
+      kind: requirement.kind === "tool" ? "tool" : "consumable",
+      name: requirement.name,
+      unit: requirement.unit ?? "",
+      taskName: undefined,
+      plannedQuantity: target,
+      progressTotal: 0,
+      remainingQuantity: target,
+      openingOnSite,
+      suggestedBrought: Math.max(0, target - openingOnSite),
+      ready: requirement.done,
+    });
+  }
+  for (const entry of carriedLooseItems.values()) {
+    materialPlan.push({
+      kind: entry.kind,
+      name: entry.name,
+      unit: entry.unit,
+      taskName: undefined,
+      plannedQuantity: entry.plannedQuantity ?? 0,
+      progressTotal: 0,
+      remainingQuantity: entry.plannedQuantity ?? 0,
+      openingOnSite: entry.leftOnSite,
+      suggestedBrought: 0,
+      ready: false,
+    });
+  }
   return {
     id: wb.id,
     projectId: wb.projectId,
@@ -333,6 +453,8 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     startTime: wb.planningItems?.[0]?.startTime ?? undefined,
     endTime: wb.planningItems?.[0]?.endTime ?? undefined,
     tasks,
+    workDays: workDays.map(workDayDto),
+    materialPlan,
     requirements: [...(wb.requirements ?? [])]
       .sort((a, b) => a.ordinal - b.ordinal)
       .map((item) => ({
@@ -369,6 +491,14 @@ export const workOrderInclude = {
   },
   attachments: { orderBy: { createdAt: "asc" } },
   requirements: { orderBy: { ordinal: "asc" } },
+  workDays: {
+    orderBy: { day: "asc" as const },
+    include: {
+      entries: { orderBy: { ordinal: "asc" as const } },
+      startedBy: { select: { name: true } },
+      completedBy: { select: { name: true } },
+    },
+  },
   prejobItems: { orderBy: { ordinal: "asc" } },
   signedBy: { select: { name: true } },
   contacts: {

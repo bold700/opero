@@ -65,6 +65,8 @@ import {
   updateWorkOrderSchema,
   usageSchema,
   progressSchema,
+  startWorkDaySchema,
+  completeWorkDaySchema,
   addWorkOrderRequirementSchema,
   updateWorkOrderRequirementSchema,
 } from "./schema.js";
@@ -2114,6 +2116,259 @@ workOrdersRouter.delete(
         name: item.name,
       });
       await audit(tx, user, "workOrder.requirement.remove", "workOrderRequirement", item.id);
+    });
+
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// =========================================================================
+// DAILY MATERIAL RECONCILIATION
+// =========================================================================
+
+// Start one shared work day. The client sends the prefilled task/requirement
+// rows plus any loose item the technician added. Source-backed names, units and
+// quantities are resolved again here so a client cannot rewrite quoted scope.
+workOrdersRouter.post(
+  "/:id/work-days/:day/start",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    if (!isIsoDay(req.params.day)) throw BadRequest("Expected an ISO work day");
+    const input = startWorkDaySchema.parse(req.body);
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
+
+    const existing = await prisma.workDay.findUnique({
+      where: { workOrderId_day: { workOrderId: req.params.id, day: req.params.day } },
+    });
+    if (existing) throw BadRequest("This work day has already been started");
+    const activeDay = await prisma.workDay.findFirst({
+      where: { workOrderId: req.params.id, status: "started" },
+      select: { day: true },
+    });
+    if (activeDay) throw BadRequest(`Complete work day ${activeDay.day} first`);
+
+    const materialIds = input.entries.flatMap((entry) =>
+      entry.taskMaterialId ? [entry.taskMaterialId] : [],
+    );
+    const requirementIds = input.entries.flatMap((entry) =>
+      entry.requirementId ? [entry.requirementId] : [],
+    );
+    if (new Set(materialIds).size !== materialIds.length ||
+        new Set(requirementIds).size !== requirementIds.length) {
+      throw BadRequest("A source item can occur only once in a work day");
+    }
+
+    const [materials, requirements] = await Promise.all([
+      prisma.taskMaterial.findMany({
+        where: { id: { in: materialIds }, task: { workOrderId: req.params.id } },
+      }),
+      prisma.workOrderRequirement.findMany({
+        where: { id: { in: requirementIds }, workOrderId: req.params.id },
+      }),
+    ]);
+    if (materials.length !== materialIds.length || requirements.length !== requirementIds.length) {
+      throw NotFound("A work-day source item was not found");
+    }
+    const materialsById = new Map(materials.map((item) => [item.id, item]));
+    const requirementsById = new Map(requirements.map((item) => [item.id, item]));
+
+    await prisma.$transaction(async (tx) => {
+      const workDay = await tx.workDay.create({
+        data: {
+          workOrderId: req.params.id,
+          day: req.params.day,
+          startedById: user.id,
+        },
+      });
+      await tx.workDayMaterialEntry.createMany({
+        data: input.entries.map((entry, ordinal) => {
+          const material = entry.taskMaterialId
+            ? materialsById.get(entry.taskMaterialId)
+            : undefined;
+          const requirement = entry.requirementId
+            ? requirementsById.get(entry.requirementId)
+            : undefined;
+          return {
+            workDayId: workDay.id,
+            taskMaterialId: material?.id,
+            requirementId: requirement?.id,
+            kind: material ? "production" : requirement?.kind === "tool" ? "tool" : entry.kind,
+            name: clampText(material?.label?.trim() || material?.name || requirement?.name || entry.name),
+            unit: clampText(material?.unit || requirement?.unit || entry.unit || ""),
+            plannedQuantity: material?.quantity ?? requirement?.quantity ?? entry.plannedQuantity ?? null,
+            openingOnSite: clampNumber(entry.openingOnSite),
+            brought: clampNumber(entry.brought),
+            ordinal,
+          };
+        }),
+      });
+      await appendActivity(tx, user, project.id, "workDay.started", { day: req.params.day });
+      await audit(tx, user, "workOrder.workDay.start", "workDay", workDay.id, {
+        day: req.params.day,
+        entries: input.entries.length,
+      });
+    });
+
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// Complete the day's material balance. A completed production row also owns
+// exactly one progress entry, so installed work is entered once and drives both
+// task progress and material reconciliation. Office users may resubmit a closed
+// day as a correction; cumulative legacy stock fields are adjusted by deltas.
+workOrdersRouter.post(
+  "/:id/work-days/:day/complete",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    if (!isIsoDay(req.params.day)) throw BadRequest("Expected an ISO work day");
+    const input = completeWorkDaySchema.parse(req.body);
+    const { project } = await requireWritableWorkOrder(user, req.params.id);
+    const workDay = await prisma.workDay.findUnique({
+      where: { workOrderId_day: { workOrderId: req.params.id, day: req.params.day } },
+      include: { entries: true },
+    });
+    if (!workDay) throw NotFound("Work day not found");
+    if (workDay.status === "completed" && !canEditQuoteScope(user.role)) {
+      throw BadRequest("Only the office can correct a completed work day");
+    }
+    const storedIds = new Set(workDay.entries.map((entry) => entry.id));
+    if (input.entries.length !== storedIds.size ||
+        input.entries.some((entry) => !storedIds.has(entry.id))) {
+      throw BadRequest("Every work-day item must be reconciled exactly once");
+    }
+
+    for (const entry of input.entries) {
+      const available = entry.openingOnSite + entry.brought + entry.delivered;
+      const accounted = entry.installed + entry.waste + entry.leftOnSite + entry.returned;
+      if (Math.abs(available - accounted) > 0.01) {
+        throw BadRequest(`Material balance does not close for entry ${entry.id}`);
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const next of input.entries) {
+        const before = workDay.entries.find((entry) => entry.id === next.id)!;
+        let progressEntryId = before.progressEntryId;
+
+        if (before.taskMaterialId) {
+          if (next.installed > 0) {
+            if (progressEntryId) {
+              await tx.taskProgressEntry.update({
+                where: { id: progressEntryId },
+                data: { amount: clampNumber(next.installed), employeeId: user.employeeId ?? null },
+              });
+            } else {
+              const progress = await tx.taskProgressEntry.create({
+                data: {
+                  materialId: before.taskMaterialId,
+                  employeeId: user.employeeId ?? null,
+                  amount: clampNumber(next.installed),
+                  day: workDay.day,
+                },
+              });
+              progressEntryId = progress.id;
+            }
+          } else if (progressEntryId) {
+            await tx.workDayMaterialEntry.update({
+              where: { id: before.id },
+              data: { progressEntryId: null },
+            });
+            await tx.taskProgressEntry.delete({ where: { id: progressEntryId } });
+            progressEntryId = null;
+          }
+
+          const material = await tx.taskMaterial.findUniqueOrThrow({
+            where: { id: before.taskMaterialId },
+          });
+          const previousInstalled = workDay.status === "completed" ? before.installed : 0;
+          const previousWaste = workDay.status === "completed" ? before.waste : 0;
+          const previousBrought = workDay.status === "completed" ? before.brought : 0;
+          const previousDelivered = workDay.status === "completed" ? before.delivered : 0;
+          const previousReturned = workDay.status === "completed" ? before.returned : 0;
+          const usedDelta = next.installed + next.waste - previousInstalled - previousWaste;
+          const issuedDelta = next.brought + next.delivered - previousBrought - previousDelivered;
+          const returnedDelta = next.returned - previousReturned;
+          await tx.taskMaterial.update({
+            where: { id: material.id },
+            data: {
+              usedQuantity: Math.max(0, (material.usedQuantity ?? 0) + usedDelta),
+              issuedQuantity: Math.max(0, (material.issuedQuantity ?? 0) + issuedDelta),
+              returnedQuantity: Math.max(0, (material.returnedQuantity ?? 0) + returnedDelta),
+              onSite: next.leftOnSite > 0,
+            },
+          });
+        }
+
+        await tx.workDayMaterialEntry.update({
+          where: { id: before.id },
+          data: {
+            progressEntryId,
+            openingOnSite: clampNumber(next.openingOnSite),
+            brought: clampNumber(next.brought),
+            delivered: clampNumber(next.delivered),
+            installed: clampNumber(next.installed),
+            waste: clampNumber(next.waste),
+            leftOnSite: clampNumber(next.leftOnSite),
+            returned: clampNumber(next.returned),
+          },
+        });
+      }
+
+      await tx.workDay.update({
+        where: { id: workDay.id },
+        data: {
+          status: "completed",
+          completedAt: new Date(),
+          completedById: user.id,
+        },
+      });
+
+      const affectedMaterials = workDay.entries.flatMap((entry) =>
+        entry.taskMaterialId ? [entry.taskMaterialId] : [],
+      );
+      for (const materialId of affectedMaterials) {
+        const material = await tx.taskMaterial.findUniqueOrThrow({ where: { id: materialId } });
+        const progress = await tx.taskProgressEntry.aggregate({
+          where: { materialId },
+          _sum: { amount: true },
+        });
+        if (material.quantity > 0 && (progress._sum.amount ?? 0) >= material.quantity) {
+          await tx.taskMaterial.update({ where: { id: materialId }, data: { done: true } });
+        } else {
+          const dayEntry = input.entries.find((entry) => {
+            const stored = workDay.entries.find((candidate) => candidate.id === entry.id);
+            return stored?.taskMaterialId === materialId;
+          });
+          const shortage = Math.max(
+            0,
+            material.quantity - (progress._sum.amount ?? 0) - (dayEntry?.leftOnSite ?? 0),
+          );
+          if (shortage > 0.01) {
+            // Re-open the existing packing-list checkbox for the newly computed
+            // replenishment. Marking it ready is the office acknowledgement
+            // that removes the shortage from the notification bell.
+            await tx.taskMaterial.update({
+              where: { id: materialId },
+              data: { requirementDone: false },
+            });
+          }
+          if (material.done) {
+            await tx.taskMaterial.update({ where: { id: materialId }, data: { done: false } });
+          }
+        }
+        await syncTaskDone(tx, material.taskId);
+      }
+
+      await appendActivity(tx, user, project.id,
+        workDay.status === "completed" ? "workDay.corrected" : "workDay.completed",
+        { day: req.params.day },
+      );
+      await audit(tx, user, "workOrder.workDay.complete", "workDay", workDay.id, {
+        day: req.params.day,
+        corrected: workDay.status === "completed",
+      });
+      await recomputeWorkOrderStatus(tx, req.params.id);
     });
 
     res.json(await reloadWorkOrder(user, req.params.id));

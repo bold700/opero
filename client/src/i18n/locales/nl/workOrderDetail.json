@@ -330,5 +330,58 @@
   "lifecycle": {
     "title": "Voortgang",
     "current": "Nu"
+  },
+  "workDay": {
+    "title": "Materialen & voortgang",
+    "subtitle": "Registreer wat aanwezig is, wat je gebruikt en wat teruggaat.",
+    "status": {
+      "started": "Werkdag actief",
+      "completed": "Werkdag afgerond"
+    },
+    "workProgress": "Voortgang uit taken",
+    "progressPercent": "{{value}}% uitgevoerd",
+    "adviceTitle": "Advies om mee te nemen",
+    "ready": "Gereed",
+    "quantity": "{{quantity}} {{unit}}",
+    "noShortage": "Op basis van de huidige taken is geen aanvulling nodig.",
+    "start": "Werkdag starten",
+    "complete": "Werkdag afronden",
+    "correct": "Dagregistratie corrigeren",
+    "lastCompleted": "Laatste dag afgerond op {{day}} door {{name}}",
+    "planned": "{{quantity}} {{unit}} gepland",
+    "openingOnSite": "Al op locatie",
+    "brought": "Meegenomen",
+    "delivered": "Later geleverd",
+    "installed": "Verwerkt",
+    "waste": "Afval / beschadigd",
+    "leftOnSite": "Blijft op locatie",
+    "returned": "Retour",
+    "available": "{{quantity}} {{unit}} beschikbaar aan het begin en gedurende de dag",
+    "balanceClosed": "Alles is verantwoord.",
+    "balanceDifference": "Nog {{quantity}} {{unit}} te verdelen.",
+    "balanceHint": "Verdeel per regel alles over verwerkt, afval, locatie en retour.",
+    "addOther": "Nog iets anders mee?",
+    "name": "Materiaal of gereedschap",
+    "type": "Type",
+    "unit": "Eenheid",
+    "add": "Toevoegen aan deze werkdag",
+    "removeExtra": "Extra item verwijderen",
+    "confirmStart": "Start werkdag",
+    "confirmComplete": "Werkdag afronden",
+    "saveCorrection": "Correctie opslaan",
+    "kind": {
+      "production": "Productiemateriaal",
+      "consumable": "Verbruiksmateriaal",
+      "tool": "Gereedschap",
+      "other": "Overig"
+    },
+    "sheet": {
+      "startTitle": "Werkdag starten",
+      "startHint": "Controleer wat al op locatie ligt en wat je vandaag meeneemt.",
+      "completeTitle": "Werkdag afronden",
+      "completeHint": "Geef aan wat is verwerkt en waar de rest van het materiaal blijft.",
+      "correctTitle": "Dagregistratie corrigeren",
+      "correctHint": "Pas de aantallen aan. De voorraad en voortgang worden automatisch gecorrigeerd."
+    }
   }
 }
