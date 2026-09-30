@@ -41,6 +41,13 @@ export const TAP_TARGET = 44;
 // Small semantic marker used beside lifecycle phase labels.
 export const STATUS_DOT_SIZE = 10;
 
+// Vertical lifecycle timeline on the work-order detail page.
+export const WORK_ORDER_TIMELINE = {
+  markerSize: 32,
+  markerDotSize: 12,
+  connectorWidth: 2,
+} as const;
+
 export const PLANNING_TIMELINE = {
   dayLabelWidth: 96,
   minTrackWidth: 840,

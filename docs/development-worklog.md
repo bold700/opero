@@ -36,7 +36,23 @@ files that changed.
 | OPR-2026-015 | Restore task-photo thumbnails and inline previews | Local | Ready for review | To reconcile |
 | OPR-2026-016 | Add drag-and-drop uploads | Local | Ready for review | To reconcile |
 | OPR-2026-017 | Clarify work-order release state | Local | Ready for review | To reconcile |
+| OPR-2026-018 | Automatic work-order lifecycle | Staging | Ready for review | To reconcile |
+| OPR-2026-019 | Show the work-order name in the overview | Staging | Ready for review | To reconcile |
+| OPR-2026-020 | Align the dashboard with work-order phases | Staging | Ready for review | To reconcile |
+| OPR-2026-021 | Clarify the work-order detail header | Staging | Ready for review | To reconcile |
+| OPR-2026-022 | Drill down from dashboard lifecycle counts | Staging | Ready for review | To reconcile |
+| OPR-2026-023 | Simplify work-order header labels | Staging | Ready for review | To reconcile |
+| OPR-2026-024 | Align work-order and project detail headers | Staging | Ready for review | To reconcile |
+| OPR-2026-025 | Match project and work-order header styling | Staging | Ready for review | To reconcile |
+| OPR-2026-026 | Add consistent lifecycle phase colours | Staging | Ready for review | To reconcile |
+| OPR-2026-027 | Replace planning time lists with direct input | Staging | Ready for review | To reconcile |
+| OPR-2026-028 | Add horizontal weekly planning timeline | Staging | Ready for review | To reconcile |
+| OPR-2026-029 | Separate planning period from display mode | Staging | Ready for review | To reconcile |
 | OPR-2026-030 | Prepare company-owned hosting, handover import, and customer subdomains | Local | Ready for review | To reconcile |
+| OPR-2026-031 | Apply the customer feedback interface polish | Staging | Delivered | To reconcile |
+| OPR-2026-032 | Add branded work-order and invoice PDFs | Staging and production | Delivered | To reconcile |
+| OPR-2026-033 | Stabilize SPA routing and API performance | Staging and production | Delivered | To reconcile |
+| OPR-2026-034 | Visualize the work-order lifecycle | Staging | Delivered | To reconcile |
 
 ## Work items
 
@@ -563,6 +579,73 @@ files that changed.
 - **Review:** Production migration, DNS, and go-live acceptance remain pending.
 - **Billable time:** To reconcile.
 
+### OPR-2026-031 — Apply the customer feedback interface polish
+
+- **Date:** 29 September 2026
+- **Request:** Apply the collected interface feedback consistently across desktop
+  and mobile views.
+- **Delivered:** Blended page headers into the application background, removed
+  duplicate settings headers and unwanted dividers, removed the dashboard welcome
+  heading, made outlined icon buttons transparent by default, enabled the numeric
+  phone keypad, aligned dashboard and report cards to the four-column grid, added
+  creation and planning dates to overviews, removed unused scrollbar gutters, and
+  added slide-and-fade transitions to right-side sheets. Planning now hides its
+  detail area until an appointment is selected and then shows the full appointment
+  details in the side sheet.
+- **Verification:** Each change passed the client type check and production build
+  before being added to the staging branch.
+- **Status:** Delivered to staging.
+- **Billable time:** To reconcile.
+
+### OPR-2026-032 — Add branded work-order and invoice PDFs
+
+- **Date:** 29 September 2026
+- **Request:** Add an organization logo and produce professional work-order and
+  invoice exports. Work orders must show materials and extra work without prices
+  or registered hours; sign-off remains an in-platform action.
+- **Delivered:** Added organization-logo upload and storage, reused the logo on
+  work-order, quote, and invoice PDFs, rebuilt the invoice layout, and removed
+  commercial values and hour totals from the work-order export. The work-order
+  screen exposes the export action while completion and signature approval remain
+  part of the application workflow.
+- **Verification:** Backend and client builds passed; focused organization-logo,
+  work-order PDF, and invoice PDF tests passed before staging and production
+  deployment.
+- **Status:** Delivered to staging and production.
+- **Billable time:** To reconcile.
+
+### OPR-2026-033 — Stabilize SPA routing and API performance
+
+- **Date:** 30 September 2026
+- **Request:** Fix hard-refresh 404 responses, production and staging dashboard
+  errors, and slow API loading.
+- **Delivered:** Added the Vercel SPA fallback so direct and hard-refreshed routes
+  reach React Router. Moved the production and staging API instances to Railway's
+  European region near their databases, constrained Prisma connection pools, and
+  redeployed the existing application releases with the corrected runtime
+  settings. Production and staging remain isolated.
+- **Verification:** Production login, dashboard, and notifications returned 200.
+  The production dashboard improved from roughly 2–3 seconds to about 0.36
+  seconds. Staging login, dashboard, notifications, and work-order filter options
+  returned 200; the staging dashboard completed in about 0.48 seconds, with no
+  new connection-pool error in the verified requests.
+- **Status:** Delivered to staging and production.
+- **Billable time:** To reconcile.
+
+### OPR-2026-034 — Visualize the work-order lifecycle
+
+- **Date:** 30 September 2026
+- **Request:** Show the current work-order phase visually beneath the control
+  panel.
+- **Delivered:** Added a vertical three-phase timeline for Preparation,
+  Realization, and Completion. Completed phases show a checkmark, the current
+  phase is highlighted with its exact work-order status, and upcoming phases are
+  shown in a neutral state. The timeline uses the same shared lifecycle status
+  and phase values as the header and workflow action.
+- **Verification:** Client type check and production build passed.
+- **Status:** Delivered to staging.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -597,3 +680,7 @@ files that changed.
 | OPR-2026-028 |  |  |  |  |
 | OPR-2026-029 |  |  |  |  |
 | OPR-2026-030 |  |  |  |  |
+| OPR-2026-031 |  |  |  |  |
+| OPR-2026-032 |  |  |  |  |
+| OPR-2026-033 |  |  |  |  |
+| OPR-2026-034 |  |  |  |  |

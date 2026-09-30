@@ -299,5 +299,10 @@
     "preparation": "Voorbereiding",
     "realization": "Realisatie",
     "completion": "Afronding"
+  },
+  "lifecycle": {
+    "title": "Voortgang",
+    "completed": "Doorlopen",
+    "upcoming": "Komt hierna"
   }
 }

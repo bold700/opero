@@ -299,5 +299,10 @@
     "preparation": "Preparation",
     "realization": "Realization",
     "completion": "Completion"
+  },
+  "lifecycle": {
+    "title": "Progress",
+    "completed": "Completed",
+    "upcoming": "Coming next"
   }
 }

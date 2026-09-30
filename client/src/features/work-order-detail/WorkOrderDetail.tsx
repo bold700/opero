@@ -88,6 +88,7 @@ import { ActivitySheet } from "./components/ActivitySheet";
 import { NotesSheet } from "./components/NotesSheet";
 import { AttachmentsSheet } from "./components/AttachmentsSheet";
 import { SignOffDialog } from "./components/SignOffDialog";
+import { WorkOrderLifecycleTimeline } from "./components/WorkOrderLifecycleTimeline";
 import { STATUS } from "../work-orders/constants";
 
 // Work-order detail: header + tasks + meerwerk (extra-work approval) + activity.
@@ -509,6 +510,9 @@ export function WorkOrderDetail() {
               order: { xs: 0, lg: 1 },
               width: "100%",
               minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: SPACING.sectionGap,
             }}
           >
             <PreJobPanel
@@ -525,6 +529,7 @@ export function WorkOrderDetail() {
               onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
               onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
             />
+            <WorkOrderLifecycleTimeline phase={wo.phase} status={wo.status} />
           </Box>
         </Box>
       </Box>
