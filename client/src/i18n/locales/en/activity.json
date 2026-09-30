@@ -96,6 +96,10 @@
     "usageUnder": " ({{delta}} {{unit}} less than planned)",
     "progressLogged": "Progress logged on {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})"
   },
+  "requirement": {
+    "added": "Required item added: {{name}}",
+    "removed": "Required item removed: {{name}}"
+  },
   "workOrder": {
     "created": "Work order created: {{title}}",
     "deleted": "Work order deleted: {{title}}",

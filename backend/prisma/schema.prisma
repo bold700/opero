@@ -907,6 +907,10 @@ model WorkOrder {
   assignees     Employee[]            @relation("WorkOrderAssignees")
   planningItems PlanningItem[]
   tasks         WorkOrderTask[]
+  // Practical packing list for this visit. Task materials are shown in the
+  // same UI directly from TaskMaterial; these rows are the office's one-off
+  // additions such as tools, PPE and miscellaneous supplies.
+  requirements  WorkOrderRequirement[]
   // Billing lives on the werkbon. Extra work (meerwerk) is no longer a separate
   // entity — it's a TaskMaterial line with `isExtraWork` set, inside a zone.
   quote         Quote?
@@ -918,6 +922,25 @@ model WorkOrder {
 
   @@index([projectId])
   @@index([listStatus])
+}
+
+// One manually added item on the work-order packing list. This deliberately
+// does not reuse TaskMaterial: tools and supplies are operational reminders,
+// not sold scope, and must never change the quote or invoice amount.
+model WorkOrderRequirement {
+  id          String   @id @default(uuid())
+  workOrderId String
+  name        String
+  kind        String   @default("material")
+  quantity    Float?
+  unit        String?
+  done        Boolean  @default(false)
+  ordinal     Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
 }
 
 // One pre-job checklist item, PER WORK ORDER. Snapshotted from the org template
@@ -1055,6 +1078,9 @@ model TaskMaterial {
   // Admin-only; stripped from every non-admin DTO.
   costPrice        Float?
   onSite           Boolean @default(false)
+  // Operational packing-list state. Separate from onSite: an item can be
+  // packed before departure without claiming it has already reached the site.
+  requirementDone  Boolean @default(false)
   done             Boolean @default(false)
   note             String?
   ordinal          Int     @default(0)

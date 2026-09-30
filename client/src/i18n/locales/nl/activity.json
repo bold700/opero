@@ -96,6 +96,10 @@
     "usageUnder": " ({{delta}} {{unit}} minder dan gepland)",
     "progressLogged": "Voortgang gelogd op {{name}}: +{{amount}} {{unit}} ({{total}}/{{target}})"
   },
+  "requirement": {
+    "added": "Benodigd item toegevoegd: {{name}}",
+    "removed": "Benodigd item verwijderd: {{name}}"
+  },
   "workOrder": {
     "created": "Werkbon aangemaakt: {{title}}",
     "deleted": "Werkbon verwijderd: {{title}}",

@@ -295,6 +295,29 @@
     "add": "Pakbon toevoegen",
     "received": "Ontvangen"
   },
+  "requirements": {
+    "title": "Benodigdheden",
+    "fromTasks": "Vanuit taken",
+    "fromTasksHint": "Deze materialen komen automatisch uit de taken op de werkbon.",
+    "noTaskMaterials": "Nog geen materialen vanuit taken.",
+    "manual": "Extra benodigdheden",
+    "noManual": "Nog geen extra materialen of gereedschappen toegevoegd.",
+    "taskMaterialMeta": "{{quantity}} {{unit}} · {{task}}",
+    "quantity": "{{quantity}} {{unit}}",
+    "kind": {
+      "material": "Materiaal",
+      "tool": "Gereedschap"
+    },
+    "addTitle": "Benodigd item toevoegen",
+    "kindLabel": "Type",
+    "nameLabel": "Naam",
+    "namePlaceholder": "Bijv. boormachine of tape",
+    "quantityLabel": "Aantal (optioneel)",
+    "unitLabel": "Eenheid (optioneel)",
+    "unitPlaceholder": "Bijv. stuk, rol of meter",
+    "add": "Toevoegen",
+    "delete": "Benodigd item verwijderen"
+  },
   "phase": {
     "preparation": "Voorbereiding",
     "realization": "Realisatie",

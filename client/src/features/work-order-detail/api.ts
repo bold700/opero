@@ -41,6 +41,7 @@ export type WorkOrderMaterial = {
   margin?: number; // (sell − cost) × qty
   marginPct?: number; // margin as % of the selling total
   onSite: boolean;
+  requirementDone: boolean;
   done: boolean;
   note?: string;
   ordinal: number;
@@ -77,6 +78,16 @@ export type WorkOrderTask = {
   note?: string;
   ordinal: number;
   materials: WorkOrderMaterial[];
+};
+
+export type WorkOrderRequirement = {
+  id: string;
+  name: string;
+  kind: "material" | "tool";
+  quantity?: number;
+  unit?: string;
+  done: boolean;
+  ordinal: number;
 };
 
 // Dropdown sources for per-task work type + assignee.
@@ -196,6 +207,9 @@ export type WorkOrder = {
   startTime?: string;
   endTime?: string;
   tasks: WorkOrderTask[];
+  // Manual operational items. Task-derived materials remain in `tasks` and
+  // are combined with these rows by the requirements sheet.
+  requirements: WorkOrderRequirement[];
 };
 
 // --- Project context (GET /projects/:id) ----------------------------------
@@ -690,6 +704,50 @@ export function finishWorkOrder(
 // werkbon for editing.
 export function reopenWorkOrder(workOrderId: string): Promise<WorkOrder> {
   return api.post<WorkOrder>(`/work-orders/${workOrderId}/reopen`, {});
+}
+
+// Task-derived materials keep a dedicated packing state. It remains separate
+// from onSite, which means the material has physically reached site.
+export function setTaskMaterialReady(
+  workOrderId: string,
+  materialId: string,
+  done: boolean,
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(`/work-orders/${workOrderId}/materials/${materialId}`, {
+    requirementDone: done,
+  });
+}
+
+export function addWorkOrderRequirement(
+  workOrderId: string,
+  input: {
+    name: string;
+    kind: "material" | "tool";
+    quantity?: number;
+    unit?: string;
+  },
+): Promise<WorkOrder> {
+  return api.post<WorkOrder>(`/work-orders/${workOrderId}/requirements`, input);
+}
+
+export function setWorkOrderRequirementDone(
+  workOrderId: string,
+  requirementId: string,
+  done: boolean,
+): Promise<WorkOrder> {
+  return api.patch<WorkOrder>(
+    `/work-orders/${workOrderId}/requirements/${requirementId}`,
+    { done },
+  );
+}
+
+export function deleteWorkOrderRequirement(
+  workOrderId: string,
+  requirementId: string,
+): Promise<WorkOrder> {
+  return api.delete<WorkOrder>(
+    `/work-orders/${workOrderId}/requirements/${requirementId}`,
+  );
 }
 
 export function approveWorkOrder(workOrderId: string): Promise<WorkOrder> {

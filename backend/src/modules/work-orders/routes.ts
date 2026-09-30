@@ -65,6 +65,8 @@ import {
   updateWorkOrderSchema,
   usageSchema,
   progressSchema,
+  addWorkOrderRequirementSchema,
+  updateWorkOrderRequirementSchema,
 } from "./schema.js";
 export const workOrdersRouter = Router();
 
@@ -2036,6 +2038,89 @@ workOrdersRouter.delete(
 );
 
 // =========================================================================
+// WORK-ORDER REQUIREMENTS (operational packing list)
+// =========================================================================
+
+// Task materials appear in the packing list directly from TaskMaterial. These
+// endpoints manage only the office's extra operational items (tools and loose
+// supplies), so they never touch quoted scope or invoice totals.
+workOrdersRouter.post(
+  "/:id/requirements",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = addWorkOrderRequirementSchema.parse(req.body);
+    const { project } = await requireQuoteScopeEditor(user, req.params.id);
+
+    await prisma.$transaction(async (tx) => {
+      const ordinal = await tx.workOrderRequirement.count({
+        where: { workOrderId: req.params.id },
+      });
+      const item = await tx.workOrderRequirement.create({
+        data: {
+          workOrderId: req.params.id,
+          name: clampText(input.name),
+          kind: input.kind,
+          quantity: input.quantity !== undefined ? clampNumber(input.quantity) : null,
+          unit: input.unit ? clampText(input.unit) : null,
+          ordinal,
+        },
+      });
+      await appendActivity(tx, user, project.id, "requirement.added", {
+        name: item.name,
+      });
+      await audit(tx, user, "workOrder.requirement.add", "workOrderRequirement", item.id, input);
+    });
+
+    res.status(201).json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+workOrdersRouter.patch(
+  "/:id/requirements/:requirementId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const input = updateWorkOrderRequirementSchema.parse(req.body);
+    await requireWritableWorkOrder(user, req.params.id);
+    const item = await prisma.workOrderRequirement.findFirst({
+      where: { id: req.params.requirementId, workOrderId: req.params.id },
+    });
+    if (!item) throw NotFound("Requirement not found");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrderRequirement.update({
+        where: { id: item.id },
+        data: { done: input.done },
+      });
+      await audit(tx, user, "workOrder.requirement.update", "workOrderRequirement", item.id, input);
+    });
+
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+workOrdersRouter.delete(
+  "/:id/requirements/:requirementId",
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    const { project } = await requireQuoteScopeEditor(user, req.params.id);
+    const item = await prisma.workOrderRequirement.findFirst({
+      where: { id: req.params.requirementId, workOrderId: req.params.id },
+    });
+    if (!item) throw NotFound("Requirement not found");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.workOrderRequirement.delete({ where: { id: item.id } });
+      await appendActivity(tx, user, project.id, "requirement.removed", {
+        name: item.name,
+      });
+      await audit(tx, user, "workOrder.requirement.remove", "workOrderRequirement", item.id);
+    });
+
+    res.json(await reloadWorkOrder(user, req.params.id));
+  }),
+);
+
+// =========================================================================
 // TASK MATERIALS (shared line item)
 // =========================================================================
 
@@ -2349,6 +2434,8 @@ workOrdersRouter.patch(
                 : clampNumber(input.usedQuantity)
               : undefined,
           onSite: input.onSite !== undefined ? input.onSite : undefined,
+          requirementDone:
+            input.requirementDone !== undefined ? input.requirementDone : undefined,
           done: input.done !== undefined ? input.done : undefined,
           note:
             input.note !== undefined

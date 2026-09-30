@@ -139,6 +139,7 @@ export const updateMaterialSchema = z.object({
   diameter: z.number().nullable().optional(),
   unitPrice: z.number().nullable().optional(),
   onSite: z.boolean().optional(),
+  requirementDone: z.boolean().optional(),
   done: z.boolean().optional(),
   note: z.string().nullable().optional(),
   isExtraWork: z.boolean().optional(),
@@ -165,6 +166,19 @@ export const progressSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+});
+
+// Manual operational packing-list item. It is intentionally separate from a
+// billable TaskMaterial line: adding a drill must never affect the quote.
+export const addWorkOrderRequirementSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  kind: z.enum(["material", "tool"]),
+  quantity: z.number().positive().optional(),
+  unit: z.string().trim().max(40).optional(),
+});
+
+export const updateWorkOrderRequirementSchema = z.object({
+  done: z.boolean(),
 });
 
 // POST /work-orders/:id/finish — mirror finishWorkOrder (signature required).

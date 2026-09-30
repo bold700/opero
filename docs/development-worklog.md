@@ -649,6 +649,26 @@ files that changed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
+### OPR-2026-035 — Add work-order requirements packing list
+
+- **Date:** 30 September 2026
+- **Request:** Give each work order a focused list of required materials and
+  tools, derived from its tasks and extended by the person preparing the work
+  order.
+- **Delivered:** Added a Requirements action with an outstanding-item counter.
+  It opens as a right-side sheet on desktop and as a draggable bottom sheet on
+  mobile. Regular task lines automatically appear as required materials; the
+  office can add separate materials and tools such as a drill without changing
+  the quote or invoice. Office and assigned field staff can mark each item as
+  prepared. Task-material packing state is stored separately from delivery and
+  stock state.
+- **Migration:** Adds manual work-order requirements and a dedicated preparation
+  state for task materials.
+- **Verification:** Client and backend type checks and production builds passed;
+  all 389 backend tests across 52 files passed.
+- **Status:** Ready for staging deployment.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -687,3 +707,4 @@ files that changed.
 | OPR-2026-032 |  |  |  |  |
 | OPR-2026-033 |  |  |  |  |
 | OPR-2026-034 |  |  |  |  |
+| OPR-2026-035 |  |  |  |  |

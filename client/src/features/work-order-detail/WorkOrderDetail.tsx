@@ -46,6 +46,10 @@ import {
   addCustomMaterial,
   addMaterialFromArticle,
   registerMaterialStock,
+  setTaskMaterialReady,
+  addWorkOrderRequirement,
+  setWorkOrderRequirementDone,
+  deleteWorkOrderRequirement,
   logMaterialProgress,
   deleteMaterialProgress,
   updateMaterial,
@@ -89,6 +93,7 @@ import { NotesSheet } from "./components/NotesSheet";
 import { AttachmentsSheet } from "./components/AttachmentsSheet";
 import { SignOffDialog } from "./components/SignOffDialog";
 import { WorkOrderLifecycleTimeline } from "./components/WorkOrderLifecycleTimeline";
+import { WorkOrderRequirementsSheet } from "./components/WorkOrderRequirementsSheet";
 import { STATUS } from "../work-orders/constants";
 
 // Work-order detail: header + tasks + meerwerk (extra-work approval) + activity.
@@ -118,6 +123,7 @@ export function WorkOrderDetail() {
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [requirementsOpen, setRequirementsOpen] = useState(false);
 
   const [wo, setWo] = useState<WorkOrder | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -238,6 +244,18 @@ export function WorkOrderDetail() {
   // Finished/locked is a property of THIS work order (signedAt), not the
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
+  const incompleteRequirementCount =
+    wo.tasks.reduce(
+      (count, task) =>
+        count +
+        task.materials.filter(
+          (material) =>
+            !material.isExtraWork &&
+            Boolean((material.label || material.name).trim()) &&
+            !material.requirementDone,
+        ).length,
+      0,
+    ) + wo.requirements.filter((item) => !item.done).length;
   const nextStatusByStatus: Partial<Record<WorkOrderStatus, WorkOrderStatus>> = {
     open: "released",
     planned: "released",
@@ -425,6 +443,8 @@ export function WorkOrderDetail() {
           onOpenInfo={() => setInfoOpen(true)}
           onOpenAttachments={() => setAttachmentsOpen(true)}
           onOpenNotes={() => setNotesOpen(true)}
+          onOpenRequirements={() => setRequirementsOpen(true)}
+          showRequirements={isStaff(role)}
           onOpenActivity={() => setActivityOpen(true)}
           attachmentCount={
             wo.attachments.length +
@@ -434,6 +454,7 @@ export function WorkOrderDetail() {
             )
           }
           noteCount={project.activity.filter((entry) => entry.type === "comment").length}
+          requirementCount={incompleteRequirementCount}
           workflowAction={workflowAction}
           onDelete={handleDelete}
           onExportPdf={handleExportPdf}
@@ -569,6 +590,36 @@ export function WorkOrderDetail() {
         onClose={() => setActivityOpen(false)}
         activity={project.activity.filter((entry) => entry.type !== "comment")}
       />
+      {isStaff(role) ? (
+        <WorkOrderRequirementsSheet
+          open={requirementsOpen}
+          onClose={() => setRequirementsOpen(false)}
+          workOrder={wo}
+          canCheck={canWrite && !finished}
+          canManage={canEditScope && !finished}
+          busy={busy}
+          onToggleTaskMaterial={(materialId, done) =>
+            run(async () => {
+              setWo(await setTaskMaterialReady(wo.id, materialId, done));
+            })
+          }
+          onToggleManual={(requirementId, done) =>
+            run(async () => {
+              setWo(await setWorkOrderRequirementDone(wo.id, requirementId, done));
+            })
+          }
+          onAdd={(input) =>
+            run(async () => {
+              setWo(await addWorkOrderRequirement(wo.id, input));
+            })
+          }
+          onDelete={(requirementId) =>
+            run(async () => {
+              setWo(await deleteWorkOrderRequirement(wo.id, requirementId));
+            })
+          }
+        />
+      ) : null}
       <SignOffDialog
         open={signOpen}
         busy={busy}

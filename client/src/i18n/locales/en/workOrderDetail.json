@@ -295,6 +295,29 @@
     "add": "Add packing slip",
     "received": "Received"
   },
+  "requirements": {
+    "title": "Requirements",
+    "fromTasks": "From tasks",
+    "fromTasksHint": "These materials are taken automatically from the work-order tasks.",
+    "noTaskMaterials": "No task materials yet.",
+    "manual": "Additional requirements",
+    "noManual": "No additional materials or tools have been added.",
+    "taskMaterialMeta": "{{quantity}} {{unit}} · {{task}}",
+    "quantity": "{{quantity}} {{unit}}",
+    "kind": {
+      "material": "Material",
+      "tool": "Tool"
+    },
+    "addTitle": "Add required item",
+    "kindLabel": "Type",
+    "nameLabel": "Name",
+    "namePlaceholder": "For example drill or tape",
+    "quantityLabel": "Quantity (optional)",
+    "unitLabel": "Unit (optional)",
+    "unitPlaceholder": "For example piece, roll or metre",
+    "add": "Add",
+    "delete": "Delete required item"
+  },
   "phase": {
     "preparation": "Preparation",
     "realization": "Realization",

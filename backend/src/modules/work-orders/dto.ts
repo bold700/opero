@@ -1,4 +1,4 @@
-import type { ProjectAttachment, TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem } from "@prisma/client";
+import type { ProjectAttachment, TaskMaterial, WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderPrejobItem, WorkOrderRequirement } from "@prisma/client";
 import {
   canSeePrices,
   canSeeMargin,
@@ -74,6 +74,7 @@ type CustomerContactSource = {
 export type WorkOrderWithRelations = WorkOrder & {
   tasks: TaskWithRelations[];
   attachments?: WorkOrderAttachment[];
+  requirements?: WorkOrderRequirement[];
   prejobItems?: WorkOrderPrejobItem[];
   signedBy?: { name: string } | null;
   assignees?: { id: string; name: string }[];
@@ -171,6 +172,7 @@ async function materialDto(m: MaterialWithVariant, showPrices: boolean, showMarg
     // Cost/margin: admins only (see canSeeMargin). Never for clients.
     ...marginFields,
     onSite: m.onSite,
+    requirementDone: m.requirementDone,
     done: m.done,
     note: m.note ?? undefined,
     ordinal: m.ordinal,
@@ -331,6 +333,17 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     startTime: wb.planningItems?.[0]?.startTime ?? undefined,
     endTime: wb.planningItems?.[0]?.endTime ?? undefined,
     tasks,
+    requirements: [...(wb.requirements ?? [])]
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        kind: item.kind,
+        quantity: item.quantity ?? undefined,
+        unit: item.unit ?? undefined,
+        done: item.done,
+        ordinal: item.ordinal,
+      })),
     // Meerwerk (extra work) is per-WERKBON; prices stripped for non-price roles.
   };
 }
@@ -355,6 +368,7 @@ export const workOrderInclude = {
     },
   },
   attachments: { orderBy: { createdAt: "asc" } },
+  requirements: { orderBy: { ordinal: "asc" } },
   prejobItems: { orderBy: { ordinal: "asc" } },
   signedBy: { select: { name: true } },
   contacts: {

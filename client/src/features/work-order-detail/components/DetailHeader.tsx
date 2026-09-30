@@ -16,6 +16,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import HistoryIcon from "@mui/icons-material/History";
 import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
 import NotesOutlinedIcon from "@mui/icons-material/NotesOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import Tooltip from "@mui/material/Tooltip";
 import Badge from "@mui/material/Badge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
@@ -49,9 +50,12 @@ export function DetailHeader({
   onOpenInfo,
   onOpenAttachments,
   onOpenNotes,
+  onOpenRequirements,
+  showRequirements,
   onOpenActivity,
   attachmentCount,
   noteCount,
+  requirementCount,
   workflowAction,
 }: {
   workOrder: WorkOrder;
@@ -75,9 +79,12 @@ export function DetailHeader({
   onOpenInfo: () => void;
   onOpenAttachments: () => void;
   onOpenNotes: () => void;
+  onOpenRequirements: () => void;
+  showRequirements: boolean;
   onOpenActivity: () => void;
   attachmentCount: number;
   noteCount: number;
+  requirementCount: number;
   workflowAction?: { label: string; onClick: () => void; disabled?: boolean };
 }) {
   const { t } = useTranslation();
@@ -169,6 +176,19 @@ export function DetailHeader({
                 </Badge>
               </IconButton>
             </Tooltip>
+            {showRequirements ? (
+              <Tooltip title={t("workOrderDetail.requirements.title")}>
+                <IconButton
+                  aria-label={t("workOrderDetail.requirements.title")}
+                  onClick={onOpenRequirements}
+                  sx={{ width: TAP_TARGET, height: TAP_TARGET }}
+                >
+                  <Badge badgeContent={requirementCount} color="primary" max={99}>
+                    <Inventory2OutlinedIcon />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+            ) : null}
             <Tooltip title={t("workOrderDetail.activity.title")}>
               <IconButton
                 aria-label={t("workOrderDetail.activity.title")}
