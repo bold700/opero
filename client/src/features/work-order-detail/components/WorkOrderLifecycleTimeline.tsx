@@ -166,8 +166,8 @@ export function WorkOrderLifecycleTimeline({
                           ) : statusCurrent ? (
                             <Box
                               sx={{
-                                width: WORK_ORDER_TIMELINE.markerDotSize,
-                                height: WORK_ORDER_TIMELINE.markerDotSize,
+                                width: WORK_ORDER_TIMELINE.statusDotSize,
+                                height: WORK_ORDER_TIMELINE.statusDotSize,
                                 borderRadius: `${RADIUS.pill}px`,
                                 bgcolor: tone.fg,
                               }}

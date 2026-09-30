@@ -641,8 +641,9 @@ files that changed.
   Completion, including all nine underlying statuses. Completed statuses show a
   checkmark, the current status is highlighted, and upcoming statuses remain
   neutral. On mobile the control panel comes first, followed by the work-order
-  tasks and then the timeline. The timeline uses the same shared lifecycle
-  values as the header and workflow action.
+  tasks and then the timeline. Substatuses use smaller markers than their parent
+  phases to keep the hierarchy clear. The timeline uses the same shared
+  lifecycle values as the header and workflow action.
 - **Verification:** Client type check and production build passed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
