@@ -22,6 +22,21 @@ const PHASE_STATUSES: Record<WorkOrderPhase, readonly WorkOrderStatus[]> = {
   completion: ["ready_to_invoice", "invoiced", "completed"],
 };
 
+type TimelineRow =
+  | { kind: "phase"; phase: WorkOrderPhase }
+  | { kind: "status"; phase: WorkOrderPhase; status: WorkOrderStatus };
+
+const TIMELINE_ROWS: readonly TimelineRow[] = workOrderPhaseIds.flatMap(
+  (phaseId) => [
+    { kind: "phase" as const, phase: phaseId },
+    ...PHASE_STATUSES[phaseId].map((statusId) => ({
+      kind: "status" as const,
+      phase: phaseId,
+      status: statusId,
+    })),
+  ],
+);
+
 export function WorkOrderLifecycleTimeline({
   phase,
   status,
@@ -32,6 +47,9 @@ export function WorkOrderLifecycleTimeline({
   const { t } = useTranslation();
   const activePhaseIndex = workOrderPhaseIds.indexOf(phase);
   const activeStatusIndex = workOrderStatusIds.indexOf(status);
+  const activeRowIndex = TIMELINE_ROWS.findIndex(
+    (row) => row.kind === "status" && row.status === status,
+  );
 
   return (
     <Card>
@@ -40,169 +58,161 @@ export function WorkOrderLifecycleTimeline({
       </Typography>
 
       <Box sx={{ mt: SPACING.itemGap }}>
-        {workOrderPhaseIds.map((phaseId, index) => {
-          const isComplete = index < activePhaseIndex;
-          const isCurrent = phaseId === phase;
-          const tone = WORK_ORDER_PHASE_TONES[phaseId];
-          const markerColor = isComplete || isCurrent ? tone.fg : "text.disabled";
+        {TIMELINE_ROWS.map((row, rowIndex) => {
+          const phaseIndex = workOrderPhaseIds.indexOf(row.phase);
+          const tone = WORK_ORDER_PHASE_TONES[row.phase];
+          const isFirst = rowIndex === 0;
+          const isLast = rowIndex === TIMELINE_ROWS.length - 1;
+          const isPhase = row.kind === "phase";
+          const isCurrentPhase = isPhase && row.phase === phase;
+          const isCompletedPhase = isPhase && phaseIndex < activePhaseIndex;
+          const statusIndex = row.kind === "status"
+            ? workOrderStatusIds.indexOf(row.status)
+            : -1;
+          const isCurrentStatus = row.kind === "status" && row.status === status;
+          const isCompletedStatus = row.kind === "status" && statusIndex < activeStatusIndex;
+          const isReached = rowIndex <= activeRowIndex;
+          const continuesReachedPath = rowIndex < activeRowIndex;
+          const markerSize = isPhase
+            ? WORK_ORDER_TIMELINE.markerSize
+            : WORK_ORDER_TIMELINE.statusMarkerSize;
 
           return (
             <Box
-              key={phaseId}
+              key={row.kind === "phase" ? row.phase : row.status}
               sx={{
                 display: "flex",
                 alignItems: "stretch",
-                gap: SPACING.itemGap,
+                minHeight: isPhase
+                  ? WORK_ORDER_TIMELINE.phaseRowMinHeight
+                  : WORK_ORDER_TIMELINE.statusRowMinHeight,
               }}
             >
               <Box
                 sx={{
+                  position: "relative",
                   width: WORK_ORDER_TIMELINE.markerSize,
                   flexShrink: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
                 }}
               >
-                <Box
-                  sx={{
-                    width: WORK_ORDER_TIMELINE.markerSize,
-                    height: WORK_ORDER_TIMELINE.markerSize,
-                    borderRadius: `${RADIUS.pill}px`,
-                    display: "grid",
-                    placeItems: "center",
-                    color: isComplete ? "common.white" : markerColor,
-                    bgcolor: isComplete ? tone.fg : isCurrent ? tone.bg : "transparent",
-                    border: "1px solid",
-                    borderColor: markerColor,
-                  }}
-                >
-                  {isComplete ? (
-                    <CheckRoundedIcon fontSize="small" />
-                  ) : (
-                    <Box
-                      sx={{
-                        width: WORK_ORDER_TIMELINE.markerDotSize,
-                        height: WORK_ORDER_TIMELINE.markerDotSize,
-                        borderRadius: `${RADIUS.pill}px`,
-                        bgcolor: isCurrent ? tone.fg : "transparent",
-                      }}
-                    />
-                  )}
-                </Box>
-
-                {index < workOrderPhaseIds.length - 1 ? (
+                {!isFirst ? (
                   <Box
                     sx={{
-                      flex: 1,
+                      position: "absolute",
+                      top: 0,
+                      bottom: "50%",
+                      left: WORK_ORDER_TIMELINE.trackOffset,
                       width: WORK_ORDER_TIMELINE.connectorWidth,
-                      bgcolor: index < activePhaseIndex ? tone.fg : "divider",
+                      bgcolor: isReached ? tone.fg : "divider",
                     }}
                   />
                 ) : null}
+                {!isLast ? (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: "50%",
+                      bottom: 0,
+                      left: WORK_ORDER_TIMELINE.trackOffset,
+                      width: WORK_ORDER_TIMELINE.connectorWidth,
+                      bgcolor: continuesReachedPath ? tone.fg : "divider",
+                    }}
+                  />
+                ) : null}
+
+                <Box
+                  sx={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 1,
+                    width: markerSize,
+                    height: markerSize,
+                    borderRadius: `${RADIUS.pill}px`,
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: isPhase
+                      ? WORK_ORDER_TIMELINE.statusMarkerSize
+                      : WORK_ORDER_TIMELINE.statusIconSize,
+                    color:
+                      isCompletedPhase || isCompletedStatus
+                        ? "common.white"
+                        : tone.fg,
+                    bgcolor:
+                      isCompletedPhase || isCompletedStatus
+                        ? tone.fg
+                        : isCurrentPhase
+                          ? tone.bg
+                          : "background.paper",
+                    border: "1px solid",
+                    borderColor:
+                      isReached || isCurrentPhase || isCurrentStatus
+                        ? tone.fg
+                        : "divider",
+                  }}
+                >
+                  {isCompletedPhase || isCompletedStatus ? (
+                    <CheckRoundedIcon fontSize="inherit" />
+                  ) : isCurrentPhase || isCurrentStatus ? (
+                    <Box
+                      sx={{
+                        width: isPhase
+                          ? WORK_ORDER_TIMELINE.markerDotSize
+                          : WORK_ORDER_TIMELINE.statusDotSize,
+                        height: isPhase
+                          ? WORK_ORDER_TIMELINE.markerDotSize
+                          : WORK_ORDER_TIMELINE.statusDotSize,
+                        borderRadius: `${RADIUS.pill}px`,
+                        bgcolor: tone.fg,
+                      }}
+                    />
+                  ) : null}
+                </Box>
               </Box>
 
               <Box
                 sx={{
                   flex: 1,
                   minWidth: 0,
-                  mb: index < workOrderPhaseIds.length - 1 ? SPACING.itemGap : 0,
-                  p: SPACING.itemGap,
+                  alignSelf: "center",
+                  ml: SPACING.itemGap,
+                  px: isCurrentStatus ? SPACING.itemGap : 0,
+                  py: isCurrentStatus ? SPACING.fieldLabelGap : 0,
                   borderRadius: `${RADIUS.control}px`,
-                  bgcolor: isCurrent ? tone.bg : "transparent",
+                  bgcolor: isCurrentStatus ? tone.bg : "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: SPACING.itemGap,
                 }}
               >
                 <Typography
-                  variant="subtitle2"
+                  variant={isPhase ? "subtitle2" : "body2"}
                   sx={{
-                    fontWeight: isCurrent ? 700 : 600,
-                    color: isCurrent ? tone.fg : "text.primary",
+                    flex: 1,
+                    minWidth: 0,
+                    fontWeight: isPhase || isCurrentStatus ? 700 : 400,
+                    color:
+                      isCurrentPhase || isCurrentStatus
+                        ? tone.fg
+                        : isPhase || isCompletedStatus
+                          ? "text.primary"
+                          : "text.secondary",
                   }}
                 >
-                  {t(`workOrderDetail.phase.${phaseId}`)}
+                  {row.kind === "phase"
+                    ? t(`workOrderDetail.phase.${row.phase}`)
+                    : t(STATUS[row.status].labelKey)}
                 </Typography>
 
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: SPACING.fieldLabelGap,
-                    mt: SPACING.fieldLabelGap,
-                  }}
-                >
-                  {PHASE_STATUSES[phaseId].map((statusId) => {
-                    const statusIndex = workOrderStatusIds.indexOf(statusId);
-                    const statusComplete = statusIndex < activeStatusIndex;
-                    const statusCurrent = statusId === status;
-
-                    return (
-                      <Box
-                        key={statusId}
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: SPACING.itemGap,
-                          minWidth: 0,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            width: WORK_ORDER_TIMELINE.statusMarkerSize,
-                            height: WORK_ORDER_TIMELINE.statusMarkerSize,
-                            flexShrink: 0,
-                            borderRadius: `${RADIUS.pill}px`,
-                            display: "grid",
-                            placeItems: "center",
-                            fontSize: WORK_ORDER_TIMELINE.statusIconSize,
-                            color: statusComplete ? "common.white" : tone.fg,
-                            bgcolor: statusComplete ? tone.fg : "transparent",
-                            border: "1px solid",
-                            borderColor:
-                              statusComplete || statusCurrent ? tone.fg : "divider",
-                          }}
-                        >
-                          {statusComplete ? (
-                            <CheckRoundedIcon fontSize="inherit" />
-                          ) : statusCurrent ? (
-                            <Box
-                              sx={{
-                                width: WORK_ORDER_TIMELINE.statusDotSize,
-                                height: WORK_ORDER_TIMELINE.statusDotSize,
-                                borderRadius: `${RADIUS.pill}px`,
-                                bgcolor: tone.fg,
-                              }}
-                            />
-                          ) : null}
-                        </Box>
-
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            flex: 1,
-                            minWidth: 0,
-                            fontWeight: statusCurrent ? 700 : 400,
-                            color: statusCurrent
-                              ? tone.fg
-                              : statusComplete
-                                ? "text.primary"
-                                : "text.secondary",
-                          }}
-                        >
-                          {t(STATUS[statusId].labelKey)}
-                        </Typography>
-
-                        {statusCurrent ? (
-                          <Typography
-                            variant="caption"
-                            sx={{ color: tone.fg, fontWeight: 700 }}
-                          >
-                            {t("workOrderDetail.lifecycle.current")}
-                          </Typography>
-                        ) : null}
-                      </Box>
-                    );
-                  })}
-                </Box>
+                {isCurrentStatus ? (
+                  <Typography
+                    variant="caption"
+                    sx={{ color: tone.fg, fontWeight: 700 }}
+                  >
+                    {t("workOrderDetail.lifecycle.current")}
+                  </Typography>
+                ) : null}
               </Box>
             </Box>
           );

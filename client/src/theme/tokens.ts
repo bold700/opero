@@ -49,6 +49,9 @@ export const WORK_ORDER_TIMELINE = {
   statusMarkerSize: 16,
   statusDotSize: 8,
   statusIconSize: 12,
+  trackOffset: 15,
+  phaseRowMinHeight: 52,
+  statusRowMinHeight: 36,
 } as const;
 
 export const PLANNING_TIMELINE = {
