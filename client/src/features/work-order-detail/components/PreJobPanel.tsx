@@ -162,8 +162,20 @@ export function PreJobPanel({
             dragging the grip (same interaction as the zones), not arrows. */}
         <Box>
           {(() => {
+            const renderReminder = (item: (typeof items)[number]) =>
+              item.reminderEnabled && item.reminderTime ? (
+                <Chip
+                  size="small"
+                  icon={<AccessTimeOutlinedIcon />}
+                  label={t("workOrderDetail.prejob.reminder", {
+                    time: item.reminderTime,
+                  })}
+                  sx={{ maxWidth: "100%" }}
+                />
+              ) : null;
+
             const renderItem = (item: (typeof items)[number], dragHandle?: React.ReactNode) => (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
                 <Checkbox
                   checked={item.done}
                   disabled={!canTick || busy}
@@ -175,48 +187,66 @@ export function PreJobPanel({
                 />
                 {editable ? (
                   <>
-                    <TextField
-                      size="small"
-                      defaultValue={item.label}
-                      key={`${item.id}-${item.label}`}
-                      disabled={busy}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== item.label) onRenameItem(item.id, v);
+                    <Box
+                      sx={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                        gap: 0.5,
                       }}
-                      // minWidth:0 or the input's intrinsic ~180px floor pushes
-                      // the icon buttons off the right edge on a phone.
-                      sx={{ flex: 1, minWidth: 0 }}
-                    />
-                    {item.reminderEnabled && item.reminderTime ? (
-                      <Chip
+                    >
+                      <TextField
                         size="small"
-                        icon={<AccessTimeOutlinedIcon />}
-                        label={t("workOrderDetail.prejob.reminder", {
-                          time: item.reminderTime,
-                        })}
+                        defaultValue={item.label}
+                        key={`${item.id}-${item.label}`}
+                        disabled={busy}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== item.label) onRenameItem(item.id, v);
+                        }}
+                        fullWidth
                       />
-                    ) : null}
-                    {dragHandle ?? null}
-                    <IconButton size="small" color="error" disabled={busy} onClick={() => onRemoveItem(item.id)} aria-label={t("workOrderDetail.prejob.removeItem")}>
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
+                      {renderReminder(item)}
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexShrink: 0,
+                        minHeight: (theme) => theme.spacing(5),
+                      }}
+                    >
+                      {dragHandle ?? null}
+                      <IconButton
+                        size="small"
+                        color="error"
+                        disabled={busy}
+                        onClick={() => onRemoveItem(item.id)}
+                        aria-label={t("workOrderDetail.prejob.removeItem")}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </>
                 ) : (
-                  <>
-                    <Typography variant="body2" sx={{ flex: 1, py: 1 }}>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 0.5,
+                      py: 0.5,
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ width: "100%" }}>
                       {item.label}
                     </Typography>
-                    {item.reminderEnabled && item.reminderTime ? (
-                      <Chip
-                        size="small"
-                        icon={<AccessTimeOutlinedIcon />}
-                        label={t("workOrderDetail.prejob.reminder", {
-                          time: item.reminderTime,
-                        })}
-                      />
-                    ) : null}
-                  </>
+                    {renderReminder(item)}
+                  </Box>
                 )}
               </Box>
             );

@@ -55,6 +55,7 @@ files that changed.
 | OPR-2026-034 | Visualize the work-order lifecycle | Staging | Delivered | To reconcile |
 | OPR-2026-035 | Add work-order requirements packing list | Staging | Delivered | To reconcile |
 | OPR-2026-036 | Add the CV insulation catalog | Staging | Delivered | To reconcile |
+| OPR-2026-037 | Improve mobile checklist reminder layout | Production | Delivered | To reconcile |
 
 ## Work items
 
@@ -690,6 +691,19 @@ files that changed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
+### OPR-2026-037 — Improve mobile checklist reminder layout
+
+- **Date:** 30 September 2026
+- **Request:** Keep checklist task text readable on mobile and show its reminder
+  time underneath the task.
+- **Delivered:** Checklist items now reserve the available row width for the task
+  text. A configured reminder appears on its own line below the task, while the
+  reorder and delete actions remain grouped on the right.
+- **Verification:** Client type check, production build, and focused lint check
+  passed.
+- **Status:** Delivered to production.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -730,3 +744,4 @@ files that changed.
 | OPR-2026-034 |  |  |  |  |
 | OPR-2026-035 |  |  |  |  |
 | OPR-2026-036 |  |  |  |  |
+| OPR-2026-037 |  |  |  |  |
