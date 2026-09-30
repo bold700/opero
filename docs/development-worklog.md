@@ -54,7 +54,7 @@ files that changed.
 | OPR-2026-033 | Stabilize SPA routing and API performance | Staging and production | Delivered | To reconcile |
 | OPR-2026-034 | Visualize the work-order lifecycle | Staging | Delivered | To reconcile |
 | OPR-2026-035 | Add work-order requirements packing list | Staging | Delivered | To reconcile |
-| OPR-2026-036 | Add the CV insulation catalog | Staging | Ready for deployment | To reconcile |
+| OPR-2026-036 | Add the CV insulation catalog | Staging | Delivered | To reconcile |
 
 ## Work items
 
@@ -687,7 +687,7 @@ files that changed.
 - **Verification:** The migration applied successfully to the local database.
   Both material groups contained the expected 104 and 50 variants, and prices
   at the first and last rows matched the supplied price sheet.
-- **Status:** Ready for staging deployment.
+- **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation
