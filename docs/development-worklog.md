@@ -24,7 +24,7 @@ files that changed.
 | OPR-2026-003 | Configurable work-order controls and in-app reminders | Local | Ready for review | To reconcile |
 | OPR-2026-004 | Remove rejected standard-task implementation | Local | Complete | Review classification |
 | OPR-2026-005 | Improve control settings field spacing | Local | Ready for review | To reconcile |
-| OPR-2026-006 | Daily materials, progress, and replenishment workflow | Local | Ready for review | To reconcile |
+| OPR-2026-006 | Daily materials, progress, and replenishment workflow | Staging | Delivered | To reconcile |
 | OPR-2026-007 | Contact person selection during work-order creation | Local | Ready for review | To reconcile |
 | OPR-2026-008 | Shared customer contacts and work-order contact management | Local | Ready for review | To reconcile |
 | OPR-2026-009 | Multiple account roles with active role switching | Local | Ready for review | To reconcile |
@@ -171,8 +171,11 @@ files that changed.
 - **Verification:** The database migration applies locally; backend and client
   type checks and production builds pass; backend and client lint have no new
   errors; the full backend suite passes with 53 files and 395 tests, including six
-  new end-to-end material-ledger tests.
-- **Status:** Ready for review and staging deployment.
+  new end-to-end material-ledger tests. The staging CI run passed, the Vercel
+  client serves the new material workflow on `opero-test.vercel.app`, and the
+  Railway deployment applied migration `20260930170000_work_day_material_ledger`.
+  The staging health check returns HTTP 200 with the database reported as up.
+- **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
 ### OPR-2026-007 — Contact person selection during work-order creation
