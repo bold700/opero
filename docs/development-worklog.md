@@ -56,7 +56,7 @@ files that changed.
 | OPR-2026-035 | Add work-order requirements packing list | Staging and production | Delivered | To reconcile |
 | OPR-2026-036 | Add the CV insulation catalog | Staging and production | Delivered | To reconcile |
 | OPR-2026-037 | Improve mobile checklist reminder layout | Staging and production | Delivered | To reconcile |
-| OPR-2026-038 | Keep navigation inside the active project | Staging | Delivered | To reconcile |
+| OPR-2026-038 | Keep navigation inside the active project | Staging and production | Delivered | To reconcile |
 
 ## Work items
 
@@ -718,8 +718,8 @@ files that changed.
   can identify the right work order before opening it. Direct links and work
   orders opened from the global list continue to return to the global list.
 - **Verification:** Client production build, backend type check, backend test
-  suite, and staging health checks passed.
-- **Status:** Delivered to staging.
+  suite, and staging and production health checks passed.
+- **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation
