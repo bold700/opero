@@ -261,6 +261,17 @@ export type Project = {
   installerIds: string[];
   nextStepKey: string;
   value?: number;
+  workOrders: {
+    id: string;
+    ordinal: number;
+    title: string;
+    description?: string;
+    taskNames?: string[];
+    assigneeNames?: string[];
+    status: string;
+    plannedDate?: string;
+    signed: boolean;
+  }[];
   activity: Activity[];
 };
 

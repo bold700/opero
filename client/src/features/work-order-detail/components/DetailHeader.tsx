@@ -22,6 +22,10 @@ import Badge from "@mui/material/Badge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { TAP_TARGET } from "../../../theme/tokens";
 import { WorkOrderHeaderSummary } from "./WorkOrderHeaderSummary";
+import {
+  WorkOrderSiblingNavigation,
+  type WorkOrderSiblingNavigationProps,
+} from "./WorkOrderSiblingNavigation";
 import type { Project, WorkOrder } from "../api";
 
 // Detail header — mirrors opero-old's project-detail header (the layout the
@@ -57,6 +61,7 @@ export function DetailHeader({
   noteCount,
   requirementCount,
   workflowAction,
+  siblingNavigation,
 }: {
   workOrder: WorkOrder;
   project: Project;
@@ -86,6 +91,7 @@ export function DetailHeader({
   noteCount: number;
   requirementCount: number;
   workflowAction?: { label: string; onClick: () => void; disabled?: boolean };
+  siblingNavigation?: WorkOrderSiblingNavigationProps;
 }) {
   const { t } = useTranslation();
   // THIS visit's priority (per-werkbon). Blocked is the project's separate
@@ -107,7 +113,7 @@ export function DetailHeader({
         }}
       >
         {/* Left: back · title · meta line (customer | stage). */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, minWidth: 0 }}>
           <IconButton
             aria-label={t("workOrderDetail.header.back")}
             onClick={onBack}
@@ -115,7 +121,10 @@ export function DetailHeader({
           >
             <ArrowBackIcon />
           </IconButton>
-          <WorkOrderHeaderSummary workOrder={workOrder} project={project} finished={finished} />
+          <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <WorkOrderHeaderSummary workOrder={workOrder} project={project} finished={finished} />
+            {siblingNavigation ? <WorkOrderSiblingNavigation {...siblingNavigation} /> : null}
+          </Box>
         </Box>
 
         {/* Right: icon actions (export, add-zone) then the primary button.

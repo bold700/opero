@@ -60,6 +60,7 @@
     "newWorkOrder": "New work order",
     "noWorkOrders": "No work orders yet.",
     "workOrderDefault": "Work order {{n}}",
+    "moreTasks": "{{summary}} · +{{count}} more",
     "woTitle": "Work order",
     "woStatus": "Status",
     "woDate": "Date",

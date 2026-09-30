@@ -93,6 +93,16 @@ export function ProjectDetail() {
 
   const woLabel = (w: ProjectWorkOrder) =>
     w.title.trim() || t("projects.detail.workOrderDefault", { n: w.ordinal + 1 });
+  const woSummary = (w: ProjectWorkOrder) => {
+    const description = w.description?.trim();
+    if (description) return description;
+    const taskNames = (w.taskNames ?? []).filter(Boolean);
+    const visibleTasks = taskNames.slice(0, 2).join(" · ");
+    const remaining = taskNames.length - 2;
+    return remaining > 0
+      ? t("projects.detail.moreTasks", { summary: visibleTasks, count: remaining })
+      : visibleTasks;
+  };
   const canArchive = project.workOrders.every((workOrder) => workOrder.signed);
 
   // Werkbon status badge — reuses the SAME label + colour map as the werkbonnen
@@ -248,7 +258,23 @@ export function ProjectDetail() {
               navigate(`/work-orders/${w.id}`, { state: { projectId: project.id } })
             }
             columns={[
-              { header: t("projects.detail.woTitle"), sortValue: (w) => woLabel(w), cell: (w) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography> },
+              {
+                header: t("projects.detail.woTitle"),
+                sortValue: (w) => `${woLabel(w)} ${woSummary(w)}`,
+                cell: (w) => (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{woLabel(w)}</Typography>
+                    {woSummary(w) ? (
+                      <Typography variant="body2" color="text.secondary">{woSummary(w)}</Typography>
+                    ) : null}
+                    {(w.assigneeNames?.length ?? 0) > 0 ? (
+                      <Typography variant="caption" color="text.secondary">
+                        {w.assigneeNames?.join(", ")}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                ),
+              },
               { header: t("projects.detail.woStatus"), sortValue: (w) => w.status, cell: (w) => woBadge(w) },
               { header: t("projects.detail.woDate"), sortValue: (w) => w.plannedDate, cell: (w) => <Box sx={{ color: "text.secondary" }}>{w.plannedDate ?? "—"}</Box> },
               ...(showPrices
@@ -294,6 +320,14 @@ export function ProjectDetail() {
                     ) : null}
                   </Box>
                 </Box>
+                {woSummary(w) ? (
+                  <Typography variant="body2" color="text.secondary">{woSummary(w)}</Typography>
+                ) : null}
+                {(w.assigneeNames?.length ?? 0) > 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    {w.assigneeNames?.join(", ")}
+                  </Typography>
+                ) : null}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary", fontSize: 13 }}>
                   {woBadge(w)}
                   <span>·</span>

@@ -25,6 +25,10 @@
   },
   "header": {
     "back": "back",
+    "siblingNavigation": "Navigate between this project's work orders",
+    "previousWorkOrder": "Previous work order",
+    "nextWorkOrder": "Next work order",
+    "projectPosition": "Work order {{current}} of {{total}}",
     "info": "Details",
     "attachments": "Attachments",
     "notes": "Notes",

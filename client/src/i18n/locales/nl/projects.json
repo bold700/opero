@@ -60,6 +60,7 @@
     "newWorkOrder": "Nieuwe werkbon",
     "noWorkOrders": "Nog geen werkbonnen.",
     "workOrderDefault": "Werkbon {{n}}",
+    "moreTasks": "{{summary}} · +{{count}} meer",
     "woTitle": "Werkbon",
     "woStatus": "Status",
     "woDate": "Datum",

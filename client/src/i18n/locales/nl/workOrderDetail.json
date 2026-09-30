@@ -25,6 +25,10 @@
   },
   "header": {
     "back": "terug",
+    "siblingNavigation": "Navigeren tussen werkbonnen van dit project",
+    "previousWorkOrder": "Vorige werkbon",
+    "nextWorkOrder": "Volgende werkbon",
+    "projectPosition": "Werkbon {{current}} van {{total}}",
     "info": "Gegevens",
     "attachments": "Bijlagen",
     "notes": "Notities",

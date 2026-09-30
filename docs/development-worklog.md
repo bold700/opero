@@ -56,6 +56,7 @@ files that changed.
 | OPR-2026-035 | Add work-order requirements packing list | Staging and production | Delivered | To reconcile |
 | OPR-2026-036 | Add the CV insulation catalog | Staging and production | Delivered | To reconcile |
 | OPR-2026-037 | Improve mobile checklist reminder layout | Staging and production | Delivered | To reconcile |
+| OPR-2026-038 | Keep navigation inside the active project | Staging | Delivered | To reconcile |
 
 ## Work items
 
@@ -705,6 +706,22 @@ files that changed.
 - **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
+### OPR-2026-038 — Keep navigation inside the active project
+
+- **Date:** 30 September 2026
+- **Request:** Reduce the repeated searching shown in the supplied workflow
+  recording when checking several work orders from one project.
+- **Delivered:** A work order opened from a project now returns to that same
+  project. Previous and next controls switch directly between the project's
+  work orders and show the current position. Project work-order rows now include
+  the visit description or first task names and assigned technicians, so users
+  can identify the right work order before opening it. Direct links and work
+  orders opened from the global list continue to return to the global list.
+- **Verification:** Client production build, backend type check, backend test
+  suite, and staging health checks passed.
+- **Status:** Delivered to staging.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -746,3 +763,4 @@ files that changed.
 | OPR-2026-035 |  |  |  |  |
 | OPR-2026-036 |  |  |  |  |
 | OPR-2026-037 |  |  |  |  |
+| OPR-2026-038 |  |  |  |  |

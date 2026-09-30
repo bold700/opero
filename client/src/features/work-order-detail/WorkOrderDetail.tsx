@@ -223,6 +223,24 @@ export function WorkOrderDetail() {
     );
   }
 
+  const siblingWorkOrders = [...project.workOrders].sort(
+    (left, right) => left.ordinal - right.ordinal,
+  );
+  const currentSiblingIndex = siblingWorkOrders.findIndex(
+    (workOrder) => workOrder.id === wo.id,
+  );
+  const previousWorkOrder =
+    currentSiblingIndex > 0 ? siblingWorkOrders[currentSiblingIndex - 1] : undefined;
+  const nextWorkOrder =
+    currentSiblingIndex >= 0 && currentSiblingIndex < siblingWorkOrders.length - 1
+      ? siblingWorkOrders[currentSiblingIndex + 1]
+      : undefined;
+  const openSibling = (workOrderId: string) =>
+    navigate(`/work-orders/${workOrderId}`, { state: { projectId: project.id } });
+  const backTarget = hintedProjectId === project.id
+    ? `/projects/${project.id}`
+    : "/work-orders";
+
   // Two different kinds of "write", deliberately kept apart:
   //   canWrite     — REGISTER what happened on site: tick lines done, set used
   //                  quantities, notes, photos, report meerwerk. Technicians too.
@@ -379,7 +397,7 @@ export function WorkOrderDetail() {
   const handleDelete = () =>
     run(async () => {
       await deleteWorkOrder(wo.id);
-      navigate("/work-orders", { replace: true });
+      navigate(backTarget, { replace: true });
     });
 
   const handleExportPdf = async () => {
@@ -439,7 +457,15 @@ export function WorkOrderDetail() {
           exporting={exporting}
           exportingQuote={exportingQuote}
           exportingInvoice={exportingInvoice}
-          onBack={() => navigate("/work-orders")}
+          onBack={() => navigate(backTarget)}
+          siblingNavigation={{
+            current: currentSiblingIndex + 1,
+            total: siblingWorkOrders.length,
+            onPrevious: previousWorkOrder
+              ? () => openSibling(previousWorkOrder.id)
+              : undefined,
+            onNext: nextWorkOrder ? () => openSibling(nextWorkOrder.id) : undefined,
+          }}
           onOpenInfo={() => setInfoOpen(true)}
           onOpenAttachments={() => setAttachmentsOpen(true)}
           onOpenNotes={() => setNotesOpen(true)}

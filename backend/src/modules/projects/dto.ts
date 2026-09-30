@@ -64,8 +64,14 @@ export type ProjectWithRelations = Project & {
     id: string;
     ordinal: number;
     title: string;
+    description: string | null;
     urgency: string;
     value: number;
+    assignees: { id: string; name: string }[];
+    tasks: (ProjectLifecycleWorkOrder["tasks"][number] & {
+      description: string;
+      ordinal: number;
+    })[];
   })[];
   activity?: (ProjectActivity & { user?: { name: string } | null })[];
   attachments?: ProjectAttachment[];
@@ -304,6 +310,14 @@ export function projectDto(
       id: w.id,
       ordinal: w.ordinal,
       title: w.title,
+      description: w.description ?? undefined,
+      taskNames: [...w.tasks]
+        .sort((a, b) => a.ordinal - b.ordinal)
+        .map((task) => task.description.trim())
+        .filter(Boolean),
+      assigneeNames: (w.assignees as { id: string; name: string }[]).map(
+        (assignee) => assignee.name,
+      ),
       status: w.listStatus,
       plannedDate: w.plannedDate ?? undefined,
       signed: w.signedAt != null,
@@ -344,6 +358,18 @@ export const projectInclude = {
       urgency: true,
       value: true,
       ...projectLifecycleSelect,
+      description: true,
+      assignees: { select: { id: true, name: true } },
+      tasks: {
+        select: {
+          done: true,
+          startedAt: true,
+          endedAt: true,
+          hours: true,
+          description: true,
+          ordinal: true,
+        },
+      },
     },
   },
   activity: {
