@@ -12,14 +12,11 @@ import { Card } from "../../../components/Card";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { AutosaveDateField } from "../../../components/AutosaveDateField";
 import { SelectField } from "../../../components/SelectField";
-import { useSheetMenuProps } from "../../../components/ResponsiveDialog";
 import { workOrderStatusIds, type WorkOrderStatus } from "@opero/shared";
 import { STATUS } from "../../work-orders/constants";
 
-// Must match `sheetBelow` on the Projectinfo sheet (ProjectInfoSheet.tsx).
-// Anywhere the sheet renders, its `overflow: hidden` would clip an MUI menu —
-// so the selects have to fall back to the native picker over the same range.
-const SHEET_BREAKPOINT = "lg" as const;
+// Native pickers keep long setup forms practical on phones and tablets.
+const NATIVE_PICKER_BREAKPOINT = "lg" as const;
 import { getCustomers, type CustomerOption } from "../../work-orders/create-api";
 import type {
   Project,
@@ -30,7 +27,6 @@ import type {
 import { isZoneComplete } from "./zoneStatus";
 import { CustomerContactBlock } from "./CustomerContactBlock";
 import { SelectedContactPersons } from "./SelectedContactPersons";
-import { AttachmentsPanel } from "../../../components/AttachmentsPanel";
 
 // A labelled block.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -112,10 +108,6 @@ export function ProjectInfoPanel({
   bare?: boolean;
 }) {
   const { t } = useTranslation();
-  // Inside a bottom sheet, MUI menus must portal into the sheet's own subtree or
-  // vaul blocks their pointer events and they open but can't be clicked. Returns
-  // undefined outside a sheet, so this is a no-op on desktop.
-  const sheetMenu = useSheetMenuProps();
 
   // Customer options for the Klant switcher, loaded once for admins (the only
   // role that can switch). `pendingCustomer` holds the picked id until the
@@ -195,7 +187,7 @@ export function ProjectInfoPanel({
                   if (status !== workOrder.status) setPendingStatus(status);
                 }}
                 disabled={busy}
-                nativeBelow={SHEET_BREAKPOINT}
+                nativeBelow={NATIVE_PICKER_BREAKPOINT}
                 options={workOrderStatusIds.map((status) => ({
                   value: status,
                   label: t(STATUS[status].labelKey),
@@ -252,7 +244,7 @@ export function ProjectInfoPanel({
                 value={project.customerId}
                 onChange={(v) => setPendingCustomer(v)}
                 disabled={busy}
-                nativeBelow={SHEET_BREAKPOINT}
+                nativeBelow={NATIVE_PICKER_BREAKPOINT}
                 options={customers.map((c) => ({ value: c.id, label: c.name }))}
               />
             </Field>
@@ -266,7 +258,7 @@ export function ProjectInfoPanel({
                 value={workOrder.urgency}
                 onChange={(v) => onSetUrgency(v as "normal" | "urgent")}
                 disabled={busy}
-                nativeBelow={SHEET_BREAKPOINT}
+                nativeBelow={NATIVE_PICKER_BREAKPOINT}
                 options={[
                   { value: "normal", label: t("workOrderDetail.urgency.normal") },
                   { value: "urgent", label: t("workOrderDetail.urgency.urgent") },
@@ -340,7 +332,7 @@ export function ProjectInfoPanel({
                     value={workOrder.startTime ?? ""}
                     onChange={commitStartTime}
                     disabled={!canEdit}
-                    nativeBelow={SHEET_BREAKPOINT}
+                    nativeBelow={NATIVE_PICKER_BREAKPOINT}
                     sx={{ flex: 1 }}
                     options={TIME_SLOTS.map((s) => ({ value: s, label: s }))}
                   />
@@ -349,7 +341,7 @@ export function ProjectInfoPanel({
                     value={workOrder.endTime ?? ""}
                     onChange={(v) => { if (v) onSetSchedule({ endTime: v }); }}
                     disabled={!canEdit}
-                    nativeBelow={SHEET_BREAKPOINT}
+                    nativeBelow={NATIVE_PICKER_BREAKPOINT}
                     sx={{ flex: 1 }}
                     options={TIME_SLOTS.filter(
                       (s) => !workOrder.startTime || s > workOrder.startTime,
@@ -368,7 +360,7 @@ export function ProjectInfoPanel({
                 value={project.projectLeaderId ?? ""}
                 onChange={(v) => onPatch({ projectLeaderId: v || null })}
                 disabled={busy}
-                nativeBelow={SHEET_BREAKPOINT}
+                nativeBelow={NATIVE_PICKER_BREAKPOINT}
                 options={[
                   { value: "", label: t("workOrderDetail.info.none") },
                   ...leaderOptions.map((e) => ({ value: e.id, label: e.name })),
@@ -387,12 +379,7 @@ export function ProjectInfoPanel({
                 value={employees.filter((a) => workOrder.assignees.some((s) => s.id === a.id))}
                 onChange={(_e, selected) => onAssignMonteurs(selected.map((s) => s.id))}
                 disabled={busy}
-                // No native equivalent for a multi-select, so it keeps the
-                // portal — but the list must be bounded, or the sheet's
-                // `overflow: hidden` clips whatever hangs past the bottom and
-                // those options become unreachable.
                 slotProps={{
-                  popper: { container: sheetMenu.container },
                   paper: { sx: { maxHeight: "40dvh" } },
                 }}
                 renderInput={(params) => (
@@ -538,22 +525,6 @@ export function ProjectInfoPanel({
                 disabled={busy}
               />
             </Field>
-
-            {/* The PROJECT's files — reference material shared by every werkbon
-                under this project. Managed on the project page; read-only here. */}
-            <Field label={t("workOrderDetail.info.projectFiles")}>
-              <AttachmentsPanel
-                bare
-                attachments={workOrder.projectAttachments}
-                canWrite={false}
-                busy={busy}
-                title=""
-                emptyText={t("workOrderDetail.info.projectFilesEmpty")}
-                addLabel=""
-                onUpload={() => {}}
-                onDelete={() => {}}
-              />
-            </Field>
           </>
         ) : (
           <>
@@ -646,22 +617,6 @@ export function ProjectInfoPanel({
                 <Typography variant="body2" sx={{ color: "text.secondary", whiteSpace: "pre-line" }}>
                   {project.instructions}
                 </Typography>
-              </Field>
-            ) : null}
-            {/* The PROJECT's files — shared by every werkbon under this project. */}
-            {workOrder.projectAttachments.length > 0 ? (
-              <Field label={t("workOrderDetail.info.projectFiles")}>
-                <AttachmentsPanel
-                  bare
-                  attachments={workOrder.projectAttachments}
-                  canWrite={false}
-                  busy={busy}
-                  title=""
-                  emptyText=""
-                  addLabel=""
-                  onUpload={() => {}}
-                  onDelete={() => {}}
-                />
               </Field>
             ) : null}
           </>

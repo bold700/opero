@@ -60,6 +60,13 @@
     "toStatus": "To {{status}}",
     "advancedToast": "Work order is now {{status}}"
   },
+  "sections": {
+    "label": "Work order sections",
+    "details": "Details",
+    "control": "Control",
+    "execution": "Execution",
+    "attachments": "Attachments"
+  },
   "photos": {
     "title": "Photos",
     "before": "Before (zone)",
@@ -128,6 +135,8 @@
   },
   "attachments": {
     "title": "Attachments",
+    "projectDocuments": "Project files",
+    "projectEmpty": "No project files yet.",
     "documents": "Documents",
     "empty": "No documents yet.",
     "add": "Add file",
@@ -300,6 +309,7 @@
   },
   "requirements": {
     "title": "Requirements",
+    "description": "Check the materials and tools required for this work order.",
     "fromTasks": "From tasks",
     "fromTasksHint": "These materials are taken automatically from the work-order tasks.",
     "noTaskMaterials": "No task materials yet.",

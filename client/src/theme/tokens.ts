@@ -27,6 +27,7 @@ export const SPACING = {
   sectionGap: 3, // 24px — gap between major sections on a page
   cardPadding: 3, // 24px — padding inside a card
   itemGap: 1.5, // 12px — gap between small items (chips, count pills)
+  menuItemPadding: 2, // 16px — horizontal padding for compact navigation rows
 } as const;
 
 // Responsive page padding: tighter on phones (16px), full on desktop (32px).
@@ -67,6 +68,7 @@ export const PLANNING_TIMELINE = {
 // Width of focused right-side detail panels on tablet and desktop.
 export const SIDE_SHEET_WIDTH = 560;
 export const FILTER_SHEET_WIDTH = 420;
+export const WORK_ORDER_SECTION_MENU_WIDTH = 224;
 
 // M3 lavender accents (selected/active states).
 export const LAVENDER = "#E8DEF8";

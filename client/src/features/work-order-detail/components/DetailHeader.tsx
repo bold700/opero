@@ -12,11 +12,8 @@ import PictureAsPdfOutlinedIcon from "@mui/icons-material/PictureAsPdfOutlined";
 import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import HistoryIcon from "@mui/icons-material/History";
-import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
 import NotesOutlinedIcon from "@mui/icons-material/NotesOutlined";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import Tooltip from "@mui/material/Tooltip";
 import Badge from "@mui/material/Badge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
@@ -51,15 +48,9 @@ export function DetailHeader({
   onExportPdf,
   onExportQuotePdf,
   onExportInvoicePdf,
-  onOpenInfo,
-  onOpenAttachments,
   onOpenNotes,
-  onOpenRequirements,
-  showRequirements,
   onOpenActivity,
-  attachmentCount,
   noteCount,
-  requirementCount,
   workflowAction,
   siblingNavigation,
 }: {
@@ -81,15 +72,9 @@ export function DetailHeader({
   onExportPdf: () => void;
   onExportQuotePdf: () => void;
   onExportInvoicePdf: () => void;
-  onOpenInfo: () => void;
-  onOpenAttachments: () => void;
   onOpenNotes: () => void;
-  onOpenRequirements: () => void;
-  showRequirements: boolean;
   onOpenActivity: () => void;
-  attachmentCount: number;
   noteCount: number;
-  requirementCount: number;
   workflowAction?: { label: string; onClick: () => void; disabled?: boolean };
   siblingNavigation?: WorkOrderSiblingNavigationProps;
 }) {
@@ -141,9 +126,6 @@ export function DetailHeader({
             flexShrink: { xs: 1, sm: 0 },
           }}
         >
-          {/* Projectinfo — only below lg, where the sidebar has collapsed and the
-              panel would otherwise sit ~3 screens down. Hidden by CSS (not
-              unmounted) since it's a pure visibility toggle. */}
           <Box
             role="group"
             aria-label={t("workOrderDetail.header.sections")}
@@ -154,26 +136,6 @@ export function DetailHeader({
               flexWrap: "wrap",
             }}
           >
-            <Tooltip title={t("workOrderDetail.header.info")}>
-              <IconButton
-                aria-label={t("workOrderDetail.header.info")}
-                onClick={onOpenInfo}
-                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
-              >
-                <InfoOutlinedIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={t("workOrderDetail.header.attachments")}>
-              <IconButton
-                aria-label={t("workOrderDetail.header.attachments")}
-                onClick={onOpenAttachments}
-                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
-              >
-                <Badge badgeContent={attachmentCount} color="primary" max={99}>
-                  <AttachFileOutlinedIcon />
-                </Badge>
-              </IconButton>
-            </Tooltip>
             <Tooltip title={t("workOrderDetail.header.notes")}>
               <IconButton
                 aria-label={t("workOrderDetail.header.notes")}
@@ -185,19 +147,6 @@ export function DetailHeader({
                 </Badge>
               </IconButton>
             </Tooltip>
-            {showRequirements ? (
-              <Tooltip title={t("workOrderDetail.requirements.title")}>
-                <IconButton
-                  aria-label={t("workOrderDetail.requirements.title")}
-                  onClick={onOpenRequirements}
-                  sx={{ width: TAP_TARGET, height: TAP_TARGET }}
-                >
-                  <Badge badgeContent={requirementCount} color="primary" max={99}>
-                    <Inventory2OutlinedIcon />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
-            ) : null}
             <Tooltip title={t("workOrderDetail.activity.title")}>
               <IconButton
                 aria-label={t("workOrderDetail.activity.title")}

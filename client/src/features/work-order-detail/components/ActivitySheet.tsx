@@ -5,11 +5,8 @@ import { PAGE_PADDING_RESPONSIVE } from "../../../theme/tokens";
 import { SideSheet } from "../../../components/SideSheet";
 import type { Activity } from "../api";
 
-// Activiteit as a bottom sheet, for when the werkbon layout has collapsed to a
-// single column (below lg). The log is reference data you consult on demand —
-// "who changed this, and when" — and inline it sits at the very BOTTOM of the
-// page, below the whole werkbon body plus Controle vooraf. Same treatment (and
-// same breakpoint) as [ProjectInfoSheet].
+// Activity remains an on-demand side sheet so it does not crowd the work-order
+// sections. The shared sheet component adapts its presentation to the device.
 export function ActivitySheet({
   open,
   onClose,

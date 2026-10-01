@@ -88,16 +88,20 @@ import {
 import { DetailHeader } from "./components/DetailHeader";
 import { TasksPanel } from "./components/TasksPanel";
 import { PreJobPanel } from "./components/PreJobPanel";
-import { ProjectInfoSheet } from "./components/ProjectInfoSheet";
+import { ProjectInfoPanel } from "./components/ProjectInfoPanel";
 import { MeerwerkApprovalPanel } from "./components/MeerwerkApprovalPanel";
 import { ActivitySheet } from "./components/ActivitySheet";
 import { NotesSheet } from "./components/NotesSheet";
-import { AttachmentsSheet } from "./components/AttachmentsSheet";
 import { SignOffDialog } from "./components/SignOffDialog";
 import { WorkOrderLifecycleTimeline } from "./components/WorkOrderLifecycleTimeline";
-import { WorkOrderRequirementsSheet } from "./components/WorkOrderRequirementsSheet";
+import { WorkOrderRequirementsPanel } from "./components/WorkOrderRequirementsPanel";
 import { DailyMaterialsPanel } from "./components/DailyMaterialsPanel";
 import { WorkDayMaterialSheet } from "./components/WorkDayMaterialSheet";
+import {
+  WorkOrderSectionMenu,
+  type WorkOrderSection,
+} from "./components/WorkOrderSectionMenu";
+import { WorkOrderAttachmentsSection } from "./components/WorkOrderAttachmentsSection";
 import { STATUS } from "../work-orders/constants";
 
 // Work-order detail: header + tasks + meerwerk (extra-work approval) + activity.
@@ -118,16 +122,12 @@ export function WorkOrderDetail() {
   const showPrices = canSeePrices(role);
   const showMargin = canSeeMargin(role);
 
-  // Below lg the two-column layout collapses, so Projectinfo and Activiteit —
-  // the two reference panels you consult rather than work in — move into sheets
-  // reachable from the header. Matches the breakpoint of the layout itself
-  // (see the flexDirection below), NOT the usual sm "mobile" — on a tablet the
-  // sidebar is already gone and the panels are just as buried.
-  const [infoOpen, setInfoOpen] = useState(false);
-  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  // Control is the default because materials and checks are the first actions
+  // at the start of a workday. The compact menu keeps the other sections one
+  // step away without loading every large panel into one long page.
+  const [activeSection, setActiveSection] = useState<WorkOrderSection>("control");
   const [notesOpen, setNotesOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  const [requirementsOpen, setRequirementsOpen] = useState(false);
   const [workDaySheet, setWorkDaySheet] = useState<{
     open: boolean;
     mode: "start" | "complete" | "correct";
@@ -270,18 +270,6 @@ export function WorkOrderDetail() {
   // Finished/locked is a property of THIS work order (signedAt), not the
   // project. A new work order on a done project is fully editable.
   const finished = Boolean(wo.signedAt);
-  const incompleteRequirementCount =
-    wo.tasks.reduce(
-      (count, task) =>
-        count +
-        task.materials.filter(
-          (material) =>
-            !material.isExtraWork &&
-            Boolean((material.label || material.name).trim()) &&
-            !material.requirementDone,
-        ).length,
-      0,
-    ) + (wo.requirements ?? []).filter((item) => !item.done).length;
   const nextStatusByStatus: Partial<Record<WorkOrderStatus, WorkOrderStatus>> = {
     open: "released",
     planned: "released",
@@ -474,21 +462,9 @@ export function WorkOrderDetail() {
               : undefined,
             onNext: nextWorkOrder ? () => openSibling(nextWorkOrder.id) : undefined,
           }}
-          onOpenInfo={() => setInfoOpen(true)}
-          onOpenAttachments={() => setAttachmentsOpen(true)}
           onOpenNotes={() => setNotesOpen(true)}
-          onOpenRequirements={() => setRequirementsOpen(true)}
-          showRequirements={isStaff(role)}
           onOpenActivity={() => setActivityOpen(true)}
-          attachmentCount={
-            wo.attachments.length +
-            wo.tasks.reduce(
-              (count, task) => count + task.beforePhotos.length + task.resultPhotos.length,
-              0,
-            )
-          }
           noteCount={project.activity.filter((entry) => entry.type === "comment").length}
-          requirementCount={incompleteRequirementCount}
           workflowAction={workflowAction}
           onDelete={handleDelete}
           onExportPdf={handleExportPdf}
@@ -496,51 +472,80 @@ export function WorkOrderDetail() {
           onExportInvoicePdf={handleExportInvoicePdf}
         />
 
-        {/* Tasks and controls stay on the page. Reference information opens in
-            focused side sheets from the compact header navigation. */}
         <Box
           sx={{
             display: "flex",
             gap: SPACING.sectionGap,
             flexDirection: { xs: "column", lg: "row" },
-            alignItems: { xs: "stretch", lg: "flex-start" },
+            alignItems: "flex-start",
           }}
         >
-          <Box sx={{ display: { xs: "block", lg: "none" }, order: -1 }}>
-            <DailyMaterialsPanel
-              workOrder={wo}
-              canWrite={canWrite && !finished}
-              canCorrect={canEditScope && !finished}
-              busy={busy}
-              onStart={() => setWorkDaySheet({ open: true, mode: "start" })}
-              onComplete={() => setWorkDaySheet({ open: true, mode: "complete" })}
-              onCorrect={() => setWorkDaySheet({ open: true, mode: "correct" })}
-            />
-          </Box>
+          <WorkOrderSectionMenu value={activeSection} onChange={setActiveSection} />
 
-          <Box
-            sx={{
-              flex: { xs: "0 0 auto", lg: 3 },
-              order: { xs: 1, lg: 0 },
-              width: { xs: "100%", lg: "auto" },
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: SPACING.sectionGap,
-            }}
-          >
-            <Box sx={{ display: { xs: "none", lg: "block" } }}>
-              <DailyMaterialsPanel
-                workOrder={wo}
-                canWrite={canWrite && !finished}
-                canCorrect={canEditScope && !finished}
-                busy={busy}
-                onStart={() => setWorkDaySheet({ open: true, mode: "start" })}
-                onComplete={() => setWorkDaySheet({ open: true, mode: "complete" })}
-                onCorrect={() => setWorkDaySheet({ open: true, mode: "correct" })}
-              />
-            </Box>
+          <Box sx={{ flex: 1, width: "100%", minWidth: 0 }}>
+            {activeSection === "details" ? <ProjectInfoPanel {...projectInfoProps} /> : null}
 
+            {activeSection === "control" ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
+                <DailyMaterialsPanel
+                  workOrder={wo}
+                  canWrite={canWrite && !finished}
+                  canCorrect={canEditScope && !finished}
+                  busy={busy}
+                  onStart={() => setWorkDaySheet({ open: true, mode: "start" })}
+                  onComplete={() => setWorkDaySheet({ open: true, mode: "complete" })}
+                  onCorrect={() => setWorkDaySheet({ open: true, mode: "correct" })}
+                />
+                {isStaff(role) ? (
+                  <WorkOrderRequirementsPanel
+                    workOrder={wo}
+                    canCheck={canWrite && !finished}
+                    canManage={canEditScope && !finished}
+                    busy={busy}
+                    onToggleTaskMaterial={(materialId, done) =>
+                      run(async () => {
+                        setWo(await setTaskMaterialReady(wo.id, materialId, done));
+                      })
+                    }
+                    onToggleManual={(requirementId, done) =>
+                      run(async () => {
+                        setWo(await setWorkOrderRequirementDone(wo.id, requirementId, done));
+                      })
+                    }
+                    onAdd={(input) =>
+                      run(async () => {
+                        setWo(await addWorkOrderRequirement(wo.id, input));
+                      })
+                    }
+                    onDelete={(requirementId) =>
+                      run(async () => {
+                        setWo(await deleteWorkOrderRequirement(wo.id, requirementId));
+                      })
+                    }
+                  />
+                ) : null}
+                {canEditQuoteScope(role) || isStaff(role) || wo.prejobPhotos.length > 0 ? (
+                  <PreJobPanel
+                    workOrder={wo}
+                    isAdmin={canEditQuoteScope(role)}
+                    canComplete={isStaff(role)}
+                    busy={busy}
+                    onToggleCheck={(itemId, done) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { done })); })}
+                    onRenameItem={(itemId, label) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { label })); })}
+                    onAddItem={(label) => run(async () => { setWo(await addPrejobItem(wo.id, label)); })}
+                    onRemoveItem={(itemId) => run(async () => { setWo(await deletePrejobItem(wo.id, itemId)); })}
+                    onMoveItem={(orderedIds) => run(async () => { setWo(await reorderPrejobItems(wo.id, orderedIds)); })}
+                    onSetPhotoRequired={(required) => run(async () => { setWo(await setPrejobPhotoRequired(wo.id, required)); })}
+                    onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
+                    onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
+                  />
+                ) : null}
+                <WorkOrderLifecycleTimeline phase={wo.phase} status={wo.status} />
+              </Box>
+            ) : null}
+
+            {activeSection === "execution" ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
             <TasksPanel
               workOrder={wo}
               canWrite={canWrite && !finished}
@@ -581,61 +586,35 @@ export function WorkOrderDetail() {
               onApproveClient={(materialId) => run(async () => { await approveClient(wo.id, materialId); await refreshWorkOrder(); })}
               onReject={(materialId) => run(async () => { await rejectExtraWork(wo.id, materialId); await refreshWorkOrder(); })}
             />
-          </Box>
-
-          <Box
-            sx={{
-              flex: { xs: "0 0 auto", lg: 2 },
-              order: { lg: 1 },
-              width: "100%",
-              minWidth: 0,
-              display: { xs: "contents", lg: "flex" },
-              flexDirection: "column",
-              gap: SPACING.sectionGap,
-            }}
-          >
-            {canEditQuoteScope(role) || isStaff(role) || wo.prejobPhotos.length > 0 ? (
-              <Box sx={{ order: { xs: 0, lg: 0 } }}>
-                <PreJobPanel
-                  workOrder={wo}
-                  isAdmin={canEditQuoteScope(role)}
-                  canComplete={isStaff(role)}
-                  busy={busy}
-                  onToggleCheck={(itemId, done) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { done })); })}
-                  onRenameItem={(itemId, label) => run(async () => { setWo(await updatePrejobItem(wo.id, itemId, { label })); })}
-                  onAddItem={(label) => run(async () => { setWo(await addPrejobItem(wo.id, label)); })}
-                  onRemoveItem={(itemId) => run(async () => { setWo(await deletePrejobItem(wo.id, itemId)); })}
-                  onMoveItem={(orderedIds) => run(async () => { setWo(await reorderPrejobItems(wo.id, orderedIds)); })}
-                  onSetPhotoRequired={(required) => run(async () => { setWo(await setPrejobPhotoRequired(wo.id, required)); })}
-                  onUploadPhoto={(file) => run(async () => { setWo(await uploadPrejobPhoto(wo.id, file)); })}
-                  onDeletePhoto={(key) => run(async () => { setWo(await deletePrejobPhoto(wo.id, key)); })}
-                />
               </Box>
             ) : null}
-            <Box sx={{ order: { xs: 2, lg: 1 } }}>
-              <WorkOrderLifecycleTimeline phase={wo.phase} status={wo.status} />
-            </Box>
+
+            {activeSection === "attachments" ? (
+              <WorkOrderAttachmentsSection
+                projectAttachments={wo.projectAttachments}
+                attachments={wo.attachments}
+                tasks={wo.tasks}
+                canWrite={canWrite && !finished}
+                busy={busy}
+                onUploadAttachment={(file) =>
+                  run(async () => { setWo(await uploadAttachment(wo.id, file)); })
+                }
+                onUploadPackingSlip={(file) =>
+                  run(async () => { setWo(await uploadAttachment(wo.id, file, "packing_slip")); })
+                }
+                onDelete={(attachmentId) =>
+                  run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })
+                }
+                onSetReceived={(attachmentId, received) =>
+                  run(async () => {
+                    setWo(await setAttachmentReceived(wo.id, attachmentId, received));
+                  })
+                }
+              />
+            ) : null}
           </Box>
         </Box>
       </Box>
-
-      <ProjectInfoSheet
-        open={infoOpen}
-        onClose={() => setInfoOpen(false)}
-        {...projectInfoProps}
-      />
-      <AttachmentsSheet
-        open={attachmentsOpen}
-        onClose={() => setAttachmentsOpen(false)}
-        attachments={wo.attachments}
-        tasks={wo.tasks}
-        canWrite={canWrite && !finished}
-        busy={busy}
-        onUploadAttachment={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file)); })}
-        onUploadPackingSlip={(file) => run(async () => { setWo(await uploadAttachment(wo.id, file, "packing_slip")); })}
-        onDelete={(attachmentId) => run(async () => { setWo(await deleteAttachment(wo.id, attachmentId)); })}
-        onSetReceived={(attachmentId, received) => run(async () => { setWo(await setAttachmentReceived(wo.id, attachmentId, received)); })}
-      />
       <NotesSheet
         open={notesOpen}
         onClose={() => setNotesOpen(false)}
@@ -648,36 +627,6 @@ export function WorkOrderDetail() {
         onClose={() => setActivityOpen(false)}
         activity={project.activity.filter((entry) => entry.type !== "comment")}
       />
-      {isStaff(role) ? (
-        <WorkOrderRequirementsSheet
-          open={requirementsOpen}
-          onClose={() => setRequirementsOpen(false)}
-          workOrder={wo}
-          canCheck={canWrite && !finished}
-          canManage={canEditScope && !finished}
-          busy={busy}
-          onToggleTaskMaterial={(materialId, done) =>
-            run(async () => {
-              setWo(await setTaskMaterialReady(wo.id, materialId, done));
-            })
-          }
-          onToggleManual={(requirementId, done) =>
-            run(async () => {
-              setWo(await setWorkOrderRequirementDone(wo.id, requirementId, done));
-            })
-          }
-          onAdd={(input) =>
-            run(async () => {
-              setWo(await addWorkOrderRequirement(wo.id, input));
-            })
-          }
-          onDelete={(requirementId) =>
-            run(async () => {
-              setWo(await deleteWorkOrderRequirement(wo.id, requirementId));
-            })
-          }
-        />
-      ) : null}
       {isStaff(role) ? (
         <WorkDayMaterialSheet
           open={workDaySheet.open}

@@ -60,6 +60,13 @@
     "toStatus": "Naar {{status}}",
     "advancedToast": "Werkbon staat nu op {{status}}"
   },
+  "sections": {
+    "label": "Onderdelen van de werkbon",
+    "details": "Gegevens",
+    "control": "Controle",
+    "execution": "Uitvoering",
+    "attachments": "Bijlagen"
+  },
   "photos": {
     "title": "Foto's",
     "before": "Vooraf (zone)",
@@ -128,6 +135,8 @@
   },
   "attachments": {
     "title": "Bijlagen",
+    "projectDocuments": "Projectbestanden",
+    "projectEmpty": "Nog geen projectbestanden.",
     "documents": "Documenten",
     "empty": "Nog geen documenten.",
     "add": "Bestand toevoegen",
@@ -300,6 +309,7 @@
   },
   "requirements": {
     "title": "Benodigdheden",
+    "description": "Controleer de materialen en gereedschappen die voor deze werkbon nodig zijn.",
     "fromTasks": "Vanuit taken",
     "fromTasksHint": "Deze materialen komen automatisch uit de taken op de werkbon.",
     "noTaskMaterials": "Nog geen materialen vanuit taken.",
