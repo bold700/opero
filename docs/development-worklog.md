@@ -811,7 +811,9 @@ files that changed.
   build passed, and the focused planning integration suite passed all 15 tests,
   including skipped dates, shared times, unscheduling, and moving one day from
   a multi-day schedule. Client and backend lint completed without errors; the
-  two existing client fast-refresh warnings remain.
+  two existing client fast-refresh warnings remain. Railway staging deployment
+  `1e198bcd-dd2a-4c10-ab10-9e52093766b5` completed successfully and its health
+  check reports both the API and database as available.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
@@ -838,7 +840,9 @@ files that changed.
 - **Delivered:** The action is available before a date is selected and opens
   the date picker. Choosing a date now immediately adds and saves that workday;
   there is no second confirmation action. The chosen day appears in the list
-  and is restored from the work order after a refresh.
+  and is restored from the work order after a refresh. Updated the staging API,
+  which had still been running the 30 September backend and therefore returned
+  success while ignoring the new exact-workday field.
 - **Verification:** Client type check and production build passed. Client lint
   completed without errors; its two existing fast-refresh warnings remain. The
   Vercel staging deployment reached `READY`, uses the staging API, contains the
