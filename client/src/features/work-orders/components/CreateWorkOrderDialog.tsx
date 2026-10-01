@@ -311,7 +311,14 @@ export function CreateWorkOrderDialog({
     <>
       <ResponsiveDialog open={open && !contactDialogOpen} onClose={submitting ? undefined : onClose} maxWidth="sm" title={t("workOrders.create.title")} stableHeight>
       <DialogTitle sx={{ fontWeight: 700 }}>{t("workOrders.create.title")}</DialogTitle>
-      <DialogContent>
+      <DialogContent
+        onKeyDown={(event) => {
+          if (event.ctrlKey && event.key === "Enter" && canSubmit && !submitting) {
+            event.preventDefault();
+            void submit();
+          }
+        }}
+      >
         {/* One flat column of fields. Progressive disclosure (new project → new
             location) extends this same column with a light divider + label — no
             nested cards, and the sheet holds a stable height so nothing jumps. */}
