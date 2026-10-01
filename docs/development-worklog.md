@@ -58,6 +58,7 @@ files that changed.
 | OPR-2026-037 | Improve mobile checklist reminder layout | Staging and production | Delivered | To reconcile |
 | OPR-2026-038 | Keep navigation inside the active project | Staging and production | Delivered | To reconcile |
 | OPR-2026-039 | Focus the project detail layout | Staging | Delivered | To reconcile |
+| OPR-2026-040 | Organize work-order detail into focused sections | Staging | Delivered | To reconcile |
 
 ## Work items
 
@@ -768,6 +769,28 @@ files that changed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
+### OPR-2026-040 — Organize work-order detail into focused sections
+
+- **Date:** 1 October 2026
+- **Request:** Replace the long work-order screen and several header shortcuts
+  with a compact menu for the main parts of a work order, while retaining the
+  note, activity, export, and delete actions in the header.
+- **Delivered:** Added four focused sections: Details for work-order and project
+  information; Control for daily materials, required materials and tools, the
+  release checklist, and lifecycle progress; Execution for zones, tasks, photos,
+  time registration, and extra work; and Attachments for project files,
+  work-order files, task photos, and packing slips. The menu is a compact card
+  on desktop and becomes a horizontal selector above the content on smaller
+  screens. Removed the duplicate information, attachment, and requirements
+  header actions. Notes and activity continue to open in side sheets, and export
+  and delete remain header actions.
+- **Verification:** Client type check and production build passed. Client lint
+  completed without errors; its two existing fast-refresh warnings remain. The
+  Vercel staging deployment reached `READY`, contains the new work-order section
+  bundle, uses the staging API, and is linked to `opero-test.vercel.app`.
+- **Status:** Delivered to staging.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -811,3 +834,4 @@ files that changed.
 | OPR-2026-037 |  |  |  |  |
 | OPR-2026-038 |  |  |  |  |
 | OPR-2026-039 |  |  |  |  |
+| OPR-2026-040 |  |  |  |  |
