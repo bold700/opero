@@ -61,7 +61,7 @@ files that changed.
 | OPR-2026-040 | Organize work-order detail into focused sections | Staging | Delivered | To reconcile |
 | OPR-2026-041 | Select exact workdays for multi-day work orders | Staging | Delivered | To reconcile |
 | OPR-2026-042 | Compact the work-order detail header | Staging | Delivered | To reconcile |
-| OPR-2026-043 | Make the add-workday action responsive | Staging | Ready for review | To reconcile |
+| OPR-2026-043 | Make the add-workday action responsive | Staging | Delivered | To reconcile |
 
 ## Work items
 
@@ -840,8 +840,10 @@ files that changed.
   there is no second confirmation action. The chosen day appears in the list
   and is restored from the work order after a refresh.
 - **Verification:** Client type check and production build passed. Client lint
-  completed without errors; its two existing fast-refresh warnings remain.
-- **Status:** Ready for review.
+  completed without errors; its two existing fast-refresh warnings remain. The
+  Vercel staging deployment reached `READY`, uses the staging API, contains the
+  updated planning bundle, and is linked to `opero-test.vercel.app`.
+- **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation
