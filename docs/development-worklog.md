@@ -809,7 +809,7 @@ files that changed.
   including skipped dates, shared times, unscheduling, and moving one day from
   a multi-day schedule. Client and backend lint completed without errors; the
   two existing client fast-refresh warnings remain.
-- **Status:** Ready for staging deployment.
+- **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation
