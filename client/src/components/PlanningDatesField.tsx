@@ -25,21 +25,15 @@ export function PlanningDatesField({
   const dates = [...new Set(value)].sort();
   const dateInPast = Boolean(nextDate && minimumDate && nextDate < minimumDate);
 
-  const addDate = () => {
-    if (!nextDate || dateInPast || dates.includes(nextDate)) return;
-    onChange([...dates, nextDate].sort());
-    setNextDate("");
-  };
+  const selectDate = (date: string) => {
+    setNextDate(date);
+    const selectedDateInPast = Boolean(date && minimumDate && date < minimumDate);
+    if (!date || selectedDateInPast || dates.includes(date)) return;
 
-  const handleAddDate = () => {
-    // The button is also the obvious entry point before a date is chosen. In
-    // that state, open the native calendar instead of leaving the user with a
-    // disabled add action.
-    if (!nextDate) {
-      dateInputRef.current?.click();
-      return;
-    }
-    addDate();
+    // A calendar selection is the complete action. Persist it immediately so
+    // there is no hidden second confirmation step that can be missed.
+    onChange([...dates, date].sort());
+    setNextDate("");
   };
 
   const formatDate = (date: string) =>
@@ -66,7 +60,7 @@ export function PlanningDatesField({
         <DateField
           label={t("planning.schedule.addDay")}
           value={nextDate}
-          onChange={(event) => setNextDate(event.target.value)}
+          onChange={(event) => selectDate(event.target.value)}
           inputRef={dateInputRef}
           disabled={disabled}
           size="small"
@@ -77,10 +71,10 @@ export function PlanningDatesField({
         <Button
           variant="outlined"
           startIcon={<AddIcon />}
-          onClick={handleAddDate}
-          disabled={disabled || dateInPast || dates.includes(nextDate)}
+          onClick={() => dateInputRef.current?.click()}
+          disabled={disabled}
         >
-          {t(nextDate ? "planning.schedule.add" : "planning.schedule.addDay")}
+          {t("planning.schedule.addDay")}
         </Button>
       </Box>
       {dates.length ? (

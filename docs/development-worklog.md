@@ -61,7 +61,7 @@ files that changed.
 | OPR-2026-040 | Organize work-order detail into focused sections | Staging | Delivered | To reconcile |
 | OPR-2026-041 | Select exact workdays for multi-day work orders | Staging | Delivered | To reconcile |
 | OPR-2026-042 | Compact the work-order detail header | Staging | Delivered | To reconcile |
-| OPR-2026-043 | Make the add-workday action responsive | Staging | Delivered | To reconcile |
+| OPR-2026-043 | Make the add-workday action responsive | Staging | Ready for review | To reconcile |
 
 ## Work items
 
@@ -835,15 +835,13 @@ files that changed.
 - **Date:** 1 October 2026
 - **Request:** Fix the workday planning control because pressing `Dag toevoegen`
   before choosing a date appeared to do nothing.
-- **Delivered:** The action is now available before a date is selected. It is
-  labelled `Werkdag kiezen` in that state and opens the date picker. After a
-  date is selected, it changes to `Dag toevoegen` and adds that date to the
-  work order.
+- **Delivered:** The action is available before a date is selected and opens
+  the date picker. Choosing a date now immediately adds and saves that workday;
+  there is no second confirmation action. The chosen day appears in the list
+  and is restored from the work order after a refresh.
 - **Verification:** Client type check and production build passed. Client lint
-  completed without errors; its two existing fast-refresh warnings remain. The
-  Vercel staging deployment reached `READY`, uses the staging API, contains the
-  updated picker copy, and is linked to `opero-test.vercel.app`.
-- **Status:** Delivered to staging.
+  completed without errors; its two existing fast-refresh warnings remain.
+- **Status:** Ready for review.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation
