@@ -10,7 +10,7 @@ import Divider from "@mui/material/Divider";
 import Link from "@mui/material/Link";
 import { Card } from "../../../components/Card";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
-import { AutosaveDateField } from "../../../components/AutosaveDateField";
+import { PlanningDatesField } from "../../../components/PlanningDatesField";
 import { SelectField } from "../../../components/SelectField";
 import { workOrderStatusIds, type WorkOrderStatus } from "@opero/shared";
 import { STATUS } from "../../work-orders/constants";
@@ -27,6 +27,7 @@ import type {
 import { isZoneComplete } from "./zoneStatus";
 import { CustomerContactBlock } from "./CustomerContactBlock";
 import { SelectedContactPersons } from "./SelectedContactPersons";
+import { workOrderPlanningDates } from "../../../lib/planningDates";
 
 // A labelled block.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -41,13 +42,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </Box>
   );
-}
-
-// Whole-number day span between two ISO dates, inclusive (matches opero-old).
-function durationDays(start?: string, end?: string): number {
-  if (!start) return 0;
-  const e = end ?? start;
-  return Math.round((Date.parse(e) - Date.parse(start)) / 86_400_000) + 1;
 }
 
 // The job-setup sidebar on the werkbon detail — "all the extra info on the side"
@@ -86,6 +80,7 @@ export function ProjectInfoPanel({
   onSetSchedule: (patch: {
     plannedDate?: string | null;
     plannedEndDate?: string | null;
+    plannedDates?: string[];
     startTime?: string;
     endTime?: string;
   }) => void;
@@ -107,7 +102,7 @@ export function ProjectInfoPanel({
    */
   bare?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // Customer options for the Klant switcher, loaded once for admins (the only
   // role that can switch). `pendingCustomer` holds the picked id until the
@@ -123,7 +118,7 @@ export function ProjectInfoPanel({
   const zones = workOrder.tasks;
   const doneCount = zones.filter(isZoneComplete).length;
   // Scheduling is per-WERKBON — dates come from the werkbon, not the project.
-  const days = durationDays(workOrder.plannedDate, workOrder.plannedEndDate);
+  const plannedDates = workOrderPlanningDates(workOrder);
   const hasOtherCustomerContacts = Boolean(
     workOrder.customer &&
       (workOrder.customer.contactName ||
@@ -266,66 +261,23 @@ export function ProjectInfoPanel({
               />
             </Field>
 
-            {/* Planning — start is the primary field; a one-day job needs only
-                the start (end defaults to "same day"). End is optional, for
-                multi-day jobs. The live day-count sits muted underneath. */}
+            {/* Planning uses exact workdays, so gaps and weekends stay free. */}
             <Field label={t("workOrderDetail.info.planning")}>
-              {/* Two date inputs side by side: a `type="date"` has a wide
-                  intrinsic minimum (the dd-mm-yyyy mask plus the picker icon),
-                  so on a phone they can't both fit a row — stack them.
-                  `mt: 1` pushes the fields down off the "PLANNING" caption: the
-                  date fields' own floating labels (Startdatum/Einddatum) were
-                  colliding with it. */}
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                  gap: 1.5,
-                  alignItems: "flex-end",
-                  mt: 1,
-                }}
-              >
-                {/* AutosaveDateField owns the commit timing so an open calendar
-                    is never disturbed: picking a day saves ~0.5s later, while
-                    stepping through months/years only restarts the debounce (in
-                    some browsers each step fires a `change`, which is what used
-                    to save + close the picker mid-navigation). It also refuses
-                    to touch the input while it's focused — a remount or a
-                    programmatic value write closes the picker just as surely.
-                    `disabled` is permission-only, NEVER `busy`: an unrelated
-                    concurrent mutation disabling this input would drop focus and
-                    close the picker too. */}
-                <AutosaveDateField
-                  size="small"
-                  label={t("workOrderDetail.info.startDate")}
-                  value={workOrder.plannedDate ?? ""}
-                  onCommit={(v) => onSetSchedule({ plannedDate: v || null })}
-                  disabled={!canEdit}
-                  sx={{ flex: 1 }}
-                />
-                <AutosaveDateField
-                  size="small"
-                  label={t("workOrderDetail.info.endDateOptional")}
-                  value={workOrder.plannedEndDate ?? ""}
-                  onCommit={(v) => onSetSchedule({ plannedEndDate: v || null })}
-                  // No range without a start date — that half of the guard stays.
-                  disabled={!canEdit || !workOrder.plannedDate}
-                  slotProps={{
-                    htmlInput: { min: workOrder.plannedDate, placeholder: t("workOrderDetail.info.sameDay") },
-                  }}
-                  sx={{ flex: 1 }}
-                />
-              </Box>
-              {workOrder.plannedDate ? (
+              <PlanningDatesField
+                value={plannedDates}
+                onChange={(dates) => onSetSchedule({ plannedDates: dates })}
+                disabled={!canEdit || busy}
+              />
+              {plannedDates.length ? (
                 <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5 }}>
-                  {t("workOrderDetail.info.daysValue", { count: days })}
+                  {t("workOrderDetail.info.daysValue", { count: plannedDates.length })}
                 </Typography>
               ) : null}
               {/* The visit's times — the same calendar slot the Planning screen
                   edits (one write path server-side, so they can't diverge).
                   Only offered once a date exists: a time without a scheduled
                   visit is meaningless and the backend rejects it. */}
-              {workOrder.plannedDate ? (
+              {plannedDates.length ? (
                 <Box sx={{ display: "flex", gap: 1.5, mt: 1.5 }}>
                   <SelectField
                     label={t("planning.schedule.startTime")}
@@ -528,16 +480,25 @@ export function ProjectInfoPanel({
           </>
         ) : (
           <>
-            {workOrder.plannedDate ? (
+            {plannedDates.length ? (
               <Field label={t("workOrderDetail.info.date")}>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  {workOrder.plannedDate}
-                  {workOrder.plannedEndDate ? ` – ${workOrder.plannedEndDate}` : ""}
-                  {days > 0 ? ` · ${t("workOrderDetail.info.daysValue", { count: days })}` : ""}
-                  {workOrder.startTime && workOrder.endTime
-                    ? ` · ${workOrder.startTime}–${workOrder.endTime}`
-                    : ""}
-                </Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  {plannedDates.map((date) => (
+                    <Typography key={date} variant="body2" sx={{ color: "text.secondary" }}>
+                      {new Date(`${date}T12:00:00`).toLocaleDateString(i18n.language, {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </Typography>
+                  ))}
+                  {workOrder.startTime && workOrder.endTime ? (
+                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      {workOrder.startTime}–{workOrder.endTime}
+                    </Typography>
+                  ) : null}
+                </Box>
               </Field>
             ) : null}
             {leaderName ? (

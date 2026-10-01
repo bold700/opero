@@ -26,11 +26,16 @@ export type RouteQuery = z.infer<typeof routeQuerySchema>;
 // schedulePlanningSlot(date, teamLeaderId) and scheduleProjectOnDay(date):
 // `date` is required; teamLeaderId/startTime/endTime/vehicle are optional.
 export const schedulePlanningSchema = z.object({
-  date: z.string().min(1),
+  date: z.string().min(1).optional(),
+  dates: z.array(z.string().min(1)).min(1).optional(),
+  sourceDate: z.string().min(1).optional(),
   teamLeaderId: z.string().nullable().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   vehicle: z.string().optional(),
+}).refine((value) => Boolean(value.date || value.dates?.length), {
+  message: "date or dates required",
+  path: ["dates"],
 });
 export type SchedulePlanningInput = z.infer<typeof schedulePlanningSchema>;
 

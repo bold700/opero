@@ -200,6 +200,32 @@ describe("werkbon PATCH keeps the planning calendar in sync", () => {
     expect((await slots()).map((s) => s.date)).toEqual(["2030-10-14"]);
   });
 
+  it("stores only the exact workdays selected by the office", async () => {
+    const res = await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ plannedDates: ["2030-10-14", "2030-10-16", "2030-10-18"] });
+    expect(res.status).toBe(200);
+    expect(res.body.plannedDates).toEqual([
+      "2030-10-14",
+      "2030-10-16",
+      "2030-10-18",
+    ]);
+    expect((await slots()).map((slot) => slot.date)).toEqual([
+      "2030-10-14",
+      "2030-10-16",
+      "2030-10-18",
+    ]);
+    expect(await calendarEntries("2030-10-15")).toHaveLength(0);
+
+    await request(app)
+      .patch(`/api/work-orders/${workOrderId}`)
+      .set(auth(adminToken))
+      .send({ startTime: "07:00", endTime: "16:00" });
+    expect((await slots()).every((slot) => slot.startTime === "07:00")).toBe(true);
+    expect((await slots()).every((slot) => slot.endTime === "16:00")).toBe(true);
+  });
+
   it("a time-only patch updates the slot and the detail, keeping the date", async () => {
     const res = await request(app)
       .patch(`/api/work-orders/${workOrderId}`)
@@ -290,5 +316,23 @@ describe("the planning route still drives the werkbon (other direction)", () => 
 
     expect((await workOrderRow()).plannedDate).toBeNull();
     expect(await slots()).toHaveLength(0);
+  });
+
+  it("moves one selected workday without changing the other days", async () => {
+    await request(app)
+      .post(`/api/planning/work-orders/${workOrderId}/planning`)
+      .set(auth(adminToken))
+      .send({ dates: ["2030-11-20", "2030-11-22"] });
+
+    const moved = await request(app)
+      .post(`/api/planning/work-orders/${workOrderId}/planning`)
+      .set(auth(adminToken))
+      .send({ date: "2030-11-23", sourceDate: "2030-11-22" });
+
+    expect(moved.status).toBe(201);
+    expect((await slots()).map((slot) => slot.date)).toEqual([
+      "2030-11-20",
+      "2030-11-23",
+    ]);
   });
 });

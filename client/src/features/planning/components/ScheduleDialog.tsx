@@ -7,7 +7,7 @@ import DialogActions from "@mui/material/DialogActions";
 import { ResponsiveDialog } from "../../../components/ResponsiveDialog";
 import { SelectField } from "../../../components/SelectField";
 import TextField from "@mui/material/TextField";
-import { DateField } from "../../../components/DateField";
+import { PlanningDatesField } from "../../../components/PlanningDatesField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
@@ -31,6 +31,7 @@ export function ScheduleDialog({
   employees,
   lockedWorkOrder,
   defaultDate,
+  defaultDates,
   defaultStartTime,
   defaultEndTime,
   defaultTeamLeaderId,
@@ -44,6 +45,7 @@ export function ScheduleDialog({
   employees: AssignableEmployee[];
   lockedWorkOrder?: { id: string; label: string } | null;
   defaultDate?: string;
+  defaultDates?: string[];
   /** Rescheduling: seed the form with the slot's current times + crew, so an
    *  edit starts from what is planned instead of an empty form. */
   defaultStartTime?: string;
@@ -57,15 +59,16 @@ export function ScheduleDialog({
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [workOrderId, setWorkOrderId] = useState("");
-  const [date, setDate] = useState("");
+  const [dates, setDates] = useState<string[]>([]);
   const [teamLeaderId, setTeamLeaderId] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const defaultDatesKey = (defaultDates ?? []).join(",");
 
   // What the form was seeded with, so an untouched reschedule can't be saved.
   // Null while creating: there is no "before" to compare a new slot against.
   const initialValues = useRef<{
-    date: string;
+    dates: string[];
     teamLeaderId: string;
     startTime: string;
     endTime: string;
@@ -74,13 +77,18 @@ export function ScheduleDialog({
   useEffect(() => {
     if (!open) return;
     setWorkOrderId(lockedWorkOrder?.id ?? "");
-    setDate(defaultDate ?? "");
+    const seededDates = defaultDatesKey
+      ? defaultDatesKey.split(",")
+      : defaultDate
+        ? [defaultDate]
+        : [];
+    setDates(seededDates);
     setTeamLeaderId(defaultTeamLeaderId ?? "");
     setStartTime(defaultStartTime ?? "");
     setEndTime(defaultEndTime ?? "");
     initialValues.current = lockedWorkOrder
       ? {
-          date: defaultDate ?? "",
+          dates: seededDates,
           teamLeaderId: defaultTeamLeaderId ?? "",
           startTime: defaultStartTime ?? "",
           endTime: defaultEndTime ?? "",
@@ -90,6 +98,7 @@ export function ScheduleDialog({
     open,
     lockedWorkOrder,
     defaultDate,
+    defaultDatesKey,
     defaultStartTime,
     defaultEndTime,
     defaultTeamLeaderId,
@@ -110,19 +119,28 @@ export function ScheduleDialog({
     }
   };
 
-  // Availability for the chosen day. Refetched when the date changes, because
+  // Availability for all chosen workdays. A technician is marked unavailable
+  // if any selected day overlaps an absence.
   // "who is available" is a property of the DAY, not of the dialog opening —
   // the `employees` prop is the undated list.
   const [availability, setAvailability] = useState<AssignableEmployee[] | null>(null);
   useEffect(() => {
-    if (!open || !date) {
+    if (!open || dates.length === 0) {
       setAvailability(null);
       return;
     }
     let cancelled = false;
-    getAssignableEmployees({ date })
-      .then((rows) => {
-        if (!cancelled) setAvailability(rows);
+    Promise.all(dates.map((date) => getAssignableEmployees({ date })))
+      .then((resultSets) => {
+        if (cancelled) return;
+        const merged = new Map<string, AssignableEmployee>();
+        for (const rows of resultSets) {
+          for (const row of rows) {
+            const current = merged.get(row.id);
+            merged.set(row.id, current?.unavailable ? current : row);
+          }
+        }
+        setAvailability([...merged.values()]);
       })
       // Availability is an enhancement: if the lookup fails, fall back to the
       // plain list rather than blocking scheduling entirely. The backend
@@ -133,7 +151,7 @@ export function ScheduleDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, date]);
+  }, [open, dates]);
 
   // Merge the annotation onto the prop list, so the options stay stable while
   // availability is still loading.
@@ -143,7 +161,7 @@ export function ScheduleDialog({
 
   // Can't schedule in the past.
   const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
-  const dateInPast = Boolean(date) && date < today;
+  const dateInPast = dates.some((date) => date < today);
 
   // Picking someone who is away is refused by the backend, so block it here
   // too rather than letting the office submit into a guaranteed error.
@@ -153,11 +171,11 @@ export function ScheduleDialog({
   // Rescheduling needs an actual change; creating only needs the required
   // fields (there is nothing to diff a brand-new slot against).
   const dirty = useDirty(
-    { date, teamLeaderId, startTime, endTime },
+    { dates, teamLeaderId, startTime, endTime },
     initialValues.current,
   );
   const canSubmit =
-    Boolean(workOrderId && date) &&
+    Boolean(workOrderId && dates.length) &&
     !dateInPast &&
     !leaderAbsence &&
     !timeRangeInvalid &&
@@ -166,7 +184,7 @@ export function ScheduleDialog({
 
   const submit = () =>
     onSubmit(workOrderId, {
-      date,
+      dates,
       teamLeaderId: teamLeaderId || null,
       startTime: startTime || undefined,
       endTime: endTime || undefined,
@@ -204,17 +222,11 @@ export function ScheduleDialog({
 
           {/* Local state, committed on submit — safe to keep `disabled={busy}`
               here (busy only flips when the dialog itself saves). */}
-          <DateField
-            label={t("planning.schedule.date")}
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+          <PlanningDatesField
+            value={dates}
+            onChange={setDates}
             disabled={busy}
-            size="small"
-            error={dateInPast}
-            helperText={dateInPast ? t("planning.schedule.dateInPast") : undefined}
-            slotProps={{
-              htmlInput: { min: today },
-            }}
+            minimumDate={today}
           />
 
           {/* Absent staff stay in the list, labelled with why — removing them

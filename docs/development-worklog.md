@@ -791,6 +791,27 @@ files that changed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
+### OPR-2026-041 — Select exact workdays for multi-day work orders
+
+- **Date:** 1 October 2026
+- **Request:** Replace continuous start and end date planning with a way for the
+  office to select the actual days that a technician will work on a work order.
+  Free days, other jobs, and weekends between those days must remain available.
+- **Delivered:** Added a shared workday selector to the work-order Details
+  section and the Planning schedule dialog. Each chosen day is shown separately
+  and can be removed without changing the other days. The calendar stores and
+  renders one planning slot per selected workday, while the work-order header
+  lists the selected dates instead of implying a continuous range. Dragging a
+  calendar item moves only that workday. Existing start/end schedules remain
+  readable and are converted to selected days when they are next edited.
+- **Verification:** Client and backend type checks passed, the client production
+  build passed, and the focused planning integration suite passed all 15 tests,
+  including skipped dates, shared times, unscheduling, and moving one day from
+  a multi-day schedule. Client and backend lint completed without errors; the
+  two existing client fast-refresh warnings remain.
+- **Status:** Ready for staging deployment.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -835,3 +856,4 @@ files that changed.
 | OPR-2026-038 |  |  |  |  |
 | OPR-2026-039 |  |  |  |  |
 | OPR-2026-040 |  |  |  |  |
+| OPR-2026-041 |  |  |  |  |

@@ -373,6 +373,7 @@ export function WorkOrderDetail() {
     onSetSchedule: (patch: {
       plannedDate?: string | null;
       plannedEndDate?: string | null;
+      plannedDates?: string[];
       startTime?: string;
       endTime?: string;
     }) =>

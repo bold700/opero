@@ -221,7 +221,12 @@ planningRouter.post(
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const input = schedulePlanningSchema.parse(req.body);
-    const date = clampText(input.date).trim();
+    const dates = input.dates
+      ? [...new Set(input.dates.map((value) => clampText(value).trim()))]
+          .filter(Boolean)
+          .sort()
+      : undefined;
+    const date = dates?.[0] ?? clampText(input.date ?? "").trim();
     if (!date) throw BadRequest("date required");
 
     const existing = await prisma.workOrder.findFirst({
@@ -269,12 +274,11 @@ planningRouter.post(
     // explicitly, and silently scheduling them anyway is how a job ends up with
     // nobody on site. The absence can be shortened or the leader changed.
     if (teamLeaderId) {
-      const absent = await absencesInRange(
-        user.orgId,
-        date,
-        newEnd ?? date,
-        [teamLeaderId],
-      );
+      const absent = dates
+        ? (await Promise.all(
+            dates.map((day) => absencesInRange(user.orgId, day, day, [teamLeaderId])),
+          )).flat()
+        : await absencesInRange(user.orgId, date, newEnd ?? date, [teamLeaderId]);
       if (absent.length > 0) {
         const a = absent[0];
         throw BadRequest(
@@ -288,7 +292,8 @@ planningRouter.post(
       // this route and the werkbon PATCH can never leave the two disagreeing.
       await applyWorkOrderSchedule(tx, user, existing, {
         date,
-        endDate: newEnd,
+        ...(dates ? { dates } : { endDate: newEnd }),
+        sourceDate: input.sourceDate,
         startTime,
         endTime,
         teamLeaderId,

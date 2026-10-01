@@ -49,6 +49,7 @@ export type PlanningEntry = {
   startTime?: string;
   endTime?: string;
   plannedEndDate?: string;
+  plannedDates?: string[];
   teamLeaderId?: string;
   teamLeaderName?: string;
   installerIds: string[];
@@ -82,7 +83,14 @@ export function planningEntriesForWorkOrder(
         date: item.date,
         startTime: item.startTime || undefined,
         endTime: item.endTime || undefined,
-        plannedEndDate: wo.plannedEndDate ?? undefined,
+        // Multiple slots are deliberately separate selected workdays. Only a
+        // legacy single-slot range may be expanded as a continuous span.
+        plannedEndDate:
+          wo.planningItems.length === 1 ? wo.plannedEndDate ?? undefined : undefined,
+        plannedDates:
+          wo.planningItems.length > 1
+            ? wo.planningItems.map((slot) => slot.date).sort()
+            : undefined,
         teamLeaderId: item.teamLeaderId ?? project.teamLeaderId ?? undefined,
         teamLeaderName:
           item.teamLeader?.name ?? project.teamLeader?.name ?? undefined,

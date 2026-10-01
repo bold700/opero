@@ -418,11 +418,20 @@ workOrdersRouter.get(
     }
 
     if (dateFrom || dateTo) {
+      const dateRange = {
+        ...(dateFrom ? { gte: dateFrom } : {}),
+        ...(dateTo ? { lte: dateTo } : {}),
+      };
       filters.push({
-        plannedDate: {
-          ...(dateFrom ? { gte: dateFrom } : {}),
-          ...(dateTo ? { lte: dateTo } : {}),
-        },
+        OR: [
+          { planningItems: { some: { date: dateRange } } },
+          {
+            AND: [
+              { planningItems: { none: {} } },
+              { plannedDate: dateRange },
+            ],
+          },
+        ],
       });
     }
 
@@ -1019,6 +1028,7 @@ workOrdersRouter.patch(
     const timesChanged =
       input.startTime !== undefined || input.endTime !== undefined;
     const schedulingChanged =
+      input.plannedDates !== undefined ||
       input.plannedDate !== undefined ||
       input.plannedEndDate !== undefined ||
       timesChanged;
@@ -1032,7 +1042,7 @@ workOrdersRouter.patch(
             plannedEndDate: true,
             planningItems: {
               orderBy: { date: "asc" },
-              select: { id: true, startTime: true, endTime: true },
+              select: { id: true, date: true, startTime: true, endTime: true },
             },
             assignees: { select: { id: true } },
             project: { select: { projectLeaderId: true, teamLeaderId: true } },
@@ -1096,6 +1106,28 @@ workOrdersRouter.patch(
       }
 
       if (scheduleTarget) {
+        const exactDates = input.plannedDates
+          ? [...new Set(input.plannedDates.map((date) => clampText(date).trim()))]
+              .filter(Boolean)
+              .sort()
+          : timesChanged &&
+              input.plannedDate === undefined &&
+              input.plannedEndDate === undefined &&
+              scheduleTarget.planningItems.length > 1
+            ? scheduleTarget.planningItems.map((item) => item.date)
+            : undefined;
+        if (exactDates && exactDates.length === 0) {
+          if (timesChanged) {
+            throw BadRequest("Cannot set a time on an unscheduled work order");
+          }
+          await clearWorkOrderSchedule(tx, user, scheduleTarget);
+        } else if (exactDates) {
+          await applyWorkOrderSchedule(tx, user, scheduleTarget, {
+            dates: exactDates,
+            ...(input.startTime !== undefined ? { startTime: input.startTime } : {}),
+            ...(input.endTime !== undefined ? { endTime: input.endTime } : {}),
+          });
+        } else {
         const nextStart =
           input.plannedDate !== undefined
             ? input.plannedDate || null
@@ -1130,6 +1162,7 @@ workOrdersRouter.patch(
             scheduleTarget,
             input.plannedEndDate || null,
           );
+        }
         }
       }
 

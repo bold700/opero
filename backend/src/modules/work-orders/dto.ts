@@ -85,9 +85,9 @@ export type WorkOrderWithRelations = WorkOrder & {
   prejobItems?: WorkOrderPrejobItem[];
   signedBy?: { name: string } | null;
   assignees?: { id: string; name: string }[];
-  // The werkbon's calendar slot (one per werkbon; multi-day = one slot on the
-  // start date + plannedEndDate). Carries the visit's times for the detail.
-  planningItems?: { startTime: string; endTime: string }[];
+  // Calendar slots for the werkbon. New multi-day planning stores one slot per
+  // explicitly selected workday; legacy ranges can still contain one slot.
+  planningItems?: { date: string; startTime: string; endTime: string }[];
   invoice?: { status: string } | null;
   contacts?: {
     id: string;
@@ -450,6 +450,10 @@ export async function workOrderDto(wb: WorkOrderWithRelations, role: UserRole) {
     // times from its calendar slot (the store the Planning screen edits).
     plannedDate: wb.plannedDate ?? undefined,
     plannedEndDate: wb.plannedEndDate ?? undefined,
+    plannedDates:
+      wb.planningItems && wb.planningItems.length > 1
+        ? wb.planningItems.map((item) => item.date)
+        : undefined,
     startTime: wb.planningItems?.[0]?.startTime ?? undefined,
     endTime: wb.planningItems?.[0]?.endTime ?? undefined,
     tasks,
@@ -508,7 +512,7 @@ export const workOrderInclude = {
   assignees: { select: { id: true, name: true } },
   planningItems: {
     orderBy: { date: "asc" as const },
-    select: { startTime: true, endTime: true },
+    select: { date: true, startTime: true, endTime: true },
   },
   invoice: { select: { status: true } },
   // Customer CONTACT data only (name/phone/email + the contact-person list) —

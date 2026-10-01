@@ -37,6 +37,7 @@ export const updateWorkOrderSchema = z
     // The werkbon is the scheduled visit — its date(s) live here.
     plannedDate: z.string().nullable().optional(),
     plannedEndDate: z.string().nullable().optional(),
+    plannedDates: z.array(z.string().min(1)).optional(),
     // THIS visit's priority (per-werkbon; feeds its own listStatus).
     urgency: z.enum(["normal", "urgent"]).optional(),
     // The visit's start/end time. Written to the werkbon's calendar slot via

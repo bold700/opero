@@ -6,6 +6,7 @@ import { SPACING, STATUS_TONES } from "../../../theme/tokens";
 import { STATUS, WORK_ORDER_PHASE_TONES } from "../../work-orders/constants";
 import { URGENCY } from "../constants";
 import type { Project, WorkOrder } from "../api";
+import { workOrderPlanningDates } from "../../../lib/planningDates";
 
 function formatAddress(project: Project): string {
   const cityLine = [project.postalCode, project.city].filter(Boolean).join(" ");
@@ -32,10 +33,9 @@ export function WorkOrderHeaderSummary({
     workOrder.title ||
     t("workOrderDetail.header.defaultTitle", { n: workOrder.ordinal + 1 });
   const address = formatAddress(project);
-  const planning = workOrder.plannedDate
-    ? `${formatDate(workOrder.plannedDate)} – ${formatDate(
-        workOrder.plannedEndDate ?? workOrder.plannedDate,
-      )}`
+  const plannedDates = workOrderPlanningDates(workOrder);
+  const planning = plannedDates.length
+    ? plannedDates.map(formatDate).join(" · ")
     : t("workOrderDetail.header.notPlanned");
   const phaseStatus = `${t(`workOrderDetail.phase.${workOrder.phase}`)} – ${t(
     STATUS[workOrder.status].labelKey,

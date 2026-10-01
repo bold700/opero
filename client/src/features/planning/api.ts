@@ -14,6 +14,7 @@ export type PlanningEntry = {
   startTime?: string; // HH:MM
   endTime?: string; // HH:MM
   plannedEndDate?: string;
+  plannedDates?: string[];
   teamLeaderId?: string;
   teamLeaderName?: string;
   installerIds: string[];
@@ -33,7 +34,9 @@ export function getPlanning(from?: string, to?: string): Promise<PlanningEntry[]
 // --- Scheduling -----------------------------------------------------------
 
 export type ScheduleInput = {
-  date: string;
+  date?: string;
+  dates?: string[];
+  sourceDate?: string;
   teamLeaderId?: string | null;
   startTime?: string;
   endTime?: string;

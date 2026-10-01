@@ -36,6 +36,7 @@ import {
 import { ScheduleDialog } from "./components/ScheduleDialog";
 import { STATUS } from "../work-orders/constants";
 import type { WorkOrderStatus } from "../work-orders/api";
+import { expandPlanningDates } from "../../lib/planningDates";
 
 export function Planning() {
   const { t, i18n } = useTranslation();
@@ -201,7 +202,12 @@ export function Planning() {
     }
     setBusy(true);
     try {
-      await scheduleWorkOrder(entry.workOrderId, { date, startTime, endTime });
+      await scheduleWorkOrder(entry.workOrderId, {
+        date,
+        sourceDate: entry.date,
+        startTime,
+        endTime,
+      });
       setToast(t("planning.toast.scheduled"));
       refresh();
     } catch (e) {
@@ -370,6 +376,13 @@ export function Planning() {
             : null
         }
         defaultDate={defaultDate}
+        defaultDates={
+          editing
+            ? editing.plannedDates ?? expandPlanningDates(editing.date, editing.plannedEndDate)
+            : defaultDate
+              ? [defaultDate]
+              : []
+        }
         // Rescheduling seeds the slot's current times/crew; creating starts blank.
         defaultStartTime={editing?.startTime}
         defaultEndTime={editing?.endTime}

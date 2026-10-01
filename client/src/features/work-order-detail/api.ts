@@ -247,6 +247,7 @@ export type WorkOrder = {
   // werkbon is scheduled (a slot always carries times, defaults 08:00–15:30).
   plannedDate?: string;
   plannedEndDate?: string;
+  plannedDates?: string[];
   startTime?: string;
   endTime?: string;
   tasks: WorkOrderTask[];
@@ -505,6 +506,7 @@ export function setWorkOrderSchedule(
   patch: {
     plannedDate?: string | null;
     plannedEndDate?: string | null;
+    plannedDates?: string[];
     startTime?: string;
     endTime?: string;
   },

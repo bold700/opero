@@ -33,14 +33,18 @@ export type SchedulableWorkOrder = {
   projectId: string;
   plannedDate: string | null;
   plannedEndDate: string | null;
-  planningItems: { id: string }[];
+  planningItems: { id: string; date: string }[];
   assignees: { id: string }[];
   project: { projectLeaderId: string | null; teamLeaderId: string | null };
 };
 
 export type ApplyScheduleInput = {
   /** The (new) start date, "YYYY-MM-DD". */
-  date: string;
+  date?: string;
+  /** Exact workdays. Supplying this replaces the complete set of days. */
+  dates?: string[];
+  /** Existing day being moved by drag and drop. */
+  sourceDate?: string;
   /**
    * Explicit end date. Omit to preserve the werkbon's existing duration by
    * shifting the end by the same span (the planning route's behaviour); pass
@@ -74,9 +78,9 @@ export function shiftedEndDate(
  * Set/move the werkbon's schedule: upsert its PlanningItem AND write
  * plannedDate/plannedEndDate.
  *
- * Multi-day is modelled as ONE slot on the start date plus a plannedEndDate
- * range (not one slot per day) — the calendar entry carries plannedEndDate, so
- * the renderer has the span without N rows to keep in sync.
+ * New multi-day schedules use one slot per explicitly selected workday. The
+ * legacy single-slot plus plannedEndDate range remains supported while old
+ * records are converted the next time the office edits their dates.
  *
  * Only the date moves on an existing slot: its times, crew and vehicle are
  * preserved unless explicitly passed. That's what lets the werkbon date field
@@ -91,7 +95,98 @@ export async function applyWorkOrderSchedule(
   workOrder: SchedulableWorkOrder,
   input: ApplyScheduleInput,
 ): Promise<void> {
-  const { date, startTime, endTime, teamLeaderId, vehicle } = input;
+  const { startTime, endTime, teamLeaderId, vehicle } = input;
+  const exactDates = input.dates
+    ? [...new Set(input.dates)].filter(Boolean).sort()
+    : null;
+
+  if (exactDates) {
+    if (exactDates.length === 0) return;
+    const existingSlots = await tx.planningItem.findMany({
+      where: { workOrderId: workOrder.id },
+      orderBy: { date: "asc" },
+      include: { installers: { select: { id: true } } },
+    });
+    const template = existingSlots[0];
+
+    await tx.planningItem.deleteMany({ where: { workOrderId: workOrder.id } });
+    for (const date of exactDates) {
+      const createData: Prisma.PlanningItemCreateInput = {
+        workOrder: { connect: { id: workOrder.id } },
+        date,
+        startTime: startTime ?? template?.startTime ?? DEFAULT_START_TIME,
+        endTime: endTime ?? template?.endTime ?? DEFAULT_END_TIME,
+        vehicle: vehicle ?? template?.vehicle ?? DEFAULT_VEHICLE,
+        installers: {
+          connect: (template?.installers.length
+            ? template.installers
+            : workOrder.assignees
+          ).map((person) => ({ id: person.id })),
+        },
+      };
+      const projectLeaderId = template?.projectLeaderId ?? workOrder.project.projectLeaderId;
+      if (projectLeaderId) {
+        createData.projectLeader = { connect: { id: projectLeaderId } };
+      }
+      const slotTeamLeaderId =
+        teamLeaderId !== undefined
+          ? teamLeaderId
+          : template?.teamLeaderId ?? workOrder.project.teamLeaderId;
+      if (slotTeamLeaderId) {
+        createData.teamLeader = { connect: { id: slotTeamLeaderId } };
+      }
+      await tx.planningItem.create({ data: createData });
+    }
+
+    await tx.workOrder.update({
+      where: { id: workOrder.id },
+      data: {
+        plannedDate: exactDates[0],
+        plannedEndDate: exactDates.length > 1 ? exactDates.at(-1) : null,
+      },
+    });
+    await audit(tx, user, "planning.schedule", "workOrder", workOrder.id, {
+      dates: exactDates,
+      teamLeaderId,
+    });
+    return;
+  }
+
+  const date = input.date;
+  if (!date) return;
+
+  if (input.sourceDate) {
+    const slot = workOrder.planningItems.find((item) => item.date === input.sourceDate);
+    if (slot) {
+      await tx.planningItem.update({
+        where: { id: slot.id },
+        data: {
+          date,
+          ...(startTime !== undefined ? { startTime } : {}),
+          ...(endTime !== undefined ? { endTime } : {}),
+        },
+      });
+      const days = (
+        await tx.planningItem.findMany({
+          where: { workOrderId: workOrder.id },
+          select: { date: true },
+          orderBy: { date: "asc" },
+        })
+      ).map((item) => item.date);
+      await tx.workOrder.update({
+        where: { id: workOrder.id },
+        data: {
+          plannedDate: days[0] ?? date,
+          plannedEndDate: days.length > 1 ? days.at(-1) : null,
+        },
+      });
+      await audit(tx, user, "planning.schedule", "workOrder", workOrder.id, {
+        date,
+        sourceDate: input.sourceDate,
+      });
+      return;
+    }
+  }
   const plannedEndDate =
     input.endDate !== undefined ? input.endDate : shiftedEndDate(workOrder, date);
 
