@@ -7,6 +7,10 @@ import { STATUS, WORK_ORDER_PHASE_TONES } from "../../work-orders/constants";
 import { URGENCY } from "../constants";
 import type { Project, WorkOrder } from "../api";
 import { workOrderPlanningDates } from "../../../lib/planningDates";
+import {
+  WorkOrderSiblingNavigation,
+  type WorkOrderSiblingNavigationProps,
+} from "./WorkOrderSiblingNavigation";
 
 function formatAddress(project: Project): string {
   const cityLine = [project.postalCode, project.city].filter(Boolean).join(" ");
@@ -17,10 +21,12 @@ export function WorkOrderHeaderSummary({
   workOrder,
   project,
   finished,
+  siblingNavigation,
 }: {
   workOrder: WorkOrder;
   project: Project;
   finished: boolean;
+  siblingNavigation?: WorkOrderSiblingNavigationProps;
 }) {
   const { t, i18n } = useTranslation();
   const formatDate = (iso: string) =>
@@ -71,6 +77,7 @@ export function WorkOrderHeaderSummary({
             tone={STATUS_TONES.success}
           />
         ) : null}
+        {siblingNavigation ? <WorkOrderSiblingNavigation {...siblingNavigation} /> : null}
       </Box>
 
       <Box

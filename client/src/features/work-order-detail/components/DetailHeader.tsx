@@ -19,10 +19,7 @@ import Badge from "@mui/material/Badge";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { TAP_TARGET } from "../../../theme/tokens";
 import { WorkOrderHeaderSummary } from "./WorkOrderHeaderSummary";
-import {
-  WorkOrderSiblingNavigation,
-  type WorkOrderSiblingNavigationProps,
-} from "./WorkOrderSiblingNavigation";
+import type { WorkOrderSiblingNavigationProps } from "./WorkOrderSiblingNavigation";
 import type { Project, WorkOrder } from "../api";
 
 // Detail header — mirrors opero-old's project-detail header (the layout the
@@ -106,10 +103,12 @@ export function DetailHeader({
           >
             <ArrowBackIcon />
           </IconButton>
-          <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <WorkOrderHeaderSummary workOrder={workOrder} project={project} finished={finished} />
-            {siblingNavigation ? <WorkOrderSiblingNavigation {...siblingNavigation} /> : null}
-          </Box>
+          <WorkOrderHeaderSummary
+            workOrder={workOrder}
+            project={project}
+            finished={finished}
+            siblingNavigation={siblingNavigation}
+          />
         </Box>
 
         {/* Right: icon actions (export, add-zone) then the primary button.

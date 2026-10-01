@@ -216,7 +216,7 @@ export function WorkOrderDetail() {
 
   if (loading) {
     return (
-      <PageLayout title={t("workOrderDetail.title")}>
+      <PageLayout title={t("workOrderDetail.title")} hideTopBar>
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>
@@ -225,7 +225,7 @@ export function WorkOrderDetail() {
   }
   if (error || !wo || !project) {
     return (
-      <PageLayout title={t("workOrderDetail.title")}>
+      <PageLayout title={t("workOrderDetail.title")} hideTopBar>
         <Alert severity="error">{error ?? t("workOrderDetail.notFound")}</Alert>
       </PageLayout>
     );
@@ -435,7 +435,7 @@ export function WorkOrderDetail() {
   };
 
   return (
-    <PageLayout title={t("workOrderDetail.title")}>
+    <PageLayout title={t("workOrderDetail.title")} hideTopBar>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
         {/* Why the werkbon is read-only for this monteur, stated before anything
             else on the page. Office releases it with "Monteur op pad sturen". */}

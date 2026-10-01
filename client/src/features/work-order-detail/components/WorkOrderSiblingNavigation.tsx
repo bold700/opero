@@ -33,6 +33,7 @@ export function WorkOrderSiblingNavigation({
         alignItems: "center",
         gap: SPACING.itemGap,
         color: "text.secondary",
+        flexShrink: 0,
       }}
     >
       <Tooltip title={t("workOrderDetail.header.previousWorkOrder")}>

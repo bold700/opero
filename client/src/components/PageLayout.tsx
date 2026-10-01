@@ -68,10 +68,12 @@ export function PageLayout({
   title,
   actions,
   children,
+  hideTopBar = false,
 }: {
   title: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
+  hideTopBar?: boolean;
 }) {
   // The page is a fixed-height frame: a static header on top + a single scroll
   // region below it. Only the content scrolls; the header is a flex sibling
@@ -87,7 +89,7 @@ export function PageLayout({
         minHeight: 0,
       }}
     >
-      <TopBar title={title} actions={actions} />
+      {hideTopBar ? null : <TopBar title={title} actions={actions} />}
       <Box
         sx={{
           flex: 1,

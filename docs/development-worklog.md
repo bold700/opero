@@ -59,6 +59,8 @@ files that changed.
 | OPR-2026-038 | Keep navigation inside the active project | Staging and production | Delivered | To reconcile |
 | OPR-2026-039 | Focus the project detail layout | Staging | Delivered | To reconcile |
 | OPR-2026-040 | Organize work-order detail into focused sections | Staging | Delivered | To reconcile |
+| OPR-2026-041 | Select exact workdays for multi-day work orders | Staging | Delivered | To reconcile |
+| OPR-2026-042 | Compact the work-order detail header | Staging | Ready for review | To reconcile |
 
 ## Work items
 
@@ -812,6 +814,19 @@ files that changed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
+### OPR-2026-042 — Compact the work-order detail header
+
+- **Date:** 1 October 2026
+- **Request:** Remove the separate page title from the work-order detail page and
+  keep the project position information inside the work-order header.
+- **Delivered:** Removed the duplicate `Werkbon` title bar from the detail page.
+  The previous and next work-order controls and `Werkbon x van y` position now
+  sit alongside the work-order name, number, and status in the main header.
+- **Verification:** Client type check and production build passed. Client lint
+  completed without errors; its two existing fast-refresh warnings remain.
+- **Status:** Ready for review.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -857,3 +872,4 @@ files that changed.
 | OPR-2026-039 |  |  |  |  |
 | OPR-2026-040 |  |  |  |  |
 | OPR-2026-041 |  |  |  |  |
+| OPR-2026-042 |  |  |  |  |
