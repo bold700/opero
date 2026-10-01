@@ -19,7 +19,7 @@ import type {
   WorkDay,
   WorkOrder,
 } from "../api";
-import { WorkOrderSideSheet } from "./WorkOrderSideSheet";
+import { SideSheet } from "../../../components/SideSheet";
 
 function localIsoDay(): string {
   const now = new Date();
@@ -301,8 +301,8 @@ export function WorkDayMaterialSheet({
   }
 
   return (
-    <WorkOrderSideSheet open={open} onClose={onClose} title={title} closeLabel={t("common.actions.close")}>
+    <SideSheet open={open} onClose={onClose} title={title} closeLabel={t("common.actions.close")}>
       {content}
-    </WorkOrderSideSheet>
+    </SideSheet>
   );
 }

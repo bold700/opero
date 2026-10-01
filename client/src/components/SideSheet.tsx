@@ -3,15 +3,15 @@ import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
-import { AnimatedSideSheet } from "../../../components/AnimatedSideSheet";
+import { AnimatedSideSheet } from "./AnimatedSideSheet";
 import {
   HAIRLINE,
   PAGE_PADDING_RESPONSIVE,
   SIDE_SHEET_WIDTH,
   SPACING,
-} from "../../../theme/tokens";
+} from "../theme/tokens";
 
-export function WorkOrderSideSheet({
+export function SideSheet({
   open,
   onClose,
   title,

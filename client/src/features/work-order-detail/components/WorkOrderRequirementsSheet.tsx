@@ -8,7 +8,7 @@ import { useIsMobile } from "../../../lib/useIsMobile";
 import { HAIRLINE, PAGE_PADDING_RESPONSIVE, SPACING } from "../../../theme/tokens";
 import type { WorkOrder } from "../api";
 import { RequirementsContent } from "./RequirementsContent";
-import { WorkOrderSideSheet } from "./WorkOrderSideSheet";
+import { SideSheet } from "../../../components/SideSheet";
 
 export function WorkOrderRequirementsSheet({
   open,
@@ -89,13 +89,13 @@ export function WorkOrderRequirementsSheet({
   }
 
   return (
-    <WorkOrderSideSheet
+    <SideSheet
       open={open}
       onClose={onClose}
       title={t("workOrderDetail.requirements.title")}
       closeLabel={t("common.actions.close")}
     >
       {content}
-    </WorkOrderSideSheet>
+    </SideSheet>
   );
 }

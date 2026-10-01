@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import { PAGE_PADDING_RESPONSIVE } from "../../../theme/tokens";
 import { ProjectInfoPanel } from "./ProjectInfoPanel";
-import { WorkOrderSideSheet } from "./WorkOrderSideSheet";
+import { SideSheet } from "../../../components/SideSheet";
 import type { ComponentProps } from "react";
 
 // Projectinfo as a bottom sheet, for when the werkbon layout has collapsed to a
@@ -23,7 +23,7 @@ export function ProjectInfoSheet({
   const { t } = useTranslation();
 
   return (
-    <WorkOrderSideSheet
+    <SideSheet
       open={open}
       onClose={onClose}
       title={t("workOrderDetail.info.title")}
@@ -32,6 +32,6 @@ export function ProjectInfoSheet({
       <Box sx={{ p: PAGE_PADDING_RESPONSIVE }}>
         <ProjectInfoPanel bare {...panel} />
       </Box>
-    </WorkOrderSideSheet>
+    </SideSheet>
   );
 }

@@ -102,6 +102,7 @@
   },
   "attachments": {
     "title": "Projectbestanden",
+    "documents": "Bestanden",
     "empty": "Nog geen bestanden.",
     "add": "Bestand toevoegen"
   }

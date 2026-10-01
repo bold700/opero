@@ -4,8 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import Badge from "@mui/material/Badge";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -13,14 +15,14 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
 import UnarchiveOutlinedIcon from "@mui/icons-material/UnarchiveOutlined";
+import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
+import HistoryIcon from "@mui/icons-material/History";
 import { PageLayout } from "../../components/PageLayout";
 import { Card } from "../../components/Card";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ResponsiveList } from "../../components/ResponsiveList";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { ActivityPanel } from "../../components/ActivityPanel";
-import { AttachmentsPanel } from "../../components/AttachmentsPanel";
-import { STATUS_TONES, SPACING } from "../../theme/tokens";
+import { STATUS_TONES, SPACING, TAP_TARGET } from "../../theme/tokens";
 import { STATUS as WORK_ORDER_STATUS } from "../../features/work-orders/constants";
 import type { WorkOrderStatus } from "../../features/work-orders/api";
 import { useApi } from "../../lib/api/useApi";
@@ -43,6 +45,8 @@ import {
 import { PROJECT_LIFECYCLE_STATUS_TONES, euro } from "./constants";
 import { ProjectFormDialog } from "./components/ProjectFormDialog";
 import { ProjectInfoField } from "./components/ProjectInfoField";
+import { ProjectActivitySheet } from "./components/ProjectActivitySheet";
+import { ProjectAttachmentsSheet } from "./components/ProjectAttachmentsSheet";
 
 // Project detail — the grouping view: header + info + the project's werkbonnen.
 // Open a werkbon → its detail. Add a werkbon under this project. Admin edits /
@@ -70,6 +74,8 @@ export function ProjectDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [deletingWo, setDeletingWo] = useState<ProjectWorkOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -184,6 +190,27 @@ export function ProjectDetail() {
     }
   };
 
+  const uploadAttachment = (file: File) => {
+    setBusy(true);
+    uploadProjectAttachment(project.id, file)
+      .then(setProject)
+      .catch((e) => setActionError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(false));
+  };
+
+  const removeAttachment = (attachmentId: string) => {
+    setBusy(true);
+    deleteProjectAttachment(project.id, attachmentId)
+      .then(setProject)
+      .catch((e) => setActionError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(false));
+  };
+
+  const addComment = async (body: string) => {
+    const activity = await addProjectComment(project.id, body);
+    setProject((current) => (current ? { ...current, activity } : current));
+  };
+
   return (
     <PageLayout title={t("projects.title")}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: SPACING.sectionGap }}>
@@ -191,7 +218,15 @@ export function ProjectDetail() {
         {project.archived ? <Alert severity="info">{t("projects.detail.archivedNotice")}</Alert> : null}
 
         {/* Header */}
-        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
+        >
           <IconButton aria-label={t("common.actions.back")} onClick={() => navigate("/projects")} sx={{ mt: -0.5, ml: -1 }}>
             <ArrowBackIcon />
           </IconButton>
@@ -217,31 +252,70 @@ export function ProjectDetail() {
               {project.customerName} · {project.address}, {project.city}
             </Typography>
           </Box>
-          {canManage ? (
-            <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0 }}>
-              {!project.archived ? (
-                <IconButton aria-label={t("common.actions.edit")} onClick={() => setEditOpen(true)} disabled={busy}>
-                  <EditOutlinedIcon />
-                </IconButton>
-              ) : null}
-              {project.archived || canArchive ? (
-                <IconButton
-                  aria-label={t(project.archived ? "projects.actions.restore" : "projects.actions.archive")}
-                  onClick={project.archived ? runRestore : () => setArchiveOpen(true)}
-                  disabled={busy}
-                >
-                  {project.archived ? <UnarchiveOutlinedIcon /> : <ArchiveOutlinedIcon />}
-                </IconButton>
-              ) : null}
-              <IconButton aria-label={t("common.actions.delete")} onClick={() => setDeleteOpen(true)} disabled={busy}>
-                <DeleteOutlineIcon />
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              flexWrap: "wrap",
+              minWidth: 0,
+              flexShrink: { xs: 1, sm: 0 },
+            }}
+          >
+            <Tooltip title={t("projects.attachments.title")}>
+              <IconButton
+                aria-label={t("projects.attachments.title")}
+                onClick={() => setAttachmentsOpen(true)}
+                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
+              >
+                <Badge badgeContent={project.attachments.length} color="primary" max={99}>
+                  <AttachFileOutlinedIcon />
+                </Badge>
               </IconButton>
-            </Box>
-          ) : null}
+            </Tooltip>
+            <Tooltip title={t("activity.title")}>
+              <IconButton
+                aria-label={t("activity.title")}
+                onClick={() => setActivityOpen(true)}
+                sx={{ width: TAP_TARGET, height: TAP_TARGET }}
+              >
+                <HistoryIcon />
+              </IconButton>
+            </Tooltip>
+            {canManage ? (
+              <>
+                {!project.archived ? (
+                  <IconButton aria-label={t("common.actions.edit")} onClick={() => setEditOpen(true)} disabled={busy}>
+                    <EditOutlinedIcon />
+                  </IconButton>
+                ) : null}
+                {project.archived || canArchive ? (
+                  <IconButton
+                    aria-label={t(project.archived ? "projects.actions.restore" : "projects.actions.archive")}
+                    onClick={project.archived ? runRestore : () => setArchiveOpen(true)}
+                    disabled={busy}
+                  >
+                    {project.archived ? <UnarchiveOutlinedIcon /> : <ArchiveOutlinedIcon />}
+                  </IconButton>
+                ) : null}
+                <IconButton aria-label={t("common.actions.delete")} onClick={() => setDeleteOpen(true)} disabled={busy}>
+                  <DeleteOutlineIcon />
+                </IconButton>
+              </>
+            ) : null}
+          </Box>
         </Box>
 
         {/* Werkbonnen — the visits this project groups. */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 3fr) minmax(0, 2fr)" },
+            gap: SPACING.sectionGap,
+            alignItems: "start",
+          }}
+        >
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, minWidth: 0 }}>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>{t("projects.detail.workOrders")}</Typography>
             {canManage && !project.archived ? (
@@ -374,45 +448,25 @@ export function ProjectDetail() {
             ) : null}
           </Box>
         </Card>
+        </Box>
 
-        {/* Project files — visible from every werkbon in this project. */}
-        <AttachmentsPanel
-          attachments={project.attachments}
-          canWrite={canManage && !project.archived}
-          busy={busy}
-          title={t("projects.attachments.title")}
-          emptyText={t("projects.attachments.empty")}
-          addLabel={t("projects.attachments.add")}
-          onUpload={(file) => {
-            setBusy(true);
-            uploadProjectAttachment(project.id, file)
-              .then(setProject)
-              .catch((e) => setActionError(e instanceof Error ? e.message : String(e)))
-              .finally(() => setBusy(false));
-          }}
-          onDelete={(attachmentId) => {
-            setBusy(true);
-            deleteProjectAttachment(project.id, attachmentId)
-              .then(setProject)
-              .catch((e) => setActionError(e instanceof Error ? e.message : String(e)))
-              .finally(() => setBusy(false));
-          }}
-        />
-
-        {/* Activity — the project's timeline (comments + system events), the
-            same feed the werkbon detail page shows. */}
-        <ActivityPanel
-          activity={project.activity}
-          onAddComment={
-            project.archived
-              ? undefined
-              : async (body) => {
-                  const activity = await addProjectComment(project.id, body);
-                  setProject((p) => (p ? { ...p, activity } : p));
-                }
-          }
-        />
       </Box>
+
+      <ProjectAttachmentsSheet
+        open={attachmentsOpen}
+        onClose={() => setAttachmentsOpen(false)}
+        attachments={project.attachments}
+        canWrite={canManage && !project.archived}
+        busy={busy}
+        onUpload={uploadAttachment}
+        onDelete={removeAttachment}
+      />
+      <ProjectActivitySheet
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        activity={project.activity}
+        onAddComment={project.archived ? undefined : addComment}
+      />
 
       {canManage && !project.archived ? (
         <ProjectFormDialog

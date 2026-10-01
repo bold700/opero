@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import { ActivityPanel } from "../../../components/ActivityPanel";
 import { PAGE_PADDING_RESPONSIVE } from "../../../theme/tokens";
-import { WorkOrderSideSheet } from "./WorkOrderSideSheet";
+import { SideSheet } from "../../../components/SideSheet";
 import { MentionComposer } from "./MentionComposer";
 import type { Activity, MentionCandidate } from "../api";
 
@@ -22,7 +22,7 @@ export function NotesSheet({
   const { t } = useTranslation();
 
   return (
-    <WorkOrderSideSheet
+    <SideSheet
       open={open}
       onClose={onClose}
       title={t("workOrderDetail.notes.title")}
@@ -36,6 +36,6 @@ export function NotesSheet({
           emptyText={t("workOrderDetail.notes.empty")}
         />
       </Box>
-    </WorkOrderSideSheet>
+    </SideSheet>
   );
 }

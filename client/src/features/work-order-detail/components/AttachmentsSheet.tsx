@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import { AttachmentsPanel } from "../../../components/AttachmentsPanel";
 import { PAGE_PADDING_RESPONSIVE, SPACING } from "../../../theme/tokens";
-import { WorkOrderSideSheet } from "./WorkOrderSideSheet";
+import { SideSheet } from "../../../components/SideSheet";
 import { TaskPhotosPanel } from "./TaskPhotosPanel";
 import type { WorkOrderAttachment, WorkOrderTask } from "../api";
 
@@ -34,7 +34,7 @@ export function AttachmentsSheet({
   const packingSlips = attachments.filter((attachment) => attachment.kind === "packing_slip");
 
   return (
-    <WorkOrderSideSheet
+    <SideSheet
       open={open}
       onClose={onClose}
       title={t("workOrderDetail.attachments.title")}
@@ -74,6 +74,6 @@ export function AttachmentsSheet({
           }}
         />
       </Box>
-    </WorkOrderSideSheet>
+    </SideSheet>
   );
 }

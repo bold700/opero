@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import { ActivityPanel } from "../../../components/ActivityPanel";
 import { PAGE_PADDING_RESPONSIVE } from "../../../theme/tokens";
-import { WorkOrderSideSheet } from "./WorkOrderSideSheet";
+import { SideSheet } from "../../../components/SideSheet";
 import type { Activity } from "../api";
 
 // Activiteit as a bottom sheet, for when the werkbon layout has collapsed to a
@@ -22,7 +22,7 @@ export function ActivitySheet({
   const { t } = useTranslation();
 
   return (
-    <WorkOrderSideSheet
+    <SideSheet
       open={open}
       onClose={onClose}
       title={t("workOrderDetail.activity.title")}
@@ -31,6 +31,6 @@ export function ActivitySheet({
       <Box sx={{ px: PAGE_PADDING_RESPONSIVE }}>
         <ActivityPanel activity={activity} bare />
       </Box>
-    </WorkOrderSideSheet>
+    </SideSheet>
   );
 }
