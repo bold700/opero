@@ -61,6 +61,7 @@ files that changed.
 | OPR-2026-040 | Organize work-order detail into focused sections | Staging | Delivered | To reconcile |
 | OPR-2026-041 | Select exact workdays for multi-day work orders | Staging | Delivered | To reconcile |
 | OPR-2026-042 | Compact the work-order detail header | Staging | Delivered | To reconcile |
+| OPR-2026-043 | Make the add-workday action responsive | Staging | Ready for review | To reconcile |
 
 ## Work items
 
@@ -829,6 +830,20 @@ files that changed.
 - **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
+### OPR-2026-043 — Make the add-workday action responsive
+
+- **Date:** 1 October 2026
+- **Request:** Fix the workday planning control because pressing `Dag toevoegen`
+  before choosing a date appeared to do nothing.
+- **Delivered:** The action is now available before a date is selected. It is
+  labelled `Werkdag kiezen` in that state and opens the date picker. After a
+  date is selected, it changes to `Dag toevoegen` and adds that date to the
+  work order.
+- **Verification:** Client type check and production build passed. Client lint
+  completed without errors; its two existing fast-refresh warnings remain.
+- **Status:** Ready for review.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -875,3 +890,4 @@ files that changed.
 | OPR-2026-040 |  |  |  |  |
 | OPR-2026-041 |  |  |  |  |
 | OPR-2026-042 |  |  |  |  |
+| OPR-2026-043 |  |  |  |  |

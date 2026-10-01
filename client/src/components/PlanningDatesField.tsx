@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AddIcon from "@mui/icons-material/Add";
 import Box from "@mui/material/Box";
@@ -21,6 +21,7 @@ export function PlanningDatesField({
 }) {
   const { t, i18n } = useTranslation();
   const [nextDate, setNextDate] = useState("");
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const dates = [...new Set(value)].sort();
   const dateInPast = Boolean(nextDate && minimumDate && nextDate < minimumDate);
 
@@ -28,6 +29,17 @@ export function PlanningDatesField({
     if (!nextDate || dateInPast || dates.includes(nextDate)) return;
     onChange([...dates, nextDate].sort());
     setNextDate("");
+  };
+
+  const handleAddDate = () => {
+    // The button is also the obvious entry point before a date is chosen. In
+    // that state, open the native calendar instead of leaving the user with a
+    // disabled add action.
+    if (!nextDate) {
+      dateInputRef.current?.click();
+      return;
+    }
+    addDate();
   };
 
   const formatDate = (date: string) =>
@@ -55,6 +67,7 @@ export function PlanningDatesField({
           label={t("planning.schedule.addDay")}
           value={nextDate}
           onChange={(event) => setNextDate(event.target.value)}
+          inputRef={dateInputRef}
           disabled={disabled}
           size="small"
           error={dateInPast}
@@ -64,10 +77,10 @@ export function PlanningDatesField({
         <Button
           variant="outlined"
           startIcon={<AddIcon />}
-          onClick={addDate}
-          disabled={disabled || !nextDate || dateInPast || dates.includes(nextDate)}
+          onClick={handleAddDate}
+          disabled={disabled || dateInPast || dates.includes(nextDate)}
         >
-          {t("planning.schedule.add")}
+          {t(nextDate ? "planning.schedule.add" : "planning.schedule.addDay")}
         </Button>
       </Box>
       {dates.length ? (
