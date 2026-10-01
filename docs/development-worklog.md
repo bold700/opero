@@ -57,6 +57,7 @@ files that changed.
 | OPR-2026-036 | Add the CV insulation catalog | Staging and production | Delivered | To reconcile |
 | OPR-2026-037 | Improve mobile checklist reminder layout | Staging and production | Delivered | To reconcile |
 | OPR-2026-038 | Keep navigation inside the active project | Staging and production | Delivered | To reconcile |
+| OPR-2026-039 | Focus the project detail layout | Staging | Delivered | To reconcile |
 
 ## Work items
 
@@ -746,6 +747,27 @@ files that changed.
 - **Status:** Delivered to staging and production.
 - **Billable time:** To reconcile.
 
+### OPR-2026-039 — Focus the project detail layout
+
+- **Date:** 1 October 2026
+- **Request:** Give project activity and project files the same focused side-sheet
+  treatment as work orders, and place project information beside the work-order
+  list.
+- **Delivered:** Added Project files and Activity icon actions to the project
+  header. Each opens an animated side sheet containing the existing upload,
+  deletion, comment, and audit-history functions. The attachment action includes
+  a file counter. The main project view now uses the same 3:2 desktop layout as
+  work-order details, with work orders on the left and project information on the
+  right; the columns stack on smaller screens. The sheet shell is shared by both
+  project and work-order screens so sizing, motion, and closing behaviour remain
+  consistent.
+- **Verification:** Client type check and production build passed. Client lint
+  completed without errors; its two existing fast-refresh warnings remain. The
+  Vercel staging deployment reached `READY`, uses the staging API, and is linked
+  to `opero-test.vercel.app`.
+- **Status:** Delivered to staging.
+- **Billable time:** To reconcile.
+
 ## Billing reconciliation
 
 | Work item | Confirmed time | Rate | Invoice reference | Approval |
@@ -788,3 +810,4 @@ files that changed.
 | OPR-2026-036 |  |  |  |  |
 | OPR-2026-037 |  |  |  |  |
 | OPR-2026-038 |  |  |  |  |
+| OPR-2026-039 |  |  |  |  |
