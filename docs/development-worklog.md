@@ -60,7 +60,7 @@ files that changed.
 | OPR-2026-039 | Focus the project detail layout | Staging | Delivered | To reconcile |
 | OPR-2026-040 | Organize work-order detail into focused sections | Staging | Delivered | To reconcile |
 | OPR-2026-041 | Select exact workdays for multi-day work orders | Staging | Delivered | To reconcile |
-| OPR-2026-042 | Compact the work-order detail header | Staging | Ready for review | To reconcile |
+| OPR-2026-042 | Compact the work-order detail header | Staging | Delivered | To reconcile |
 
 ## Work items
 
@@ -823,8 +823,10 @@ files that changed.
   The previous and next work-order controls and `Werkbon x van y` position now
   sit alongside the work-order name, number, and status in the main header.
 - **Verification:** Client type check and production build passed. Client lint
-  completed without errors; its two existing fast-refresh warnings remain.
-- **Status:** Ready for review.
+  completed without errors; its two existing fast-refresh warnings remain. The
+  Vercel staging deployment reached `READY`, uses the staging API, contains the
+  updated work-order bundle, and is linked to `opero-test.vercel.app`.
+- **Status:** Delivered to staging.
 - **Billable time:** To reconcile.
 
 ## Billing reconciliation
